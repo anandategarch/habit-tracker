@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== HABIT TRACKER PROFESSIONAL V2 ====================
+
+model Habit {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String   @default("🎯")
+  category    String   @default("General")
+  priority    String   @default("Medium")
+  difficulty  String   @default("Medium")
+  target      Int      @default(1)
+  targetType  String   @default("daily")
+  color       String   @default("#22c55e")
+  reminder    String?
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  status      String   @default("active")
+  notes       String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  logs        HabitLog[]
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      DateTime
+  completed Boolean  @default(false)
+  value     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+}
+
+model DailyLog {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  mood      Int      @default(3)
+  energy    Int      @default(3)
+  sleep     Float    @default(7)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Journal {
+  id            String   @id @default(cuid())
+  date          DateTime @unique
+  mood          Int      @default(3)
+  stress        Int      @default(3)
+  energy        Int      @default(3)
+  sleep         Float    @default(7)
+  reflection    String?
+  winToday      String?
+  lessonLearned String?
+  tomorrowPlan  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  deadline    DateTime?
+  progress    Int      @default(0)
+  priority    String   @default("Medium")
+  status      String   @default("active")
+  milestones  String   @default("[]")
+  achievement String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Challenge {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  duration    Int      @default(30)
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  status      String   @default("active")
+  progress    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Badge {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  icon        String    @default("🏅")
+  requirement String
+  unlocked    Boolean   @default(false)
+  unlockedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Reward {
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  unlockCondition  String
+  xpCost           Int       @default(0)
+  status           String    @default("locked")
+  unlockedAt       DateTime?
+  redeemedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model AppSettings {
+  id               String   @id @default(cuid())
+  userName         String   @default("User")
+  theme            String   @default("light")
+  primaryColor     String   @default("#22c55e")
+  secondaryColor   String   @default("#f0fdf4")
+  weekStart        String   @default("monday")
+  language         String   @default("en")
+  targetCompletion Int      @default(80)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
