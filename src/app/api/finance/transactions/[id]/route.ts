@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { type, amount, category, description, date, notes } = body;
+    const { type, amount, category, description, date, notes, source } = body;
 
     const transaction = await db.transaction.update({
       where: { id },
@@ -32,6 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(description !== undefined && { description: description?.trim() || null }),
         ...(date && { date: new Date(date) }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
+        ...(source !== undefined && { source: source?.trim() || 'Kas' }),
       },
     });
 

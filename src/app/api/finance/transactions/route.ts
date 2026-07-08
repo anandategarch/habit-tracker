@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month'); // yyyy-MM
     const type = searchParams.get('type');
     const category = searchParams.get('category');
+    const source = searchParams.get('source');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
@@ -36,6 +37,10 @@ export async function GET(request: NextRequest) {
       where.category = category;
     }
 
+    if (source) {
+      where.source = source;
+    }
+
     const transactions = await db.transaction.findMany({
       where,
       orderBy: { date: 'desc' },
@@ -52,7 +57,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, amount, category, description, date, notes } = body;
+    const { type, amount, category, description, date, notes, source } = body;
 
     if (!type || !['income', 'expense'].includes(type)) {
       return NextResponse.json({ error: 'Valid type (income/expense) is required' }, { status: 400 });
@@ -75,6 +80,7 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || null,
         date: new Date(date),
         notes: notes?.trim() || null,
+        source: source?.trim() || 'Kas',
       },
     });
 
