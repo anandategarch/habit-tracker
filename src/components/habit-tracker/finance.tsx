@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -506,6 +506,20 @@ export default function Finance() {
 
   const monthLabel = format(new Date(selectedMonth + '-01'), 'MMMM yyyy', { locale: idLocale });
 
+  const monthOptions = useMemo(() => {
+    const now = new Date();
+    const opts: { value: string; label: string }[] = [];
+    // 2 tahun ke belakang, 2 tahun ke depan
+    for (let i = -24; i <= 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      opts.push({
+        value: format(d, 'yyyy-MM'),
+        label: format(d, 'MMMM yyyy', { locale: idLocale }),
+      });
+    }
+    return opts;
+  }, []);
+
   // ── Render Helpers ────────────────────────────────────────────────────────
 
   const filteredTransactions = transactions.filter(tx => {
@@ -557,14 +571,23 @@ export default function Finance() {
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPrevMonth}>
             <CalendarDays className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold capitalize min-w-[160px] text-center">{monthLabel}</h2>
-            {selectedMonth !== new Date().toISOString().slice(0, 7) && (
-              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={goToThisMonth}>
-                Hari ini
-              </Button>
-            )}
-          </div>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[170px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-64">
+              {monthOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <span className="capitalize">{opt.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedMonth !== new Date().toISOString().slice(0, 7) && (
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={goToThisMonth}>
+              Hari ini
+            </Button>
+          )}
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextMonth}>
             <CalendarDays className="h-4 w-4 rotate-180" />
           </Button>
