@@ -97,6 +97,7 @@ interface Transaction {
   description: string | null;
   date: string;
   notes: string | null;
+  source: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -179,6 +180,33 @@ const FALLBACK_INCOME = [
   { value: 'Lainnya', emoji: '💸', color: '#78716c' },
 ];
 
+const FUND_SOURCES = [
+  { value: 'Kas', emoji: '💵' },
+  { value: 'Bank BCA', emoji: '🏦' },
+  { value: 'Bank BRI', emoji: '🏦' },
+  { value: 'Bank Mandiri', emoji: '🏦' },
+  { value: 'Bank BNI', emoji: '🏦' },
+  { value: 'Bank BSI', emoji: '🏦' },
+  { value: 'Bank Permata', emoji: '🏦' },
+  { value: 'GoPay', emoji: '💚' },
+  { value: 'OVO', emoji: '💜' },
+  { value: 'DANA', emoji: '💙' },
+  { value: 'ShopeePay', emoji: '🧡' },
+  { value: 'E-Money Lainnya', emoji: '💳' },
+];
+
+// Format raw digits to display with dot thousand separator: 12000 → "12.000"
+const formatNominalInput = (value: string): string => {
+  const raw = value.replace(/[^\d]/g, '');
+  if (!raw) return '';
+  return raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+// Parse formatted value back to raw number string: "12.000" → "12000"
+const parseNominalInput = (value: string): string => {
+  return value.replace(/[^\d]/g, '');
+};
+
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 };
@@ -210,13 +238,13 @@ export default function Finance() {
   const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
 
   // Form states
-  const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '' });
+  const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '', source: 'Kas' });
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c' });
   const [submitting, setSubmitting] = useState(false);
 
   // Filter states
-  const [txFilter, setTxFilter] = useState<{ type: string; category: string; search: string }>({ type: 'all', category: 'all', search: '' });
+  const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
 
   // ── Derived category helpers ──────────────────────────────────────────────
 
@@ -256,10 +284,11 @@ export default function Finance() {
       const params = new URLSearchParams({ month: selectedMonth });
       if (txFilter.type !== 'all') params.set('type', txFilter.type);
       if (txFilter.category !== 'all') params.set('category', txFilter.category);
+      if (txFilter.source !== 'all') params.set('source', txFilter.source);
       const res = await fetch(`/api/finance/transactions?${params}`);
       if (res.ok) setTransactions(await res.json());
     } catch { /* silent */ }
-  }, [selectedMonth, txFilter.type, txFilter.category]);
+  }, [selectedMonth, txFilter.type, txFilter.category, txFilter.source]);
 
   const fetchBudgets = useCallback(async () => {
     try {
@@ -284,7 +313,7 @@ export default function Finance() {
 
   const openNewTx = (type: 'income' | 'expense') => {
     setEditingTx(null);
-    setTxForm({ type, amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], notes: '' });
+    setTxForm({ type, amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], notes: '', source: 'Kas' });
     setTxDialogOpen(true);
   };
 
@@ -292,17 +321,19 @@ export default function Finance() {
     setEditingTx(tx);
     setTxForm({
       type: tx.type,
-      amount: String(tx.amount),
+      amount: formatNominalInput(String(tx.amount)),
       category: tx.category,
       description: tx.description || '',
       date: tx.date.split('T')[0],
       notes: tx.notes || '',
+      source: tx.source || 'Kas',
     });
     setTxDialogOpen(true);
   };
 
   const handleSubmitTx = async () => {
-    if (!txForm.amount || parseFloat(txForm.amount) <= 0) {
+    const rawAmount = parseNominalInput(txForm.amount);
+    if (!rawAmount || parseFloat(rawAmount) <= 0) {
       toast.error('Masukkan jumlah yang valid');
       return;
     }
@@ -315,13 +346,14 @@ export default function Finance() {
       return;
     }
 
+    const payload = { ...txForm, amount: rawAmount };
     setSubmitting(true);
     try {
       if (editingTx) {
         const res = await fetch(`/api/finance/transactions/${editingTx.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(txForm),
+          body: JSON.stringify(payload),
         });
         if (res.ok) {
           toast.success('Transaksi berhasil diupdate');
@@ -333,7 +365,7 @@ export default function Finance() {
         const res = await fetch('/api/finance/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(txForm),
+          body: JSON.stringify(payload),
         });
         if (res.ok) {
           toast.success('Transaksi berhasil ditambahkan');
@@ -375,17 +407,19 @@ export default function Finance() {
       toast.error('Pilih kategori');
       return;
     }
-    if (!budgetForm.amount || parseFloat(budgetForm.amount) <= 0) {
+    const rawBudgetAmount = parseNominalInput(budgetForm.amount);
+    if (!rawBudgetAmount || parseFloat(rawBudgetAmount) <= 0) {
       toast.error('Masukkan jumlah budget yang valid');
       return;
     }
 
+    const budgetPayload = { ...budgetForm, amount: rawBudgetAmount };
     setSubmitting(true);
     try {
       const res = await fetch('/api/finance/budgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(budgetForm),
+        body: JSON.stringify(budgetPayload),
       });
       if (res.ok) {
         toast.success('Budget berhasil disimpan');
@@ -854,6 +888,17 @@ export default function Finance() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={txFilter.source} onValueChange={v => setTxFilter(f => ({ ...f, source: v }))}>
+              <SelectTrigger className="h-9 w-full sm:w-[140px] text-sm">
+                <SelectValue placeholder="Sumber" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Sumber</SelectItem>
+                {FUND_SOURCES.map(s => (
+                  <SelectItem key={s.value} value={s.value}>{s.emoji} {s.value}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Transactions Table */}
@@ -866,6 +911,7 @@ export default function Finance() {
                       <TableHead className="text-xs w-12">Tipe</TableHead>
                       <TableHead className="text-xs">Tanggal</TableHead>
                       <TableHead className="text-xs">Kategori</TableHead>
+                      <TableHead className="text-xs">Sumber</TableHead>
                       <TableHead className="text-xs">Deskripsi</TableHead>
                       <TableHead className="text-xs text-right">Jumlah</TableHead>
                       <TableHead className="text-xs w-20 text-center">Aksi</TableHead>
@@ -874,7 +920,7 @@ export default function Finance() {
                   <TableBody>
                     {filteredTransactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                        <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
                           <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
                           Belum ada transaksi
                         </TableCell>
@@ -905,6 +951,11 @@ export default function Finance() {
                                 <span className="text-sm">{meta.emoji}</span>
                                 <span className="text-xs font-medium">{tx.category}</span>
                               </div>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                                {FUND_SOURCES.find(s => s.value === tx.source)?.emoji || '💵'} {tx.source || 'Kas'}
+                              </Badge>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                               {tx.description || '-'}
@@ -1234,12 +1285,12 @@ export default function Finance() {
             <div>
               <Label className="text-xs">Jumlah (Rp)</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="0"
                 value={txForm.amount}
-                onChange={e => setTxForm(f => ({ ...f, amount: e.target.value }))}
+                onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))}
                 className="mt-1"
-                min="0"
               />
             </div>
 
@@ -1252,6 +1303,20 @@ export default function Finance() {
                 <SelectContent>
                   {getCategoryList(txForm.type).map(c => (
                     <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Sumber Dana</Label>
+              <Select value={txForm.source} onValueChange={v => setTxForm(f => ({ ...f, source: v }))}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Pilih sumber" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FUND_SOURCES.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.emoji} {s.value}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1321,12 +1386,12 @@ export default function Finance() {
             <div>
               <Label className="text-xs">Jumlah Budget (Rp)</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="0"
                 value={budgetForm.amount}
-                onChange={e => setBudgetForm(f => ({ ...f, amount: e.target.value }))}
+                onChange={e => setBudgetForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))}
                 className="mt-1"
-                min="0"
               />
             </div>
 

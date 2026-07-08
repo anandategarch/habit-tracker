@@ -571,3 +571,36 @@ Stage Summary:
 - Root cause: 3 bugs - adapter version mismatch, wrong export name, wrong constructor argument
 - App fully working on Vercel: https://habit-tracker-leb6.vercel.app/
 - npm warnings about @babel/polyfill and core-js@2 are harmless deprecation notices
+
+## Sumber Dana (Fund Source) Feature — 2025-01-XX
+
+### Changes Made
+
+1. **Prisma Schema** (`prisma/schema.prisma`)
+   - Added `source String @default("Kas")` field to the `Transaction` model, placed after `notes` and before `createdAt`.
+
+2. **API: GET `/api/finance/transactions`** (`src/app/api/finance/transactions/route.ts`)
+   - Added `source` query parameter extraction and filtering in the `where` clause.
+
+3. **API: POST `/api/finance/transactions`** (`src/app/api/finance/transactions/route.ts`)
+   - Added `source` to destructured request body.
+   - Included `source: source?.trim() || 'Kas'` in the create data (defaults to "Kas" if empty).
+
+4. **API: PUT `/api/finance/transactions/[id]`** (`src/app/api/finance/transactions/[id]/route.ts`)
+   - Added `source` to destructured request body.
+   - Added `...(source !== undefined && { source: source?.trim() || 'Kas' })` in the update data.
+
+5. **Frontend** (`src/components/habit-tracker/finance.tsx`)
+   - Added `FUND_SOURCES` constant array with 12 fund sources (Kas, Bank BCA/BRI/Mandiri/BNI/BSI/Permata, GoPay, OVO, DANA, ShopeePay, E-Money Lainnya).
+   - Added `formatNominalInput` and `parseNominalInput` helpers for dot-separated thousand formatting (e.g., 12.000).
+   - Added `source: string` to the `Transaction` interface.
+   - Added `source: 'Kas'` to `txForm` initial state and `openNewTx` reset.
+   - Updated `openEditTx` to use `formatNominalInput` for amount and include `source`.
+   - Updated `handleSubmitTx` to parse formatted amount via `parseNominalInput` before sending.
+   - Updated `handleSubmitBudget` to parse formatted budget amount before sending.
+   - Added `source` field to `txFilter` state and `fetchTransactions` query params/deps.
+   - Added "Sumber" column header and data cell (with emoji badge) in the transactions table.
+   - Updated `colSpan` from 6 to 7 for the empty state row.
+   - Added "Sumber Dana" dropdown in the transaction add/edit dialog.
+   - Added source filter dropdown in the transaction list filter bar.
+   - Changed transaction and budget amount inputs from `type="number"` to `type="text" inputMode="numeric"` with live thousand-separator formatting.
