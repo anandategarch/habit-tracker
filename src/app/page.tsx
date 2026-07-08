@@ -22,8 +22,8 @@ import {
   Calculator,
   Brain,
   Settings as SettingsIcon,
-  Menu,
-  X,
+  PanelLeftClose,
+  PanelLeftOpen,
   Flame,
 } from 'lucide-react';
 
@@ -90,17 +90,22 @@ export default function Home() {
 
   const handleNavClick = useCallback((id: TabId) => {
     setActiveTab(id);
+    // Auto-close sidebar on mobile after clicking a nav item
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       setSidebarOpen(false);
     }
   }, [setActiveTab, setSidebarOpen]);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(!sidebarOpen);
+  }, [sidebarOpen, setSidebarOpen]);
 
   const ActiveComponent = TAB_COMPONENTS[activeTab];
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen flex bg-background">
-        {/* Mobile overlay */}
+        {/* Mobile dark overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/40 z-40 md:hidden"
@@ -108,27 +113,23 @@ export default function Home() {
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar - fixed position, slides in/out */}
         <aside
           className={cn(
-            'fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-16'
+            'fixed top-0 left-0 z-50 h-screen w-64 bg-card border-r border-border flex flex-col',
+            'transition-transform duration-300 ease-in-out',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
           {/* Logo */}
-          <div className={cn(
-            'flex items-center gap-3 px-4 h-16 border-b border-border shrink-0',
-            !sidebarOpen && 'md:justify-center md:px-2'
-          )}>
+          <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
               <Flame className="h-5 w-5" />
             </div>
-            {sidebarOpen && (
-              <div className="flex flex-col">
-                <span className="font-bold text-sm leading-tight">Habit Tracker</span>
-                <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">Professional V2</span>
-              </div>
-            )}
+            <div className="flex flex-col">
+              <span className="font-bold text-sm leading-tight">Habit Tracker</span>
+              <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">Professional V2</span>
+            </div>
           </div>
 
           {/* Navigation */}
@@ -138,28 +139,19 @@ export default function Home() {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
-                  <Tooltip key={item.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => handleNavClick(item.id)}
-                        className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
-                          isActive
-                            ? 'bg-primary text-primary-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                          !sidebarOpen && 'md:justify-center md:px-2'
-                        )}
-                      >
-                        <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary-foreground')} />
-                        {sidebarOpen && <span>{item.label}</span>}
-                      </button>
-                    </TooltipTrigger>
-                    {!sidebarOpen && (
-                      <TooltipContent side="right" className="font-medium">
-                        {item.label}
-                      </TooltipContent>
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavClick(item.id)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                      isActive
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                     )}
-                  </Tooltip>
+                  >
+                    <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary-foreground')} />
+                    <span>{item.label}</span>
+                  </button>
                 );
               })}
             </nav>
@@ -168,34 +160,44 @@ export default function Home() {
           <Separator />
 
           {/* Footer */}
-          <div className={cn(
-            'p-3 flex items-center gap-3 shrink-0',
-            !sidebarOpen && 'md:justify-center md:p-2'
-          )}>
+          <div className="p-3 flex items-center gap-3 shrink-0">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-white text-xs font-bold shrink-0">
               U
             </div>
-            {sidebarOpen && (
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold truncate">Habit Tracker</span>
-                <span className="text-[10px] text-muted-foreground">Build better habits</span>
-              </div>
-            )}
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold truncate">Habit Tracker</span>
+              <span className="text-[10px] text-muted-foreground">Build better habits</span>
+            </div>
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 min-w-0 flex flex-col">
+        {/* Main content - shifts right on desktop when sidebar is open */}
+        <main
+          className={cn(
+            'flex-1 min-w-0 flex flex-col transition-[margin] duration-300 ease-in-out',
+            sidebarOpen ? 'md:ml-64' : 'md:ml-0'
+          )}
+        >
           {/* Top bar */}
           <header className="sticky top-0 z-30 h-14 bg-background/80 backdrop-blur-md border-b border-border flex items-center px-4 md:px-6 gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSidebar}
+                  aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+                >
+                  {sidebarOpen
+                    ? <PanelLeftClose className="h-5 w-5" />
+                    : <PanelLeftOpen className="h-5 w-5" />
+                  }
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              </TooltipContent>
+            </Tooltip>
             <h1 className="text-lg font-semibold">
               {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}
             </h1>
