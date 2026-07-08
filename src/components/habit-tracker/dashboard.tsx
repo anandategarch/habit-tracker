@@ -170,9 +170,12 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     fetch('/api/dashboard')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((json) => {
-        if (!cancelled) setData(json);
+        if (!cancelled && !json.error) setData(json);
       })
       .catch(() => {});
     return () => {
