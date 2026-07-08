@@ -46,6 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus,
   TrendingUp,
@@ -158,6 +159,13 @@ interface FinanceCategory {
   order: number;
 }
 
+interface FundSource {
+  id: string;
+  name: string;
+  emoji: string;
+  order: number;
+}
+
 // ── Fallback constants (used when API hasn't loaded yet) ─────────────────────
 
 const FALLBACK_EXPENSE = [
@@ -180,7 +188,7 @@ const FALLBACK_INCOME = [
   { value: 'Lainnya', emoji: '💸', color: '#78716c' },
 ];
 
-const FUND_SOURCES = [
+const FALLBACK_SOURCES = [
   { value: 'Kas', emoji: '💵' },
   { value: 'Bank BCA', emoji: '🏦' },
   { value: 'Bank BRI', emoji: '🏦' },
@@ -236,6 +244,13 @@ export default function Finance() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
+  const [sources, setSources] = useState<FundSource[]>([]);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [sourceFormOpen, setSourceFormOpen] = useState(false);
+  const [editingSource, setEditingSource] = useState<FundSource | null>(null);
+  const [sourceForm, setSourceForm] = useState({ name: '', emoji: '💵' });
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // Form states
   const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '', source: 'Kas' });
@@ -263,12 +278,30 @@ export default function Finance() {
     return type === 'expense' ? FALLBACK_EXPENSE : FALLBACK_INCOME;
   }, [categories]);
 
+  const getActiveSources = useCallback(() => {
+    if (sources.length > 0) return sources;
+    return FALLBACK_SOURCES.map(s => ({ id: '', name: s.value, emoji: s.emoji, order: 0 }));
+  }, [sources]);
+
+  const getSourceEmoji = useCallback((name: string) => {
+    const found = sources.find(s => s.name === name);
+    if (found) return found.emoji;
+    return FALLBACK_SOURCES.find(s => s.value === name)?.emoji || '💵';
+  }, [sources]);
+
   // ── Data Fetching ─────────────────────────────────────────────────────────
 
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/finance/categories');
       if (res.ok) setCategories(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchSources = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finance/sources');
+      if (res.ok) setSources(await res.json());
     } catch { /* silent */ }
   }, []);
 
@@ -306,8 +339,8 @@ export default function Finance() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchCategories(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
-  }, [fetchCategories, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
+    Promise.all([fetchCategories(), fetchSources(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchSources, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
 
@@ -520,6 +553,124 @@ export default function Finance() {
     }
   };
 
+  // ── Source CRUD ─────────────────────────────────────────────────────────
+
+  const openNewSource = () => {
+    setEditingSource(null);
+    setSourceForm({ name: '', emoji: '💵' });
+    setSourceFormOpen(true);
+  };
+
+  const openEditSource = (src: FundSource) => {
+    setEditingSource(src);
+    setSourceForm({ name: src.name, emoji: src.emoji });
+    setSourceFormOpen(true);
+  };
+
+  const handleSubmitSource = async () => {
+    if (!sourceForm.name.trim()) {
+      toast.error('Masukkan nama sumber dana');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (editingSource) {
+        const res = await fetch(`/api/finance/sources/${editingSource.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sourceForm),
+        });
+        if (res.ok) {
+          toast.success('Sumber dana berhasil diupdate');
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Gagal mengupdate');
+          return;
+        }
+      } else {
+        const res = await fetch('/api/finance/sources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sourceForm),
+        });
+        if (res.ok) {
+          toast.success('Sumber dana berhasil ditambahkan');
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Gagal menambahkan');
+          return;
+        }
+      }
+      setSourceFormOpen(false);
+      fetchSources();
+      triggerRefresh();
+    } catch {
+      toast.error('Terjadi kesalahan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteSource = async (src: FundSource) => {
+    try {
+      const res = await fetch(`/api/finance/sources/${src.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Sumber dana berhasil dihapus');
+        fetchSources();
+        triggerRefresh();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Gagal menghapus');
+      }
+    } catch {
+      toast.error('Terjadi kesalahan');
+    }
+  };
+
+  // ── Bulk Delete ─────────────────────────────────────────────────────────
+
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTxIds.size === filteredTransactions.length) {
+      setSelectedTxIds(new Set());
+    } else {
+      setSelectedTxIds(new Set(filteredTransactions.map(t => t.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTxIds.size === 0) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/finance/transactions/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedTxIds) }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`${data.deleted} transaksi berhasil dihapus`);
+        setSelectedTxIds(new Set());
+        setBulkDeleteOpen(false);
+        triggerRefresh();
+      } else {
+        toast.error('Gagal menghapus transaksi');
+      }
+    } catch {
+      toast.error('Terjadi kesalahan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ── Month Navigation ──────────────────────────────────────────────────────
 
   const goToPrevMonth = () => {
@@ -638,6 +789,10 @@ export default function Finance() {
           <Button size="sm" variant="outline" onClick={() => setCatDialogOpen(true)}>
             <Settings2 className="h-4 w-4 mr-1" />
             Kategori
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSourceDialogOpen(true)}>
+            <Wallet className="h-4 w-4 mr-1" />
+            Sumber Dana
           </Button>
         </div>
       </div>
@@ -894,12 +1049,29 @@ export default function Finance() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Sumber</SelectItem>
-                {FUND_SOURCES.map(s => (
-                  <SelectItem key={s.value} value={s.value}>{s.emoji} {s.value}</SelectItem>
+                {getActiveSources().map(s => (
+                  <SelectItem key={s.id || s.name} value={s.name}>{s.emoji} {s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Bulk Delete Bar */}
+          {selectedTxIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+              <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                {selectedTxIds.size} transaksi dipilih
+              </span>
+              <div className="flex-1" />
+              <Button size="sm" variant="outline" onClick={() => setSelectedTxIds(new Set())}>
+                Batal Pilih
+              </Button>
+              <Button size="sm" className="bg-red-500 hover:bg-red-600" onClick={() => setBulkDeleteOpen(true)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Hapus ({selectedTxIds.size})
+              </Button>
+            </div>
+          )}
 
           {/* Transactions Table */}
           <Card>
@@ -908,6 +1080,12 @@ export default function Finance() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="text-xs w-10">
+                        <Checkbox
+                          checked={filteredTransactions.length > 0 && selectedTxIds.size === filteredTransactions.length}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead className="text-xs w-12">Tipe</TableHead>
                       <TableHead className="text-xs">Tanggal</TableHead>
                       <TableHead className="text-xs">Kategori</TableHead>
@@ -920,7 +1098,7 @@ export default function Finance() {
                   <TableBody>
                     {filteredTransactions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
+                        <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
                           <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
                           Belum ada transaksi
                         </TableCell>
@@ -930,6 +1108,12 @@ export default function Finance() {
                         const meta = getCategoryMeta(tx.category);
                         return (
                           <TableRow key={tx.id} className="group">
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedTxIds.has(tx.id)}
+                                onCheckedChange={() => toggleSelectTx(tx.id)}
+                              />
+                            </TableCell>
                             <TableCell>
                               <Badge
                                 variant="outline"
@@ -954,7 +1138,7 @@ export default function Finance() {
                             </TableCell>
                             <TableCell className="text-xs">
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-                                {FUND_SOURCES.find(s => s.value === tx.source)?.emoji || '💵'} {tx.source || 'Kas'}
+                                {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
@@ -1315,8 +1499,8 @@ export default function Finance() {
                   <SelectValue placeholder="Pilih sumber" />
                 </SelectTrigger>
                 <SelectContent>
-                  {FUND_SOURCES.map(s => (
-                    <SelectItem key={s.value} value={s.value}>{s.emoji} {s.value}</SelectItem>
+                  {getActiveSources().map(s => (
+                    <SelectItem key={s.id || s.name} value={s.name}>{s.emoji} {s.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1430,6 +1614,24 @@ export default function Finance() {
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteTx} className="bg-red-500 hover:bg-red-600">Hapus</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── BULK DELETE CONFIRMATION ─── */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus {selectedTxIds.size} Transaksi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak bisa dibatalkan. {selectedTxIds.size} transaksi yang dipilih akan dihapus secara permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-red-500 hover:bg-red-600">
+              Hapus {selectedTxIds.size} Transaksi
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1570,6 +1772,78 @@ export default function Finance() {
             </div>
           </DialogContent>
         </Dialog>
+
+      {/* ─── SOURCE MANAGEMENT DIALOG ─── */}
+      <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Kelola Sumber Dana</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Kelola akun bank, e-wallet, kas, dll</p>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openNewSource}>
+                <Plus className="h-3 w-3 mr-1" /> Tambah
+              </Button>
+            </div>
+            <div className="space-y-1.5 max-h-80 overflow-y-auto custom-scrollbar">
+              {getActiveSources().map(src => (
+                <div key={src.id || src.name} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
+                  <span className="text-lg">{src.emoji}</span>
+                  <span className="flex-1 text-sm font-medium truncate">{src.name}</span>
+                  {src.id && (
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSource(src)}>
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteSource(src)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── ADD/EDIT SOURCE DIALOG ─── */}
+      <Dialog open={sourceFormOpen} onOpenChange={(open) => { if (!open) setSourceFormOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editingSource ? 'Edit Sumber Dana' : 'Tambah Sumber Dana'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-[60px_1fr] gap-3">
+              <div>
+                <Label className="text-xs">Emoji</Label>
+                <Input
+                  value={sourceForm.emoji}
+                  onChange={e => setSourceForm(f => ({ ...f, emoji: e.target.value }))}
+                  className="mt-1 text-center text-lg"
+                  maxLength={4}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Nama Sumber</Label>
+                <Input
+                  placeholder="Contoh: Bank BCA"
+                  value={sourceForm.name}
+                  onChange={e => setSourceForm(f => ({ ...f, name: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setSourceFormOpen(false)}>Batal</Button>
+              <Button className="flex-1" onClick={handleSubmitSource} disabled={submitting}>
+                {submitting ? 'Menyimpan...' : editingSource ? 'Update' : 'Simpan'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

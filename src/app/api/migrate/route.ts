@@ -1,20 +1,70 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
-// One-time migration endpoint to add the 'source' column to Transaction table
 export async function GET() {
   try {
-    // 'Transaction' is a SQL reserved word, use bracket notation for SQLite
+    const results: string[] = [];
+
+    // 1. Ensure source column on Transaction
     try {
       await db.$executeRawUnsafe('ALTER TABLE [Transaction] ADD COLUMN source TEXT DEFAULT \'Kas\'');
-      return NextResponse.json({ success: true, message: 'Column "source" added to Transaction table' });
-    } catch (alterError: unknown) {
-      const msg = alterError instanceof Error ? alterError.message : String(alterError);
-      if (msg.includes('duplicate column name') || msg.includes('already exists')) {
-        return NextResponse.json({ success: true, message: 'Column "source" already exists, no action needed' });
+      results.push('Column "source" added to Transaction table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "source" already exists');
+      } else {
+        throw e;
       }
-      throw alterError;
     }
+
+    // 2. Ensure FundSource table exists
+    try {
+      await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS [FundSource] (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        emoji TEXT DEFAULT '💵',
+        "order" INTEGER DEFAULT 0,
+        createdAt TEXT DEFAULT (datetime('now')),
+        updatedAt TEXT DEFAULT (datetime('now'))
+      )`);
+      results.push('FundSource table ensured');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes('already exists')) throw e;
+      results.push('FundSource table already exists');
+    }
+
+    // 3. Seed default sources if empty
+    try {
+      const count = await db.fundSource.count();
+      if (count === 0) {
+        const defaults = [
+          { name: 'Kas', emoji: '💵', order: 0 },
+          { name: 'Bank BCA', emoji: '🏦', order: 1 },
+          { name: 'Bank BRI', emoji: '🏦', order: 2 },
+          { name: 'Bank Mandiri', emoji: '🏦', order: 3 },
+          { name: 'Bank BNI', emoji: '🏦', order: 4 },
+          { name: 'Bank BSI', emoji: '🏦', order: 5 },
+          { name: 'Bank Permata', emoji: '🏦', order: 6 },
+          { name: 'GoPay', emoji: '💚', order: 7 },
+          { name: 'OVO', emoji: '💜', order: 8 },
+          { name: 'DANA', emoji: '💙', order: 9 },
+          { name: 'ShopeePay', emoji: '🧡', order: 10 },
+          { name: 'E-Money Lainnya', emoji: '💳', order: 11 },
+        ];
+        for (const src of defaults) {
+          await db.fundSource.create({ data: src });
+        }
+        results.push('Seeded 12 default fund sources');
+      } else {
+        results.push(`FundSource table has ${count} entries`);
+      }
+    } catch (e: unknown) {
+      results.push(`Seed check skipped: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    return NextResponse.json({ success: true, message: results.join('; ') });
   } catch (error) {
     console.error('Migration error:', error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
