@@ -6,7 +6,7 @@ export type TabId =
   | 'habits'
   | 'analytics'
   | 'calendar'
-  | 'journal'
+  | 'learning'
   | 'goals'
   | 'challenges'
   | 'rewards'

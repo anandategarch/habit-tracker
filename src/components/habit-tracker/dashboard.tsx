@@ -43,6 +43,8 @@ import {
   Quote,
   RefreshCw,
   Calendar,
+  GraduationCap,
+  BookOpen as BookOpenIcon,
 } from 'lucide-react';
 
 type Period = '7d' | '1m' | '3m' | 'all';
@@ -87,6 +89,10 @@ interface DashboardData {
   categoryPerformance: { category: string; done: number; total: number; rate: number }[];
   todayFocus: { id: string; name: string; icon: string; priority: string }[];
   period: string;
+  learningStatus: { completedToday: boolean; streak: number; longestStreak: number; totalDays: number };
+  habitDetailStats: { id: string; name: string; icon: string; color: string; category: string; completed: number; total: number; rate: number; streak: number }[];
+  stackedBarData: { day: string; completed: number; missed: number; total: number; rate: number }[];
+  weeklyPattern: { day: string; fullDay: string; rate: number; avgCompleted: string }[];
 }
 
 function ProgressRing({
@@ -230,6 +236,10 @@ const DEFAULT_DATA: DashboardData = {
   categoryPerformance: [],
   todayFocus: [],
   period: 'all',
+  learningStatus: { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 },
+  habitDetailStats: [],
+  stackedBarData: [],
+  weeklyPattern: [],
 };
 
 export default function Dashboard() {
@@ -861,6 +871,194 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </section>
+
+      {/* ── Daily Learning Status ─────────────────────────────────────── */}
+      <section aria-label="Daily Learning">
+        <Card className={cn(
+          'p-4 border-2 transition-colors',
+          displayData.learningStatus.completedToday
+            ? 'border-green-300 bg-green-50/50 dark:bg-green-950/10 dark:border-green-900'
+            : 'border-violet-200 bg-violet-50/50 dark:bg-violet-950/10 dark:border-violet-900'
+        )}>
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  'w-10 h-10 rounded-xl flex items-center justify-center',
+                  displayData.learningStatus.completedToday
+                    ? 'bg-green-100 dark:bg-green-900/50 text-green-600'
+                    : 'bg-violet-100 dark:bg-violet-900/50 text-violet-600'
+                )}>
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Daily Learning</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {displayData.learningStatus.completedToday
+                      ? 'Sudah dibaca hari ini'
+                      : 'Belum dibaca hari ini'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                {displayData.learningStatus.streak > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{displayData.learningStatus.streak}</span>
+                    <span className="text-xs text-orange-500">hari</span>
+                  </div>
+                )}
+                <div className="text-right">
+                  <div className="text-lg font-bold">{displayData.learningStatus.totalDays}</div>
+                  <p className="text-[10px] text-muted-foreground">total hari belajar</p>
+                </div>
+                {displayData.learningStatus.completedToday && (
+                  <CheckCircle className="h-6 w-6 text-green-500" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Stacked Bar: Completed vs Missed ──────────────────────────── */}
+      <section aria-label="Habit completion detail" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <CardContent className="p-0">
+            <h3 className="text-sm font-semibold mb-1">
+              {chartLabel} Detail
+            </h3>
+            <p className="text-[10px] text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={displayData.stackedBarData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 10 }}
+                    className="text-muted-foreground"
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    className="text-muted-foreground"
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Bar dataKey="completed" stackId="a" fill="hsl(142, 71%, 45%)" radius={[0, 0, 0, 0]} maxBarSize={24} name="Selesai" />
+                  <Bar dataKey="missed" stackId="a" fill="hsl(0, 0%, 88%)" radius={[4, 4, 0, 0]} maxBarSize={24} name="Tidak" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Weekly Pattern */}
+        <Card className="p-4">
+          <CardContent className="p-0">
+            <h3 className="text-sm font-semibold mb-1">Pola Mingguan</h3>
+            <p className="text-[10px] text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={displayData.weeklyPattern} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 12 }}
+                    className="text-muted-foreground"
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontSize: 11 }}
+                    className="text-muted-foreground"
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => `${v}%`}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                    formatter={(value: number, name: string) => {
+                      if (name === 'rate') return [`${value}%`, 'Completion'];
+                      return [value, name];
+                    }}
+                    labelFormatter={(label: string) => {
+                      const item = displayData.weeklyPattern.find(p => p.day === label);
+                      return item?.fullDay || label;
+                    }}
+                  />
+                  <Bar dataKey="rate" radius={[6, 6, 0, 0]} maxBarSize={32}>
+                    {displayData.weeklyPattern.map((entry, index) => (
+                      <Cell
+                        key={index}
+                        fill={entry.rate >= 80 ? 'hsl(142, 71%, 45%)' : entry.rate >= 50 ? 'hsl(142, 71%, 60%)' : 'hsl(142, 71%, 75%)'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Per-Habit Performance Table ───────────────────────────────── */}
+      {displayData.habitDetailStats.length > 0 && (
+        <section aria-label="Habit details">
+          <Card className="p-4">
+            <CardContent className="p-0">
+              <h3 className="text-sm font-semibold mb-4">Performa Per Habit</h3>
+              <div className="max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-2">
+                  {displayData.habitDetailStats.map((habit) => (
+                    <div
+                      key={habit.id}
+                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/30 transition-colors"
+                    >
+                      <span className="text-lg shrink-0">{habit.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium truncate">{habit.name}</span>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            {habit.streak > 0 && (
+                              <span className="flex items-center gap-0.5 text-[10px] text-orange-500">
+                                <Flame className="h-3 w-3" />{habit.streak}
+                              </span>
+                            )}
+                            <span className="text-xs font-bold">{habit.rate}%</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Progress value={habit.rate} className="h-1.5 flex-1" />
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {habit.completed}/{habit.total}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* ── Quick Insights ──────────────────────────────────────── */}
       {insights.length > 0 && (
