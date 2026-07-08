@@ -56,6 +56,7 @@ const PERIOD_OPTIONS: { value: Period; label: string }[] = [
 
 interface MotivationalQuote {
   quote: string;
+  translation: string;
   author: string;
 }
 
@@ -269,7 +270,7 @@ export default function Dashboard() {
         .then((r) => r.json())
         .then((d) => {
           if (!cancelled && d.quote) {
-            setQuote({ quote: d.quote, author: d.author });
+            setQuote({ quote: d.quote, translation: d.translation || '', author: d.author });
           }
         })
         .catch(() => {})
@@ -287,10 +288,10 @@ export default function Dashboard() {
   const handleRefreshQuote = () => {
     setQuoteLoading(true);
     setQuote(null);
-    fetch('/api/motivational-quote')
+    fetch('/api/motivational-quote?refresh=true')
       .then((r) => r.json())
       .then((d) => {
-        if (d.quote) setQuote({ quote: d.quote, author: d.author });
+        if (d.quote) setQuote({ quote: d.quote, translation: d.translation || '', author: d.author });
       })
       .catch(() => {})
       .finally(() => setQuoteLoading(false));
@@ -424,6 +425,11 @@ export default function Dashboard() {
                 <p className="text-sm md:text-base font-medium text-foreground leading-relaxed italic">
                   &ldquo;{quote.quote}&rdquo;
                 </p>
+                {quote.translation && quote.translation !== quote.quote && (
+                  <p className="text-xs md:text-sm text-muted-foreground leading-relaxed mt-1.5">
+                    {quote.translation}
+                  </p>
+                )}
                 <div className="flex items-center justify-between mt-2">
                   <p className="text-xs text-muted-foreground">
                     — {quote.author}
