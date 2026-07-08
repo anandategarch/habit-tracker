@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAppStore, type TabId } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -80,6 +80,13 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 
 export default function Home() {
   const { activeTab, setActiveTab, sidebarOpen, setSidebarOpen } = useAppStore();
+  const [dateString, setDateString] = useState('');
+
+  useEffect(() => {
+    setDateString(
+      new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    );
+  }, []);
 
   const handleNavClick = useCallback((id: TabId) => {
     setActiveTab(id);
@@ -192,8 +199,8 @@ export default function Home() {
             <h1 className="text-lg font-semibold">
               {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}
             </h1>
-            <div className="ml-auto text-xs text-muted-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            <div className="ml-auto text-xs text-muted-foreground" suppressHydrationWarning>
+              {dateString}
             </div>
           </header>
 
