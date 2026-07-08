@@ -23,7 +23,13 @@ async function createPrismaClient(): Promise<PrismaClientInstance> {
       authToken: process.env.DATABASE_AUTH_TOKEN || '',
     });
 
-    return new PrismaClient({ adapter: new PrismaLibSql(libsql) } as never);
+    // When using an adapter, override DATABASE_URL to a dummy SQLite path
+    // so PrismaClient doesn't try to validate the libsql:// URL directly
+    const originalUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = 'file:./dev.db';
+    const client = new PrismaClient({ adapter: new PrismaLibSql(libsql) } as never);
+    process.env.DATABASE_URL = originalUrl;
+    return client;
   }
 
   return new PrismaClient();
