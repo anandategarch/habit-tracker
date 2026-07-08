@@ -198,9 +198,17 @@ export default function Statistics() {
     fetch('/api/statistics')
       .then((r) => r.json())
       .then((d) => {
-        if (!cancelled) setData(d);
+        if (!cancelled && d && typeof d.totalCompletion === 'number') {
+          setData(d);
+        } else if (!cancelled) {
+          setData({ totalCompletion: 0, totalEntries: 0, missCount: 0, successRate: 0, averageScore: 0, bestDay: { date: 'N/A', rate: 0 }, worstDay: { date: 'N/A', rate: 0 }, bestWeek: { week: 'N/A', rate: 0 }, bestMonth: { month: 'N/A', rate: 0 }, longestSuccess: 0, longestFailure: 0, totalDaysTracked: 0 });
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) {
+          setData({ totalCompletion: 0, totalEntries: 0, missCount: 0, successRate: 0, averageScore: 0, bestDay: { date: 'N/A', rate: 0 }, worstDay: { date: 'N/A', rate: 0 }, bestWeek: { week: 'N/A', rate: 0 }, bestMonth: { month: 'N/A', rate: 0 }, longestSuccess: 0, longestFailure: 0, totalDaysTracked: 0 });
+        }
+      });
     return () => { cancelled = true; };
   }, [refreshKey]);
 

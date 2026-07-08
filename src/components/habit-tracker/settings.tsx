@@ -13,10 +13,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAppStore } from '@/store/app-store';
 import {
   Settings as SettingsIcon,
   User,
@@ -24,9 +35,10 @@ import {
   Globe,
   Target,
   Save,
-  AlertTriangle,
   Database,
   Trash2,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 
 interface AppSettings {
@@ -106,9 +118,12 @@ function LoadingSkeleton() {
 }
 
 export default function Settings() {
+  const { triggerRefresh } = useAppStore();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [dbStats, setDbStats] = useState<{ habits: number; logs: number; days: number } | null>(null);
 
   // Local form state
@@ -184,6 +199,25 @@ export default function Settings() {
       setSaving(false);
     }
   }, [form]);
+
+  const handleResetAll = useCallback(async () => {
+    setResetting(true);
+    try {
+      const res = await fetch('/api/reset-all', { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Semua data berhasil dihapus! Mulai dari awal ya 🎉');
+        setResetDialogOpen(false);
+        setDbStats({ habits: 0, logs: 0, days: 0 });
+        triggerRefresh();
+      } else {
+        toast.error('Gagal menghapus data. Coba lagi.');
+      }
+    } catch {
+      toast.error('Gagal menghapus data. Coba lagi.');
+    } finally {
+      setResetting(false);
+    }
+  }, [triggerRefresh]);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -332,20 +366,69 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label className="text-sm font-medium text-red-600 dark:text-red-400">Reset All Data</Label>
-              <p className="text-xs text-muted-foreground">Permanently delete all habits and logs</p>
+              <Label className="text-sm font-medium text-red-600 dark:text-red-400">Hapus Semua Data</Label>
+              <p className="text-xs text-muted-foreground">Hapus semua habits, log, transaksi, budget, dan data lainnya</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-950/50 dark:text-red-400 dark:hover:text-red-300"
-              onClick={() => {
-                toast.error('Data reset is not available in this version');
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Reset
-            </Button>
+            <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-950/50 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Hapus Semua
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    Hapus Semua Data?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-2">
+                      <p>
+                        Tindakan ini akan <span className="font-semibold text-red-600 dark:text-red-400">menghapus secara permanen</span> semua data kamu, termasuk:
+                      </p>
+                      <ul className="list-disc list-inside text-sm space-y-0.5 text-muted-foreground">
+                        <li>Semua Habit dan log tracking</li>
+                        <li>Daily log (mood, energi, tidur)</li>
+                        <li>Journal entries</li>
+                        <li>Goals & milestones</li>
+                        <li>Challenges</li>
+                        <li>Badges & Rewards</li>
+                        <li>Semua transaksi keuangan & budget</li>
+                        <li>Kategori keuangan</li>
+                      </ul>
+                      <p className="text-red-600 dark:text-red-400 font-medium">
+                        Data yang sudah dihapus tidak bisa dikembalikan!
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={resetting}>Batal</AlertDialogCancel>
+                  <Button
+                    variant="destructive"
+                    onClick={handleResetAll}
+                    disabled={resetting}
+                  >
+                    {resetting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Menghapus...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Ya, Hapus Semua
+                      </>
+                    )}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </SectionCard>
