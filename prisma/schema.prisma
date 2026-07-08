@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "sqlite"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // For Turso migrations (local SQLite file)
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ==================== HABIT TRACKER PROFESSIONAL V2 ====================
