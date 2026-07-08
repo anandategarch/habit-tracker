@@ -1,9 +1,5 @@
 import { PrismaClient } from '@prisma/client'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
 /* eslint-disable @typescript-eslint/no-require-imports */
 function createTursoClient() {
   const { PrismaLibSQL } = require('@prisma/adapter-libsql')
@@ -18,10 +14,37 @@ function createTursoClient() {
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-const databaseUrl = process.env.DATABASE_URL || 'file:./db/dev.db'
+type PrismaClientInstance = PrismaClient;
 
-export const db =
-  globalForPrisma.prisma ??
-  (databaseUrl.startsWith('libsql://') ? createTursoClient() : new PrismaClient())
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClientInstance | undefined
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+// Lazy: only create PrismaClient when first accessed (not at module load time)
+// This prevents build-time database connection errors on Vercel
+function getOrCreateClient(): PrismaClientInstance {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma
+
+  const databaseUrl = process.env.DATABASE_URL || 'file:./db/dev.db'
+  const client = databaseUrl.startsWith('libsql://')
+    ? createTursoClient()
+    : new PrismaClient()
+
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = client
+  }
+
+  return client
+}
+
+// Use a proxy to defer client creation until first actual query
+export const db = new Proxy({} as PrismaClientInstance, {
+  get(_target, prop, receiver) {
+    const client = getOrCreateClient()
+    const value = Reflect.get(client, prop, receiver)
+    if (typeof value === 'function') {
+      return value.bind(client)
+    }
+    return value
+  },
+})
