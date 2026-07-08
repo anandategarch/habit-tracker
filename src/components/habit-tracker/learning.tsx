@@ -103,19 +103,50 @@ export default function LearningTab() {
   const [topicName, setTopicName] = useState('');
   const [topicEmoji, setTopicEmoji] = useState('📚');
 
-  // ── Fetch topics ────────────────────────────────────────────────────────
+  // ── Fetch topics (with auto-migrate) ──────────────────────────────
 
   const fetchTopics = useCallback(async () => {
     try {
+      // Step 1: Try auto-migrate first (creates table if missing)
+      try {
+        await fetch('/api/migrate-learning');
+      } catch { /* ignore */ }
+
+      // Step 2: Fetch topics
       const res = await fetch('/api/learning/topics');
       if (!res.ok) throw new Error();
       const data: LearningTopic[] = await res.json();
-      setTopics(data);
-      if (data.length > 0 && !selectedTopic) {
-        setSelectedTopic(data[0].name);
+
+      // If DB is empty, use fallback topics
+      if (data.length === 0) {
+        const fallback: LearningTopic[] = [
+          { id: 'fb-1', name: 'Akuntansi', emoji: '📒', order: 0 },
+          { id: 'fb-2', name: 'Keuangan', emoji: '💰', order: 1 },
+          { id: 'fb-3', name: 'Ekonomi', emoji: '📈', order: 2 },
+          { id: 'fb-4', name: 'Pajak', emoji: '🧾', order: 3 },
+          { id: 'fb-5', name: 'Investasi', emoji: '🏦', order: 4 },
+          { id: 'fb-6', name: 'Manajemen', emoji: '📊', order: 5 },
+        ];
+        setTopics(fallback);
+        if (!selectedTopic) setSelectedTopic(fallback[0].name);
+      } else {
+        setTopics(data);
+        if (data.length > 0 && !selectedTopic) {
+          setSelectedTopic(data[0].name);
+        }
       }
     } catch {
-      // Silent fail — API returns [] on error, topics will be empty
+      // Final fallback: hardcoded topics
+      const fallback: LearningTopic[] = [
+        { id: 'fb-1', name: 'Akuntansi', emoji: '📒', order: 0 },
+        { id: 'fb-2', name: 'Keuangan', emoji: '💰', order: 1 },
+        { id: 'fb-3', name: 'Ekonomi', emoji: '📈', order: 2 },
+        { id: 'fb-4', name: 'Pajak', emoji: '🧾', order: 3 },
+        { id: 'fb-5', name: 'Investasi', emoji: '🏦', order: 4 },
+        { id: 'fb-6', name: 'Manajemen', emoji: '📊', order: 5 },
+      ];
+      setTopics(fallback);
+      if (!selectedTopic) setSelectedTopic(fallback[0].name);
     } finally {
       setTopicsLoading(false);
     }
@@ -329,24 +360,26 @@ export default function LearningTab() {
                     >
                       <span className="text-xl">{topic.emoji}</span>
                       <span className="text-sm font-medium flex-1">{topic.name}</span>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => openEditDialog(topic)}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget(topic)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      {!topic.id.startsWith('fb-') && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditDialog(topic)}
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(topic)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {topics.length === 0 && (

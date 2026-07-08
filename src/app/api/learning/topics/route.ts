@@ -10,31 +10,9 @@ const DEFAULT_TOPICS = [
   { name: 'Manajemen', emoji: '📊', order: 5 },
 ];
 
-// Ensure the LearningTopic table exists (for fresh deployments / migrations)
-async function ensureTable() {
-  try {
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "LearningTopic" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "name" TEXT NOT NULL,
-        "emoji" TEXT NOT NULL DEFAULT '📚',
-        "order" INTEGER NOT NULL DEFAULT 0,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS "LearningTopic_name_key" ON "LearningTopic"("name");
-    `);
-  } catch (e) {
-    console.error('Failed to ensure LearningTopic table:', e);
-  }
-}
-
 // GET /api/learning/topics
 export async function GET() {
   try {
-    // Ensure table exists first
-    await ensureTable();
-
     let topics = await db.learningTopic.findMany({
       orderBy: { order: 'asc' },
     });
@@ -59,8 +37,6 @@ export async function GET() {
 // POST /api/learning/topics
 export async function POST(request: NextRequest) {
   try {
-    await ensureTable();
-
     const body = await request.json();
     const { name, emoji } = body;
 
