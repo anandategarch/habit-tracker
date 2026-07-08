@@ -427,3 +427,33 @@ Stage Summary:
 - 87 sample transactions and 6 budgets seeded
 - Full CRUD working with optimistic UI and toast notifications
 - Consistent green primary design matching the rest of the app
+
+---
+Task ID: 14
+Agent: Main Coordinator
+Task: Add "Hapus Semua Data" (Delete All Data) feature and fix Statistics tab crash
+
+Work Log:
+- Created `DELETE /api/reset-all` endpoint that deletes all data from all 11 tables (HabitLog, Habit, DailyLog, Journal, Goal, Challenge, Badge, Reward, Transaction, Budget, FinanceCategory) while resetting AppSettings to defaults
+- Updated `settings.tsx` with proper "Hapus Semua Data" button:
+  - Replaced placeholder toast.error with real AlertDialog confirmation
+  - Dialog lists all 8 categories of data that will be deleted
+  - Warning text: "Data yang sudah dihapus tidak bisa dikembalikan!"
+  - "Batal" (Cancel) and "Ya, Hapus Semua" (destructive red) buttons
+  - Loading state with spinner during deletion
+  - Toast success message after reset: "Semua data berhasil dihapus!"
+  - Auto-refresh via triggerRefresh() after reset
+- Fixed Statistics tab crash: Added validation in fetch handler to check `typeof d.totalCompletion === 'number'` before setting data, with fallback to zero-state object on error/invalid response
+- Verified via agent-browser:
+  - Statistics tab loads correctly with data (no crash)
+  - Settings tab shows "Hapus Semua" button with correct label "Hapus Semua Data"
+  - AlertDialog opens with full list of data to be deleted
+  - "Batal" button closes dialog properly
+  - "Ya, Hapus Semua" actually deletes all data (confirmed Dashboard shows 0, Finance shows Rp0)
+  - Zero errors in dev log
+
+Stage Summary:
+- "Hapus Semua Data" feature is fully functional in Settings → Data section
+- DELETE /api/reset-all endpoint clears all 11 tables
+- Statistics tab crash fixed with proper error handling
+- User can now clear dummy data and start fresh
