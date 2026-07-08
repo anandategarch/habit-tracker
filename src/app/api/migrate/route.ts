@@ -5,14 +5,14 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     // Check if source column already exists
-    const columns = await db.$queryRaw<Array<{ name: string }>>(
-      `PRAGMA table_info("Transaction")`
+    const columns = await db.$queryRawUnsafe<Array<{ name: string }>>(
+      'SELECT name FROM pragma_table_info("Transaction")'
     );
 
     const hasSource = columns.some(c => c.name === 'source');
 
     if (!hasSource) {
-      await db.$executeRaw(`ALTER TABLE "Transaction" ADD COLUMN source TEXT DEFAULT 'Kas'`);
+      await db.$executeRawUnsafe('ALTER TABLE "Transaction" ADD COLUMN source TEXT DEFAULT \'Kas\'');
       return NextResponse.json({ success: true, message: 'Column "source" added to Transaction table' });
     }
 
