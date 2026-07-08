@@ -604,3 +604,29 @@ Stage Summary:
    - Added "Sumber Dana" dropdown in the transaction add/edit dialog.
    - Added source filter dropdown in the transaction list filter bar.
    - Changed transaction and budget amount inputs from `type="number"` to `type="text" inputMode="numeric"` with live thousand-separator formatting.
+
+---
+Task ID: 1
+Agent: Main
+Task: Push correct code to GitHub, revert user's bad commit, add source field & thousand separator
+
+Work Log:
+- Reset local branch to 3e6d77b (last good shared commit)
+- Applied all changes: thousand separator formatting + fund source tracking
+- Added source field to Transaction model in Prisma schema
+- Updated API routes (transactions GET/POST/PUT) to handle source
+- Added FUND_SOURCES list (12 options: Kas, Bank BCA/BRI/Mandiri/BNI/BSI/Permata, GoPay, OVO, DANA, ShopeePay, E-Money)
+- Added source selector in transaction form, source column in table, source filter
+- Changed amount inputs from type=number to type=text with inputMode=numeric + dot formatting
+- Created /api/migrate endpoint to add source column to Turso database
+- Fixed reserved word issue: Transaction needs bracket notation [Transaction] in raw SQL
+- Successfully ran migration on Turso, source column added
+- Verified finance API returns source field correctly
+- Force pushed to GitHub to overwrite user's bad commit (5695f1e)
+- Cleaned up GitHub token from git remote URL
+
+Stage Summary:
+- Vercel deployment live at https://habit-tracker-leb6.vercel.app/
+- Two features deployed: (1) thousand separator in nominal input, (2) fund source tracking
+- Database migration completed successfully on Turso
+- Migration endpoint at /api/migrate - safe to leave (no-op if column exists)
