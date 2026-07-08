@@ -1,0 +1,475 @@
+     1→# Habit Tracker Professional V2 - Worklog
+     2→
+     3→---
+     4→Task ID: 1
+     5→Agent: Main Coordinator
+     6→Task: Design Prisma schema and push to database
+     7→
+     8→Work Log:
+     9→- Read uploaded spec file (HABIT TRACKER PROFESSIONAL V2.md)
+    10→- Designed comprehensive Prisma schema with 10 models: Habit, HabitLog, DailyLog, Journal, Goal, Challenge, Badge, Reward, AppSettings, User
+    11→- Pushed schema to SQLite database
+    12→- Generated Prisma client
+    13→
+    14→Stage Summary:
+    15→- Database schema is complete and synced
+    16→- All models support the required features: habits, tracking, journaling, goals, challenges, gamification, settings
+    17→
+    18→---
+    19→Task ID: 5
+    20→Agent: Habit Master Component Builder
+    21→Task: Build the Habit Master tab component (`src/components/habit-tracker/habit-master.tsx`)
+    22→
+    23→Work Log:
+    24→- Read worklog and app store for context (useAppStore with refreshKey pattern)
+    25→- Reviewed Prisma schema for Habit model fields
+    26→- Verified all required shadcn/ui components exist in the project
+    27→- Built comprehensive `HabitMaster` component with:
+    28→  - Header with title, description, and Add Habit button (green primary)
+    29→  - Quick-add bar with emoji selector, name input, and keyboard Enter support
+    30→  - Filter bar with search, category dropdown, and status dropdown
+    31→  - Responsive habits display: Table on desktop (md+), Cards on mobile
+    32→  - Full Add/Edit dialog with all fields: name, icon (emoji picker), category, priority, difficulty, target, target type, color (native picker + hex input), reminder, start/end dates, notes, status
+    33→  - Delete confirmation AlertDialog
+    34→  - Optimistic UI updates for all CRUD operations
+    35→  - Toast notifications via sonner
+    36→  - Form validation (name required)
+    37→  - Loading skeleton state and empty state with contextual messaging
+    38→  - Green primary color scheme, no blue/indigo
+    39→  - Modern Notion/Linear styling with group-hover action reveal on table rows
+    40→- Lint check passed (no errors in the new file; 2 pre-existing errors in other files)
+    41→
+    42→Stage Summary:
+    43→- Habit Master component is complete at `src/components/habit-tracker/habit-master.tsx`
+    44→- Supports full CRUD via `/api/habits` endpoints
+    45→- Responsive layout with table/cards, optimistic updates, toast feedback
+    46→
+    47→---
+    48→Task ID: 6-7
+    49→Agent: Analytics & Calendar Builder
+    50→Task: Build Analytics tab and Calendar View tab components
+    51→
+    52→Work Log:
+    53→- Read worklog and app store for context (useAppStore with selectedMonth/setSelectedMonth)
+    54→- Reviewed Prisma schema and existing shadcn/ui components
+    55→- Verified recharts and date-fns are available in package.json
+    56→
+    57→### analytics.tsx
+    58→- Built comprehensive analytics dashboard with 8 visualizations using recharts:
+    59→  1. **Completion Trend** - LineChart with completion rate + moving average dashed line
+    60→  2. **Forecast Card** - SVG ring progress showing predicted end-of-month rate + days elapsed progress bar
+    61→  3. **Weekly Trend** - BarChart with weekly completion rates
+    62→  4. **Monthly Trend** - BarChart with 6-month completion rates
+    63→  5. **Category Performance** - RadarChart (spider chart) for category breakdown
+    64→  6. **Habit Distribution** - PieChart (donut) with per-habit completion proportions and custom tooltip
+    65→  7. **Day of Week Performance** - BarChart with weekend highlighting (lighter green)
+    66→  8. **Mood vs Completion** - ScatterChart with emoji X-axis, energy as bubble size, and rich tooltip
+    67→- Period selector dropdown (7/14/30/60/90 days) in header
+    68→- Trend badge showing % change with TrendingUp/TrendingDown icons
+    69→- Green primary color scheme throughout, no blue/indigo
+    70→- Custom ChartTooltip component for consistent tooltip styling
+    71→- Loading skeleton state, empty state, and data-null state
+    72→- Used `useTransition` for loading state to avoid React 19 lint error
+    73→- Responsive grid layout: lg:3-col row 1, md:2-col rows 2-4
+    74→
+    75→### calendar-view.tsx
+    76→- Built monthly calendar heatmap view with:
+    77→  - Month navigation: left/right ChevronLeft/ChevronRight buttons + Select dropdown for month picker (last 12 months + next 3)
+    78→  - 7-column CSS grid calendar (Sun-Sat) with 6-week span
+    79→  - Each cell shows: date number, completion rate %, mini progress bar, mood emoji
+    80→  - Heatmap color intensity: gray (no data) → red (0%) → orange (25%) → yellow (50%) → lime (75%) → green (100%)
+    81→  - Today highlighted with green ring (ring-2 ring-green-500)
+    82→  - Outside-month days dimmed (opacity-35)
+    83→  - Future days show no completion data
+    84→- Heatmap Legend card with all color levels + today indicator
+    85→- Month Summary card: average completion %, days tracked, best day (Flame icon), worst day (Droplets icon)
+    86→- Fetches habits list + daily-logs + per-habit logs for the selected month
+    87→- Used `useTransition` for loading state
+    88→- Responsive: min-h scales with sm/md breakpoints
+    89→
+    90→- Lint passes cleanly for both new files (0 errors, 0 warnings)
+    91→
+    92→Stage Summary:
+    93→- Analytics tab complete at `src/components/habit-tracker/analytics.tsx`
+    94→- Calendar View tab complete at `src/components/habit-tracker/calendar-view.tsx`
+    95→- Both components use green primary, recharts visualizations, responsive layouts
+    96→- Both depend on their respective API endpoints (analytics, habits, daily-logs, habit logs)
+    97→
+    98→---
+    99→Task ID: 3
+   100→Agent: Dashboard Builder
+   101→Task: Build the Dashboard tab component (`src/components/habit-tracker/dashboard.tsx`)
+   102→
+   103→Work Log:
+   104→- Read worklog and app store for context (useAppStore with refreshKey pattern)
+   105→- Reviewed all shadcn/ui components available (Card, Skeleton, Badge, Progress, etc.)
+   106→- Built comprehensive `Dashboard` component with 8 major sections:
+   107→  1. **KPI Cards Grid**: 15 responsive cards (2/3/4/6 cols) showing Total Habits, Completion Rate, Current Streak, Longest Streak, Success Today, Weekly/Monthly Completion, Total XP, Current Level, Badges, Mood Average, Sleep Average, Productivity Score, Challenge Progress, Goal Progress
+   108→  2. **Progress Rings Section**: 3 SVG circular progress rings (Overall, This Week, This Month) using stroke-dasharray/stroke-dashoffset with green/emerald/teal colors
+   109→  3. **Weekly Completion Bar Chart**: recharts BarChart with 7-day data, conditional green shading (80%+ dark, 50%+ medium, below light)
+   110→  4. **Category Performance**: Horizontal BarChart showing per-category completion rates with different green shades
+   111→  5. **Monthly Trend Chart**: recharts AreaChart with green gradient fill for 30-day trend
+   112→  6. **Habit Leaderboard**: Best habit (green highlight) and worst habit (orange highlight) side by side
+   113→  7. **Today's Focus**: List of incomplete habits with priority badges, empty state when all done
+   114→  8. **Quick Insights**: 2-3 dynamic insight cards based on data (streak, best day, completion rate, productivity)
+   115→- Implemented loading skeleton states for all sections
+   116→- Used `data === null` derived loading pattern to avoid React 19 `set-state-in-effect` lint error
+   117→- Green primary color scheme throughout, no blue/indigo
+   118→- Responsive layout: grid-based with proper breakpoints
+   119→- All recharts tooltips styled to match theme
+   120→- MoodEmoji helper with emoji-to-color mapping
+   121→- Lint check passed (0 errors in dashboard.tsx)
+   122→
+   123→Stage Summary:
+   124→- Dashboard component is complete at `src/components/habit-tracker/dashboard.tsx`
+   125→- Fetches from `/api/dashboard` endpoint, re-fetches on refreshKey change
+   126→- Professional Notion/Linear-inspired design with clean spacing and consistent card patterns
+   127→
+   128→---
+   129→Task ID: 4
+   130→Agent: Daily Tracker Builder
+   131→Task: Build the Daily Tracker tab component (`src/components/habit-tracker/daily-tracker.tsx`)
+   132→
+   133→Work Log:
+   134→- Read worklog and app store for context (useAppStore with selectedDate/setSelectedDate/refreshKey)
+   135→- Reviewed Prisma schema (Habit, HabitLog, DailyLog models) and all API routes (habits, daily-logs, habit logs)
+   136→- Verified all required shadcn/ui components exist (Card, Checkbox, Slider, Textarea, Badge, Select, Separator, Skeleton, Progress, Button)
+   137→- Built comprehensive `DailyTracker` component with 4 major sections:
+   138→
+   139→  1. **Date Navigation Header**: Left/right ChevronLeft/ChevronRight arrows, formatted date display ("EEEE, MMMM d, yyyy"), "Day X of Y" indicator, conditional "Today" button (hidden when already on today)
+   140→
+   141→  2. **Daily Metrics Section** (3-card grid + notes):
+   142→     - Mood Card: Slider 1-5, emoji labels (😫 Terrible → 🤩 Amazing), current value display
+   143→     - Energy Card: Slider 1-5, text labels (Exhausted → Supercharged)
+   144→     - Sleep Card: Slider 0-12 (step 0.5), color-coded (red < 6h, amber 6-7h, green 7+h), contextual label
+   145→     - Notes Card: Full-width textarea with debounced auto-save (500ms)
+   146→
+   147→  3. **Habit Checklist** (main section):
+   148→     - Filter bar: view mode Select (All/Incomplete/Completed) + category Select filter (dynamic from habits)
+   149→     - Each row: Checkbox, emoji icon, habit name, category Badge, priority dot (red/amber/green), Flame streak counter
+   150→     - Completed habits: strikethrough + muted text + green checkbox
+   151→     - Optimistic checkbox toggles via POST /api/habits/[id]/logs with rollback on error
+   152→     - Scrollable list (max-h-480px) with custom scrollbar
+   153→     - Empty states for no habits and no filtered results
+   154→
+   155→  4. **Daily Summary Footer**: Gradient emerald card with Completion % (Check icon), XP earned today (Star icon, difficulty-based: Easy=10, Medium=20, Hard=30, Expert=50), Level + Progress bar (Flame icon)
+   156→
+   157→- Performance optimizations:
+   158→  - Month-level cache for habit logs (ref-based) to avoid re-fetching when navigating days within same month
+   159→  - Debounced daily log saves (500ms) for metrics and notes
+   160→  - Parallel habit log fetching with Promise.allSettled
+   161→  - useMemo for derived values (activeHabits, categories, filteredHabits, XP, level)
+   162→
+   163→- Loading skeleton matching full component layout
+   164→- Lint check passed (0 errors, 0 warnings)
+   165→
+   166→Stage Summary:
+   167→- Daily Tracker component is complete at `src/components/habit-tracker/daily-tracker.tsx`
+   168→- Fetches from /api/habits, /api/daily-logs, /api/habits/[id]/logs
+   169→- Optimistic updates, debounced saves, month-level caching
+   170→- Green primary color scheme, Notion/Linear-inspired design, fully responsive
+   171→
+   172→---
+   173→Task ID: 11
+   174→Agent: Tab Components Builder
+   175→Task: Build Statistics, AI Insights, and Settings tab components
+   176→
+   177→Work Log:
+   178→- Read worklog and app store for context (useAppStore with refreshKey pattern, `data === null` derived loading)
+   179→- Reviewed existing components (dashboard.tsx, daily-tracker.tsx) for consistent styling patterns
+   180→- Verified all required shadcn/ui components exist (Card, Badge, Separator, Select, Switch, Input, Label, Skeleton, Button)
+   181→
+   182→### statistics.tsx
+   183→- Built comprehensive statistics dashboard with 4 sections:
+   184→  1. **Stats Grid** (responsive 2/3/4 cols): Total Completions (green), Miss Count (amber), Success Rate (with SVG progress ring), Average Score (with progress bar), Days Tracked, Best Streak (flame), Worst Streak (red)
+   185→  2. **Highlights Section** (4 cards): Best Day, Worst Day, Best Week, Best Month — each with trend icon and formatted date via date-fns
+   186→  3. **Completion vs Misses Chart**: Horizontal BarChart (recharts) with 2 colored bars (green for completed, amber for missed), themed tooltip
+   187→- Custom `ProgressRing` SVG component with color-coded thresholds
+   188→- `StatCard` and `HighlightCard` reusable sub-components
+   189→- Loading skeleton and empty state
+   190→- Used `data === null` derived loading pattern (no setState in effect)
+   191→- Green primary color scheme, no blue/indigo
+   192→
+   193→### ai-insights.tsx
+   194→- Built AI insights viewer with:
+   195→  1. **Header**: Brain icon + "AI Insights" title + Sparkles icon + "Automated pattern analysis" description
+   196→  2. **Empty State**: Rocket emoji + "Start tracking habits to receive insights" message
+   197→  3. **Grouped Insights**: Sorted by severity (Positive first, Info second, Needs Attention third)
+   198→  4. **Insight Cards**: Left border color by severity, emoji icon from data, title, description, severity Badge (green/red/gray)
+   199→- `SeveritySection` and `InsightCard` reusable sub-components
+   200→- SEVERITY_CONFIG constant for consistent styling across badge, border, and icon background
+   201→- Loading skeleton matching full layout
+   202→- Used `data === null` derived loading pattern
+   203→
+   204→### settings.tsx
+   205→- Built settings page with 4 card sections:
+   206→  1. **Profile**: User Name text input
+   207→  2. **Appearance**: Theme select (Light/Dark), Primary Color (color picker + hex input), Secondary Color (color picker + hex input)
+   208→  3. **Preferences**: Week Start (Monday/Sunday), Language (English/Bahasa Indonesia), Target Completion (number input 0-100%)
+   209→  4. **Data**: Database stats grid (total habits, total logs, days tracked) fetched from /api/habits and /api/daily-logs, Reset All Data button (shows toast error)
+   210→- Single "Save Changes" button at bottom, green primary
+   211→- Loads settings via GET /api/settings on mount, saves via PUT /api/settings
+   212→- Toast notifications via sonner
+   213→- `SectionCard` and `FormRow` reusable sub-components for consistent layout
+   214→- Loading skeleton and "Last updated" footer
+   215→- Max-width 2xl container for readability
+   216→
+   217→- Lint check passed (0 errors, 0 warnings) after fixing set-state-in-effect pattern
+   218→
+   219→Stage Summary:
+   220→- Statistics tab complete at `src/components/habit-tracker/statistics.tsx`
+   221→- AI Insights tab complete at `src/components/habit-tracker/ai-insights.tsx`
+   222→- Settings tab complete at `src/components/habit-tracker/settings.tsx`
+   223→- All three components use green primary, Notion/Linear styling, responsive layouts
+   224→- All use `data === null` derived loading to avoid React 19 lint error
+   225→- All fetch on refreshKey change for data synchronization
+   226→
+   227→---
+   228→Task ID: 8-9
+   229→Agent: Journal & Goals Builder
+   230→Task: Build Journal tab and Goals tab components
+   231→
+   232→Work Log:
+   233→- Read worklog and app store for context (useAppStore with refreshKey pattern)
+   234→- Reviewed Prisma schema and all API endpoints for journals and goals
+   235→- Verified all required shadcn/ui components exist
+   236→
+   237→### journal.tsx
+   238→- Built comprehensive Journal tab with:
+   239→  1. **Header**: "Journal" title with entry count + [New Entry] button (green primary)
+   240→  2. **Journal Form Dialog**: Full-featured form with date picker, mood selector (1-5 emoji buttons: 😫😣😐🙂🤩), stress level select, energy level select, sleep hours input, reflection/win/lesson/tomorrow textareas, save button with loading state
+   241→  3. **Journal Entries List**: Reverse chronological cards showing mood emoji (clickable), formatted date, "Today" badge, mood label badge, reflection preview (line-clamp-2), quick metrics row (sleep hours, stress, energy with color coding)
+   242→  4. **Expandable Details**: Click emoji to expand — shows full Reflection, Win Today (green heading), Lesson Learned (amber heading), Tomorrow's Plan (teal heading) sections with separator
+   243→  5. **Edit/Delete**: Hover-reveal action buttons, edit re-opens dialog pre-filled, delete with AlertDialog confirmation
+   244→  6. **Color coding**: Mood badge (red→green gradient), stress (green→red), energy (red→green), sleep (<6h red, 6-7 amber, 7+ green)
+   245→  7. **Loading skeleton** and **empty state** with contextual messaging
+   246→  8. **Max-height scroll** with `custom-scrollbar` class
+   247→- Lint: 0 errors
+   248→
+   249→### goals.tsx
+   250→- Built comprehensive Goals tab with:
+   251→  1. **Header**: "Goals" title + [New Goal] button (green primary)
+   252→  2. **Quick Stats Bar**: 3-card grid showing Total Goals, Completed (emerald), In Progress (green)
+   253→  3. **Goals List Cards** (reverse chronological):
+   254→     - Title + Priority badge (High=red, Medium=amber, Low=green) + Status badge (active=green, completed=emerald, cancelled=gray) + Overdue badge (destructive red)
+   255→     - Description (line-clamp-2)
+   256→     - Progress bar with percentage, color-coded by progress level (orange→amber→lime→green)
+   257→     - Deadline with overdue indicator (red text when past due)
+   258→     - Milestone count toggle (expandable chevron)
+   259→     - Expandable milestones section: Checkbox per milestone, strike-through when done, green checkbox
+   260→     - Hover-reveal actions: Edit, Complete (CheckCircle2 green), Delete (red)
+   261→  4. **Add/Edit Goal Dialog**: Title (required), description textarea, deadline date picker, priority select, dynamic milestones list (add/remove, Enter key support, counter showing total/completed), save/update button
+   262→  5. **Auto-progress calculation**: `(completed milestones / total) * 100`
+   263→  6. **Auto-complete**: Goal status set to "completed" when progress reaches 100%
+   264→  7. **Optimistic milestone toggling** via PUT /api/goals/[id] with rollback on error
+   265→  8. **Toast celebration** ("🎉 Goal completed!") when all milestones checked
+   266→  9. **Loading skeleton** and **empty state**
+   267→  10. **Max-height scroll** with `custom-scrollbar` class
+   268→- Lint: 0 errors
+   269→
+   270→Stage Summary:
+   271→- Journal tab complete at `src/components/habit-tracker/journal.tsx`
+   272→- Goals tab complete at `src/components/habit-tracker/goals.tsx`
+   273→- Both use green primary, Notion/Linear-inspired design, fully responsive
+   274→- Journal: full CRUD via /api/journals endpoints with expandable cards
+   275→- Goals: full CRUD via /api/goals endpoints with milestones, auto-progress, auto-complete
+   276→
+   277→---
+   278→Task ID: 10
+   279→Agent: Gamification Tab Builder
+   280→Task: Build Challenges, Rewards, and Badges tab components
+   281→
+   282→Work Log:
+   283→- Read worklog and app store for context (useAppStore with refreshKey pattern)
+   284→- Reviewed existing components (habit-master.tsx, dashboard.tsx, daily-tracker.tsx) for consistent styling patterns
+   285→- Verified all required shadcn/ui components exist
+   286→
+   287→### challenges.tsx
+   288→- Built comprehensive Challenges tab with:
+   289→  1. **Header**: "Challenges" title with count summary + [New Challenge] button (green primary)
+   290→  2. **Duration Quick Picks**: 7 preset buttons (7, 14, 21, 30, 60, 90, 365 days) with Flame icon — clicking opens dialog pre-filled with that duration and today's date
+   291→  3. **Active Challenges Grid** (md:2-col, lg:3-col):
+   292→     - Trophy icon + title + duration badge (e.g., "30 Day Challenge")
+   293→     - Description (line-clamp-2)
+   294→     - Progress bar with green fill + percentage display
+   295→     - Days elapsed/total + remaining days with Clock icon
+   296→     - Date range with Calendar icon (MMM d – MMM d, yyyy)
+   297→     - Status badge: active=green, completed=emerald, failed=red, cancelled=gray
+   298→     - Action buttons: +1 Day (increment progress), Complete, Edit (ghost), Delete (ghost, red hover)
+   299→  4. **Past Challenges Grid**: Compact cards with final progress, color-coded progress bar, and edit/delete actions
+   300→  5. **Add/Edit Dialog**: Title (required, Enter key support), description textarea, duration select from presets, start date picker, end date (auto-calculated + disabled display)
+   301→  6. **Delete Confirmation**: AlertDialog with red destructive button
+   302→  7. **Progress increment**: Optimistic update via PUT, toast celebration when reaching 100%
+   303→  8. **Complete action**: Sets status to completed + progress to duration
+   304→  9. **Loading skeleton** and **empty state** with contextual messaging
+   305→- Uses date-fns: format, differenceInDays, addDays, isPast, parseISO
+   306→- Lint: 0 errors
+   307→
+   308→### rewards.tsx
+   309→- Built comprehensive Rewards tab with:
+   310→  1. **Header**: "Rewards" title with count summary (X unlocked, Y redeemed) + [Add Reward] button (green primary)
+   311→  2. **Stats Bar**: 3-card grid — Total Rewards, Total XP Value, XP Redeemed
+   312→  3. **Unlocked Rewards Grid** (sm:2-col, lg:3-col):
+   313→     - Gift emoji icon in green rounded container
+   314→     - Name (bold) + status badge (green, Unlock icon)
+   315→     - XP Cost badge (amber, Star icon, e.g., "500 XP" or "1.5k XP")
+   316→     - Description text
+   317→     - Unlock condition in green background pill
+   318→     - Redeem button (emerald) + Delete button
+   319→  4. **Locked Rewards Grid**: Same layout but dimmed (opacity-75), lock overlay on icon, gray styling, Unlock button (green outline) instead of Redeem
+   320→  5. **Redeemed Rewards Grid**: Compact cards with emerald tint, ✅ icon, status badge with Star icon
+   321→  6. **Add Dialog**: Name (required, Enter key), description textarea, unlock condition input, XP cost number input
+   322→  7. **XP formatting**: Smart display (500 XP vs 1.5k XP for 1000+)
+   323→  8. **Loading skeleton** and **empty state**
+   324→- Lint: 0 errors
+   325→
+   326→### badges.tsx
+   327→- Built comprehensive Badges tab with:
+   328→  1. **Header**: "Badges" title with unlock count (e.g., "5/12 Unlocked" in green) + [Create Badge] button (green primary)
+   329→  2. **Overall Progress Card**: Medal icon + progress bar (green) + percentage + X of Y unlocked + Z remaining
+   330→  3. **Badge Grid** (responsive 2-3-4 cols):
+   331→     - Large emoji icon (48px, rounded-2xl) centered — green ring + bg when unlocked, gray bg when locked
+   332→     - Lock overlay (backdrop blur) on locked badges
+   333→     - Name (bold, truncated)
+   334→     - Description (line-clamp-2, muted)
+   335→     - Requirement pill (green bg for unlocked, gray for locked)
+   336→     - Status badge: Unlocked (green, CheckCircle2, date) or Locked (gray, Lock icon)
+   337→     - Hover-reveal actions: Unlock/Lock toggle + Delete
+   338→  4. **Locked badges**: Dimmed (opacity-60), hover to 90%
+   339→  5. **Add Dialog**: Icon (emoji input with live preview in rounded container), name (required, Enter key), description textarea, requirement input
+   340→  6. **Unlock toggle**: PUT with unlocked/unlockedAt update, optimistic UI
+   341→  7. **Loading skeleton** and **empty state**
+   342→- Lint: 0 errors
+   343→
+   344→Stage Summary:
+   345→- Challenges tab complete at `src/components/habit-tracker/challenges.tsx`
+   346→- Rewards tab complete at `src/components/habit-tracker/rewards.tsx`
+   347→- Badges tab complete at `src/components/habit-tracker/badges.tsx`
+   348→- All three use green primary, Notion/Linear-inspired design, fully responsive
+   349→- All fetch on refreshKey change, use optimistic updates, toast notifications
+   350→- All have loading skeleton and empty states
+   351→
+   352→---
+   353→Task ID: 12
+   354→Agent: Main Coordinator
+   355→Task: Integration, bug fixes, and browser verification
+   356→
+   357→Work Log:
+   358→- Fixed Settings import name conflict (lucide-react Settings vs component Settings) - renamed to SettingsIcon/SettingsTab
+   359→- Fixed `cn` import errors in rewards.tsx, badges.tsx, challenges.tsx (was importing from 'date-fns' instead of '@/lib/utils')
+   360→- Fixed React 19 lint error in page.tsx (set-state-in-effect) by removing mounted guard pattern
+   361→- Verified all 13 tabs load and render correctly via agent-browser:
+   362→  - Dashboard: KPI cards, progress rings, weekly/monthly charts, leaderboard, focus list
+   363→  - Daily Tracker: Date navigation, mood/energy/sleep sliders, habit checkboxes, XP summary
+   364→  - Habit Master: Table/card view, search/filter, add/edit dialog, delete confirmation
+   365→  - Analytics: 8 recharts visualizations (line, bar, area, radar, pie, scatter), period selector
+   366→  - Calendar: Monthly heatmap grid, color-coded completion, mood emojis, legend
+   367→  - Journal: Entry form dialog, expandable entry cards, mood selector
+   368→  - Goals: Stats bar, progress bars, expandable milestones, auto-complete
+   369→  - Challenges: Duration quick picks, progress tracking, past challenges
+   370→  - Rewards: Locked/unlocked/redeemed sections, XP cost badges
+   371→  - Badges: Grid with lock overlay, progress bar, unlock toggle
+   372→  - Statistics: 7 stat cards, highlight cards, completion vs misses chart
+   373→  - AI Insights: Grouped by severity (Positive, Info, Needs Attention)
+   374→  - Settings: Profile, appearance, preferences, data sections with save
+   375→- Tested mobile responsiveness (375x812 viewport) - sidebar collapses, content adapts
+   376→- No console errors detected
+   377→- Lint passes with 0 errors
+   378→- Created sample data (9 habits, 14 days of completion logs, daily mood/energy/sleep logs)
+   379→
+   380→Stage Summary:
+   381→- Full Habit Tracker Professional V2 application is complete and verified
+   382→- 13 functional tabs with consistent green primary design
+   383→- All CRUD operations working with optimistic updates and toast feedback
+   384→- Responsive design verified on both desktop and mobile viewports
+   385→- Zero lint errors, zero console errors
+   386→
+   387→---
+   388→Task ID: 13
+   389→Agent: Main Coordinator
+   390→Task: Add Finance Tracker feature to Habit Tracker Professional V2
+   391→
+   392→Work Log:
+   393→- Added Transaction and Budget models to Prisma schema (schema.prisma)
+   394→- Ran `bun run db:push` to sync new models to SQLite database
+   395→- Regenerated Prisma Client
+   396→- Created 6 API endpoints:
+   397→  - GET/POST /api/finance/transactions (list with filters, create)
+   398→  - GET/PUT/DELETE /api/finance/transactions/[id] (read, update, delete)
+   399→  - GET/POST /api/finance/budgets (list, upsert by category)
+   400→  - PUT/DELETE /api/finance/budgets/[id] (update, delete)
+   401→  - GET /api/finance/dashboard (month summary with KPIs, budget status, comparisons)
+   402→  - GET /api/finance/analytics (6-month trends, category breakdown, weekly patterns, savings rate)
+   403→- Updated app store to add 'finance' to TabId union type
+   404→- Updated page.tsx to add Finance tab with Wallet icon in sidebar navigation
+   405→- Built comprehensive finance.tsx component with 4 sub-tabs:
+   406→  1. **Ringkasan (Overview)**: 4 KPI cards (income, expense, balance, avg daily), daily spending AreaChart, category breakdown with progress bars, budget status grid
+   407→  2. **Transaksi (Transactions)**: Search/filter bar (type, category, text), scrollable table with hover-reveal edit/delete, add/edit dialog with type toggle, category select, date picker
+   408→  3. **Budget (Budgets)**: Budget cards with spent/remaining/percentage, over-budget warnings, per-day remaining calculation, add/delete functionality
+   409→  4. **Analitik (Analytics)**: 6-month LineChart (income/expense/balance), horizontal BarChart top categories, PieChart income sources, weekly spending BarChart, summary stats grid, 5 largest expenses
+   410→- Updated seed route to generate 87 sample transactions (3 months) and 6 budgets
+   411→- Seeded sample data successfully
+   412→- Verified via agent-browser:
+   413→  - Finance tab loads with 4 sub-tabs
+   414→  - Overview shows KPI cards with Rupiah formatting and month-over-month comparison
+   415→  - Transactions table shows data with type badges, category emojis, formatted amounts
+   416→  - Budget tab shows 6 budget cards with progress bars
+   417→  - Analytics tab shows all 4 chart sections
+   418→  - Add transaction dialog works (successfully added -Rp50.000 test transaction)
+   419→  - Zero console errors
+   420→- All UI text in Bahasa Indonesia (category names, labels, dialog titles, toast messages)
+   421→- Rupiah currency formatting via Intl.NumberFormat
+   422→
+   423→Stage Summary:
+   424→- Finance Tracker feature is complete and fully integrated
+   425→- 6 new API endpoints for transactions, budgets, dashboard, and analytics
+   426→- Comprehensive finance.tsx component (~700 lines) with 4 sub-tabs
+   427→- 87 sample transactions and 6 budgets seeded
+   428→- Full CRUD working with optimistic UI and toast notifications
+   429→- Consistent green primary design matching the rest of the app
+   430→
+   431→---
+   432→Task ID: 14
+   433→Agent: Main Coordinator
+   434→Task: Add "Hapus Semua Data" (Delete All Data) feature and fix Statistics tab crash
+   435→
+   436→Work Log:
+   437→- Created `DELETE /api/reset-all` endpoint that deletes all data from all 11 tables (HabitLog, Habit, DailyLog, Journal, Goal, Challenge, Badge, Reward, Transaction, Budget, FinanceCategory) while resetting AppSettings to defaults
+   438→- Updated `settings.tsx` with proper "Hapus Semua Data" button:
+   439→  - Replaced placeholder toast.error with real AlertDialog confirmation
+   440→  - Dialog lists all 8 categories of data that will be deleted
+   441→  - Warning text: "Data yang sudah dihapus tidak bisa dikembalikan!"
+   442→  - "Batal" (Cancel) and "Ya, Hapus Semua" (destructive red) buttons
+   443→  - Loading state with spinner during deletion
+   444→  - Toast success message after reset: "Semua data berhasil dihapus!"
+   445→  - Auto-refresh via triggerRefresh() after reset
+   446→- Fixed Statistics tab crash: Added validation in fetch handler to check `typeof d.totalCompletion === 'number'` before setting data, with fallback to zero-state object on error/invalid response
+   447→- Verified via agent-browser:
+   448→  - Statistics tab loads correctly with data (no crash)
+   449→  - Settings tab shows "Hapus Semua" button with correct label "Hapus Semua Data"
+   450→  - AlertDialog opens with full list of data to be deleted
+   451→  - "Batal" button closes dialog properly
+   452→  - "Ya, Hapus Semua" actually deletes all data (confirmed Dashboard shows 0, Finance shows Rp0)
+   453→  - Zero errors in dev log
+   454→
+   455→Stage Summary:
+   456→- "Hapus Semua Data" feature is fully functional in Settings → Data section
+   457→- DELETE /api/reset-all endpoint clears all 11 tables
+   458→- Statistics tab crash fixed with proper error handling
+   459→- User can now clear dummy data and start fresh
+   460→
+   461→---
+   462→Task ID: 15
+   463→Agent: Main Coordinator
+   464→Task: Add month picker dropdown to Finance tab for custom date range selection
+   465→
+   466→Work Log:
+   467→- Replaced static month label in Finance header with a Select dropdown
+   468→- Added `useMemo` import and `monthOptions` generator: 2 years back (Juli 2024) to 2 years forward (Juli 2028) = 49 month options
+   469→- Month names displayed in Bahasa Indonesia (via date-fns id locale)
+   470→- Kept existing arrow buttons and "Hari ini" button alongside the dropdown
+   471→- Verified dropdown shows Juli 2024 through Juli 2028 in browser
+   472→
+   473→Stage Summary:
+   474→- Finance month navigation now has a dropdown picker spanning 4 years total
+   475→- User can jump to any month directly instead of clicking arrows one by one

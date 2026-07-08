@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
+import { useRef } from 'react';
 import {
   Settings as SettingsIcon,
   User,
@@ -39,6 +40,10 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  HardDriveDownload,
 } from 'lucide-react';
 
 interface AppSettings {
@@ -124,6 +129,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [dbStats, setDbStats] = useState<{ habits: number; logs: number; days: number } | null>(null);
 
   // Local form state
@@ -199,6 +208,72 @@ export default function Settings() {
       setSaving(false);
     }
   }, [form]);
+
+  const handleExportJSON = useCallback(async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/data/export');
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `habit-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Backup berhasil diunduh! 📦');
+    } catch {
+      toast.error('Gagal mengunduh backup');
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  const handleExportCSV = useCallback(async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/data/export-csv');
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transaksi-keuangan-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('CSV transaksi berhasil diunduh! 📊');
+    } catch {
+      toast.error('Gagal mengunduh CSV');
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  const handleImportJSON = useCallback(async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await fetch('/api/data/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Import gagal');
+      }
+      const result = await res.json();
+      toast.success(`Data berhasil diimport! ${result.total ?? 0} record dipulihkan 🎉`);
+      setImportDialogOpen(false);
+      triggerRefresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal import data. Pastikan file backup valid.');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [triggerRefresh]);
 
   const handleResetAll = useCallback(async () => {
     setResetting(true);
@@ -361,6 +436,98 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground mt-0.5">Days Tracked</p>
             </div>
           </div>
+
+          <Separator className="my-2" />
+
+          {/* Export / Import */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start h-9"
+              onClick={handleExportJSON}
+              disabled={exporting}
+            >
+              {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HardDriveDownload className="h-4 w-4 mr-2 text-green-600" />}
+              {exporting ? 'Mengunduh...' : 'Backup JSON'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start h-9"
+              onClick={handleExportCSV}
+              disabled={exporting}
+            >
+              {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" />}
+              {exporting ? 'Mengunduh...' : 'Export CSV'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start h-9"
+              onClick={() => setImportDialogOpen(true)}
+              disabled={importing}
+            >
+              <Upload className="h-4 w-4 mr-2 text-blue-600" />
+              Import JSON
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Backup JSON untuk restore penuh. Export CSV untuk buka di Excel.</p>
+
+          {/* Hidden file input for import */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImportJSON(file);
+            }}
+          />
+
+          {/* Import Dialog */}
+          <AlertDialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open && fileInputRef.current) fileInputRef.current.value = ''; }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-blue-600" />
+                  Import Data dari Backup
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p>Pilih file backup <code className="text-xs bg-muted px-1 py-0.5 rounded">.json</code> yang sebelumnya sudah kamu download.</p>
+                    <div className="rounded-lg border border-dashed border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-950/20 p-4 text-center">
+                      {importing ? (
+                        <div className="flex items-center justify-center gap-2 text-blue-600">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="text-sm font-medium">Memulihkan data...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 mx-auto text-blue-400 mb-2" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            Pilih File Backup
+                          </Button>
+                          <p className="text-xs text-muted-foreground mt-2">File akan divalidasi sebelum diimport</p>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-amber-600 dark:text-amber-400 text-xs font-medium">
+                      ⚠️ Data yang ada saat ini akan <strong>ditimpa</strong> oleh data dari backup.
+                    </p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={importing}>Batal</AlertDialogCancel>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <Separator className="my-2" />
 
