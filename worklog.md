@@ -473,3 +473,30 @@ Work Log:
 Stage Summary:
 - Finance month navigation now has a dropdown picker spanning 4 years total
 - User can jump to any month directly instead of clicking arrows one by one
+
+---
+Task ID: 16
+Agent: Main Coordinator
+Task: Add Export/Import CSV feature and prepare code for Vercel+Turso deploy
+
+Work Log:
+- Created 3 API endpoints:
+  - GET /api/data/export — Full JSON backup of all 12 tables
+  - POST /api/data/import — Full JSON restore with transaction, field stripping, validation
+  - GET /api/data/export-csv — CSV export for transactions (Indonesian headers)
+- Updated Settings UI with 3 new buttons: Backup JSON, Export CSV, Import JSON
+- Added Import dialog with file picker, loading state, warning about data overwrite
+- Fixed Turbopack crash: removed `log: ['query']` from PrismaClient (caused crash with 12 parallel queries)
+- Fixed Turbopack crash: flattened CSV route from `data/export/csv` to `data/export-csv` (nested dynamic routes caused compile crash)
+- Prepared deploy config:
+  - Updated package.json: added `postinstall: prisma generate`, fixed build/start scripts
+  - Updated next.config.ts: removed standalone output (not needed for Vercel)
+  - Created .env.example with Turso connection string template
+  - Updated .gitignore: excluded db files, allowed .env.example
+  - Removed `@libsql/client` and `@prisma/adapter-libsql` (caused Turbopack issues; will be installed during Vercel deploy)
+- Note: For Turso, user needs to change Prisma provider to `"libsql"` in schema.prisma when deploying
+
+Stage Summary:
+- Full backup/restore system working (JSON export/import)
+- CSV export for financial transactions
+- Project ready for Vercel + Turso deployment with deployment guide pending
