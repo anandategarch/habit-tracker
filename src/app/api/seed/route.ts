@@ -106,12 +106,33 @@ const SAMPLE_BUDGETS = [
   { category: 'Kesehatan', amount: 300000, period: 'monthly' },
 ];
 
+const DEFAULT_EXPENSE_CATEGORIES = [
+  { type: 'expense', name: 'Makanan & Minuman', emoji: '🍽️', color: '#ef4444', order: 1 },
+  { type: 'expense', name: 'Transportasi', emoji: '🚗', color: '#f97316', order: 2 },
+  { type: 'expense', name: 'Belanja', emoji: '🛍️', color: '#eab308', order: 3 },
+  { type: 'expense', name: 'Hiburan', emoji: '🎮', color: '#a855f7', order: 4 },
+  { type: 'expense', name: 'Kesehatan', emoji: '🏥', color: '#ec4899', order: 5 },
+  { type: 'expense', name: 'Pendidikan', emoji: '📚', color: '#3b82f6', order: 6 },
+  { type: 'expense', name: 'Tagihan & Utilitas', emoji: '📋', color: '#6366f1', order: 7 },
+  { type: 'expense', name: 'Tabungan & Investasi', emoji: '🏦', color: '#14b8a6', order: 8 },
+  { type: 'expense', name: 'Lainnya', emoji: '📦', color: '#78716c', order: 9 },
+];
+
+const DEFAULT_INCOME_CATEGORIES = [
+  { type: 'income', name: 'Gaji', emoji: '💰', color: '#22c55e', order: 1 },
+  { type: 'income', name: 'Freelance', emoji: '💻', color: '#06b6d4', order: 2 },
+  { type: 'income', name: 'Investasi', emoji: '📈', color: '#f59e0b', order: 3 },
+  { type: 'income', name: 'Bisnis', emoji: '🏢', color: '#8b5cf6', order: 4 },
+  { type: 'income', name: 'Lainnya', emoji: '💸', color: '#78716c', order: 5 },
+];
+
 export async function GET() {
   try {
     const badgeCount = await db.badge.count();
     const rewardCount = await db.reward.count();
     const txCount = await db.transaction.count();
     const budgetCount = await db.budget.count();
+    const catCount = await db.financeCategory.count();
 
     if (badgeCount === 0) {
       await db.badge.createMany({ data: DEFAULT_BADGES });
@@ -133,11 +154,16 @@ export async function GET() {
       await db.transaction.createMany({ data: SAMPLE_TRANSACTIONS });
     }
 
+    if (catCount === 0) {
+      await db.financeCategory.createMany({ data: [...DEFAULT_EXPENSE_CATEGORIES, ...DEFAULT_INCOME_CATEGORIES] });
+    }
+
     return NextResponse.json({
       badges: badgeCount === 0 ? DEFAULT_BADGES.length : badgeCount,
       rewards: rewardCount === 0 ? DEFAULT_REWARDS.length : rewardCount,
       transactions: txCount === 0 ? SAMPLE_TRANSACTIONS.length : txCount,
       budgets: budgetCount === 0 ? SAMPLE_BUDGETS.length : budgetCount,
+      categories: catCount === 0 ? DEFAULT_EXPENSE_CATEGORIES.length + DEFAULT_INCOME_CATEGORIES.length : catCount,
       message: 'Seed completed',
     });
   } catch (error) {
