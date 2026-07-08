@@ -27,20 +27,22 @@ import {
   Flame,
 } from 'lucide-react';
 
-import Dashboard from '@/components/habit-tracker/dashboard';
-import DailyTracker from '@/components/habit-tracker/daily-tracker';
-import HabitMaster from '@/components/habit-tracker/habit-master';
-import Analytics from '@/components/habit-tracker/analytics';
-import CalendarView from '@/components/habit-tracker/calendar-view';
-import Journal from '@/components/habit-tracker/journal';
-import Goals from '@/components/habit-tracker/goals';
-import Challenges from '@/components/habit-tracker/challenges';
-import Rewards from '@/components/habit-tracker/rewards';
-import Badges from '@/components/habit-tracker/badges';
-import Finance from '@/components/habit-tracker/finance';
-import Statistics from '@/components/habit-tracker/statistics';
-import AIInsights from '@/components/habit-tracker/ai-insights';
-import SettingsTab from '@/components/habit-tracker/settings';
+import dynamic from 'next/dynamic';
+
+const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false });
+const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
+const HabitMaster = dynamic(() => import('@/components/habit-tracker/habit-master'), { ssr: false });
+const Analytics = dynamic(() => import('@/components/habit-tracker/analytics'), { ssr: false });
+const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false });
+const Journal = dynamic(() => import('@/components/habit-tracker/journal'), { ssr: false });
+const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false });
+const Challenges = dynamic(() => import('@/components/habit-tracker/challenges'), { ssr: false });
+const Rewards = dynamic(() => import('@/components/habit-tracker/rewards'), { ssr: false });
+const Badges = dynamic(() => import('@/components/habit-tracker/badges'), { ssr: false });
+const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false });
+const Statistics = dynamic(() => import('@/components/habit-tracker/statistics'), { ssr: false });
+const AIInsights = dynamic(() => import('@/components/habit-tracker/ai-insights'), { ssr: false });
+const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false });
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -81,7 +83,7 @@ export default function Home() {
 
   const handleNavClick = useCallback((id: TabId) => {
     setActiveTab(id);
-    if (window.innerWidth < 768) {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
       setSidebarOpen(false);
     }
   }, [setActiveTab, setSidebarOpen]);
