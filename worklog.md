@@ -547,3 +547,27 @@ Stage Summary:
 - Database URL: libsql://habit-tracker-db-anandategarch.aws-ap-northeast-1.turso.io
 - GitHub repo updated with latest code
 - Ready for Vercel deployment with 2 env vars: DATABASE_URL and DATABASE_AUTH_TOKEN
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix client-side exception on Vercel deployment + debug npm warnings
+
+Work Log:
+- Investigated "client-side exception" error on https://habit-tracker-leb6.vercel.app/
+- Created /api/debug endpoint to diagnose: found libsql raw client works but Prisma fails
+- Discovered @prisma/adapter-libsql v7 was installed with @prisma/client v6 (version mismatch)
+- Downgraded adapter to v6.19.3 to match Prisma client v6.19.2
+- Found export name differs: v6=PrismaLibSQL, v7=PrismaLibSql
+- CRITICAL FIX: PrismaLibSQL constructor takes {url, authToken} Config object, NOT a Client instance
+- Simplified db.ts to use static imports + simple Proxy (no async needed)
+- Removed serverExternalPackages (not needed with static imports)
+- Fixed date hydration mismatch in page.tsx (client-side only rendering)
+- Added error.tsx (error boundary) and loading.tsx
+- Fixed dashboard.tsx to check res.ok before using API data
+- Seeded Turso database via /api/seed
+- Verified: Dashboard, Finance, and all tabs work on Vercel
+
+Stage Summary:
+- Root cause: 3 bugs - adapter version mismatch, wrong export name, wrong constructor argument
+- App fully working on Vercel: https://habit-tracker-leb6.vercel.app/
+- npm warnings about @babel/polyfill and core-js@2 are harmless deprecation notices
