@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, format, differenceInDays,
@@ -16,14 +16,35 @@ function calcNextLevelXP(level: number): number {
   return (level * level) * 100;
 }
 
-export async function GET() {
+type Period = '7d' | '1m' | '3m' | 'all';
+
+function getStartDate(period: Period, today: Date): Date | null {
+  switch (period) {
+    case '7d': return subDays(today, 7);
+    case '1m': return subDays(today, 30);
+    case '3m': return subDays(today, 90);
+    case 'all': return null; // no filter
+    default: return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const period: Period = (searchParams.get('period') as Period) || 'all';
+
     const now = new Date();
     const today = startOfDay(now);
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
+
+    // Period-based start date for log filtering
+    const periodStart = getStartDate(period, today);
+
+    // Determine how many days to fetch (for chart data)
+    const chartDays = period === '7d' ? 7 : period === '1m' ? 30 : period === '3m' ? 90 : 30;
 
     // Fetch all active habits
     const habits = await db.habit.findMany({
@@ -32,11 +53,16 @@ export async function GET() {
 
     const totalHabits = habits.length;
 
-    // Fetch all logs
+    // Fetch logs with optional period filter
+    const logWhere: any = {};
+    if (periodStart) {
+      logWhere.date = { gte: periodStart };
+    } else {
+      logWhere.date = { gte: subDays(today, 365) };
+    }
+
     const allLogs = await db.habitLog.findMany({
-      where: {
-        date: { gte: subDays(today, 365) },
-      },
+      where: logWhere,
       include: { habit: true },
     });
 
@@ -44,7 +70,7 @@ export async function GET() {
     const weekLogs = allLogs.filter(l => l.date >= weekStart && l.date <= weekEnd);
     const monthLogs = allLogs.filter(l => l.date >= monthStart && l.date <= monthEnd);
 
-    // Calculate totals
+    // Calculate totals (within period)
     const totalCompleted = allLogs.filter(l => l.completed).length;
     const totalPossible = allLogs.length;
     const completionRate = totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
@@ -61,7 +87,7 @@ export async function GET() {
     const monthCompleted = monthLogs.filter(l => l.completed).length;
     const monthlyCompletion = monthLogs.length > 0 ? Math.round((monthCompleted / monthLogs.length) * 100) : 0;
 
-    // Streak calculation
+    // Streak calculation (within the period)
     const dailyCompletionMap = new Map<string, number>();
     const dailyTotalMap = new Map<string, number>();
 
@@ -76,7 +102,6 @@ export async function GET() {
     // Current streak
     let currentStreak = 0;
     let checkDate = today;
-    // Check if today has any completions
     const todayKey = format(checkDate, 'yyyy-MM-dd');
     const todayTotal = dailyTotalMap.get(todayKey) || 0;
     const todayDone = dailyCompletionMap.get(todayKey) || 0;
@@ -85,12 +110,14 @@ export async function GET() {
       currentStreak = 1;
     } else {
       checkDate = subDays(checkDate, 1);
-      if (dailyTotalMap.get(format(checkDate, 'yyyy-MM-dd')) !== dailyCompletionMap.get(format(checkDate, 'yyyy-MM-dd'))) {
+      const yKey = format(checkDate, 'yyyy-MM-dd');
+      if (dailyTotalMap.get(yKey) !== dailyCompletionMap.get(yKey)) {
         currentStreak = 0;
       }
     }
 
-    for (let i = currentStreak === 0 ? 1 : 1; i < 365; i++) {
+    const maxStreakCheck = periodStart ? differenceInDays(today, periodStart) : 365;
+    for (let i = currentStreak === 0 ? 1 : 1; i < maxStreakCheck; i++) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
       const total = dailyTotalMap.get(key) || 0;
@@ -102,7 +129,7 @@ export async function GET() {
       }
     }
 
-    // Longest streak
+    // Longest streak (within period)
     let longestStreak = 0;
     let tempStreak = 0;
     const allDates = [...new Set(allLogs.map(l => format(l.date, 'yyyy-MM-dd')))].sort();
@@ -117,7 +144,7 @@ export async function GET() {
       }
     }
 
-    // Best and worst habit
+    // Best and worst habit (within period)
     const habitStats = new Map<string, { done: number; total: number; name: string; icon: string }>();
     for (const habit of habits) {
       habitStats.set(habit.id, { done: 0, total: 0, name: habit.name, icon: habit.icon });
@@ -141,7 +168,7 @@ export async function GET() {
       }
     }
 
-    // XP calculation
+    // XP calculation (within period)
     const totalXP = allLogs.filter(l => l.completed).reduce((sum, l) => {
       return sum + (XP_MAP[l.habit.difficulty] || 20);
     }, 0);
@@ -168,7 +195,7 @@ export async function GET() {
       ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
       : 0;
 
-    // Mood & sleep averages (last 30 days)
+    // Mood & sleep averages (last 30 days, always 30 regardless of period)
     const recentDailyLogs = await db.dailyLog.findMany({
       where: { date: { gte: subDays(today, 30) } },
     });
@@ -200,9 +227,9 @@ export async function GET() {
       });
     }
 
-    // Monthly chart data (last 30 days)
+    // Monthly chart data (adjustable by period)
     const monthlyChartData = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = chartDays - 1; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
       const total = dailyTotalMap.get(key) || 0;
@@ -215,7 +242,7 @@ export async function GET() {
       });
     }
 
-    // Category performance
+    // Category performance (within period)
     const categoryStats = new Map<string, { done: number; total: number }>();
     for (const log of allLogs) {
       const cat = log.habit.category || 'General';
@@ -262,6 +289,7 @@ export async function GET() {
       monthlyChartData,
       categoryPerformance,
       todayFocus,
+      period,
     });
   } catch (error) {
     console.error('GET /api/dashboard error:', error);

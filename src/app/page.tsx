@@ -80,13 +80,11 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 
 export default function Home() {
   const { activeTab, setActiveTab, sidebarOpen, setSidebarOpen } = useAppStore();
-  const [dateString, setDateString] = useState('');
-
-  useEffect(() => {
-    setDateString(
-      new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    );
-  }, []);
+  const [dateString, setDateString] = useState(() =>
+    typeof window !== 'undefined'
+      ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+      : ''
+  );
 
   const handleNavClick = useCallback((id: TabId) => {
     setActiveTab(id);

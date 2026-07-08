@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid } from 'date-fns';
 import {
@@ -28,6 +29,15 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+type Period = '7d' | '1m' | '3m' | 'all';
+
+const PERIOD_OPTIONS: { value: Period; label: string }[] = [
+  { value: '7d', label: '7 Hari' },
+  { value: '1m', label: '1 Bulan' },
+  { value: '3m', label: '3 Bulan' },
+  { value: 'all', label: 'Semua' },
+];
+
 interface StatisticsData {
   totalCompletion: number;
   totalEntries: number;
@@ -41,7 +51,24 @@ interface StatisticsData {
   longestSuccess: number;
   longestFailure: number;
   totalDaysTracked: number;
+  period: string;
 }
+
+const DEFAULT_STATS: StatisticsData = {
+  totalCompletion: 0,
+  totalEntries: 0,
+  missCount: 0,
+  successRate: 0,
+  averageScore: 0,
+  bestDay: { date: 'N/A', rate: 0 },
+  worstDay: { date: 'N/A', rate: 0 },
+  bestWeek: { week: 'N/A', rate: 0 },
+  bestMonth: { month: 'N/A', rate: 0 },
+  longestSuccess: 0,
+  longestFailure: 0,
+  totalDaysTracked: 0,
+  period: 'all',
+};
 
 function ProgressRing({ value, size = 64, strokeWidth = 5 }: { value: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2;
@@ -85,14 +112,12 @@ function StatCard({
   value,
   subValue,
   color,
-  children,
 }: {
   icon: React.ElementType;
   label: string;
   value: string | number;
   subValue?: string;
   color?: string;
-  children?: React.ReactNode;
 }) {
   return (
     <Card className="group hover:shadow-md transition-shadow duration-200">
@@ -103,11 +128,9 @@ function StatCard({
             <p className={cn('text-2xl font-bold mt-1', color || 'text-foreground')}>{value}</p>
             {subValue && <p className="text-xs text-muted-foreground mt-0.5">{subValue}</p>}
           </div>
-          {children || (
-            <div className={cn('p-2 rounded-lg shrink-0', color === 'text-green-600' ? 'bg-green-100 dark:bg-green-950/50' : color === 'text-amber-600' ? 'bg-amber-100 dark:bg-amber-950/50' : color === 'text-red-500' ? 'bg-red-100 dark:bg-red-950/50' : 'bg-muted')}>
-              <Icon className={cn('h-4 w-4', color === 'text-green-600' ? 'text-green-600' : color === 'text-amber-600' ? 'text-amber-600' : color === 'text-red-500' ? 'text-red-500' : 'text-muted-foreground')} />
-            </div>
-          )}
+          <div className={cn('p-2 rounded-lg shrink-0', color === 'text-green-600' ? 'bg-green-100 dark:bg-green-950/50' : color === 'text-amber-600' ? 'bg-amber-100 dark:bg-amber-950/50' : color === 'text-red-500' ? 'bg-red-100 dark:bg-red-950/50' : 'bg-muted')}>
+            <Icon className={cn('h-4 w-4', color === 'text-green-600' ? 'text-green-600' : color === 'text-amber-600' ? 'text-amber-600' : color === 'text-red-500' ? 'text-red-500' : 'text-muted-foreground')} />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -151,7 +174,7 @@ function HighlightCard({
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Stats grid skeleton */}
+      <Skeleton className="h-10 w-64" />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {Array.from({ length: 7 }).map((_, i) => (
           <Card key={i}>
@@ -163,7 +186,6 @@ function LoadingSkeleton() {
           </Card>
         ))}
       </div>
-      {/* Highlights skeleton */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
@@ -175,7 +197,6 @@ function LoadingSkeleton() {
           </Card>
         ))}
       </div>
-      {/* Chart skeleton */}
       <Card>
         <CardHeader className="pb-2">
           <Skeleton className="h-5 w-32" />
@@ -191,26 +212,32 @@ function LoadingSkeleton() {
 export default function Statistics() {
   const { refreshKey } = useAppStore();
   const [data, setData] = useState<StatisticsData | null>(null);
+  const [period, setPeriod] = useState<Period>('all');
+  const [fetching, setFetching] = useState(false);
   const loading = data === null;
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/statistics')
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled && d && typeof d.totalCompletion === 'number') {
-          setData(d);
-        } else if (!cancelled) {
-          setData({ totalCompletion: 0, totalEntries: 0, missCount: 0, successRate: 0, averageScore: 0, bestDay: { date: 'N/A', rate: 0 }, worstDay: { date: 'N/A', rate: 0 }, bestWeek: { week: 'N/A', rate: 0 }, bestMonth: { month: 'N/A', rate: 0 }, longestSuccess: 0, longestFailure: 0, totalDaysTracked: 0 });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setData({ totalCompletion: 0, totalEntries: 0, missCount: 0, successRate: 0, averageScore: 0, bestDay: { date: 'N/A', rate: 0 }, worstDay: { date: 'N/A', rate: 0 }, bestWeek: { week: 'N/A', rate: 0 }, bestMonth: { month: 'N/A', rate: 0 }, longestSuccess: 0, longestFailure: 0, totalDaysTracked: 0 });
-        }
-      });
+    requestAnimationFrame(() => {
+      setFetching(true);
+      fetch(`/api/statistics?period=${period}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled && d && typeof d.totalCompletion === 'number') {
+            setData(d);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setFetching(false);
+        });
+    });
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, period]);
+
+  const handlePeriodChange = (newPeriod: Period) => {
+    setPeriod(newPeriod);
+  };
 
   const chartData = useMemo(() => {
     if (!data) return [];
@@ -227,22 +254,47 @@ export default function Statistics() {
 
   if (loading) return <LoadingSkeleton />;
 
-  if (!data) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Target className="h-12 w-12 text-muted-foreground/40 mb-4" />
-        <p className="text-lg font-medium text-muted-foreground">No statistics yet</p>
-        <p className="text-sm text-muted-foreground/70 mt-1">Start tracking habits to see your stats</p>
-      </div>
-    );
-  }
+  const displayData = data || DEFAULT_STATS;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Statistics</h2>
-        <p className="text-sm text-muted-foreground mt-1">Your habit tracking performance at a glance</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Statistics</h2>
+          <p className="text-sm text-muted-foreground mt-1">Your habit tracking performance at a glance</p>
+        </div>
+        {/* Period Filter */}
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handlePeriodChange(opt.value)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150',
+                  period === opt.value
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {period !== 'all' && (
+            <Badge variant="secondary" className="text-[10px]">
+              {PERIOD_OPTIONS.find(p => p.value === period)?.label}
+            </Badge>
+          )}
+          {fetching && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              Memuat...
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -250,16 +302,16 @@ export default function Statistics() {
         <StatCard
           icon={CheckCircle}
           label="Total Completions"
-          value={data.totalCompletion}
-          subValue={`of ${data.totalEntries} entries`}
+          value={displayData.totalCompletion}
+          subValue={`of ${displayData.totalEntries} entries`}
           color="text-green-600"
         />
 
         <StatCard
           icon={XCircle}
           label="Miss Count"
-          value={data.missCount}
-          subValue={total > 0 ? `${((data.missCount / total) * 100).toFixed(1)}% of total` : undefined}
+          value={displayData.missCount}
+          subValue={total > 0 ? `${((displayData.missCount / total) * 100).toFixed(1)}% of total` : undefined}
           color="text-amber-600"
         />
 
@@ -269,10 +321,12 @@ export default function Statistics() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Success Rate</p>
-                <p className="text-lg font-bold mt-1 text-green-600">{data.successRate.toFixed(1)}%</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Overall completion</p>
+                <p className="text-lg font-bold mt-1 text-green-600">{displayData.successRate.toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {period !== 'all' ? `${PERIOD_OPTIONS.find(p => p.value === period)?.label} completion` : 'Overall completion'}
+                </p>
               </div>
-              <ProgressRing value={data.successRate} size={56} strokeWidth={4} />
+              <ProgressRing value={displayData.successRate} size={56} strokeWidth={4} />
             </div>
           </CardContent>
         </Card>
@@ -282,18 +336,18 @@ export default function Statistics() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Average Score</p>
-                <p className="text-lg font-bold mt-1 text-foreground">{data.averageScore.toFixed(1)}%</p>
+                <p className="text-lg font-bold mt-1 text-foreground">{displayData.averageScore.toFixed(1)}%</p>
                 <div className="mt-2 h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn(
                       'h-full rounded-full transition-all duration-700 ease-out',
-                      data.averageScore >= 80
+                      displayData.averageScore >= 80
                         ? 'bg-green-500'
-                        : data.averageScore >= 50
+                        : displayData.averageScore >= 50
                           ? 'bg-amber-500'
                           : 'bg-red-500'
                     )}
-                    style={{ width: `${Math.min(data.averageScore, 100)}%` }}
+                    style={{ width: `${Math.min(displayData.averageScore, 100)}%` }}
                   />
                 </div>
               </div>
@@ -307,14 +361,14 @@ export default function Statistics() {
         <StatCard
           icon={Calendar}
           label="Days Tracked"
-          value={data.totalDaysTracked}
-          subValue="Total active days"
+          value={displayData.totalDaysTracked}
+          subValue={period !== 'all' ? `dalam ${PERIOD_OPTIONS.find(p => p.value === period)?.label}` : 'Total active days'}
         />
 
         <StatCard
           icon={Flame}
           label="Best Streak"
-          value={`${data.longestSuccess}d`}
+          value={`${displayData.longestSuccess}d`}
           subValue="Consecutive successes"
           color="text-green-600"
         />
@@ -322,7 +376,7 @@ export default function Statistics() {
         <StatCard
           icon={TrendingDown}
           label="Worst Streak"
-          value={`${data.longestFailure}d`}
+          value={`${displayData.longestFailure}d`}
           subValue="Consecutive misses"
           color="text-red-500"
         />
@@ -335,32 +389,32 @@ export default function Statistics() {
           <HighlightCard
             icon={Award}
             label="Best Day"
-            date={data.bestDay?.date && isValid(parseISO(data.bestDay.date)) ? format(parseISO(data.bestDay.date), 'MMM d, yyyy') : 'N/A'}
-            rate={data.bestDay?.rate ?? 0}
+            date={displayData.bestDay?.date && isValid(parseISO(displayData.bestDay.date)) ? format(parseISO(displayData.bestDay.date), 'MMM d, yyyy') : 'N/A'}
+            rate={displayData.bestDay?.rate ?? 0}
             color="text-green-600"
             trend="up"
           />
           <HighlightCard
             icon={AlertTriangle}
             label="Worst Day"
-            date={data.worstDay?.date && isValid(parseISO(data.worstDay.date)) ? format(parseISO(data.worstDay.date), 'MMM d, yyyy') : 'N/A'}
-            rate={data.worstDay?.rate ?? 0}
+            date={displayData.worstDay?.date && isValid(parseISO(displayData.worstDay.date)) ? format(parseISO(displayData.worstDay.date), 'MMM d, yyyy') : 'N/A'}
+            rate={displayData.worstDay?.rate ?? 0}
             color="text-red-500"
             trend="down"
           />
           <HighlightCard
             icon={TrendingUp}
             label="Best Week"
-            date={data.bestWeek?.week ?? 'N/A'}
-            rate={data.bestWeek?.rate ?? 0}
+            date={displayData.bestWeek?.week && isValid(parseISO(displayData.bestWeek.week)) ? format(parseISO(displayData.bestWeek.week), 'MMM d, yyyy') : displayData.bestWeek?.week ?? 'N/A'}
+            rate={displayData.bestWeek?.rate ?? 0}
             color="text-green-600"
             trend="up"
           />
           <HighlightCard
             icon={Award}
             label="Best Month"
-            date={data.bestMonth?.month ?? 'N/A'}
-            rate={data.bestMonth?.rate ?? 0}
+            date={displayData.bestMonth?.month ?? 'N/A'}
+            rate={displayData.bestMonth?.rate ?? 0}
             color="text-green-600"
             trend="up"
           />
@@ -371,7 +425,14 @@ export default function Statistics() {
       {total > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Completion vs Misses</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Completion vs Misses</CardTitle>
+              {period !== 'all' && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {PERIOD_OPTIONS.find(p => p.value === period)?.label}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-48">
@@ -414,4 +475,3 @@ export default function Statistics() {
     </div>
   );
 }
-
