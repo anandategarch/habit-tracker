@@ -18,6 +18,7 @@ import {
   Trophy,
   Gift,
   Medal,
+  Wallet,
   Calculator,
   Brain,
   Settings as SettingsIcon,
@@ -36,6 +37,7 @@ import Goals from '@/components/habit-tracker/goals';
 import Challenges from '@/components/habit-tracker/challenges';
 import Rewards from '@/components/habit-tracker/rewards';
 import Badges from '@/components/habit-tracker/badges';
+import Finance from '@/components/habit-tracker/finance';
 import Statistics from '@/components/habit-tracker/statistics';
 import AIInsights from '@/components/habit-tracker/ai-insights';
 import SettingsTab from '@/components/habit-tracker/settings';
@@ -51,6 +53,7 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'challenges', label: 'Challenges', icon: Trophy },
   { id: 'rewards', label: 'Rewards', icon: Gift },
   { id: 'badges', label: 'Badges', icon: Medal },
+  { id: 'finance', label: 'Finance', icon: Wallet },
   { id: 'statistics', label: 'Statistics', icon: Calculator },
   { id: 'insights', label: 'AI Insights', icon: Brain },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -67,6 +70,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   challenges: Challenges,
   rewards: Rewards,
   badges: Badges,
+  finance: Finance,
   statistics: Statistics,
   insights: AIInsights,
   settings: SettingsTab,
