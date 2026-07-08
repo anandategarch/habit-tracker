@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   serverExternalPackages: [
-    '@prisma/client',
     '@prisma/adapter-libsql',
     '@libsql/client',
   ],
