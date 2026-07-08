@@ -115,7 +115,7 @@ export default function LearningTab() {
         setSelectedTopic(data[0].name);
       }
     } catch {
-      toast.error('Gagal memuat topik');
+      // Silent fail — API returns [] on error, topics will be empty
     } finally {
       setTopicsLoading(false);
     }
