@@ -457,3 +457,19 @@ Stage Summary:
 - DELETE /api/reset-all endpoint clears all 11 tables
 - Statistics tab crash fixed with proper error handling
 - User can now clear dummy data and start fresh
+
+---
+Task ID: 15
+Agent: Main Coordinator
+Task: Add month picker dropdown to Finance tab for custom date range selection
+
+Work Log:
+- Replaced static month label in Finance header with a Select dropdown
+- Added `useMemo` import and `monthOptions` generator: 2 years back (Juli 2024) to 2 years forward (Juli 2028) = 49 month options
+- Month names displayed in Bahasa Indonesia (via date-fns id locale)
+- Kept existing arrow buttons and "Hari ini" button alongside the dropdown
+- Verified dropdown shows Juli 2024 through Juli 2028 in browser
+
+Stage Summary:
+- Finance month navigation now has a dropdown picker spanning 4 years total
+- User can jump to any month directly instead of clicking arrows one by one
