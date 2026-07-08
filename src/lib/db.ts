@@ -13,17 +13,17 @@ async function createPrismaClient(): Promise<PrismaClientInstance> {
 
   if (databaseUrl.startsWith('libsql://')) {
     // Use dynamic import() for ESM compatibility on Vercel serverless
-    const [{ PrismaLibSQL }, { createClient }] = await Promise.all([
-      import('@prisma/adapter-libsql'),
-      import('@libsql/client'),
-    ]);
+    const adapterMod = await import('@prisma/adapter-libsql');
+    const { createClient } = await import('@libsql/client');
+    // NOTE: export is PrismaLibSql (lowercase 'ql'), not PrismaLibSQL
+    const PrismaLibSql = adapterMod.PrismaLibSql;
 
     const libsql = createClient({
       url: databaseUrl,
       authToken: process.env.DATABASE_AUTH_TOKEN || '',
     });
 
-    return new PrismaClient({ adapter: new PrismaLibSQL(libsql) } as never);
+    return new PrismaClient({ adapter: new PrismaLibSql(libsql) } as never);
   }
 
   return new PrismaClient();
