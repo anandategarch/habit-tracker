@@ -1,16 +1,36 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+const DEFAULT_TOPICS = [
+  { name: 'Akuntansi', emoji: '📒', order: 0 },
+  { name: 'Keuangan', emoji: '💰', order: 1 },
+  { name: 'Ekonomi', emoji: '📈', order: 2 },
+  { name: 'Pajak', emoji: '🧾', order: 3 },
+  { name: 'Investasi', emoji: '🏦', order: 4 },
+  { name: 'Manajemen', emoji: '📊', order: 5 },
+];
+
 // GET /api/learning/topics
 export async function GET() {
   try {
-    const topics = await db.learningTopic.findMany({
+    let topics = await db.learningTopic.findMany({
       orderBy: { order: 'asc' },
     });
+
+    // Auto-seed if empty
+    if (topics.length === 0) {
+      try {
+        await db.learningTopic.createMany({ data: DEFAULT_TOPICS });
+        topics = await db.learningTopic.findMany({ orderBy: { order: 'asc' } });
+      } catch (seedErr) {
+        console.error('Auto-seed learning topics failed:', seedErr);
+      }
+    }
+
     return NextResponse.json(topics);
   } catch (error) {
     console.error('GET /api/learning/topics error:', error);
-    return NextResponse.json({ error: 'Failed to fetch topics' }, { status: 500 });
+    return NextResponse.json([], { status: 200 });
   }
 }
 
