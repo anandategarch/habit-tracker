@@ -500,3 +500,30 @@ Stage Summary:
 - Full backup/restore system working (JSON export/import)
 - CSV export for financial transactions
 - Project ready for Vercel + Turso deployment with deployment guide pending
+---
+Task ID: csv-export-turso-deploy
+Agent: Main Coordinator
+Task: Build CSV export (all 11 tables as ZIP), setup Turso support, create deployment guide PDF
+
+Work Log:
+- Enhanced /api/data/export-csv/route.ts to export ALL 11 data tables as separate CSV files in a ZIP archive
+- Installed jszip for ZIP generation
+- Updated Settings UI: button renamed to "Export Semua CSV", download filename changed to .zip
+- Updated toast message to show total records and file count from response headers
+- Installed @prisma/adapter-libsql and @libsql/client for Turso cloud database support
+- Rewrote src/lib/db.ts to auto-detect libsql:// URL and use Turso adapter
+- Updated prisma/schema.prisma to include directUrl for Turso migration support
+- Created .env.example with templates for both local SQLite and Turso configuration
+- Updated .gitignore to exclude tool-results/ directory
+- Committed all changes to local git
+- Attempted GitHub push (anandategarch/habit-tracker) - failed due to no auth in sandbox
+- Verified CSV export endpoint returns HTTP 200
+- Verified via agent-browser: Settings tab shows all 3 buttons (Backup JSON, Export Semua CSV, Import JSON)
+- Verified via agent-browser: Finance tab loads without errors
+- Created comprehensive deployment guide PDF (8 pages, A4) at /home/z/my-project/panduan-deploy.pdf
+
+Stage Summary:
+- CSV Export: Complete - exports 11 CSV files (habits, logs, journals, goals, challenges, badges, rewards, transactions, budgets, categories, daily logs) as ZIP
+- Turso Support: Code-ready - db.ts auto-detects libsql:// and uses Turso adapter
+- GitHub Push: Pending - needs user's GitHub Personal Access Token to push from sandbox
+- Deployment Guide: Complete - 8-page PDF at panduan-deploy.pdf

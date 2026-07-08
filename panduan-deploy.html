@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panduan Deploy Habit Tracker ke Vercel + Turso</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+@page {
+    size: 794px 1123px;
+    margin: 0;
+}
+
+:root {
+    --c-bg: #f8fafc;
+    --c-white: #ffffff;
+    --c-text: #1e293b;
+    --c-text-secondary: #64748b;
+    --c-accent: #22c55e;
+    --c-accent-light: #dcfce7;
+    --c-accent-dark: #16a34a;
+    --c-card: #ffffff;
+    --c-border: #e2e8f0;
+    --c-code-bg: #f1f5f9;
+    --c-step-circle: #22c55e;
+    --c-warning: #f59e0b;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 794px;
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+@media screen {
+    html {
+        height: auto;
+        display: flex;
+        justify-content: center;
+        background: #e2e8f0;
+    }
+    body {
+        margin: 20px auto;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    }
+}
+
+/* ========== COVER PAGE ========== */
+.cover {
+    width: 794px;
+    height: 1123px;
+    box-sizing: border-box;
+    break-after: page;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(160deg, #052e16 0%, #14532d 40%, #166534 100%);
+}
+
+.cover-layer-1 {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.cover-circle-1 {
+    position: absolute;
+    width: 350px;
+    height: 350px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.12);
+    top: 20px;
+    right: 30px;
+}
+
+.cover-circle-2 {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.08);
+    bottom: 120px;
+    left: 20px;
+}
+
+.cover-circle-3 {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.05);
+    top: 300px;
+    left: 100px;
+}
+
+.cover-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(34,197,94,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,197,94,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+}
+
+.cover-kicker {
+    position: absolute;
+    top: 280px;
+    left: 80px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #22c55e;
+}
+
+.cover-title {
+    position: absolute;
+    top: 310px;
+    left: 80px;
+    font-size: 48px;
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.15;
+    max-width: 500px;
+    padding-bottom: 6px;
+}
+
+.cover-title-accent {
+    color: #22c55e;
+}
+
+.cover-subtitle {
+    position: absolute;
+    top: 430px;
+    left: 80px;
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.5;
+    max-width: 420px;
+}
+
+.cover-meta {
+    position: absolute;
+    top: 540px;
+    left: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cover-meta-item {
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cover-meta-label {
+    color: rgba(255,255,255,0.35);
+    min-width: 80px;
+}
+
+.cover-badge {
+    position: absolute;
+    top: 660px;
+    left: 80px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #22c55e;
+}
+
+.cover-footer {
+    position: absolute;
+    bottom: 60px;
+    left: 80px;
+    right: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cover-footer-text {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* ========== MAIN CONTENT ========== */
+.main-content {
+    padding: 56px 65px 40px 65px;
+}
+
+/* Chapter header */
+.chapter-header {
+    break-after: avoid;
+    break-inside: avoid;
+    margin-top: 36px;
+    margin-bottom: 20px;
+}
+
+.chapter-header:first-child {
+    margin-top: 0;
+}
+
+.section-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--c-accent);
+    background: var(--c-accent-light);
+    padding: 4px 12px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--c-text);
+    line-height: 1.25;
+    margin-bottom: 8px;
+}
+
+.divider {
+    width: 48px;
+    height: 6px;
+    background: var(--c-accent);
+    border-radius: 3px;
+    margin-bottom: 16px;
+}
+
+.section-desc {
+    font-size: 14px;
+    color: var(--c-text-secondary);
+    line-height: 1.6;
+    margin-top: 6px;
+}
+
+/* Step cards */
+.step-card {
+    break-inside: avoid;
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: box-shadow 0.2s;
+}
+
+.step-number {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--c-accent);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.step-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.step-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 8px;
+}
+
+.step-body {
+    font-size: 13.5px;
+    color: var(--c-text-secondary);
+    line-height: 1.65;
+}
+
+.step-body p {
+    margin: 0 0 6px 0;
+}
+
+.step-body p:last-child {
+    margin-bottom: 0;
+}
+
+/* Bullet list inside steps */
+.bullet-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0 0;
+}
+
+.bullet-list li {
+    position: relative;
+    padding-left: 18px;
+    margin-bottom: 5px;
+    font-size: 13.5px;
+    color: var(--c-text-secondary);
+    line-height: 1.6;
+}
+
+.bullet-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-accent);
+}
+
+/* Code blocks */
+.code-block {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.code-block .comment {
+    color: #64748b;
+}
+
+.code-block .cmd {
+    color: #22c55e;
+}
+
+/* Info callout */
+.callout {
+    break-inside: avoid;
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 13px;
+    color: #92400e;
+    line-height: 1.6;
+}
+
+.callout-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #78350f;
+}
+
+/* Success block */
+.success-block {
+    break-inside: avoid;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.success-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+.success-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #15803d;
+    margin-bottom: 8px;
+}
+
+.success-text {
+    font-size: 14px;
+    color: #166534;
+    line-height: 1.6;
+}
+
+/* Tips list */
+.tips-grid {
+    break-inside: avoid;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.tip-card {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.tip-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--c-accent-light);
+    color: var(--c-accent-dark);
+    font-size: 14px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tip-content {
+    flex: 1;
+}
+
+.tip-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 3px;
+}
+
+.tip-desc {
+    font-size: 13px;
+    color: var(--c-text-secondary);
+    line-height: 1.55;
+}
+
+/* Troubleshooting */
+.trouble-card {
+    break-inside: avoid;
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+
+.trouble-header {
+    font-size: 14px;
+    font-weight: 700;
+    color: #dc2626;
+    margin-bottom: 4px;
+}
+
+.trouble-fix {
+    font-size: 13px;
+    color: var(--c-text-secondary);
+    line-height: 1.55;
+}
+
+/* URL styling */
+.url {
+    color: var(--c-accent-dark);
+    font-family: 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+    background: var(--c-accent-light);
+    padding: 2px 6px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+/* Page number area */
+.page-footer {
+    text-align: center;
+    font-size: 10px;
+    color: #94a3b8;
+    padding: 16px 0 8px 0;
+    letter-spacing: 1px;
+}
+
+/* Horizontal spacer */
+.spacer {
+    height: 16px;
+}
+
+/* Sub-step indent */
+.sub-step {
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid var(--c-accent-light);
+}
+
+/* Emphasis in text */
+strong {
+    font-weight: 700;
+    color: var(--c-text);
+}
+
+code {
+    font-family: 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+    background: var(--c-code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #0f172a;
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER PAGE ==================== -->
+<div class="cover">
+    <!-- Background decorations -->
+    <div class="cover-layer-1">
+        <div class="cover-grid"></div>
+        <div class="cover-circle-1"></div>
+        <div class="cover-circle-2"></div>
+        <div class="cover-circle-3"></div>
+    </div>
+
+    <!-- Text content - each element absolutely positioned -->
+    <div class="cover-kicker">Panduan Deployment</div>
+    <div class="cover-title">Panduan Deploy<br><span class="cover-title-accent">Habit Tracker</span></div>
+    <div class="cover-subtitle">Panduan langkah demi langkah untuk men-deploy aplikasi Habit Tracker ke Vercel dengan database Turso. Semua gratis!</div>
+    <div class="cover-meta">
+        <div class="cover-meta-item">
+            <span class="cover-meta-label">GitHub</span>
+            <span style="color: rgba(255,255,255,0.7);">anandategarch</span>
+        </div>
+        <div class="cover-meta-item">
+            <span class="cover-meta-label">Repository</span>
+            <span style="color: rgba(255,255,255,0.7);">habit-tracker</span>
+        </div>
+        <div class="cover-meta-item">
+            <span class="cover-meta-label">Teknologi</span>
+            <span style="color: rgba(255,255,255,0.7);">Next.js + Prisma + Turso</span>
+        </div>
+    </div>
+    <div class="cover-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        VERCEL + TURSO (GRATIS)
+    </div>
+    <div class="cover-footer">
+        <span class="cover-footer-text">v1.0</span>
+        <span class="cover-footer-text">Deployment Guide</span>
+    </div>
+</div>
+
+<!-- ==================== MAIN CONTENT ==================== -->
+<div class="main-content">
+
+    <!-- ====== BAB 1: Persiapan di Laptop ====== -->
+    <div class="chapter-header">
+        <div class="section-tag">Bagian 1</div>
+        <div class="section-title">Persiapan di Laptop</div>
+        <div class="divider"></div>
+        <div class="section-desc">Sebelum mulai deploy, pastikan laptop kamu sudah terinstal semua tools yang dibutuhkan.</div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">1</div>
+        <div class="step-content">
+            <div class="step-title">Install Git</div>
+            <div class="step-body">
+                <ul class="bullet-list">
+                    <li>Download Git dari <span class="url">git-scm.com</span></li>
+                    <li>Klik Next-Next-Next sampai selesai (default sudah benar)</li>
+                    <li>Buka CMD atau PowerShell, ketik perintah berikut untuk verifikasi:</li>
+                </ul>
+                <div class="code-block">git --version</div>
+                <p style="margin-top:8px; font-size:12.5px; color:#64748b;">Jika muncul versi seperti <code>git version 2.x.x</code>, berarti Git sudah terinstal dengan benar.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">2</div>
+        <div class="step-content">
+            <div class="step-title">Install Node.js</div>
+            <div class="step-body">
+                <ul class="bullet-list">
+                    <li>Download Node.js dari <span class="url">nodejs.org</span> (pilih versi LTS)</li>
+                    <li>Klik Next-Next-Next sampai selesai</li>
+                    <li>Buka CMD, ketik perintah berikut untuk verifikasi:</li>
+                </ul>
+                <div class="code-block">node --version</div>
+                <p style="margin-top:8px; font-size:12.5px; color:#64748b;">Pastikan versi yang muncul adalah versi 18 atau lebih baru (contoh: <code>v20.x.x</code>).</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">3</div>
+        <div class="step-content">
+            <div class="step-title">Install Bun</div>
+            <div class="step-body">
+                <p>Bun adalah package manager yang lebih cepat dari npm. Install via CMD:</p>
+                <div class="code-block">npm install -g bun</div>
+                <p style="margin-top:8px;">Bun digunakan untuk menginstall dependensi dan menjalankan skrip di project Habit Tracker.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">4</div>
+        <div class="step-content">
+            <div class="step-title">Install Vercel CLI</div>
+            <div class="step-body">
+                <p>Vercel CLI memungkinkan kamu deploy langsung dari terminal. Install via CMD:</p>
+                <div class="code-block">npm install -g vercel</div>
+                <p style="margin-top:8px;">Setelah terinstal, kamu bisa menjalankan perintah <code>vercel</code> dari mana saja di terminal.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <div class="callout-title">Catatan Penting</div>
+        Setelah semua tools terinstal, <strong>restart CMD/PowerShell</strong> agar perubahan PATH dikenali oleh sistem.
+    </div>
+
+    <!-- ====== BAB 2: Buat Database di Turso ====== -->
+    <div class="chapter-header">
+        <div class="section-tag">Bagian 2</div>
+        <div class="section-title">Buat Database di Turso</div>
+        <div class="divider"></div>
+        <div class="section-desc">Turso menyediakan database SQLite berbasis cloud secara gratis. Kita akan membuat database dan mengambil kredensial koneksi.</div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">5</div>
+        <div class="step-content">
+            <div class="step-title">Buka Turso dan Login</div>
+            <div class="step-body">
+                <ul class="bullet-list">
+                    <li>Buka browser, pergi ke: <span class="url">https://turso.tech</span></li>
+                    <li>Klik tombol <strong>"Login"</strong> atau <strong>"Start Free"</strong></li>
+                    <li>Login menggunakan akun GitHub: <strong>anandategarch</strong></li>
+                    <li>Izinkan akses jika diminta oleh Turso</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">6</div>
+        <div class="step-content">
+            <div class="step-title">Buat Database Baru</div>
+            <div class="step-body">
+                <ul class="bullet-list">
+                    <li>Di dashboard Turso, klik tombol <strong>"Create Database"</strong></li>
+                    <li>Isi <strong>Database Name</strong> dengan: <code>habit-tracker-db</code></li>
+                    <li>Pilih <strong>Region</strong> yang terdekat: <strong>Singapore</strong> atau <strong>Asia</strong></li>
+                    <li>Klik <strong>"Create"</strong></li>
+                    <li>Tunggu beberapa saat sampai database selesai dibuat (biasanya kurang dari 30 detik)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">7</div>
+        <div class="step-content">
+            <div class="step-title">Ambil Koneksi String</div>
+            <div class="step-body">
+                <p>Kredensial ini dibutuhkan agar aplikasi bisa terhubung ke database Turso:</p>
+                <div class="sub-step">
+                    <ul class="bullet-list">
+                        <li>Di dashboard Turso, klik database <strong>habit-tracker-db</strong> yang baru dibuat</li>
+                        <li>Klik tab <strong>"Settings"</strong></li>
+                        <li>Cari bagian <strong>"Connection string"</strong></li>
+                        <li><strong>Copy URL</strong> yang dimulai dengan <code>libsql://habit-tracker-db-...</code></li>
+                        <li>Scroll ke bawah, <strong>copy juga "Auth Token"</strong></li>
+                    </ul>
+                </div>
+                <div class="callout" style="margin-top: 12px;">
+                    <div class="callout-title">Simpan Kredensial dengan Aman</div>
+                    Simpan kedua nilai tersebut di tempat yang aman (misalnya Notepad). Kita akan memasukkannya ke Vercel pada Langkah 12.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== BAB 3: Buat Repository GitHub ====== -->
+    <div class="chapter-header">
+        <div class="section-tag">Bagian 3</div>
+        <div class="section-title">Buat Repository GitHub</div>
+        <div class="divider"></div>
+        <div class="section-desc">Kode project perlu disimpan di GitHub agar Vercel bisa mengambil dan men-deploy secara otomatis.</div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">8</div>
+        <div class="step-content">
+            <div class="step-title">Buat Repository di GitHub</div>
+            <div class="step-body">
+                <ul class="bullet-list">
+                    <li>Buka browser ke: <span class="url">https://github.com/new</span></li>
+                    <li>Isi <strong>Repository name</strong>: <code>habit-tracker</code></li>
+                    <li>Pilih <strong>"Public"</strong></li>
+                    <li><strong style="color:#dc2626;">JANGAN centang</strong> "Add a README file"</li>
+                    <li>Klik <strong>"Create repository"</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">9</div>
+        <div class="step-content">
+            <div class="step-title">Setup Project di Laptop</div>
+            <div class="step-body">
+                <p>Buka CMD atau PowerShell, lalu jalankan perintah berikut <strong>satu per satu</strong>:</p>
+                <div class="code-block">cd Desktop
+git clone https://github.com/anandategarch/habit-tracker.git
+cd habit-tracker
+bun install
+bun run db:push</div>
+                <p style="margin-top:8px;">Perintah <code>bun install</code> menginstall semua dependensi, dan <code>bun run db:push</code> membuat tabel-tabel di database lokal.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">10</div>
+        <div class="step-content">
+            <div class="step-title">Push Kode dari Sandbox</div>
+            <div class="step-body">
+                <p>Jika kode sudah ada di GitHub (di-push dari development), langsung lanjut ke Langkah 11.</p>
+                <p>Jika belum, copy seluruh folder project ke laptop, lalu jalankan:</p>
+                <div class="code-block">cd habit-tracker
+git add -A
+git commit -m "initial commit"
+git push -u origin main</div>
+                <p style="margin-top:8px;">Pastikan tidak ada error saat push. Jika diminta login GitHub, ikuti petunjuk di terminal.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== BAB 4: Deploy ke Vercel ====== -->
+    <div class="chapter-header">
+        <div class="section-tag">Bagian 4</div>
+        <div class="section-title">Deploy ke Vercel</div>
+        <div class="divider"></div>
+        <div class="section-desc">Sekarang saatnya men-deploy aplikasi ke Vercel agar bisa diakses dari internet!</div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">11</div>
+        <div class="step-content">
+            <div class="step-title">Deploy via Vercel CLI</div>
+            <div class="step-body">
+                <p>Buka CMD di folder project (<code>habit-tracker</code>), lalu jalankan:</p>
+                <div class="code-block">vercel</div>
+                <p style="margin-top:8px;">Akan muncul beberapa pertanyaan. Ikuti panduan berikut:</p>
+                <div class="sub-step">
+                    <ul class="bullet-list">
+                        <li><strong>Link to existing project?</strong> Pilih <code>N</code> (project baru)</li>
+                        <li><strong>Project name?</strong> Ketik <code>habit-tracker</code></li>
+                        <li><strong>Framework?</strong> Akan terdeteksi otomatis: <code>Next.js</code></li>
+                        <li>Pertanyaan selanjutnya: tekan <strong>Enter</strong> untuk semua default</li>
+                    </ul>
+                </div>
+                <p style="margin-top:8px; font-size:12.5px; color:#64748b;">Ini adalah deploy pertama (preview). Database belum terhubung, jadi halaman mungkin menampilkan error. Itu normal.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">12</div>
+        <div class="step-content">
+            <div class="step-title">Set Environment Variables di Vercel</div>
+            <div class="step-body">
+                <p>Agar aplikasi bisa terhubung ke database Turso, kita perlu menambahkan environment variables:</p>
+                <div class="sub-step">
+                    <p><strong>Tambahkan DATABASE_URL:</strong></p>
+                    <div class="code-block">vercel env add DATABASE_URL</div>
+                    <ul class="bullet-list" style="margin-top:6px;">
+                        <li>Pilih: <strong>Production</strong>, <strong>Preview</strong>, <strong>Development</strong> (pilih semua)</li>
+                        <li>Paste URL Turso: <code>libsql://habit-tracker-db-xxxxx.turso.io</code></li>
+                    </ul>
+                </div>
+                <div class="sub-step">
+                    <p style="margin-top:12px;"><strong>Tambahkan DATABASE_AUTH_TOKEN:</strong></p>
+                    <div class="code-block">vercel env add DATABASE_AUTH_TOKEN</div>
+                    <ul class="bullet-list" style="margin-top:6px;">
+                        <li>Pilih: <strong>Production</strong>, <strong>Preview</strong>, <strong>Development</strong> (pilih semua)</li>
+                        <li>Paste token dari Turso yang sudah dicopy di Langkah 7</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">13</div>
+        <div class="step-content">
+            <div class="step-title">Push Database Schema ke Turso</div>
+            <div class="step-body">
+                <p>Sekarang kita perlu membuat tabel-tabel database di Turso (bukan di lokal):</p>
+                <ul class="bullet-list">
+                    <li>Pastikan file <code>.env</code> di laptop sudah berisi URL Turso:</li>
+                </ul>
+                <div class="code-block">DATABASE_URL="libsql://habit-tracker-db-xxxxx.turso.io"
+DATABASE_AUTH_TOKEN="token-anda-dari-turso"</div>
+                <p style="margin-top:8px;">Lalu jalankan perintah berikut untuk push schema ke Turso:</p>
+                <div class="code-block">npx prisma db push</div>
+                <p style="margin-top:8px;">Perintah ini akan membuat semua tabel yang didefinisikan di <code>schema.prisma</code> langsung ke database Turso di cloud.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-number">14</div>
+        <div class="step-content">
+            <div class="step-title">Deploy Ulang ke Production</div>
+            <div class="step-body">
+                <p>Sekarang semuanya sudah siap. Jalankan deploy production:</p>
+                <div class="code-block">vercel --prod</div>
+                <p style="margin-top:8px;">Tunggu sampai proses selesai (biasanya 1-2 menit). Vercel akan memberikan URL seperti:</p>
+                <div style="background: var(--c-accent-light); border-radius: 8px; padding: 12px 16px; margin-top: 8px; text-align: center;">
+                    <span class="url" style="font-size: 14px; background: none; padding: 0;">https://habit-tracker-xxxx.vercel.app</span>
+                </div>
+                <p style="margin-top:8px;">Buka URL tersebut di browser. Aplikasi Habit Tracker kamu sudah online!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== BAB 5: Selesai! + Tips ====== -->
+    <div class="chapter-header">
+        <div class="section-tag">Bagian 5</div>
+        <div class="section-title">Selesai! dan Tips Penting</div>
+        <div class="divider"></div>
+    </div>
+
+    <div class="success-block">
+        <div class="success-icon">&#10003;</div>
+        <div class="success-title">Selamat! Aplikasi Sudah Online</div>
+        <div class="success-text">
+            Aplikasi Habit Tracker kamu sekarang online secara permanen!
+            Buka URL dari Vercel di browser mana saja. Data tersimpan
+            di Turso (cloud), aman dan permanen. Bisa diakses dari HP,
+            laptop, atau device lain.
+        </div>
+    </div>
+
+    <div class="tips-grid">
+        <div class="tip-card">
+            <div class="tip-icon">1</div>
+            <div class="tip-content">
+                <div class="tip-title">Backup Rutin</div>
+                <div class="tip-desc">Setiap minggu, klik "Backup JSON" di halaman Settings untuk menyimpan salinan data kamu secara lokal.</div>
+            </div>
+        </div>
+        <div class="tip-card">
+            <div class="tip-icon">2</div>
+            <div class="tip-content">
+                <div class="tip-title">Export CSV</div>
+                <div class="tip-desc">Klik "Export Semua CSV" untuk mengunduh semua data dalam format yang bisa dibuka di Excel atau Google Sheets.</div>
+            </div>
+        </div>
+        <div class="tip-card">
+            <div class="tip-icon">3</div>
+            <div class="tip-content">
+                <div class="tip-title">Update Kode</div>
+                <div class="tip-desc">Setiap ada perubahan kode, jalankan <code>git push</code> lalu <code>vercel --prod</code> untuk memperbarui aplikasi yang live.</div>
+            </div>
+        </div>
+        <div class="tip-card">
+            <div class="tip-icon">4</div>
+            <div class="tip-content">
+                <div class="tip-title">Free Tier Limits</div>
+                <div class="tip-desc">Vercel gratis: 100GB bandwidth per bulan. Turso gratis: 9GB storage. Cukup untuk penggunaan personal.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="chapter-header" style="margin-top: 28px;">
+        <div class="section-tag">Troubleshooting</div>
+        <div class="section-title">Masalah yang Sering Terjadi</div>
+        <div class="divider"></div>
+    </div>
+
+    <div class="trouble-card">
+        <div class="trouble-header">Error database / koneksi gagal</div>
+        <div class="trouble-fix">Cek <code>DATABASE_URL</code> dan <code>DATABASE_AUTH_TOKEN</code> di dashboard Vercel. Pastikan keduanya sudah benar dan cocok dengan yang ada di Turso dashboard.</div>
+    </div>
+
+    <div class="trouble-card">
+        <div class="trouble-header">Schema mismatch / tabel tidak ditemukan</div>
+        <div class="trouble-fix">Jalankan <code>npx prisma db push</code> lagi di laptop untuk memperbarui schema database di Turso.</div>
+    </div>
+
+    <div class="trouble-card">
+        <div class="trouble-header">Build failed di Vercel</div>
+        <div class="trouble-fix">Jalankan <code>bun run lint</code> di laptop untuk mengecek error. Pastikan semua dependensi terinstall dengan <code>bun install</code>.</div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="page-footer">Panduan Deploy Habit Tracker &mdash; anandategarch &mdash; v1.0</div>
+
+</div>
+
+</body>
+</html>
