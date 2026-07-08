@@ -527,3 +527,23 @@ Stage Summary:
 - Turso Support: Code-ready - db.ts auto-detects libsql:// and uses Turso adapter
 - GitHub Push: Pending - needs user's GitHub Personal Access Token to push from sandbox
 - Deployment Guide: Complete - 8-page PDF at panduan-deploy.pdf
+
+---
+Task ID: turso-setup-push
+Agent: Main Coordinator
+Task: Push schema to Turso cloud database and update GitHub
+
+Work Log:
+- Fixed Prisma schema: removed directUrl (causes error when not set)
+- Generated SQL schema (200 lines, 19 statements) via prisma migrate diff
+- Created proper database auth token via Turso API (the user's token was a platform token, not DB token)
+- Executed all 19 CREATE TABLE statements on Turso - all succeeded
+- Verified 14 tables exist in Turso: AppSettings, Badge, Budget, Challenge, DailyLog, FinanceCategory, Goal, Habit, HabitLog, Journal, Post, Reward, Transaction, User
+- Updated .env.example with actual Turso URL template
+- Committed and pushed fix to GitHub (commit 5af289d)
+
+Stage Summary:
+- Turso database fully configured with all tables
+- Database URL: libsql://habit-tracker-db-anandategarch.aws-ap-northeast-1.turso.io
+- GitHub repo updated with latest code
+- Ready for Vercel deployment with 2 env vars: DATABASE_URL and DATABASE_AUTH_TOKEN
