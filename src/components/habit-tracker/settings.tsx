@@ -238,10 +238,12 @@ export default function Settings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `transaksi-keuangan-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `habit-tracker-data-${new Date().toISOString().slice(0, 10)}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('CSV transaksi berhasil diunduh! 📊');
+      const total = res.headers.get('X-Total-Records');
+      const files = res.headers.get('X-Files-Count');
+      toast.success(`Data berhasil diunduh! ${total ?? '?'} record dari ${files ?? '11'} file CSV 📊`);
     } catch {
       toast.error('Gagal mengunduh CSV');
     } finally {
@@ -459,7 +461,7 @@ export default function Settings() {
               disabled={exporting}
             >
               {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" />}
-              {exporting ? 'Mengunduh...' : 'Export CSV'}
+              {exporting ? 'Mengunduh...' : 'Export Semua CSV'}
             </Button>
             <Button
               variant="outline"
@@ -472,7 +474,7 @@ export default function Settings() {
               Import JSON
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Backup JSON untuk restore penuh. Export CSV untuk buka di Excel.</p>
+          <p className="text-xs text-muted-foreground">Backup JSON untuk restore penuh. Export CSV berisi 11 file (habits, log, transaksi, dll) dalam format ZIP.</p>
 
           {/* Hidden file input for import */}
           <input
