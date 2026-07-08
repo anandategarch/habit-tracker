@@ -263,6 +263,108 @@ export async function GET(request: NextRequest) {
       .slice(0, 5)
       .map(h => ({ id: h.id, name: h.name, icon: h.icon, priority: h.priority }));
 
+    // ── Daily Learning Status ────────────────────────────────────────
+    const learningHabit = await db.habit.findFirst({ where: { name: 'Daily Learning' } });
+    let learningStatus = { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 };
+    if (learningHabit) {
+      const learningLogs = await db.habitLog.findMany({
+        where: { habitId: learningHabit.id, completed: true },
+        orderBy: { date: 'asc' },
+      });
+      const learningTodayLog = learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd'));
+      learningStatus.completedToday = !!learningTodayLog;
+      learningStatus.totalDays = learningLogs.length;
+
+      // Current streak
+      if (learningTodayLog) {
+        learningStatus.streak = 1;
+        for (let i = 1; i <= 365; i++) {
+          const d = subDays(today, i);
+          if (learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd'))) {
+            learningStatus.streak++;
+          } else break;
+        }
+      } else {
+        for (let i = 1; i <= 365; i++) {
+          const d = subDays(today, i);
+          if (learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd'))) {
+            learningStatus.streak++;
+          } else break;
+        }
+      }
+
+      // Longest streak
+      let tempStreak = 0;
+      for (let i = 0; i < learningLogs.length; i++) {
+        if (i === 0) { tempStreak = 1; }
+        else {
+          const diff = Math.round((learningLogs[i].date.getTime() - learningLogs[i - 1].date.getTime()) / 86400000);
+          if (diff === 1) { tempStreak++; } else { learningStatus.longestStreak = Math.max(learningStatus.longestStreak, tempStreak); tempStreak = 1; }
+        }
+      }
+      learningStatus.longestStreak = Math.max(learningStatus.longestStreak, tempStreak);
+    }
+
+    // ── Per-Habit Detail Stats ───────────────────────────────────────
+    const habitDetailStats = habits.map(h => {
+      const hLogs = allLogs.filter(l => l.habitId === h.id);
+      const completed = hLogs.filter(l => l.completed).length;
+      const total = hLogs.length;
+      const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      // Habit-level streak
+      let hStreak = 0;
+      const completedHL = hLogs.filter(l => l.completed).sort((a, b) => b.date.getTime() - a.date.getTime());
+      if (completedHL.length > 0) {
+        hStreak = 1;
+        for (let i = 1; i < completedHL.length; i++) {
+          const diff = Math.round((completedHL[i - 1].date.getTime() - completedHL[i].date.getTime()) / 86400000);
+          if (diff === 1) { hStreak++; } else break;
+        }
+      }
+
+      return { id: h.id, name: h.name, icon: h.icon, color: h.color, category: h.category, completed, total, rate, streak: hStreak };
+    }).sort((a, b) => b.rate - a.rate);
+
+    // ── Stacked Bar Data: completed vs total per day ─────────────────
+    const stackedBarData = [];
+    for (let i = chartDays - 1; i >= 0; i--) {
+      const d = subDays(today, i);
+      const key = format(d, 'yyyy-MM-dd');
+      const total = dailyTotalMap.get(key) || 0;
+      const done = dailyCompletionMap.get(key) || 0;
+      stackedBarData.push({
+        day: period === '7d' ? format(d, 'EEE') : format(d, 'MMM dd'),
+        completed: done,
+        missed: Math.max(0, total - done),
+        total,
+        rate: total > 0 ? Math.round((done / total) * 100) : 0,
+      });
+    }
+
+    // ── Hourly Distribution (mock from log patterns) ─────────────────
+    // Use completion rate by day-of-week for weekly pattern
+    const dayOfWeekStats: Record<string, { total: number; done: number }> = {};
+    for (let i = 30; i >= 0; i--) {
+      const d = subDays(today, i);
+      const key = format(d, 'yyyy-MM-dd');
+      const dayName = format(d, 'EEEE');
+      if (!dayOfWeekStats[dayName]) dayOfWeekStats[dayName] = { total: 0, done: 0 };
+      const t = dailyTotalMap.get(key) || 0;
+      const dn = dailyCompletionMap.get(key) || 0;
+      dayOfWeekStats[dayName].total += t;
+      dayOfWeekStats[dayName].done += dn;
+    }
+    const weeklyPattern = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+      const s = dayOfWeekStats[day] || { total: 0, done: 0 };
+      return {
+        day: day.substring(0, 3),
+        fullDay: day,
+        rate: s.total > 0 ? Math.round((s.done / s.total) * 100) : 0,
+        avgCompleted: s.total > 0 ? (s.done / Math.min(4, Math.ceil(30 / 7))).toFixed(1) : '0',
+      };
+    });
+
     return NextResponse.json({
       totalHabits,
       completionRate,
@@ -290,6 +392,11 @@ export async function GET(request: NextRequest) {
       categoryPerformance,
       todayFocus,
       period,
+      // New data
+      learningStatus,
+      habitDetailStats,
+      stackedBarData,
+      weeklyPattern,
     });
   } catch (error) {
     console.error('GET /api/dashboard error:', error);

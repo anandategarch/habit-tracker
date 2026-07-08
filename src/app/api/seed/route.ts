@@ -118,6 +118,15 @@ const DEFAULT_EXPENSE_CATEGORIES = [
   { type: 'expense', name: 'Lainnya', emoji: '📦', color: '#78716c', order: 9 },
 ];
 
+const DEFAULT_LEARNING_TOPICS = [
+  { name: 'Akuntansi', emoji: '📒', order: 0 },
+  { name: 'Keuangan', emoji: '💰', order: 1 },
+  { name: 'Ekonomi', emoji: '📈', order: 2 },
+  { name: 'Pajak', emoji: '🧾', order: 3 },
+  { name: 'Investasi', emoji: '🏦', order: 4 },
+  { name: 'Manajemen', emoji: '📊', order: 5 },
+];
+
 const DEFAULT_INCOME_CATEGORIES = [
   { type: 'income', name: 'Gaji', emoji: '💰', color: '#22c55e', order: 1 },
   { type: 'income', name: 'Freelance', emoji: '💻', color: '#06b6d4', order: 2 },
@@ -156,6 +165,12 @@ export async function GET() {
 
     if (catCount === 0) {
       await db.financeCategory.createMany({ data: [...DEFAULT_EXPENSE_CATEGORIES, ...DEFAULT_INCOME_CATEGORIES] });
+    }
+
+    // Default learning topics
+    const topicCount = await db.learningTopic.count();
+    if (topicCount === 0) {
+      await db.learningTopic.createMany({ data: DEFAULT_LEARNING_TOPICS });
     }
 
     return NextResponse.json({

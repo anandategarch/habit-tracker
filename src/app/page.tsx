@@ -34,7 +34,7 @@ const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-trac
 const HabitMaster = dynamic(() => import('@/components/habit-tracker/habit-master'), { ssr: false });
 const Analytics = dynamic(() => import('@/components/habit-tracker/analytics'), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false });
-const Journal = dynamic(() => import('@/components/habit-tracker/journal'), { ssr: false });
+const Learning = dynamic(() => import('@/components/habit-tracker/learning'), { ssr: false });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false });
 const Challenges = dynamic(() => import('@/components/habit-tracker/challenges'), { ssr: false });
 const Rewards = dynamic(() => import('@/components/habit-tracker/rewards'), { ssr: false });
@@ -50,7 +50,7 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'habits', label: 'Habit Master', icon: ListChecks },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { id: 'journal', label: 'Journal', icon: BookOpen },
+  { id: 'learning', label: 'Daily Learning', icon: BookOpen },
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'challenges', label: 'Challenges', icon: Trophy },
   { id: 'rewards', label: 'Rewards', icon: Gift },
@@ -67,7 +67,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   habits: HabitMaster,
   analytics: Analytics,
   calendar: CalendarView,
-  journal: Journal,
+  learning: Learning,
   goals: Goals,
   challenges: Challenges,
   rewards: Rewards,

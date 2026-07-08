@@ -186,6 +186,15 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+model LearningTopic {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  emoji     String   @default("📚")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Post {
   id        String   @id @default(cuid())
   title     String
