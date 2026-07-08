@@ -40,4 +40,32 @@ Stage Summary:
 - Journal tab fully replaced with Daily Learning tab
 - Learning feature integrated with habit tracker system
 - Dashboard significantly enhanced with 3 new chart sections + Daily Learning card
-- All changes committed (6cb0b24) and pushed to GitHub
+- All changes committed (6cb0b24) and pushed to GitHub---
+Task ID: 1
+Agent: main
+Task: Fix Daily Learning refresh to give truly new articles + increase article length to 500-700 words
+
+Work Log:
+- Analyzed the article API route refresh logic and identified root causes:
+  1. Only 1 random search query tried per refresh request
+  2. Aggressive seenTitles filter blocked all search results quickly, falling back to limited fallback articles
+  3. Cache key was same for refreshes (date|topic), causing overwrites
+  4. LLM prompt word count instruction not strong enough
+  5. Fallback articles too short (200-300 words)
+- Rewrote /src/app/api/learning/article/route.ts with major improvements:
+  - Multi-query retry loop: tries up to 5 different search queries before falling back
+  - Smarter dedup: tracks shown titles in a Set (per day per topic), soft filter prefers unseen but allows seen
+  - Refreshes don't overwrite cache (only first load caches)
+  - Increased page text input to 12000 chars for richer summarization
+  - Minimum content length check (1000 chars for web, 500 chars for fallback)
+  - Fallback snippet gathering from multiple queries when page_reader fails
+  - Strengthened LLM prompt with explicit 500-700 word instructions and warnings
+  - Expanded fallback articles: 5 per topic (was 3), each 500-700 words long
+  - Increased search queries per topic (18+ queries each, 13 for generic)
+- Verified with agent-browser: 3 consecutive refreshes all produced unique articles with 750-1000+ words
+
+Stage Summary:
+- Refresh now consistently produces different articles on each click (verified 3 unique articles)
+- Article content significantly longer: 755-1000+ words vs previous ~200-300 words
+- Fallback articles expanded and lengthened as safety net
+- All fallback articles for all 6 topics are now 500-700 words each
