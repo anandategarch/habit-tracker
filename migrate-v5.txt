@@ -1,0 +1,20 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "html": "<html><head><meta name=\"color-scheme\" content=\"light dark\"></head><body><pre style=\"word-wrap: break-word; white-space: pre-wrap;\">{\"success\":true,\"message\":\"Column \\\"source\\\" already exists; FundSource table ensured; Seeded 12 default fund sources\"}</pre></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "",
+    "title": "",
+    "url": "https://habit-tracker-leb6.vercel.app/api/migrate",
+    "usage": {
+      "tokens": 69
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 69
+    }
+  },
+  "status": 20000
+}

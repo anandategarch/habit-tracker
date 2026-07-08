@@ -1,0 +1,20 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "html": "<html><head><meta name=\"color-scheme\" content=\"light dark\"></head><body><pre style=\"word-wrap: break-word; white-space: pre-wrap;\">[{\"id\":\"cmrbvll5h0000jv04oi4ssvqj\",\"name\":\"Kas\",\"emoji\":\"💵\",\"order\":0,\"createdAt\":\"2026-07-08T09:28:56.406Z\",\"updatedAt\":\"2026-07-08T09:28:56.406Z\"},{\"id\":\"cmrbvllaf0001jv04got0yaol\",\"name\":\"Bank BCA\",\"emoji\":\"🏦\",\"order\":1,\"createdAt\":\"2026-07-08T09:28:56.583Z\",\"updatedAt\":\"2026-07-08T09:28:56.583Z\"},{\"id\":\"cmrbvllfh0002jv046a4c235f\",\"name\":\"Bank BRI\",\"emoji\":\"🏦\",\"order\":2,\"createdAt\":\"2026-07-08T09:28:56.765Z\",\"updatedAt\":\"2026-07-08T09:28:56.765Z\"},{\"id\":\"cmrbvllkc0003jv04wvhd7mdi\",\"name\":\"Bank Mandiri\",\"emoji\":\"🏦\",\"order\":3,\"createdAt\":\"2026-07-08T09:28:56.941Z\",\"updatedAt\":\"2026-07-08T09:28:56.941Z\"},{\"id\":\"cmrbvllpc0004jv043gs0uovl\",\"name\":\"Bank BNI\",\"emoji\":\"🏦\",\"order\":4,\"createdAt\":\"2026-07-08T09:28:57.120Z\",\"updatedAt\":\"2026-07-08T09:28:57.120Z\"},{\"id\":\"cmrbvllu60005jv044j6tspyc\",\"name\":\"Bank BSI\",\"emoji\":\"🏦\",\"order\":5,\"createdAt\":\"2026-07-08T09:28:57.295Z\",\"updatedAt\":\"2026-07-08T09:28:57.295Z\"},{\"id\":\"cmrbvllz50006jv0418rqfpi7\",\"name\":\"Bank Permata\",\"emoji\":\"🏦\",\"order\":6,\"createdAt\":\"2026-07-08T09:28:57.473Z\",\"updatedAt\":\"2026-07-08T09:28:57.473Z\"},{\"id\":\"cmrbvlm450007jv04d6m4tarb\",\"name\":\"GoPay\",\"emoji\":\"💚\",\"order\":7,\"createdAt\":\"2026-07-08T09:28:57.653Z\",\"updatedAt\":\"2026-07-08T09:28:57.653Z\"},{\"id\":\"cmrbvlm920008jv04voq83zj7\",\"name\":\"OVO\",\"emoji\":\"💜\",\"order\":8,\"createdAt\":\"2026-07-08T09:28:57.830Z\",\"updatedAt\":\"2026-07-08T09:28:57.830Z\"},{\"id\":\"cmrbvlmdx0009jv045ujdtwoe\",\"name\":\"DANA\",\"emoji\":\"💙\",\"order\":9,\"createdAt\":\"2026-07-08T09:28:58.006Z\",\"updatedAt\":\"2026-07-08T09:28:58.006Z\"},{\"id\":\"cmrbvlmiq000ajv04v0a9d8rf\",\"name\":\"ShopeePay\",\"emoji\":\"🧡\",\"order\":10,\"createdAt\":\"2026-07-08T09:28:58.179Z\",\"updatedAt\":\"2026-07-08T09:28:58.179Z\"},{\"id\":\"cmrbvlmnl000bjv04a9k1vtup\",\"name\":\"E-Money Lainnya\",\"emoji\":\"💳\",\"order\":11,\"createdAt\":\"2026-07-08T09:28:58.354Z\",\"updatedAt\":\"2026-07-08T09:28:58.354Z\"}]</pre></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "",
+    "title": "",
+    "url": "https://habit-tracker-leb6.vercel.app/api/finance/sources",
+    "usage": {
+      "tokens": 879
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 879
+    }
+  },
+  "status": 20000
+}
