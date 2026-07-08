@@ -630,3 +630,32 @@ Stage Summary:
 - Two features deployed: (1) thousand separator in nominal input, (2) fund source tracking
 - Database migration completed successfully on Turso
 - Migration endpoint at /api/migrate - safe to leave (no-op if column exists)
+
+---
+Task ID: 20
+Agent: Main Coordinator
+Summary: Convert hardcoded FUND_SOURCES to dynamic system + add bulk delete for transactions
+Changes:
+- Added FundSource interface and Checkbox import to finance.tsx
+- Renamed FUND_SOURCES to FALLBACK_SOURCES as fallback constant
+- Added source management states (sources, sourceDialogOpen, sourceFormOpen, editingSource, sourceForm)
+- Added bulk delete states (selectedTxIds, bulkDeleteOpen)
+- Added getActiveSources() and getSourceEmoji() helper functions
+- Added fetchSources() data fetching function, included in useEffect Promise.all
+- Added Source CRUD handlers (openNewSource, openEditSource, handleSubmitSource, handleDeleteSource)
+- Added Bulk Delete handlers (toggleSelectTx, toggleSelectAll, handleBulkDelete)
+- Added "Sumber Dana" button next to "Kategori" button in header
+- Updated source filter Select to use getActiveSources() instead of FUND_SOURCES
+- Added checkbox column to transaction table header with select-all functionality
+- Updated colSpan from 7 to 8 for empty state
+- Added checkbox cell in each table row for individual selection
+- Updated source badge in table to use getSourceEmoji() instead of hardcoded FUND_SOURCES lookup
+- Added bulk delete bar (red alert bar) above transactions table when items are selected
+- Updated transaction form source dropdown to use getActiveSources()
+- Added Bulk Delete confirmation AlertDialog before category management dialog
+- Added Source Management Dialog (list, add, edit, delete sources)
+- Added Add/Edit Source Dialog (emoji + name form)
+- Updated migrate/route.ts to create FundSource table and seed 12 default sources
+Files modified:
+- src/components/habit-tracker/finance.tsx
+- src/app/api/migrate/route.ts
