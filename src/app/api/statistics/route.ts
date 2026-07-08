@@ -1,24 +1,45 @@
 import { db } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, format, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth,
 } from 'date-fns';
 
-export async function GET() {
+type Period = '7d' | '1m' | '3m' | 'all';
+
+function getStartDate(period: Period, today: Date): Date | null {
+  switch (period) {
+    case '7d': return subDays(today, 7);
+    case '1m': return subDays(today, 30);
+    case '3m': return subDays(today, 90);
+    case 'all': return null; // no filter
+    default: return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const period: Period = (searchParams.get('period') as Period) || 'all';
+
     const now = new Date();
     const today = startOfDay(now);
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    const periodStart = getStartDate(period, today);
+
+    // Fetch logs with optional period filter
+    const logWhere: any = {};
+    if (periodStart) {
+      logWhere.date = { gte: periodStart };
+    }
 
     const allLogs = await db.habitLog.findMany({
+      where: logWhere,
       include: { habit: true },
     });
 
-    const dailyLogs = await db.dailyLog.findMany();
+    const dailyLogs = await db.dailyLog.findMany(
+      periodStart ? { where: { date: { gte: periodStart } } } : undefined
+    );
 
     // Total completion
     const totalCompletion = allLogs.filter(l => l.completed).length;
@@ -106,6 +127,7 @@ export async function GET() {
       longestSuccess,
       longestFailure,
       totalDaysTracked: dailyMap.size,
+      period,
     });
   } catch (error) {
     console.error('GET /api/statistics error:', error);

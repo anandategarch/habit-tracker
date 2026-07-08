@@ -659,3 +659,46 @@ Changes:
 Files modified:
 - src/components/habit-tracker/finance.tsx
 - src/app/api/migrate/route.ts
+
+---
+Task ID: 1
+Agent: Main Coordinator
+Task: Add period filter to Dashboard & Statistics + motivational quote on Dashboard
+
+Work Log:
+- Read and analyzed current Dashboard component, Statistics component, and their API routes
+- Read and analyzed the web-search skill documentation for z-ai-web-dev-sdk
+- Created `/api/motivational-quote` API endpoint using z-ai-web-dev-sdk web_search
+  - Searches Indonesian motivational quotes from the web
+  - Daily in-memory cache (same quote all day, Asia/Jakarta timezone)
+  - Fallback quotes if search fails
+  - Cleans and validates quote snippets
+- Updated `/api/dashboard` route to accept `period` query param (7d, 1m, 3m, all)
+  - Filters habit logs by period for all calculations
+  - Adjusts chart data range based on period
+  - Returns period in response
+- Updated `/api/statistics` route to accept `period` query param (7d, 1m, 3m, all)
+  - Filters all logs and daily logs by period
+  - All statistics calculated within selected period
+- Updated Dashboard component:
+  - Added motivational quote card at top with gradient background, quote icon, author attribution
+  - Refresh button to get new quote
+  - Period filter bar (7 Hari, 1 Bulan, 3 Bulan, Semua) with pill-style buttons
+  - Loading spinner when fetching data
+  - Chart label updates based on selected period
+- Updated Statistics component:
+  - Period filter in header area (responsive layout)
+  - Loading spinner when fetching data
+  - Period-aware labels ("dalam 7 Hari", etc.)
+  - Badge showing active period filter
+- Fixed React 19 lint error (`react-hooks/set-state-in-effect`) by using `requestAnimationFrame` wrapper
+- Fixed pre-existing lint error in page.tsx (moved date string to lazy useState initializer)
+- Added `allowedDevOrigins` to next.config.ts for sandbox cross-origin support
+
+Stage Summary:
+- 3 API endpoints created/updated: `/api/motivational-quote`, `/api/dashboard`, `/api/statistics`
+- 2 frontend components updated: `dashboard.tsx`, `statistics.tsx`
+- 1 config file updated: `next.config.ts`
+- 1 pre-existing bug fixed: `page.tsx` lint error
+- All changes pass lint cleanly
+- Page compiles successfully (verified via dev server GET / 200)
