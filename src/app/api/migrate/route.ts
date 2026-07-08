@@ -4,10 +4,9 @@ import { NextResponse } from 'next/server';
 // One-time migration endpoint to add the 'source' column to Transaction table
 export async function GET() {
   try {
-    // Try to add the column - will fail silently if it already exists
-    // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we catch the error
+    // 'Transaction' is a SQL reserved word, use bracket notation for SQLite
     try {
-      await db.$executeRawUnsafe('ALTER TABLE Transaction ADD COLUMN source TEXT DEFAULT \'Kas\'');
+      await db.$executeRawUnsafe('ALTER TABLE [Transaction] ADD COLUMN source TEXT DEFAULT \'Kas\'');
       return NextResponse.json({ success: true, message: 'Column "source" added to Transaction table' });
     } catch (alterError: unknown) {
       const msg = alterError instanceof Error ? alterError.message : String(alterError);
