@@ -11,6 +11,7 @@ export type TabId =
   | 'challenges'
   | 'rewards'
   | 'badges'
+  | 'finance'
   | 'statistics'
   | 'insights'
   | 'settings';

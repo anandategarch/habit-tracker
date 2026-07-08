@@ -383,3 +383,47 @@ Stage Summary:
 - All CRUD operations working with optimistic updates and toast feedback
 - Responsive design verified on both desktop and mobile viewports
 - Zero lint errors, zero console errors
+
+---
+Task ID: 13
+Agent: Main Coordinator
+Task: Add Finance Tracker feature to Habit Tracker Professional V2
+
+Work Log:
+- Added Transaction and Budget models to Prisma schema (schema.prisma)
+- Ran `bun run db:push` to sync new models to SQLite database
+- Regenerated Prisma Client
+- Created 6 API endpoints:
+  - GET/POST /api/finance/transactions (list with filters, create)
+  - GET/PUT/DELETE /api/finance/transactions/[id] (read, update, delete)
+  - GET/POST /api/finance/budgets (list, upsert by category)
+  - PUT/DELETE /api/finance/budgets/[id] (update, delete)
+  - GET /api/finance/dashboard (month summary with KPIs, budget status, comparisons)
+  - GET /api/finance/analytics (6-month trends, category breakdown, weekly patterns, savings rate)
+- Updated app store to add 'finance' to TabId union type
+- Updated page.tsx to add Finance tab with Wallet icon in sidebar navigation
+- Built comprehensive finance.tsx component with 4 sub-tabs:
+  1. **Ringkasan (Overview)**: 4 KPI cards (income, expense, balance, avg daily), daily spending AreaChart, category breakdown with progress bars, budget status grid
+  2. **Transaksi (Transactions)**: Search/filter bar (type, category, text), scrollable table with hover-reveal edit/delete, add/edit dialog with type toggle, category select, date picker
+  3. **Budget (Budgets)**: Budget cards with spent/remaining/percentage, over-budget warnings, per-day remaining calculation, add/delete functionality
+  4. **Analitik (Analytics)**: 6-month LineChart (income/expense/balance), horizontal BarChart top categories, PieChart income sources, weekly spending BarChart, summary stats grid, 5 largest expenses
+- Updated seed route to generate 87 sample transactions (3 months) and 6 budgets
+- Seeded sample data successfully
+- Verified via agent-browser:
+  - Finance tab loads with 4 sub-tabs
+  - Overview shows KPI cards with Rupiah formatting and month-over-month comparison
+  - Transactions table shows data with type badges, category emojis, formatted amounts
+  - Budget tab shows 6 budget cards with progress bars
+  - Analytics tab shows all 4 chart sections
+  - Add transaction dialog works (successfully added -Rp50.000 test transaction)
+  - Zero console errors
+- All UI text in Bahasa Indonesia (category names, labels, dialog titles, toast messages)
+- Rupiah currency formatting via Intl.NumberFormat
+
+Stage Summary:
+- Finance Tracker feature is complete and fully integrated
+- 6 new API endpoints for transactions, budgets, dashboard, and analytics
+- Comprehensive finance.tsx component (~700 lines) with 4 sub-tabs
+- 87 sample transactions and 6 budgets seeded
+- Full CRUD working with optimistic UI and toast notifications
+- Consistent green primary design matching the rest of the app

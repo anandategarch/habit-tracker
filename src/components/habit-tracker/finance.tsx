@@ -1,0 +1,1236 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  PiggyBank,
+  ArrowUpRight,
+  ArrowDownRight,
+  Target,
+  Trash2,
+  Edit3,
+  Search,
+  CalendarDays,
+  BarChart3,
+  PieChart,
+  LineChart,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useAppStore } from '@/store/app-store';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  LineChart as RechartsLineChart,
+  Line,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  Area,
+  AreaChart,
+  Legend,
+} from 'recharts';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  category: string;
+  description: string | null;
+  date: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface BudgetItem {
+  id: string;
+  category: string;
+  amount: number;
+  period: string;
+  createdAt: string;
+  updatedAt: string;
+  spent?: number;
+  remaining?: number;
+  percentage?: number;
+}
+
+interface DashboardData {
+  month: string;
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  transactionCount: number;
+  avgDailyExpense: number;
+  projectedMonthlyExpense: number;
+  expenseByCategory: Record<string, number>;
+  incomeByCategory: Record<string, number>;
+  dailySpending: Record<string, number>;
+  budgetStatus: BudgetItem[];
+  totalBudget: number;
+  totalBudgetSpent: number;
+  previousMonth: {
+    month: string;
+    income: number;
+    expense: number;
+  };
+}
+
+interface AnalyticsData {
+  monthlyTrend: { month: string; income: number; expense: number; balance: number }[];
+  topCategories: { category: string; amount: number; percentage: number }[];
+  categoryBreakdown: Record<string, number>;
+  weeklyPattern: { day: string; total: number; avg: number; count: number }[];
+  incomeSources: { source: string; amount: number; percentage: number }[];
+  savingsRate: number;
+  totalIncomeInRange: number;
+  totalExpenseInRange: number;
+  largestExpenses: { id: string; category: string; description: string | null; amount: number; date: string }[];
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const EXPENSE_CATEGORIES = [
+  { value: 'Makanan & Minuman', emoji: '🍽️', color: '#ef4444' },
+  { value: 'Transportasi', emoji: '🚗', color: '#f97316' },
+  { value: 'Belanja', emoji: '🛍️', color: '#eab308' },
+  { value: 'Hiburan', emoji: '🎮', color: '#a855f7' },
+  { value: 'Kesehatan', emoji: '🏥', color: '#ec4899' },
+  { value: 'Pendidikan', emoji: '📚', color: '#3b82f6' },
+  { value: 'Tagihan & Utilitas', emoji: '📋', color: '#6366f1' },
+  { value: 'Tabungan & Investasi', emoji: '🏦', color: '#14b8a6' },
+  { value: 'Lainnya', emoji: '📦', color: '#78716c' },
+];
+
+const INCOME_CATEGORIES = [
+  { value: 'Gaji', emoji: '💰', color: '#22c55e' },
+  { value: 'Freelance', emoji: '💻', color: '#06b6d4' },
+  { value: 'Investasi', emoji: '📈', color: '#f59e0b' },
+  { value: 'Bisnis', emoji: '🏢', color: '#8b5cf6' },
+  { value: 'Lainnya', emoji: '💸', color: '#78716c' },
+];
+
+const getCategoryMeta = (cat: string) => {
+  return [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].find(c => c.value === cat) || { emoji: '📦', color: '#78716c' };
+};
+
+const formatRupiah = (amount: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+};
+
+const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#3b82f6', '#6366f1', '#14b8a6', '#22c55e', '#78716c'];
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export default function Finance() {
+  const { selectedMonth, setSelectedMonth, refreshKey, triggerRefresh } = useAppStore();
+  const [activeSubTab, setActiveSubTab] = useState('overview');
+
+  // Data states
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Dialog states
+  const [txDialogOpen, setTxDialogOpen] = useState(false);
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Form states
+  const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '' });
+  const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Filter states
+  const [txFilter, setTxFilter] = useState<{ type: string; category: string; search: string }>({ type: 'all', category: 'all', search: '' });
+
+  // ── Data Fetching ─────────────────────────────────────────────────────────
+
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
+      if (res.ok) setDashboardData(await res.json());
+    } catch { /* silent */ }
+  }, [selectedMonth]);
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ month: selectedMonth });
+      if (txFilter.type !== 'all') params.set('type', txFilter.type);
+      if (txFilter.category !== 'all') params.set('category', txFilter.category);
+      const res = await fetch(`/api/finance/transactions?${params}`);
+      if (res.ok) setTransactions(await res.json());
+    } catch { /* silent */ }
+  }, [selectedMonth, txFilter.type, txFilter.category]);
+
+  const fetchBudgets = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finance/budgets');
+      if (res.ok) setBudgets(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finance/analytics?months=6');
+      if (res.ok) setAnalyticsData(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
+  }, [fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
+
+  // ── Transaction CRUD ──────────────────────────────────────────────────────
+
+  const openNewTx = (type: 'income' | 'expense') => {
+    setEditingTx(null);
+    setTxForm({ type, amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], notes: '' });
+    setTxDialogOpen(true);
+  };
+
+  const openEditTx = (tx: Transaction) => {
+    setEditingTx(tx);
+    setTxForm({
+      type: tx.type,
+      amount: String(tx.amount),
+      category: tx.category,
+      description: tx.description || '',
+      date: tx.date.split('T')[0],
+      notes: tx.notes || '',
+    });
+    setTxDialogOpen(true);
+  };
+
+  const handleSubmitTx = async () => {
+    if (!txForm.amount || parseFloat(txForm.amount) <= 0) {
+      toast.error('Masukkan jumlah yang valid');
+      return;
+    }
+    if (!txForm.category) {
+      toast.error('Pilih kategori');
+      return;
+    }
+    if (!txForm.date) {
+      toast.error('Pilih tanggal');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (editingTx) {
+        const res = await fetch(`/api/finance/transactions/${editingTx.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(txForm),
+        });
+        if (res.ok) {
+          toast.success('Transaksi berhasil diupdate');
+        } else {
+          toast.error('Gagal mengupdate transaksi');
+          return;
+        }
+      } else {
+        const res = await fetch('/api/finance/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(txForm),
+        });
+        if (res.ok) {
+          toast.success('Transaksi berhasil ditambahkan');
+        } else {
+          toast.error('Gagal menambahkan transaksi');
+          return;
+        }
+      }
+      setTxDialogOpen(false);
+      triggerRefresh();
+    } catch {
+      toast.error('Terjadi kesalahan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteTx = async () => {
+    if (!deletingId) return;
+    try {
+      const res = await fetch(`/api/finance/transactions/${deletingId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Transaksi berhasil dihapus');
+        setDeleteDialogOpen(false);
+        setDeletingId(null);
+        triggerRefresh();
+      } else {
+        toast.error('Gagal menghapus transaksi');
+      }
+    } catch {
+      toast.error('Terjadi kesalahan');
+    }
+  };
+
+  // ── Budget CRUD ───────────────────────────────────────────────────────────
+
+  const handleSubmitBudget = async () => {
+    if (!budgetForm.category) {
+      toast.error('Pilih kategori');
+      return;
+    }
+    if (!budgetForm.amount || parseFloat(budgetForm.amount) <= 0) {
+      toast.error('Masukkan jumlah budget yang valid');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/finance/budgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(budgetForm),
+      });
+      if (res.ok) {
+        toast.success('Budget berhasil disimpan');
+        setBudgetDialogOpen(false);
+        triggerRefresh();
+      } else {
+        toast.error('Gagal menyimpan budget');
+      }
+    } catch {
+      toast.error('Terjadi kesalahan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBudget = async (id: string) => {
+    try {
+      const res = await fetch(`/api/finance/budgets/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Budget berhasil dihapus');
+        triggerRefresh();
+      }
+    } catch {
+      toast.error('Gagal menghapus budget');
+    }
+  };
+
+  // ── Month Navigation ──────────────────────────────────────────────────────
+
+  const goToPrevMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    setSelectedMonth(d.toISOString().slice(0, 7));
+  };
+
+  const goToNextMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const d = new Date(y, m, 1);
+    setSelectedMonth(d.toISOString().slice(0, 7));
+  };
+
+  const goToThisMonth = () => {
+    setSelectedMonth(new Date().toISOString().slice(0, 7));
+  };
+
+  const monthLabel = format(new Date(selectedMonth + '-01'), 'MMMM yyyy', { locale: idLocale });
+
+  // ── Render Helpers ────────────────────────────────────────────────────────
+
+  const filteredTransactions = transactions.filter(tx => {
+    if (txFilter.search && !tx.description?.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.category.toLowerCase().includes(txFilter.search.toLowerCase())) return false;
+    return true;
+  });
+
+  const incomeChange = dashboardData && dashboardData.previousMonth.income > 0
+    ? Math.round(((dashboardData.totalIncome - dashboardData.previousMonth.income) / dashboardData.previousMonth.income) * 100)
+    : 0;
+
+  const expenseChange = dashboardData && dashboardData.previousMonth.expense > 0
+    ? Math.round(((dashboardData.totalExpense - dashboardData.previousMonth.expense) / dashboardData.previousMonth.expense) * 100)
+    : 0;
+
+  // Daily spending chart data
+  const dailySpendingChartData = dashboardData ? Object.entries(dashboardData.dailySpending)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, amount]) => ({
+      date: format(new Date(date), 'd MMM'),
+      amount: Math.round(amount),
+    })) : [];
+
+  // Category pie chart data
+  const categoryPieData = dashboardData ? Object.entries(dashboardData.expenseByCategory)
+    .map(([name, value]) => ({ name, value: Math.round(value) }))
+    .sort((a, b) => b.value - a.value) : [];
+
+  if (loading && !dashboardData) {
+    return (
+      <div className="space-y-4">
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPrevMonth}>
+            <CalendarDays className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold capitalize min-w-[160px] text-center">{monthLabel}</h2>
+            {selectedMonth !== new Date().toISOString().slice(0, 7) && (
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={goToThisMonth}>
+                Hari ini
+              </Button>
+            )}
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextMonth}>
+            <CalendarDays className="h-4 w-4 rotate-180" />
+          </Button>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => openNewTx('expense')} className="bg-red-500 hover:bg-red-600 text-white">
+            <ArrowDownRight className="h-4 w-4 mr-1" />
+            Pengeluaran
+          </Button>
+          <Button size="sm" onClick={() => openNewTx('income')}>
+            <ArrowUpRight className="h-4 w-4 mr-1" />
+            Pemasukan
+          </Button>
+        </div>
+      </div>
+
+      {/* Sub Tabs */}
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm">
+            <BarChart3 className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            Ringkasan
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className="text-xs sm:text-sm">
+            <Wallet className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            Transaksi
+          </TabsTrigger>
+          <TabsTrigger value="budgets" className="text-xs sm:text-sm">
+            <Target className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            Budget
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="text-xs sm:text-sm">
+            <PieChart className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            Analitik
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ─── OVERVIEW TAB ─── */}
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          {dashboardData && (
+            <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card className="border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-green-700 dark:text-green-400">Pemasukan</span>
+                      <ArrowUpRight className="h-4 w-4 text-green-600" />
+                    </div>
+                    <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatRupiah(dashboardData.totalIncome)}</p>
+                    {dashboardData.previousMonth.income > 0 && (
+                      <p className={cn('text-[11px] mt-1', incomeChange >= 0 ? 'text-green-600' : 'text-red-500')}>
+                        {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs bulan lalu
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-900">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-red-700 dark:text-red-400">Pengeluaran</span>
+                      <ArrowDownRight className="h-4 w-4 text-red-600" />
+                    </div>
+                    <p className="text-xl font-bold text-red-700 dark:text-red-400">{formatRupiah(dashboardData.totalExpense)}</p>
+                    {dashboardData.previousMonth.expense > 0 && (
+                      <p className={cn('text-[11px] mt-1', expenseChange <= 0 ? 'text-green-600' : 'text-red-500')}>
+                        {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs bulan lalu
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Saldo</span>
+                      <Wallet className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <p className={cn('text-xl font-bold', dashboardData.balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600')}>
+                      {formatRupiah(dashboardData.balance)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {dashboardData.transactionCount} transaksi
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Rata-rata/hari</span>
+                      <TrendingDown className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{formatRupiah(dashboardData.avgDailyExpense)}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Proyeksi: {formatRupiah(dashboardData.projectedMonthlyExpense)}/bulan
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Daily Spending Chart */}
+                <Card className="lg:col-span-2">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold">Tren Pengeluaran Harian</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {dailySpendingChartData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={dailySpendingChartData}>
+                          <defs>
+                            <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                          <RechartsTooltip
+                            formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
+                            contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                          />
+                          <Area type="monotone" dataKey="amount" stroke="#ef4444" fill="url(#spendGrad)" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
+                        Belum ada data pengeluaran bulan ini
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Category Breakdown */}
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold">Pengeluaran per Kategori</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {categoryPieData.length > 0 ? (
+                      <div className="space-y-3">
+                        {categoryPieData.slice(0, 6).map((item, i) => {
+                          const meta = getCategoryMeta(item.name);
+                          const total = categoryPieData.reduce((s, c) => s + c.value, 0);
+                          const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+                          return (
+                            <div key={item.name} className="flex items-center gap-2">
+                              <span className="text-base">{meta.emoji}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center text-xs mb-0.5">
+                                  <span className="truncate font-medium">{item.name}</span>
+                                  <span className="text-muted-foreground ml-1 shrink-0">{pct}%</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all"
+                                    style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                        Belum ada data
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Budget Overview */}
+              {dashboardData.budgetStatus.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Status Budget Bulan Ini
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {dashboardData.budgetStatus.map(b => {
+                        const meta = getCategoryMeta(b.category);
+                        const isOver = (b.percentage || 0) > 100;
+                        return (
+                          <div key={b.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                            <span className="text-xl">{meta.emoji}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center text-xs mb-1">
+                                <span className="font-medium truncate">{b.category}</span>
+                                <span className={cn('shrink-0 font-semibold', isOver ? 'text-red-500' : 'text-muted-foreground')}>
+                                  {formatRupiah(b.spent || 0)} / {formatRupiah(b.amount)}
+                                </span>
+                              </div>
+                              <Progress
+                                value={Math.min((b.percentage || 0), 100)}
+                                className={cn('h-2', isOver && '[&>div]:bg-red-500')}
+                              />
+                              {isOver && (
+                                <p className="text-[10px] text-red-500 mt-0.5">Over budget {formatRupiah((b.spent || 0) - b.amount)}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {dashboardData.totalBudget > 0 && (
+                      <div className="mt-3 pt-3 border-t flex justify-between text-xs text-muted-foreground">
+                        <span>Total Budget: {formatRupiah(dashboardData.totalBudget)}</span>
+                        <span>Terpakai: {formatRupiah(dashboardData.totalBudgetSpent)} ({Math.round((dashboardData.totalBudgetSpent / dashboardData.totalBudget) * 100)}%)</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* ─── TRANSACTIONS TAB ─── */}
+        <TabsContent value="transactions" className="space-y-4 mt-4">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari transaksi..."
+                value={txFilter.search}
+                onChange={e => setTxFilter(f => ({ ...f, search: e.target.value }))}
+                className="pl-8 h-9 text-sm"
+              />
+            </div>
+            <Select value={txFilter.type} onValueChange={v => setTxFilter(f => ({ ...f, type: v }))}>
+              <SelectTrigger className="h-9 w-full sm:w-36 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Tipe</SelectItem>
+                <SelectItem value="income">Pemasukan</SelectItem>
+                <SelectItem value="expense">Pengeluaran</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={txFilter.category} onValueChange={v => setTxFilter(f => ({ ...f, category: v }))}>
+              <SelectTrigger className="h-9 w-full sm:w-44 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Kategori</SelectItem>
+                {EXPENSE_CATEGORIES.map(c => (
+                  <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
+                ))}
+                {INCOME_CATEGORIES.map(c => (
+                  <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Transactions Table */}
+          <Card>
+            <CardContent className="p-0">
+              <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs w-12">Tipe</TableHead>
+                      <TableHead className="text-xs">Tanggal</TableHead>
+                      <TableHead className="text-xs">Kategori</TableHead>
+                      <TableHead className="text-xs">Deskripsi</TableHead>
+                      <TableHead className="text-xs text-right">Jumlah</TableHead>
+                      <TableHead className="text-xs w-20 text-center">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                          <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          Belum ada transaksi
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredTransactions.map(tx => {
+                        const meta = getCategoryMeta(tx.category);
+                        return (
+                          <TableRow key={tx.id} className="group">
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'text-[10px] px-1.5 py-0',
+                                  tx.type === 'income'
+                                    ? 'border-green-300 text-green-700 bg-green-50 dark:bg-green-950/30'
+                                    : 'border-red-300 text-red-700 bg-red-50 dark:bg-red-950/30'
+                                )}
+                              >
+                                {tx.type === 'income' ? '↑' : '↓'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {format(new Date(tx.date), 'd MMM', { locale: idLocale })}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm">{meta.emoji}</span>
+                                <span className="text-xs font-medium">{tx.category}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                              {tx.description || '-'}
+                            </TableCell>
+                            <TableCell className={cn('text-xs text-right font-semibold', tx.type === 'income' ? 'text-green-600' : 'text-red-500')}>
+                              {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTx(tx)}>
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => { setDeletingId(tx.id); setDeleteDialogOpen(true); }}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ─── BUDGETS TAB ─── */}
+        <TabsContent value="budgets" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Atur budget pengeluaran per kategori per bulan</p>
+            <Button size="sm" onClick={() => { setBudgetForm({ category: '', amount: '', period: 'monthly' }); setBudgetDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" />
+              Tambah Budget
+            </Button>
+          </div>
+
+          {budgets.length === 0 ? (
+            <Card>
+              <CardContent className="py-16 flex flex-col items-center text-muted-foreground">
+                <Target className="h-12 w-12 mb-3 opacity-20" />
+                <p className="text-sm font-medium">Belum ada budget</p>
+                <p className="text-xs mt-1">Atur budget per kategori untuk memantau pengeluaran</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {budgets.map(b => {
+                const meta = getCategoryMeta(b.category);
+                const dashboardBudget = dashboardData?.budgetStatus.find(db2 => db2.id === b.id);
+                const spent = dashboardBudget?.spent || 0;
+                const pct = b.amount > 0 ? Math.round((spent / b.amount) * 100) : 0;
+                const isOver = pct > 100;
+                const remaining = Math.max(0, b.amount - spent);
+
+                return (
+                  <Card key={b.id} className={cn('transition-colors', isOver && 'border-red-300 dark:border-red-800')}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="text-2xl">{meta.emoji}</div>
+                          <div>
+                            <h3 className="text-sm font-semibold">{b.category}</h3>
+                            <p className="text-[10px] text-muted-foreground capitalize">{b.period === 'monthly' ? 'Per Bulan' : 'Per Minggu'}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                          onClick={() => handleDeleteBudget(b.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Budget</span>
+                          <span className="font-semibold">{formatRupiah(b.amount)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Terpakai</span>
+                          <span className={cn('font-semibold', isOver ? 'text-red-500' : 'text-foreground')}>
+                            {formatRupiah(spent)} ({Math.min(pct, 999)}%)
+                          </span>
+                        </div>
+                        <Progress
+                          value={Math.min(pct, 100)}
+                          className={cn('h-2.5', isOver && '[&>div]:bg-red-500', !isOver && pct > 80 && '[&>div]:bg-amber-500')}
+                        />
+                        <div className="flex justify-between text-xs">
+                          <span className={cn(isOver ? 'text-red-500 font-medium' : 'text-green-600')}>
+                            {isOver ? `Over ${formatRupiah(spent - b.amount)}` : `Sisa ${formatRupiah(remaining)}`}
+                          </span>
+                          {b.amount > 0 && (
+                            <span className="text-muted-foreground">
+                              ~{formatRupiah((b.amount - spent) / Math.max(1, new Date(selectedMonth + '-01').getMonth() === new Date().getMonth() ? new Date().getDate() : 30))}/hari
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── ANALYTICS TAB ─── */}
+        <TabsContent value="analytics" className="space-y-4 mt-4">
+          {analyticsData && (
+            <>
+              {/* Monthly Trend */}
+              <Card>
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <LineChart className="h-4 w-4" />
+                    Tren Bulanan (6 Bulan Terakhir)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <RechartsLineChart data={analyticsData.monthlyTrend}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
+                      <RechartsTooltip
+                        formatter={(value: number, name: string) => [formatRupiah(value), name === 'income' ? 'Pemasukan' : name === 'expense' ? 'Pengeluaran' : 'Saldo']}
+                        contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                      />
+                      <Legend formatter={(value) => value === 'income' ? 'Pemasukan' : value === 'expense' ? 'Pengeluaran' : 'Saldo'} />
+                      <Line type="monotone" dataKey="income" stroke="#22c55e" strokeWidth={2.5} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Top Categories */}
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold">Kategori Pengeluaran Teratas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {analyticsData.topCategories.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={analyticsData.topCategories} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                          <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 11 }} />
+                          <RechartsTooltip
+                            formatter={(value: number) => [formatRupiah(value), 'Total']}
+                            contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                          />
+                          <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
+                            {analyticsData.topCategories.map((_, i) => (
+                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
+                        Belum ada data
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Income Sources Pie */}
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold">Sumber Pemasukan</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {analyticsData.incomeSources.length > 0 ? (
+                      <div className="flex items-center gap-4">
+                        <ResponsiveContainer width="50%" height={200}>
+                          <RechartsPieChart>
+                            <Pie
+                              data={analyticsData.incomeSources}
+                              dataKey="amount"
+                              nameKey="source"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={50}
+                              outerRadius={80}
+                              paddingAngle={3}
+                            >
+                              {analyticsData.incomeSources.map((_, i) => (
+                                <Cell key={i} fill={['#22c55e', '#06b6d4', '#f59e0b', '#8b5cf6', '#78716c'][i % 5]} />
+                              ))}
+                            </Pie>
+                            <RechartsTooltip
+                              formatter={(value: number) => formatRupiah(value)}
+                              contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                            />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                        <div className="flex-1 space-y-2">
+                          {analyticsData.incomeSources.map((s, i) => (
+                            <div key={s.source} className="flex items-center gap-2 text-xs">
+                              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: ['#22c55e', '#06b6d4', '#f59e0b', '#8b5cf6', '#78716c'][i % 5] }} />
+                              <span className="flex-1 truncate">{s.source}</span>
+                              <span className="font-semibold">{s.percentage}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                        Belum ada data pemasukan
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Weekly Pattern */}
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold">Pola Pengeluaran per Hari</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={analyticsData.weeklyPattern}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <RechartsTooltip
+                          formatter={(value: number, name: string) => [formatRupiah(value), name === 'total' ? 'Total' : 'Rata-rata']}
+                          contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                        />
+                        <Bar dataKey="total" fill="#a855f7" radius={[4, 4, 0, 0]} name="total" />
+                        <Bar dataKey="avg" fill="#c084fc" radius={[4, 4, 0, 0]} name="avg" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Summary Stats + Largest Expenses */}
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold">Ringkasan & Pengeluaran Terbesar</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/20">
+                        <p className="text-[10px] text-muted-foreground mb-1">Total Masuk</p>
+                        <p className="text-sm font-bold text-green-600">{formatRupiah(analyticsData.totalIncomeInRange)}</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/20">
+                        <p className="text-[10px] text-muted-foreground mb-1">Total Keluar</p>
+                        <p className="text-sm font-bold text-red-500">{formatRupiah(analyticsData.totalExpenseInRange)}</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                        <p className="text-[10px] text-muted-foreground mb-1">Rasio Tabungan</p>
+                        <p className={cn('text-sm font-bold', analyticsData.savingsRate >= 0 ? 'text-blue-600' : 'text-red-500')}>
+                          {analyticsData.savingsRate}%
+                        </p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">5 Pengeluaran Terbesar</p>
+                      <div className="space-y-1.5">
+                        {analyticsData.largestExpenses.length > 0 ? analyticsData.largestExpenses.map((tx, i) => {
+                          const meta = getCategoryMeta(tx.category);
+                          return (
+                            <div key={tx.id} className="flex items-center gap-2 text-xs">
+                              <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
+                              <span>{meta.emoji}</span>
+                              <span className="flex-1 truncate">{tx.description || tx.category}</span>
+                              <span className="font-semibold text-red-500 shrink-0">{formatRupiah(tx.amount)}</span>
+                            </div>
+                          );
+                        }) : (
+                          <p className="text-xs text-muted-foreground text-center py-4">Belum ada data</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* ─── ADD/EDIT TRANSACTION DIALOG ─── */}
+      <Dialog open={txDialogOpen} onOpenChange={setTxDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingTx ? 'Edit Transaksi' : 'Tambah Transaksi'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Type Toggle */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={txForm.type === 'expense' ? 'default' : 'outline'}
+                className={cn(txForm.type === 'expense' && 'bg-red-500 hover:bg-red-600 text-white')}
+                onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))}
+              >
+                <ArrowDownRight className="h-4 w-4 mr-1" />
+                Pengeluaran
+              </Button>
+              <Button
+                type="button"
+                variant={txForm.type === 'income' ? 'default' : 'outline'}
+                className={cn(txForm.type === 'income' && 'bg-green-500 hover:bg-green-600 text-white')}
+                onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))}
+              >
+                <ArrowUpRight className="h-4 w-4 mr-1" />
+                Pemasukan
+              </Button>
+            </div>
+
+            <div>
+              <Label className="text-xs">Jumlah (Rp)</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={txForm.amount}
+                onChange={e => setTxForm(f => ({ ...f, amount: e.target.value }))}
+                className="mt-1"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Kategori</Label>
+              <Select value={txForm.category} onValueChange={v => setTxForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(txForm.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Tanggal</Label>
+              <Input
+                type="date"
+                value={txForm.date}
+                onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Deskripsi</Label>
+              <Input
+                placeholder="Contoh: Makan siang di kantin"
+                value={txForm.description}
+                onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Catatan (opsional)</Label>
+              <Input
+                placeholder="Catatan tambahan..."
+                value={txForm.notes}
+                onChange={e => setTxForm(f => ({ ...f, notes: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setTxDialogOpen(false)}>Batal</Button>
+              <Button className="flex-1" onClick={handleSubmitTx} disabled={submitting}>
+                {submitting ? 'Menyimpan...' : editingTx ? 'Update' : 'Simpan'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── ADD BUDGET DIALOG ─── */}
+      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tambah Budget</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Kategori Pengeluaran</Label>
+              <Select value={budgetForm.category} onValueChange={v => setBudgetForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Jumlah Budget (Rp)</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={budgetForm.amount}
+                onChange={e => setBudgetForm(f => ({ ...f, amount: e.target.value }))}
+                className="mt-1"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Periode</Label>
+              <Select value={budgetForm.period} onValueChange={v => setBudgetForm(f => ({ ...f, period: v }))}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Bulanan</SelectItem>
+                  <SelectItem value="weekly">Mingguan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setBudgetDialogOpen(false)}>Batal</Button>
+              <Button className="flex-1" onClick={handleSubmitBudget} disabled={submitting}>
+                {submitting ? 'Menyimpan...' : 'Simpan Budget'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── DELETE CONFIRMATION ─── */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Transaksi yang dihapus tidak bisa dikembalikan. Yakin ingin melanjutkan?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTx} className="bg-red-500 hover:bg-red-600">Hapus</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
