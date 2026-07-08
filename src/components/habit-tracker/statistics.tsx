@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import {
   BarChart,
   Bar,
@@ -327,7 +327,7 @@ export default function Statistics() {
           <HighlightCard
             icon={Award}
             label="Best Day"
-            date={data.bestDay?.date ? format(parseISO(data.bestDay.date), 'MMM d, yyyy') : 'N/A'}
+            date={data.bestDay?.date && isValid(parseISO(data.bestDay.date)) ? format(parseISO(data.bestDay.date), 'MMM d, yyyy') : 'N/A'}
             rate={data.bestDay?.rate ?? 0}
             color="text-green-600"
             trend="up"
@@ -335,7 +335,7 @@ export default function Statistics() {
           <HighlightCard
             icon={AlertTriangle}
             label="Worst Day"
-            date={data.worstDay?.date ? format(parseISO(data.worstDay.date), 'MMM d, yyyy') : 'N/A'}
+            date={data.worstDay?.date && isValid(parseISO(data.worstDay.date)) ? format(parseISO(data.worstDay.date), 'MMM d, yyyy') : 'N/A'}
             rate={data.worstDay?.rate ?? 0}
             color="text-red-500"
             trend="down"

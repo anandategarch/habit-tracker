@@ -62,6 +62,7 @@ import {
   BarChart3,
   PieChart,
   LineChart,
+  Settings2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -145,9 +146,20 @@ interface AnalyticsData {
   largestExpenses: { id: string; category: string; description: string | null; amount: number; date: string }[];
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 
-const EXPENSE_CATEGORIES = [
+interface FinanceCategory {
+  id: string;
+  type: string;
+  name: string;
+  emoji: string;
+  color: string;
+  order: number;
+}
+
+// ── Fallback constants (used when API hasn't loaded yet) ─────────────────────
+
+const FALLBACK_EXPENSE = [
   { value: 'Makanan & Minuman', emoji: '🍽️', color: '#ef4444' },
   { value: 'Transportasi', emoji: '🚗', color: '#f97316' },
   { value: 'Belanja', emoji: '🛍️', color: '#eab308' },
@@ -159,17 +171,13 @@ const EXPENSE_CATEGORIES = [
   { value: 'Lainnya', emoji: '📦', color: '#78716c' },
 ];
 
-const INCOME_CATEGORIES = [
+const FALLBACK_INCOME = [
   { value: 'Gaji', emoji: '💰', color: '#22c55e' },
   { value: 'Freelance', emoji: '💻', color: '#06b6d4' },
   { value: 'Investasi', emoji: '📈', color: '#f59e0b' },
   { value: 'Bisnis', emoji: '🏢', color: '#8b5cf6' },
   { value: 'Lainnya', emoji: '💸', color: '#78716c' },
 ];
-
-const getCategoryMeta = (cat: string) => {
-  return [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].find(c => c.value === cat) || { emoji: '📦', color: '#78716c' };
-};
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -188,24 +196,53 @@ export default function Finance() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
+  const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Dialog states
   const [txDialogOpen, setTxDialogOpen] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [catFormOpen, setCatFormOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
 
   // Form states
   const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '' });
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
+  const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c' });
   const [submitting, setSubmitting] = useState(false);
 
   // Filter states
   const [txFilter, setTxFilter] = useState<{ type: string; category: string; search: string }>({ type: 'all', category: 'all', search: '' });
 
+  // ── Derived category helpers ──────────────────────────────────────────────
+
+  const expenseCategories = categories.filter(c => c.type === 'expense');
+  const incomeCategories = categories.filter(c => c.type === 'income');
+
+  const getCategoryMeta = useCallback((cat: string) => {
+    const found = categories.find(c => c.name === cat);
+    if (found) return { emoji: found.emoji, color: found.color };
+    return { emoji: '📦', color: '#78716c' };
+  }, [categories]);
+
+  const getCategoryList = useCallback((type: string) => {
+    const cats = categories.filter(c => c.type === type);
+    if (cats.length > 0) return cats.map(c => ({ value: c.name, emoji: c.emoji, color: c.color }));
+    return type === 'expense' ? FALLBACK_EXPENSE : FALLBACK_INCOME;
+  }, [categories]);
+
   // ── Data Fetching ─────────────────────────────────────────────────────────
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finance/categories');
+      if (res.ok) setCategories(await res.json());
+    } catch { /* silent */ }
+  }, []);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -240,8 +277,8 @@ export default function Finance() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
-  }, [fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
+    Promise.all([fetchCategories(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
 
@@ -376,6 +413,79 @@ export default function Finance() {
     }
   };
 
+  // ── Category CRUD ─────────────────────────────────────────────────────────
+
+  const openNewCat = (type: 'income' | 'expense') => {
+    setEditingCat(null);
+    setCatForm({ type, name: '', emoji: '📦', color: '#78716c' });
+    setCatFormOpen(true);
+  };
+
+  const openEditCat = (cat: FinanceCategory) => {
+    setEditingCat(cat);
+    setCatForm({ type: cat.type, name: cat.name, emoji: cat.emoji, color: cat.color });
+    setCatFormOpen(true);
+  };
+
+  const handleSubmitCat = async () => {
+    if (!catForm.name.trim()) {
+      toast.error('Masukkan nama kategori');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (editingCat) {
+        const res = await fetch(`/api/finance/categories/${editingCat.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(catForm),
+        });
+        if (res.ok) {
+          toast.success('Kategori berhasil diupdate');
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Gagal mengupdate kategori');
+          return;
+        }
+      } else {
+        const res = await fetch('/api/finance/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(catForm),
+        });
+        if (res.ok) {
+          toast.success('Kategori berhasil ditambahkan');
+        } else {
+          toast.error('Gagal menambahkan kategori');
+          return;
+        }
+      }
+      setCatFormOpen(false);
+      fetchCategories();
+      triggerRefresh();
+    } catch {
+      toast.error('Terjadi kesalahan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteCat = async (cat: FinanceCategory) => {
+    try {
+      const res = await fetch(`/api/finance/categories/${cat.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Kategori berhasil dihapus');
+        fetchCategories();
+        triggerRefresh();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Gagal menghapus kategori');
+      }
+    } catch {
+      toast.error('Terjadi kesalahan');
+    }
+  };
+
   // ── Month Navigation ──────────────────────────────────────────────────────
 
   const goToPrevMonth = () => {
@@ -459,7 +569,7 @@ export default function Finance() {
             <CalendarDays className="h-4 w-4 rotate-180" />
           </Button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => openNewTx('expense')} className="bg-red-500 hover:bg-red-600 text-white">
             <ArrowDownRight className="h-4 w-4 mr-1" />
             Pengeluaran
@@ -467,6 +577,10 @@ export default function Finance() {
           <Button size="sm" onClick={() => openNewTx('income')}>
             <ArrowUpRight className="h-4 w-4 mr-1" />
             Pemasukan
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setCatDialogOpen(true)}>
+            <Settings2 className="h-4 w-4 mr-1" />
+            Kategori
           </Button>
         </div>
       </div>
@@ -709,10 +823,10 @@ export default function Finance() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Kategori</SelectItem>
-                {EXPENSE_CATEGORIES.map(c => (
+                {getCategoryList('expense').map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
                 ))}
-                {INCOME_CATEGORIES.map(c => (
+                {getCategoryList('income').map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
                 ))}
               </SelectContent>
@@ -1113,7 +1227,7 @@ export default function Finance() {
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(txForm.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => (
+                  {getCategoryList(txForm.type).map(c => (
                     <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1174,7 +1288,7 @@ export default function Finance() {
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPENSE_CATEGORIES.map(c => (
+                  {getCategoryList('expense').map(c => (
                     <SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1231,6 +1345,143 @@ export default function Finance() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ─── CATEGORY MANAGEMENT DIALOG ─── */}
+      <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Kelola Kategori</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Pengeluaran Categories */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-red-600">📁 Pengeluaran</h3>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('expense')}>
+                  <Plus className="h-3 w-3 mr-1" /> Tambah
+                </Button>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+                {expenseCategories.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
+                    <span className="text-lg">{cat.emoji}</span>
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                    <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}>
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {expenseCategories.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">Belum ada kategori</p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Pemasukan Categories */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-green-600">💰 Pemasukan</h3>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('income')}>
+                  <Plus className="h-3 w-3 mr-1" /> Tambah
+                </Button>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+                {incomeCategories.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
+                    <span className="text-lg">{cat.emoji}</span>
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                    <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}>
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {incomeCategories.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">Belum ada kategori</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── ADD/EDIT CATEGORY DIALOG ─── */}
+      <Dialog open={catFormOpen} onOpenChange={(open) => { if (!open) setCatFormOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editingCat ? 'Edit Kategori' : 'Tambah Kategori'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs">Tipe</Label>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant={catForm.type === 'expense' ? 'default' : 'outline'} className={cn('cursor-pointer', catForm.type === 'expense' && 'bg-red-500')} onClick={() => setCatForm(f => ({ ...f, type: 'expense' }))}>
+                    Pengeluaran
+                  </Badge>
+                  <Badge variant={catForm.type === 'income' ? 'default' : 'outline'} className={cn('cursor-pointer', catForm.type === 'income' && 'bg-green-500')} onClick={() => setCatForm(f => ({ ...f, type: 'income' }))}>
+                    Pemasukan
+                  </Badge>
+                </div>
+              </div>
+              <div className="grid grid-cols-[60px_1fr] gap-3">
+                <div>
+                  <Label className="text-xs">Emoji</Label>
+                  <Input
+                    value={catForm.emoji}
+                    onChange={e => setCatForm(f => ({ ...f, emoji: e.target.value }))}
+                    className="mt-1 text-center text-lg"
+                    maxLength={4}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Nama Kategori</Label>
+                  <Input
+                    placeholder="Contoh: Makan Siang"
+                    value={catForm.name}
+                    onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Warna</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="color"
+                    value={catForm.color}
+                    onChange={e => setCatForm(f => ({ ...f, color: e.target.value }))}
+                    className="w-10 h-10 rounded-lg border cursor-pointer"
+                  />
+                  <Input
+                    value={catForm.color}
+                    onChange={e => setCatForm(f => ({ ...f, color: e.target.value }))}
+                    className="flex-1 font-mono text-xs"
+                    placeholder="#78716c"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setCatFormOpen(false)}>Batal</Button>
+                <Button className="flex-1" onClick={handleSubmitCat} disabled={submitting}>
+                  {submitting ? 'Menyimpan...' : editingCat ? 'Update' : 'Simpan'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }
