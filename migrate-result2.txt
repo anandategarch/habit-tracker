@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "external": {},
+    "html": "<html><head><meta name=\"color-scheme\" content=\"light dark\"><meta charset=\"utf-8\"></head><body><pre>{\"success\":false,\"error\":\"PrismaClientKnownRequestError: \\nInvalid `prisma.$queryRawUnsafe()` invocation:\\n\\n\\nRaw query failed. Code: `1`. Message: `SQL_INPUT_ERROR: SQLite input error: no such column: Transaction (at offset 35)`\"}</pre><div class=\"json-formatter-container\"></div></body></html>",
+    "httpStatus": 500,
+    "httpStatusText": "",
+    "metadata": {
+      "color-scheme": "light dark"
+    },
+    "title": "",
+    "url": "https://habit-tracker-leb6.vercel.app/api/migrate",
+    "usage": {
+      "tokens": 107
+    },
+    "warning": "Target URL returned error 500: Internal Server Error"
+  },
+  "meta": {
+    "usage": {
+      "tokens": 107
+    }
+  },
+  "status": 20000
+}
