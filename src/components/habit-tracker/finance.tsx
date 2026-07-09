@@ -1560,7 +1560,7 @@ export default function Finance() {
                 <CardHeader className="pb-2 pt-4 px-4">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   Peta Panas Pengeluaran
-                  <ChartInfo text="Intensitas pengeluaran harian selama 90 hari terakhir. Warna hijau muda = rendah, merah tua = tinggi. Arahkan kursor untuk melihat jumlah pasti. Kolom = minggu, baris = hari (Sen-Min)." />
+                  <ChartInfo text="Intensitas pengeluaran harian selama 90 hari terakhir. Abu-abu = rendah, merah = tinggi. Intensitas dihitung relatif terhadap hari pengeluaran tertinggi. Kolom = minggu, baris = hari (Sen-Min)." />
                 </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
@@ -1614,10 +1614,10 @@ export default function Finance() {
                                 const intensity = day ? Math.min(day.amount / maxAmount, 1) : -1;
                                 let bg = 'bg-muted/30';
                                 if (intensity >= 0) {
-                                  if (intensity === 0) bg = 'bg-green-100 dark:bg-green-950/40';
-                                  else if (intensity < 0.25) bg = 'bg-green-200 dark:bg-green-900/50';
-                                  else if (intensity < 0.5) bg = 'bg-yellow-300 dark:bg-yellow-800/60';
-                                  else if (intensity < 0.75) bg = 'bg-orange-400 dark:bg-orange-700/70';
+                                  if (intensity === 0) bg = 'bg-stone-100 dark:bg-stone-800/40';
+                                  else if (intensity < 0.25) bg = 'bg-amber-200 dark:bg-amber-900/50';
+                                  else if (intensity < 0.5) bg = 'bg-orange-300 dark:bg-orange-800/60';
+                                  else if (intensity < 0.75) bg = 'bg-orange-500 dark:bg-orange-700/70';
                                   else bg = 'bg-red-500 dark:bg-red-600';
                                 }
                                 return (
@@ -1647,27 +1647,18 @@ export default function Finance() {
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     Tren Tabungan
-                    <ChartInfo text="Selisih pemasukan dan pengeluaran per bulan (tabungan bulanan). Area hijau = positif (menabung), area di bawah garis nol = negatif (defisit). Persentase perubahan vs bulan sebelumnya ditampilkan." />
+                    <ChartInfo text="Selisih pemasukan dan pengeluaran per bulan. Bar hijau = surplus (menabung), bar merah = defisit (pengeluaran melebihi pemasukan). Persentase perubahan vs bulan sebelumnya ditampilkan." />
                   </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {analyticsData.monthlySavings && analyticsData.monthlySavings.length > 0 ? (
                       <ResponsiveContainer width="100%" height={220}>
-                        <AreaChart data={analyticsData.monthlySavings}>
-                          <defs>
-                            <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
+                        <BarChart data={analyticsData.monthlySavings}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                           <XAxis dataKey="monthLabel" tick={{ fontSize: 11 }} />
                           <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
                           <RechartsTooltip
-                            formatter={(value: number, name: string) => {
-                              if (name === 'savings') return [formatRupiah(value), 'Tabungan'];
-                              return [formatRupiah(value), name];
-                            }}
+                            formatter={(value: number) => [formatRupiah(Math.abs(value)), value >= 0 ? 'Surplus' : 'Defisit']}
                             contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
                             labelFormatter={(label, payload) => {
                               const item = payload?.[0]?.payload;
@@ -1678,8 +1669,12 @@ export default function Finance() {
                             }}
                           />
                           <ReferenceLine y={0} stroke="#78716c" strokeDasharray="3 3" />
-                          <Area type="monotone" dataKey="savings" stroke="#22c55e" fill="url(#savingsGrad)" strokeWidth={2} name="savings" />
-                        </AreaChart>
+                          <Bar dataKey="savings" name="savings" radius={[4, 4, 0, 0]}>
+                            {(analyticsData.monthlySavings || []).map((entry, index) => (
+                              <Cell key={index} fill={entry.savings >= 0 ? '#22c55e' : '#ef4444'} fillOpacity={0.8} />
+                            ))}
+                          </Bar>
+                        </BarChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>
