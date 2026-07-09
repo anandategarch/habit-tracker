@@ -28,6 +28,7 @@ import {
   Zap,
   CalendarDays,
   TrendingUp,
+  TrendingDown,
   Star,
   Award,
   Smile,
@@ -45,6 +46,7 @@ import {
   Calendar,
   GraduationCap,
   BookOpen as BookOpenIcon,
+  Wallet,
 } from 'lucide-react';
 
 type Period = '7d' | '1m' | '3m' | 'all';
@@ -93,6 +95,14 @@ interface DashboardData {
   habitDetailStats: { id: string; name: string; icon: string; color: string; category: string; completed: number; total: number; rate: number; streak: number }[];
   stackedBarData: { day: string; completed: number; missed: number; total: number; rate: number }[];
   weeklyPattern: { day: string; fullDay: string; rate: number; avgCompleted: string }[];
+  financeOverview: {
+    totalIncome: number;
+    totalExpense: number;
+    netBalance: number;
+    transactionCount: number;
+    budgetWarning: number;
+    budgetExceeded: number;
+  };
 }
 
 function ProgressRing({
@@ -240,6 +250,7 @@ const DEFAULT_DATA: DashboardData = {
   habitDetailStats: [],
   stackedBarData: [],
   weeklyPattern: [],
+  financeOverview: { totalIncome: 0, totalExpense: 0, netBalance: 0, transactionCount: 0, budgetWarning: 0, budgetExceeded: 0 },
 };
 
 export default function Dashboard() {
@@ -914,6 +925,85 @@ export default function Dashboard() {
                 </div>
                 {displayData.learningStatus.completedToday && (
                   <CheckCircle className="h-6 w-6 text-green-500" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Keuangan Bulan Ini ────────────────────────────────────────── */}
+      <section aria-label="Finance overview">
+        <Card className="p-4">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Keuangan Bulan Ini</h3>
+              </div>
+              <Badge variant="secondary" className="text-[10px]">
+                {displayData.financeOverview.transactionCount} transaksi
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Income */}
+              <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Pemasukan
+                </div>
+                <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                  {displayData.financeOverview.totalIncome.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              {/* Expense */}
+              <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                  <TrendingDown className="h-3.5 w-3.5" />
+                  Pengeluaran
+                </div>
+                <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                  {displayData.financeOverview.totalExpense.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              {/* Net Balance */}
+              <div className="rounded-lg border border-teal-200 bg-teal-50 dark:bg-teal-950/20 dark:border-teal-900 p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400">
+                  <Wallet className="h-3.5 w-3.5" />
+                  Saldo Bersih
+                </div>
+                <span className={cn(
+                  'text-lg font-bold',
+                  displayData.financeOverview.netBalance >= 0
+                    ? 'text-teal-700 dark:text-teal-300'
+                    : 'text-red-700 dark:text-red-300'
+                )}>
+                  {displayData.financeOverview.netBalance.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              {/* Budget Alerts */}
+              <div className={cn(
+                'rounded-lg border p-3 flex flex-col gap-1.5',
+                (displayData.financeOverview.budgetExceeded > 0 || displayData.financeOverview.budgetWarning > 0)
+                  ? 'border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900'
+                  : 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900'
+              )}>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Status Anggaran
+                </div>
+                {displayData.financeOverview.budgetExceeded > 0 ? (
+                  <span className="text-sm font-bold text-red-600 dark:text-red-400">
+                    {displayData.financeOverview.budgetExceeded} melebihi batas
+                  </span>
+                ) : displayData.financeOverview.budgetWarning > 0 ? (
+                  <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                    {displayData.financeOverview.budgetWarning} hampir limit
+                  </span>
+                ) : (
+                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                    Semua aman
+                  </span>
                 )}
               </div>
             </div>
