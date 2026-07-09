@@ -80,11 +80,12 @@ export async function GET(request: NextRequest) {
     // Determine chart days for display
     const chartDays = period === '7d' ? 7 : period === '1m' ? 30 : period === '3m' ? 90 : period === '6m' ? 180 : period === '1y' ? 365 : periodDays;
 
-    // ── Fetch all logs in the period ─────────────────────────────────
-    const allLogs = await db.habitLog.findMany({
+    // ── Fetch all logs in the period (only for active habits) ────────
+    const activeHabitIds = new Set(habits.map(h => h.id));
+    const allLogs = (await db.habitLog.findMany({
       where: { date: { gte: periodStart, lte: today } },
       include: { habit: true },
-    });
+    })).filter(l => activeHabitIds.has(l.habitId));
 
     // Build a map: "habitId|dateStr" -> log
     const logMap = new Map<string, { completed: boolean; habitId: string }>();
