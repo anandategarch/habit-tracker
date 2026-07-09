@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-// GET /api/finance/transactions?month=2025-01&type=expense
+// GET /api/finance/transactions?month=2025-01&type=expense&search=xxx
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get('source');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const search = searchParams.get('search');
 
     const where: Record<string, unknown> = {};
 
@@ -39,6 +40,15 @@ export async function GET(request: NextRequest) {
 
     if (source) {
       where.source = source;
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      where.OR = [
+        { description: { contains: term } },
+        { category: { contains: term } },
+        { notes: { contains: term } },
+      ];
     }
 
     const transactions = await db.transaction.findMany({

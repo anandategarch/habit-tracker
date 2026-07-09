@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth, format, differenceInDays,
+  startOfMonth, endOfMonth, format, differenceInCalendarDays,
 } from 'date-fns';
 
 // XP values by difficulty
@@ -16,15 +16,29 @@ function calcNextLevelXP(level: number): number {
   return (level * level) * 100;
 }
 
-type Period = '7d' | '1m' | '3m' | 'all';
+// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 
-function getStartDate(period: Period, today: Date): Date | null {
+function jakartaNow(): Date {
+  return new Date(Date.now() + JAKARTA_OFFSET_MS);
+}
+
+function jakartaToday(): Date {
+  const now = jakartaNow();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+type Period = '7d' | '1m' | '3m' | '6m' | '1y' | 'all';
+
+function getPeriodDays(period: Period): number {
   switch (period) {
-    case '7d': return subDays(today, 7);
-    case '1m': return subDays(today, 30);
-    case '3m': return subDays(today, 90);
-    case 'all': return null; // no filter
-    default: return null;
+    case '7d': return 7;
+    case '1m': return 30;
+    case '3m': return 90;
+    case '6m': return 180;
+    case '1y': return 365;
+    case 'all': return 365; // default, overridden below
+    default: return 365;
   }
 }
 
@@ -33,134 +47,176 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const period: Period = (searchParams.get('period') as Period) || 'all';
 
-    const now = new Date();
-    const today = startOfDay(now);
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    // Use Jakarta timezone
+    const today = jakartaToday();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(today);
+    const monthEnd = endOfMonth(today);
 
-    // Period-based start date for log filtering
-    const periodStart = getStartDate(period, today);
-
-    // Determine how many days to fetch (for chart data)
-    const chartDays = period === '7d' ? 7 : period === '1m' ? 30 : period === '3m' ? 90 : 30;
-
-    // Fetch all active habits
+    // Fetch all active habits (with createdAt for smart day counting)
     const habits = await db.habit.findMany({
       where: { status: 'active' },
     });
 
     const totalHabits = habits.length;
 
-    // Fetch logs with optional period filter
-    const logWhere: any = {};
-    if (periodStart) {
-      logWhere.date = { gte: periodStart };
+    // ── Determine period start date ──────────────────────────────────
+    let periodStart: Date;
+    if (period === 'all') {
+      if (habits.length > 0) {
+        const earliest = new Date(Math.min(...habits.map(h => h.createdAt.getTime())));
+        periodStart = startOfDay(earliest);
+      } else {
+        periodStart = subDays(today, 30);
+      }
     } else {
-      logWhere.date = { gte: subDays(today, 365) };
+      const days = getPeriodDays(period);
+      periodStart = subDays(today, days);
     }
 
+    const periodDays = differenceInCalendarDays(today, periodStart) + 1; // inclusive
+
+    // Determine chart days for display
+    const chartDays = period === '7d' ? 7 : period === '1m' ? 30 : period === '3m' ? 90 : period === '6m' ? 180 : period === '1y' ? 365 : periodDays;
+
+    // ── Fetch all logs in the period ─────────────────────────────────
     const allLogs = await db.habitLog.findMany({
-      where: logWhere,
+      where: { date: { gte: periodStart, lte: today } },
       include: { habit: true },
     });
 
-    const todayLogs = allLogs.filter(l => format(l.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd'));
-    const weekLogs = allLogs.filter(l => l.date >= weekStart && l.date <= weekEnd);
-    const monthLogs = allLogs.filter(l => l.date >= monthStart && l.date <= monthEnd);
-
-    // Calculate totals (within period)
-    const totalCompleted = allLogs.filter(l => l.completed).length;
-    const totalPossible = allLogs.length;
-    const completionRate = totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
-
-    // Today's success
-    const todayCompleted = todayLogs.filter(l => l.completed).length;
-    const successToday = totalHabits > 0 ? Math.round((todayCompleted / totalHabits) * 100) : 0;
-
-    // Weekly completion
-    const weekCompleted = weekLogs.filter(l => l.completed).length;
-    const weeklyCompletion = weekLogs.length > 0 ? Math.round((weekCompleted / weekLogs.length) * 100) : 0;
-
-    // Monthly completion
-    const monthCompleted = monthLogs.filter(l => l.completed).length;
-    const monthlyCompletion = monthLogs.length > 0 ? Math.round((monthCompleted / monthLogs.length) * 100) : 0;
-
-    // Streak calculation (within the period)
-    const dailyCompletionMap = new Map<string, number>();
-    const dailyTotalMap = new Map<string, number>();
+    // Build a map: "habitId|dateStr" -> log
+    const logMap = new Map<string, { completed: boolean; habitId: string }>();
+    const dailyCompletionMap = new Map<string, Set<string>>(); // dateStr -> Set of habitIds completed
+    const dailyLogMap = new Map<string, Set<string>>(); // dateStr -> Set of habitIds that have any log
 
     for (const log of allLogs) {
-      const day = format(log.date, 'yyyy-MM-dd');
-      dailyTotalMap.set(day, (dailyTotalMap.get(day) || 0) + 1);
+      const dateStr = format(log.date, 'yyyy-MM-dd');
+      const key = `${log.habitId}|${dateStr}`;
+      logMap.set(key, { completed: log.completed, habitId: log.habitId });
+
+      if (!dailyCompletionMap.has(dateStr)) dailyCompletionMap.set(dateStr, new Set());
+      if (!dailyLogMap.has(dateStr)) dailyLogMap.set(dateStr, new Set());
+      dailyLogMap.get(dateStr)!.add(log.habitId);
       if (log.completed) {
-        dailyCompletionMap.set(day, (dailyCompletionMap.get(day) || 0) + 1);
+        dailyCompletionMap.get(dateStr)!.add(log.habitId);
       }
     }
 
-    // Current streak
+    // ── Helper: count habits active on a given date ──────────────────
+    function habitsActiveOnDate(date: Date): number {
+      return habits.filter(h => {
+        const created = startOfDay(h.createdAt);
+        return created <= date;
+      }).length;
+    }
+
+    // ── Helper: count theoretical possible completions for a date range ──
+    // Sum over each day: number of habits that existed on that day
+    function theoreticalMaxInRange(start: Date, end: Date): number {
+      const days = differenceInCalendarDays(end, start) + 1;
+      let total = 0;
+      for (let i = 0; i < days; i++) {
+        const d = subDays(end, i);
+        total += habitsActiveOnDate(d);
+      }
+      return total;
+    }
+
+    // ── Overall period completion rate ───────────────────────────────
+    const totalCompletedInPeriod = allLogs.filter(l => l.completed).length;
+    const theoreticalMaxPeriod = theoreticalMaxInRange(periodStart, today);
+    const completionRate = theoreticalMaxPeriod > 0
+      ? Math.round((totalCompletedInPeriod / theoreticalMaxPeriod) * 100)
+      : 0;
+
+    // ── Today's success rate ─────────────────────────────────────────
+    const todayKey = format(today, 'yyyy-MM-dd');
+    const todayCompleted = dailyCompletionMap.get(todayKey)?.size || 0;
+    const todayActiveHabits = habitsActiveOnDate(today);
+    const successToday = todayActiveHabits > 0
+      ? Math.round((todayCompleted / todayActiveHabits) * 100)
+      : 0;
+
+    // ── Weekly completion ────────────────────────────────────────────
+    const weekCompleted = allLogs.filter(l => {
+      const d = l.date;
+      return d >= weekStart && d <= weekEnd && l.completed;
+    }).length;
+    const theoreticalMaxWeek = theoreticalMaxInRange(weekStart, weekEnd);
+    const weeklyCompletion = theoreticalMaxWeek > 0
+      ? Math.round((weekCompleted / theoreticalMaxWeek) * 100)
+      : 0;
+
+    // ── Monthly completion ───────────────────────────────────────────
+    const monthCompleted = allLogs.filter(l => {
+      const d = l.date;
+      return d >= monthStart && d <= monthEnd && l.completed;
+    }).length;
+    const theoreticalMaxMonth = theoreticalMaxInRange(monthStart, monthEnd);
+    const monthlyCompletion = theoreticalMaxMonth > 0
+      ? Math.round((monthCompleted / theoreticalMaxMonth) * 100)
+      : 0;
+
+    // ── Streak calculation ───────────────────────────────────────────
+    // A "perfect day" = all habits that existed on that day were completed
     let currentStreak = 0;
-    let checkDate = today;
-    const todayKey = format(checkDate, 'yyyy-MM-dd');
-    const todayTotal = dailyTotalMap.get(todayKey) || 0;
-    const todayDone = dailyCompletionMap.get(todayKey) || 0;
+    const maxStreakCheck = Math.min(periodDays, 365);
 
-    if (todayTotal > 0 && todayDone === todayTotal) {
-      currentStreak = 1;
-    } else {
-      checkDate = subDays(checkDate, 1);
-      const yKey = format(checkDate, 'yyyy-MM-dd');
-      if (dailyTotalMap.get(yKey) !== dailyCompletionMap.get(yKey)) {
-        currentStreak = 0;
-      }
-    }
-
-    const maxStreakCheck = periodStart ? differenceInDays(today, periodStart) : 365;
-    for (let i = currentStreak === 0 ? 1 : 1; i < maxStreakCheck; i++) {
+    for (let i = 0; i < maxStreakCheck; i++) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
-      const total = dailyTotalMap.get(key) || 0;
-      const done = dailyCompletionMap.get(key) || 0;
-      if (total > 0 && done === total) {
+      const activeOnDay = habitsActiveOnDate(d);
+      if (activeOnDay === 0) continue; // no habits existed yet, skip
+      const completedOnDay = dailyCompletionMap.get(key)?.size || 0;
+      if (completedOnDay >= activeOnDay) {
         currentStreak++;
-      } else if (total > 0) {
+      } else {
         break;
       }
     }
 
-    // Longest streak (within period)
+    // Longest streak
     let longestStreak = 0;
     let tempStreak = 0;
-    const allDates = [...new Set(allLogs.map(l => format(l.date, 'yyyy-MM-dd')))].sort();
-    for (const dateStr of allDates) {
-      const total = dailyTotalMap.get(dateStr) || 0;
-      const done = dailyCompletionMap.get(dateStr) || 0;
-      if (total > 0 && done === total) {
+    for (let i = 0; i < maxStreakCheck; i++) {
+      const d = subDays(today, i);
+      const key = format(d, 'yyyy-MM-dd');
+      const activeOnDay = habitsActiveOnDate(d);
+      if (activeOnDay === 0) {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 0;
+        continue;
+      }
+      const completedOnDay = dailyCompletionMap.get(key)?.size || 0;
+      if (completedOnDay >= activeOnDay) {
         tempStreak++;
         longestStreak = Math.max(longestStreak, tempStreak);
-      } else if (total > 0) {
+      } else {
         tempStreak = 0;
       }
     }
 
-    // Best and worst habit (within period)
-    const habitStats = new Map<string, { done: number; total: number; name: string; icon: string }>();
+    // ── Best and worst habit ─────────────────────────────────────────
+    const habitStatsMap = new Map<string, { done: number; total: number; name: string; icon: string }>();
     for (const habit of habits) {
-      habitStats.set(habit.id, { done: 0, total: 0, name: habit.name, icon: habit.icon });
-    }
-    for (const log of allLogs) {
-      const stat = habitStats.get(log.habitId);
-      if (stat) {
-        stat.total++;
-        if (log.completed) stat.done++;
-      }
+      const createdDay = startOfDay(habit.createdAt);
+      const effectiveStart = createdDay > periodStart ? createdDay : periodStart;
+      const totalDaysForHabit = Math.max(1, differenceInCalendarDays(today, effectiveStart) + 1);
+      const hLogs = allLogs.filter(l => l.habitId === habit.id && l.completed);
+      habitStatsMap.set(habit.id, {
+        done: hLogs.length,
+        total: totalDaysForHabit,
+        name: habit.name,
+        icon: habit.icon,
+      });
     }
 
     let bestHabit = { name: 'N/A', icon: '🏆', rate: 0 };
     let worstHabit = { name: 'N/A', icon: '📉', rate: 100 };
 
-    for (const [, stat] of habitStats) {
+    for (const [, stat] of habitStatsMap) {
       if (stat.total > 0) {
         const rate = Math.round((stat.done / stat.total) * 100);
         if (rate > bestHabit.rate) bestHabit = { name: stat.name, icon: stat.icon, rate };
@@ -168,7 +224,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // XP calculation (within period)
+    // ── XP calculation (within period) ───────────────────────────────
     const totalXP = allLogs.filter(l => l.completed).reduce((sum, l) => {
       return sum + (XP_MAP[l.habit.difficulty] || 20);
     }, 0);
@@ -179,23 +235,23 @@ export async function GET(request: NextRequest) {
       ? Math.round(((totalXP - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100)
       : 100;
 
-    // Badges
+    // ── Badges ───────────────────────────────────────────────────────
     const unlockedBadges = await db.badge.count({ where: { unlocked: true } });
     const totalBadges = await db.badge.count();
 
-    // Challenge progress
+    // ── Challenge progress ───────────────────────────────────────────
     const activeChallenges = await db.challenge.findMany({ where: { status: 'active' } });
     const challengeProgress = activeChallenges.length > 0
       ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
       : 0;
 
-    // Goal progress
+    // ── Goal progress ────────────────────────────────────────────────
     const activeGoals = await db.goal.findMany({ where: { status: 'active' } });
     const goalProgress = activeGoals.length > 0
       ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
       : 0;
 
-    // Mood & sleep averages (last 30 days, always 30 regardless of period)
+    // ── Mood & sleep averages (last 30 days) ─────────────────────────
     const recentDailyLogs = await db.dailyLog.findMany({
       where: { date: { gte: subDays(today, 30) } },
     });
@@ -206,58 +262,68 @@ export async function GET(request: NextRequest) {
       ? (recentDailyLogs.reduce((s, l) => s + l.sleep, 0) / recentDailyLogs.length).toFixed(1)
       : '7.0';
 
-    // Productivity score (weighted average of completion metrics)
+    // ── Productivity score ───────────────────────────────────────────
     const productivityScore = Math.round(
       (completionRate * 0.4 + successToday * 0.3 + weeklyCompletion * 0.3)
     );
 
-    // Weekly chart data (last 7 days)
+    // ── Weekly chart data (last 7 days) ──────────────────────────────
     const weeklyChartData = [];
     for (let i = 6; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
-      const total = dailyTotalMap.get(key) || 0;
-      const done = dailyCompletionMap.get(key) || 0;
+      const activeOnDay = habitsActiveOnDate(d);
+      const done = dailyCompletionMap.get(key)?.size || 0;
+      const rate = activeOnDay > 0 ? Math.round((done / activeOnDay) * 100) : 0;
       weeklyChartData.push({
         day: format(d, 'EEE'),
         date: format(d, 'MMM dd'),
         completed: done,
-        total,
-        rate: total > 0 ? Math.round((done / total) * 100) : 0,
+        total: activeOnDay,
+        rate,
       });
     }
 
-    // Monthly chart data (adjustable by period)
+    // ── Monthly/period chart data ────────────────────────────────────
     const monthlyChartData = [];
     for (let i = chartDays - 1; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
-      const total = dailyTotalMap.get(key) || 0;
-      const done = dailyCompletionMap.get(key) || 0;
+      const activeOnDay = habitsActiveOnDate(d);
+      const done = dailyCompletionMap.get(key)?.size || 0;
+      const rate = activeOnDay > 0 ? Math.round((done / activeOnDay) * 100) : 0;
       monthlyChartData.push({
         day: format(d, 'MMM dd'),
         completed: done,
-        total,
-        rate: total > 0 ? Math.round((done / total) * 100) : 0,
+        total: activeOnDay,
+        rate,
       });
     }
 
-    // Category performance (within period)
-    const categoryStats = new Map<string, { done: number; total: number }>();
-    for (const log of allLogs) {
-      const cat = log.habit.category || 'General';
-      if (!categoryStats.has(cat)) categoryStats.set(cat, { done: 0, total: 0 });
-      const stat = categoryStats.get(cat)!;
-      stat.total++;
-      if (log.completed) stat.done++;
+    // ── Category performance (within period) ─────────────────────────
+    const categoryStats = new Map<string, { done: number; totalPossible: number }>();
+    for (const habit of habits) {
+      const cat = habit.category || 'General';
+      if (!categoryStats.has(cat)) categoryStats.set(cat, { done: 0, totalPossible: 0 });
+      const catStat = categoryStats.get(cat)!;
+      // Count days this habit existed in period
+      const createdDay = startOfDay(habit.createdAt);
+      const effectiveStart = createdDay > periodStart ? createdDay : periodStart;
+      const daysForHabit = Math.max(0, differenceInCalendarDays(today, effectiveStart) + 1);
+      catStat.totalPossible += daysForHabit;
+      // Count completed logs for this habit in category
+      const hCompleted = allLogs.filter(l => l.habitId === habit.id && l.completed).length;
+      catStat.done += hCompleted;
     }
     const categoryPerformance = [...categoryStats.entries()].map(([cat, stat]) => ({
       category: cat,
-      ...stat,
-      rate: stat.total > 0 ? Math.round((stat.done / stat.total) * 100) : 0,
+      done: stat.done,
+      total: stat.totalPossible,
+      rate: stat.totalPossible > 0 ? Math.round((stat.done / stat.totalPossible) * 100) : 0,
     }));
 
-    // Today's focus - habits not yet completed today
+    // ── Today's focus ────────────────────────────────────────────────
+    const todayLogs = allLogs.filter(l => format(l.date, 'yyyy-MM-dd') === todayKey);
     const todayFocus = habits
       .filter(h => !todayLogs.some(l => l.habitId === h.id && l.completed))
       .slice(0, 5)
@@ -271,7 +337,7 @@ export async function GET(request: NextRequest) {
         where: { habitId: learningHabit.id, completed: true },
         orderBy: { date: 'asc' },
       });
-      const learningTodayLog = learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd'));
+      const learningTodayLog = learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
       learningStatus.completedToday = !!learningTodayLog;
       learningStatus.totalDays = learningLogs.length;
 
@@ -307,14 +373,17 @@ export async function GET(request: NextRequest) {
 
     // ── Per-Habit Detail Stats ───────────────────────────────────────
     const habitDetailStats = habits.map(h => {
-      const hLogs = allLogs.filter(l => l.habitId === h.id);
-      const completed = hLogs.filter(l => l.completed).length;
-      const total = hLogs.length;
-      const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const createdDay = startOfDay(h.createdAt);
+      const effectiveStart = createdDay > periodStart ? createdDay : periodStart;
+      const total = Math.max(1, differenceInCalendarDays(today, effectiveStart) + 1);
+      const completed = allLogs.filter(l => l.habitId === h.id && l.completed).length;
+      const rate = Math.round((completed / total) * 100);
 
       // Habit-level streak
       let hStreak = 0;
-      const completedHL = hLogs.filter(l => l.completed).sort((a, b) => b.date.getTime() - a.date.getTime());
+      const completedHL = allLogs
+        .filter(l => l.habitId === h.id && l.completed)
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
       if (completedHL.length > 0) {
         hStreak = 1;
         for (let i = 1; i < completedHL.length; i++) {
@@ -326,44 +395,100 @@ export async function GET(request: NextRequest) {
       return { id: h.id, name: h.name, icon: h.icon, color: h.color, category: h.category, completed, total, rate, streak: hStreak };
     }).sort((a, b) => b.rate - a.rate);
 
-    // ── Stacked Bar Data: completed vs total per day ─────────────────
+    // ── Stacked Bar Data: completed vs missed per day ────────────────
     const stackedBarData = [];
     for (let i = chartDays - 1; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
-      const total = dailyTotalMap.get(key) || 0;
-      const done = dailyCompletionMap.get(key) || 0;
+      const activeOnDay = habitsActiveOnDate(d);
+      const done = dailyCompletionMap.get(key)?.size || 0;
+      const missed = Math.max(0, activeOnDay - done);
+      const rate = activeOnDay > 0 ? Math.round((done / activeOnDay) * 100) : 0;
       stackedBarData.push({
         day: period === '7d' ? format(d, 'EEE') : format(d, 'MMM dd'),
         completed: done,
-        missed: Math.max(0, total - done),
-        total,
-        rate: total > 0 ? Math.round((done / total) * 100) : 0,
+        missed,
+        total: activeOnDay,
+        rate,
       });
     }
 
-    // ── Hourly Distribution (mock from log patterns) ─────────────────
-    // Use completion rate by day-of-week for weekly pattern
-    const dayOfWeekStats: Record<string, { total: number; done: number }> = {};
+    // ── Weekly Pattern (day-of-week) ─────────────────────────────────
+    // For each day of week, calculate: total completed / total possible
+    // over the last 30 days
+    const dayOfWeekStats: Record<string, { completed: number; possible: number }> = {};
     for (let i = 30; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
       const dayName = format(d, 'EEEE');
-      if (!dayOfWeekStats[dayName]) dayOfWeekStats[dayName] = { total: 0, done: 0 };
-      const t = dailyTotalMap.get(key) || 0;
-      const dn = dailyCompletionMap.get(key) || 0;
-      dayOfWeekStats[dayName].total += t;
-      dayOfWeekStats[dayName].done += dn;
+      if (!dayOfWeekStats[dayName]) dayOfWeekStats[dayName] = { completed: 0, possible: 0 };
+      const activeOnDay = habitsActiveOnDate(d);
+      const doneOnDay = dailyCompletionMap.get(key)?.size || 0;
+      dayOfWeekStats[dayName].completed += doneOnDay;
+      dayOfWeekStats[dayName].possible += activeOnDay;
     }
     const weeklyPattern = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-      const s = dayOfWeekStats[day] || { total: 0, done: 0 };
+      const s = dayOfWeekStats[day] || { completed: 0, possible: 0 };
+      // Count how many instances of this day in the last 31 days
+      let instances = 0;
+      for (let i = 30; i >= 0; i--) {
+        const d = subDays(today, i);
+        if (format(d, 'EEEE') === day) instances++;
+      }
       return {
         day: day.substring(0, 3),
         fullDay: day,
-        rate: s.total > 0 ? Math.round((s.done / s.total) * 100) : 0,
-        avgCompleted: s.total > 0 ? (s.done / Math.min(4, Math.ceil(30 / 7))).toFixed(1) : '0',
+        rate: s.possible > 0 ? Math.round((s.completed / s.possible) * 100) : 0,
+        avgCompleted: instances > 0 ? (s.completed / instances).toFixed(1) : '0',
       };
     });
+
+    // ── Finance Overview (current month) ─────────────────────────────
+    let financeOverview = {
+      totalIncome: 0,
+      totalExpense: 0,
+      netBalance: 0,
+      transactionCount: 0,
+      budgetWarning: 0,  // >80% used
+      budgetExceeded: 0, // >100% used
+    };
+
+    try {
+      const monthTransactions = await db.transaction.findMany({
+        where: {
+          date: { gte: monthStart, lte: monthEnd },
+        },
+      });
+
+      financeOverview.totalIncome = monthTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      financeOverview.totalExpense = monthTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      financeOverview.netBalance = financeOverview.totalIncome - financeOverview.totalExpense;
+      financeOverview.transactionCount = monthTransactions.length;
+
+      // Budget status
+      const budgets = await db.budget.findMany();
+      const monthExpensesByCategory = new Map<string, number>();
+      for (const t of monthTransactions) {
+        if (t.type === 'expense') {
+          monthExpensesByCategory.set(
+            t.category,
+            (monthExpensesByCategory.get(t.category) || 0) + t.amount,
+          );
+        }
+      }
+      for (const budget of budgets) {
+        const spent = monthExpensesByCategory.get(budget.category) || 0;
+        const usage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+        if (usage > 100) financeOverview.budgetExceeded++;
+        else if (usage > 80) financeOverview.budgetWarning++;
+      }
+    } catch {
+      // Finance tables might not exist; silently ignore
+    }
 
     return NextResponse.json({
       totalHabits,
@@ -392,11 +517,13 @@ export async function GET(request: NextRequest) {
       categoryPerformance,
       todayFocus,
       period,
-      // New data
+      // Detailed data
       learningStatus,
       habitDetailStats,
       stackedBarData,
       weeklyPattern,
+      // Finance
+      financeOverview,
     });
   } catch (error) {
     console.error('GET /api/dashboard error:', error);
