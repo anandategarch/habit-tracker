@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Plus,
   Wallet,
@@ -61,6 +62,7 @@ import {
   PieChart,
   LineChart,
   Settings2,
+  Info,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -90,6 +92,23 @@ import {
   PolarRadiusAxis,
   ReferenceLine,
 } from 'recharts';
+
+function ChartInfo({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0" aria-label="Info">
+            <Info className="w-3 h-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          <p>{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -983,7 +1002,10 @@ export default function Finance() {
                 {/* Daily Spending Chart */}
                 <Card className="lg:col-span-2">
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Tren Pengeluaran Harian</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Tren Pengeluaran Harian
+                    <ChartInfo text="Total pengeluaran per hari dalam bulan yang dipilih. Area merah menunjukkan intensitas pengeluaran. Tanggal tanpa transaksi tidak ditampilkan." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {dailySpendingChartData.length > 0 ? (
@@ -1016,7 +1038,10 @@ export default function Finance() {
                 {/* Category Breakdown */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Pengeluaran per Kategori</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Pengeluaran per Kategori
+                    <ChartInfo text="Persentase setiap kategori dari total pengeluaran bulan ini. Hanya 6 kategori teratas yang ditampilkan. Persentase = (jumlah kategori) / (total pengeluaran) × 100%." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {categoryPieData.length > 0 ? (
@@ -1060,6 +1085,7 @@ export default function Finance() {
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
                       <Target className="h-4 w-4" />
                       Status Budget Bulan Ini
+                      <ChartInfo text="Membandingkan total pengeluaran per kategori dengan batas anggaran. Progress bar kuning jika >80%, merah jika melebihi anggaran. Sisa/hari = (sisa anggaran) / (sisa hari di bulan ini)." />
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
@@ -1367,6 +1393,7 @@ export default function Finance() {
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <LineChart className="h-4 w-4" />
                     Tren Bulanan (6 Bulan Terakhir)
+                    <ChartInfo text="Grafik garis pemasukan (hijau), pengeluaran (merah), dan saldo (biru putus-putus) selama 6 bulan terakhir. Sumbu Y dalam juta (jt). Saldo = pemasukan − pengeluaran." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
@@ -1392,7 +1419,10 @@ export default function Finance() {
                 {/* Top Categories */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Kategori Pengeluaran Teratas</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Kategori Pengeluaran Teratas
+                    <ChartInfo text="5 kategori dengan total pengeluaran terbesar dalam 6 bulan terakhir." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {analyticsData.topCategories.length > 0 ? (
@@ -1423,7 +1453,10 @@ export default function Finance() {
                 {/* Income Sources Pie */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Sumber Pemasukan</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Sumber Pemasukan
+                    <ChartInfo text="Distribusi pemasukan berdasarkan kategori dalam 6 bulan terakhir. Persentase dihitung dari total pemasukan." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {analyticsData.incomeSources.length > 0 ? (
@@ -1474,7 +1507,10 @@ export default function Finance() {
               {/* 1. Stacked Bar Chart - Monthly Composition by Category */}
               <Card>
                 <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold">Komposisi Pengeluaran Bulanan</CardTitle>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  Komposisi Pengeluaran Bulanan
+                  <ChartInfo text="Komposisi pengeluaran per bulan, ditumpuk berdasarkan kategori. 5 kategori teratas ditampilkan terpisah, sisanya digabungkan menjadi 'Lainnya'. Memudahkan melihat perubahan proporsi tiap bulan." />
+                </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
                   {(() => {
@@ -1522,7 +1558,10 @@ export default function Finance() {
               {/* 2. Heatmap Calendar - Spending Intensity */}
               <Card>
                 <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold">Peta Panas Pengeluaran</CardTitle>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  Peta Panas Pengeluaran
+                  <ChartInfo text="Intensitas pengeluaran harian selama 90 hari terakhir. Warna hijau muda = rendah, merah tua = tinggi. Arahkan kursor untuk melihat jumlah pasti. Kolom = minggu, baris = hari (Sen-Min)." />
+                </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
                   {analyticsData.dailySpending && analyticsData.dailySpending.length > 0 ? (
@@ -1606,7 +1645,10 @@ export default function Finance() {
                 {/* 3. Savings Trend */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Tren Tabungan</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Tren Tabungan
+                    <ChartInfo text="Selisih pemasukan dan pengeluaran per bulan (tabungan bulanan). Area hijau = positif (menabung), area di bawah garis nol = negatif (defisit). Persentase perubahan vs bulan sebelumnya ditampilkan." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {analyticsData.monthlySavings && analyticsData.monthlySavings.length > 0 ? (
@@ -1648,7 +1690,10 @@ export default function Finance() {
                 {/* 4. Tornado/Butterfly Chart */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Perbandingan Bulan Ini vs Bulan Lalu</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Perbandingan Bulan Ini vs Bulan Lalu
+                    <ChartInfo text="Perbandingan pengeluaran per kategori antara bulan ini dan bulan lalu. Bar ke kanan = bulan ini, bar ke kiri = bulan lalu. Memudahkan melihat kategori mana yang naik atau turun." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     {analyticsData.categoryComparison && analyticsData.categoryComparison.length > 0 ? (
@@ -1682,7 +1727,10 @@ export default function Finance() {
               {/* 5. Radar Chart - Financial Health Score */}
               <Card>
                 <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold">Skor Kesehatan Keuangan</CardTitle>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  Skor Kesehatan Keuangan
+                  <ChartInfo text="5 dimensi keuangan masing-masing dinilai 0-100: (1) Rasio Tabungan: persentase pemasukan yang tersimpan, (2) Diversifikasi: jumlah kategori pengeluaran yang digunakan, (3) Disiplin Budget: persentase anggaran yang tidak terlampaui, (4) Konsistensi: hari dengan transaksi / hari di bulan, (5) Keseimbangan: rasio kategori pemasukan vs pengeluaran. Skor keseluruhan = rata-rata kelima dimensi." />
+                </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
                   {analyticsData.financialHealth ? (
@@ -1755,7 +1803,10 @@ export default function Finance() {
                 {/* Weekly Pattern */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Pola Pengeluaran per Hari</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Pola Pengeluaran per Hari
+                    <ChartInfo text="Total dan rata-rata pengeluaran per hari dalam seminggu selama 6 bulan terakhir. Berguna untuk melihat pola: hari mana biasanya pengeluaran lebih tinggi." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
                     <ResponsiveContainer width="100%" height={200}>
@@ -1777,7 +1828,10 @@ export default function Finance() {
                 {/* Summary Stats + Largest Expenses */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-sm font-semibold">Ringkasan & Pengeluaran Terbesar</CardTitle>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    Ringkasan & Pengeluaran Terbesar
+                    <ChartInfo text="Total pemasukan dan pengeluaran 6 bulan terakhir. Rasio tabungan = (pemasukan − pengeluaran) / pemasukan × 100%. Top 5 transaksi pengeluaran terbesar dalam periode." />
+                  </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4 space-y-4">
                     <div className="grid grid-cols-3 gap-3">
