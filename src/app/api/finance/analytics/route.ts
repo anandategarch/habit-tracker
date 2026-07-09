@@ -120,13 +120,20 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Helper: get Jakarta date string from a JS Date (avoids UTC shift via toISOString)
+    const toJakartaDateStr = (d: Date) => {
+      const utc = d.getTime() + d.getTimezoneOffset() * 60000;
+      const jakarta = new Date(utc + 7 * 60 * 60000);
+      return `${jakarta.getFullYear()}-${String(jakarta.getMonth() + 1).padStart(2, '0')}-${String(jakarta.getDate()).padStart(2, '0')}`;
+    };
+
     const dailySpending: { date: string; amount: number }[] = [];
     for (let i = 89; i >= 0; i--) {
       const d = new Date(jakartaNow);
       d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const key = toJakartaDateStr(d);
       const dayTotal = heatmapTx
-        .filter(t => new Date(t.date).toISOString().slice(0, 10) === key)
+        .filter(t => toJakartaDateStr(new Date(t.date)) === key)
         .reduce((s, t) => s + t.amount, 0);
       dailySpending.push({ date: key, amount: Math.round(dayTotal) });
     }
@@ -238,9 +245,10 @@ export async function GET(request: NextRequest) {
     const savingsRatio = thisMonthInc > 0 ? (thisMonthInc - thisMonthExp) / thisMonthInc : 0;
     const rasioTabungan = Math.min(100, Math.max(0, Math.round(savingsRatio * 100 + 50)));
 
-    // 2. Diversifikasi (number of unique expense categories, max score at 5+)
+    // 2. Diversifikasi (number of unique expense categories, max score at 4+)
+    // Having 1-2 categories is too narrow, 4+ is well-diversified
     const uniqueExpenseCats = new Set(thisMonthExpenses.map(t => t.category)).size;
-    const diversifikasi = Math.min(100, Math.round((uniqueExpenseCats / 5) * 100));
+    const diversifikasi = Math.min(100, Math.round((uniqueExpenseCats / 4) * 100));
 
     // 3. Disiplin Budget (percentage of budgets not exceeded)
     const budgets = await db.budget.findMany();
@@ -268,15 +276,15 @@ export async function GET(request: NextRequest) {
     ).size;
     const konsistensi = Math.min(100, Math.round((daysWithTx / daysInMonth) * 100));
 
-    // 5. Keseimbangan (ratio of income to expense categories)
+    // 5. Keseimbangan (multiple income sources indicate diversified income)
+    // Score based on having 2+ income sources (normal to have more expense than income categories)
     const incomeCats = new Set(
       transactions.filter(t => {
         const td = new Date(t.date);
         return td >= thisMonthStart && td <= thisMonthEnd && t.type === 'income';
       }).map(t => t.category)
     ).size;
-    const balanceRatio = uniqueExpenseCats > 0 ? incomeCats / uniqueExpenseCats : 0;
-    const keseimbangan = Math.min(100, Math.round(balanceRatio * 100));
+    const keseimbangan = Math.min(100, incomeCats >= 2 ? 100 : incomeCats * 50);
 
     const overallScore = Math.round((rasioTabungan + diversifikasi + budgetDiscipline + konsistensi + keseimbangan) / 5);
 
@@ -301,7 +309,7 @@ export async function GET(request: NextRequest) {
       const d = new Date(jakartaNow);
       d.setDate(d.getDate() - i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const dayTx = sparklineTx.filter(t => new Date(t.date).toISOString().slice(0, 10) === key);
+      const dayTx = sparklineTx.filter(t => toJakartaDateStr(new Date(t.date)) === key);
       const inc = dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
       const exp = dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
       sparklineData.push({
