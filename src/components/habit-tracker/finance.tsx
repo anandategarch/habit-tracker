@@ -1430,7 +1430,7 @@ export default function Finance() {
                         <BarChart data={analyticsData.topCategories} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                           <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                          <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 11 }} />
+                          <YAxis type="category" dataKey="category" width={130} tick={{ fontSize: 10 }} />
                           <RechartsTooltip
                             formatter={(value: number) => [formatRupiah(value), 'Total']}
                             contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
@@ -1544,7 +1544,7 @@ export default function Finance() {
                             formatter={(value: number) => formatRupiah(value)}
                             contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
                           />
-                          <Legend wrapperStyle={{ fontSize: '11px' }} />
+                          <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} iconSize={8} />
                           {allKeys.map((key, i) => (
                             <Bar key={key} dataKey={key} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
                           ))}
@@ -1565,74 +1565,94 @@ export default function Finance() {
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
                   {analyticsData.dailySpending && analyticsData.dailySpending.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <div className="min-w-[500px]">
-                        {/* Day labels */}
-                        <div className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-1">
-                          <div className="text-[10px] text-muted-foreground" />
-                          {(() => {
-                            // Show month labels for columns
-                            const months: string[] = [];
-                            let lastMonth = '';
-                            analyticsData.dailySpending.forEach(d => {
-                              const m = d.date.slice(0, 7);
-                              if (m !== lastMonth) { months.push(m); lastMonth = m; }
-                            });
-                            return months.map(m => (
-                              <div key={m} className="text-[10px] text-muted-foreground text-center">
-                                {new Date(m + '-01').toLocaleDateString('en-US', { month: 'short' })}
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                        {/* Day rows */}
-                        {[1, 2, 3, 4, 5, 6, 0].map(dow => (
-                          <div key={dow} className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-[3px]">
-                            <div className="text-[10px] text-muted-foreground flex items-center">
-                              {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][dow === 0 ? 6 : dow - 1]}
-                            </div>
-                            {/* Weeks columns */}
-                            {(() => {
-                              const weeks: { date: string; amount: number }[][] = [[]];
-                              let currentWeekStart = -1;
-                              analyticsData.dailySpending.forEach(d => {
-                                const day = new Date(d.date + 'T00:00:00').getDay();
-                                const adjustedDay = day === 0 ? 6 : day - 1; // Mon=0, Sun=6
-                                if (currentWeekStart === -1) currentWeekStart = adjustedDay;
-                                if (adjustedDay < currentWeekStart && weeks[weeks.length - 1].length > 0) {
-                                  weeks.push([]);
-                                }
-                                currentWeekStart = adjustedDay;
-                                weeks[weeks.length - 1].push(d);
-                              });
-                              return weeks.slice(0, 13).map((week, wi) => {
-                                const day = week.find(d => {
-                                  const dayOfWeek = new Date(d.date + 'T00:00:00').getDay();
-                                  return (dayOfWeek === 0 ? 6 : dayOfWeek - 1) === dow;
+                    (() => {
+                      // Pre-compute percentile thresholds for better color distribution
+                      const nonZeroAmounts = analyticsData.dailySpending.filter(d => d.amount > 0).map(d => d.amount).sort((a, b) => a - b);
+                      const len = nonZeroAmounts.length;
+                      const q1 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.25)] || nonZeroAmounts[0] : 1;
+                      const q2 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.5)] || nonZeroAmounts[0] : 1;
+                      const q3 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.75)] || nonZeroAmounts[0] : 1;
+
+                      // Pre-compute weeks
+                      const weeks: { date: string; amount: number }[][] = [[]];
+                      let currentWeekStart = -1;
+                      analyticsData.dailySpending.forEach(d => {
+                        const day = new Date(d.date + 'T00:00:00').getDay();
+                        const adjustedDay = day === 0 ? 6 : day - 1;
+                        if (currentWeekStart === -1) currentWeekStart = adjustedDay;
+                        if (adjustedDay < currentWeekStart && weeks[weeks.length - 1].length > 0) {
+                          weeks.push([]);
+                        }
+                        currentWeekStart = adjustedDay;
+                        weeks[weeks.length - 1].push(d);
+                      });
+
+                      function getHeatBg(amount: number | undefined): string {
+                        if (amount === undefined || amount <= 0) return 'bg-stone-200 dark:bg-stone-800';
+                        // Percentile-based: bottom 25% → light, 25-50% → medium, 50-75% → high, top 25% → intense
+                        if (amount <= q1) return 'bg-amber-200 dark:bg-amber-900';
+                        if (amount <= q2) return 'bg-amber-400 dark:bg-amber-700';
+                        if (amount <= q3) return 'bg-orange-500 dark:bg-orange-600';
+                        return 'bg-red-500 dark:bg-red-500';
+                      }
+
+                      return (
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[500px]">
+                            {/* Day labels */}
+                            <div className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-1">
+                              <div className="text-[10px] text-muted-foreground" />
+                              {(() => {
+                                const months: string[] = [];
+                                let lastMonth = '';
+                                analyticsData.dailySpending.forEach(d => {
+                                  const m = d.date.slice(0, 7);
+                                  if (m !== lastMonth) { months.push(m); lastMonth = m; }
                                 });
-                                const maxAmount = Math.max(...analyticsData.dailySpending.map(d => d.amount), 1);
-                                const intensity = day ? Math.min(day.amount / maxAmount, 1) : -1;
-                                let bg = 'bg-muted/30';
-                                if (intensity >= 0) {
-                                  if (intensity === 0) bg = 'bg-stone-100 dark:bg-stone-800/40';
-                                  else if (intensity < 0.25) bg = 'bg-amber-200 dark:bg-amber-900/50';
-                                  else if (intensity < 0.5) bg = 'bg-orange-300 dark:bg-orange-800/60';
-                                  else if (intensity < 0.75) bg = 'bg-orange-500 dark:bg-orange-700/70';
-                                  else bg = 'bg-red-500 dark:bg-red-600';
-                                }
-                                return (
-                                  <div
-                                    key={wi}
-                                    className={cn('w-full aspect-square rounded-sm', bg)}
-                                    title={day ? `${day.date}: ${formatRupiah(day.amount)}` : ''}
-                                  />
-                                );
-                              });
-                            })()}
+                                return months.map(m => (
+                                  <div key={m} className="text-[10px] text-muted-foreground text-center">
+                                    {new Date(m + '-01').toLocaleDateString('en-US', { month: 'short' })}
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                            {/* Day rows */}
+                            {[1, 2, 3, 4, 5, 6, 0].map(dow => (
+                              <div key={dow} className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-[3px]">
+                                <div className="text-[10px] text-muted-foreground flex items-center">
+                                  {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][dow === 0 ? 6 : dow - 1]}
+                                </div>
+                                {weeks.slice(0, 13).map((week, wi) => {
+                                  const day = week.find(d => {
+                                    const dayOfWeek = new Date(d.date + 'T00:00:00').getDay();
+                                    return (dayOfWeek === 0 ? 6 : dayOfWeek - 1) === dow;
+                                  });
+                                  return (
+                                    <div
+                                      key={wi}
+                                      className={cn('w-full aspect-square rounded-sm', getHeatBg(day?.amount))}
+                                      title={day ? `${day.date}: ${formatRupiah(day.amount)}` : 'Tidak ada data'}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            ))}
+                            {/* Color legend */}
+                            <div className="flex items-center gap-2 mt-2 justify-end">
+                              <span className="text-[9px] text-muted-foreground">Sedikit</span>
+                              <div className="flex gap-[2px]">
+                                <div className="w-3 h-3 rounded-sm bg-stone-200 dark:bg-stone-800" />
+                                <div className="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-900" />
+                                <div className="w-3 h-3 rounded-sm bg-amber-400 dark:bg-amber-700" />
+                                <div className="w-3 h-3 rounded-sm bg-orange-500 dark:bg-orange-600" />
+                                <div className="w-3 h-3 rounded-sm bg-red-500 dark:bg-red-500" />
+                              </div>
+                              <span className="text-[9px] text-muted-foreground">Banyak</span>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                      );
+                    })()
                   ) : (
                     <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
                       Belum ada data
@@ -1697,10 +1717,10 @@ export default function Finance() {
                           category: c.category,
                           'Bulan Lalu': -c.lastMonth,
                           'Bulan Ini': c.thisMonth,
-                        }))} layout="vertical" margin={{ left: 100 }}>
+                        }))} layout="vertical" margin={{ left: 110, right: 20 }}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                           <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(Math.abs(v) / 1000).toFixed(0)}k`} />
-                          <YAxis type="category" dataKey="category" width={95} tick={{ fontSize: 10 }} />
+                          <YAxis type="category" dataKey="category" width={105} tick={{ fontSize: 10 }} />
                           <RechartsTooltip
                             formatter={(value: number, name: string) => [formatRupiah(Math.abs(value)), name]}
                             contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
@@ -1730,17 +1750,17 @@ export default function Finance() {
                 <CardContent className="px-4 pb-4">
                   {analyticsData.financialHealth ? (
                     <div className="flex flex-col sm:flex-row items-center gap-6">
-                      <div className="relative w-[220px] h-[220px] shrink-0">
+                      <div className="relative w-[260px] h-[260px] shrink-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <RadarChart data={[
-                            { dim: 'Rasio Tabungan', score: analyticsData.financialHealth.rasioTabungan },
+                            { dim: 'Tabungan', score: analyticsData.financialHealth.rasioTabungan },
                             { dim: 'Diversifikasi', score: analyticsData.financialHealth.diversifikasi },
-                            { dim: 'Disiplin Budget', score: analyticsData.financialHealth.disiplinBudget },
+                            { dim: 'Budget', score: analyticsData.financialHealth.disiplinBudget },
                             { dim: 'Konsistensi', score: analyticsData.financialHealth.konsistensi },
                             { dim: 'Keseimbangan', score: analyticsData.financialHealth.keseimbangan },
                           ]}>
                             <PolarGrid />
-                            <PolarAngleAxis dataKey="dim" tick={{ fontSize: 10 }} />
+                            <PolarAngleAxis dataKey="dim" tick={{ fontSize: 10 }} style={{ overflow: 'visible' }} />
                             <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
                             <Radar
                               name="Skor"

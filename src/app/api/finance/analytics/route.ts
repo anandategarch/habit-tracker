@@ -242,8 +242,20 @@ export async function GET(request: NextRequest) {
     const thisMonthExp = thisMonthExpenses.reduce((s, t) => s + t.amount, 0);
 
     // 1. Rasio Tabungan (savings rate score)
-    const savingsRatio = thisMonthInc > 0 ? (thisMonthInc - thisMonthExp) / thisMonthInc : 0;
-    const rasioTabungan = Math.min(100, Math.max(0, Math.round(savingsRatio * 100 + 50)));
+    // Use the full analytics range (totalIncomeInRange/totalExpenseInRange) for a more stable score
+    // Maps savings ratio from [-1, 1] to [0, 100]
+    // -1 = spending double income → 0, 0 = break even → 50, 1 = all saved → 100
+    let rasioTabungan = 50;
+    if (totalIncomeInRange > 0) {
+      const savingsRatio = (totalIncomeInRange - totalExpenseInRange) / totalIncomeInRange;
+      rasioTabungan = Math.min(100, Math.max(0, Math.round((savingsRatio + 1) * 50)));
+    } else if (totalExpenseInRange > 0) {
+      // Has expenses but no income → poor savings score
+      rasioTabungan = 10;
+    } else {
+      // No transactions at all
+      rasioTabungan = 0;
+    }
 
     // 2. Diversifikasi (number of unique expense categories, max score at 4+)
     // Having 1-2 categories is too narrow, 4+ is well-diversified
