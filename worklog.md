@@ -202,3 +202,48 @@ Stage Summary:
 - Budget edit functionality fully wired up with hover-visible edit button and dialog
 - Transaction search now works server-side via API (with client-side fallback)
 - All UI text in Indonesian, currency in IDR
+
+---
+
+## Task 3: Add Calculation Explanations to Dashboard Charts
+
+**File modified:** `src/components/habit-tracker/dashboard.tsx`
+
+**Changes:**
+- Added `Info` icon import from `lucide-react`
+- Added `Tooltip, TooltipContent, TooltipProvider, TooltipTrigger` imports from `@/components/ui/tooltip`
+- Created inline `ChartInfo` component (tooltip with Info icon button, max-w-xs, text-xs)
+- Added `ChartInfo` with Indonesian explanation text to all 12 chart/section headings:
+  1. **Progress Overview** — Persentase hari yang berhasil menyelesaikan minimal 1 habit dari total hari dalam periode yang dipilih.
+  2. **Weekly Completion** — Jumlah habit yang diselesaikan (hijau) vs tidak diselesaikan (merah) per hari dalam 7 hari terakhir.
+  3. **Category Performance** — Rasio penyelesaian per kategori: (jumlah log completed) / (jumlah habit × jumlah hari sejak habit pertama dibuat).
+  4. **{chartLabel} Completion Trend** — Tren persentase penyelesaian harian selama periode yang dipilih.
+  5. **Habit Leaderboard** — Peringkat habit berdasarkan jumlah hari diselesaikan. Streak dihitung dari hari terakhir ke belakang berturut-turut.
+  6. **Today's Focus** — Menampilkan daftar habit yang belum diselesaikan hari ini, urut berdasarkan prioritas.
+  7. **Daily Learning** — Status Daily Learning hari ini. Streak dihitung dari jumlah hari berturut-turut menyelesaikan pembacaan.
+  8. **Keuangan Bulan Ini** — Pemasukan dan pengeluaran bulan ini. Saldo = pemasukan − pengeluaran. Status anggaran menunjukkan kategori terlampaui 80% atau 100%.
+  9. **{chartLabel} Detail** (stacked bar) — Setiap bar menunjukkan completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit aktif pada tanggal tersebut.
+  10. **Pola Mingguan** — Rata-rata tingkat penyelesaian per hari dalam seminggu selama 30 hari terakhir.
+  11. **Performa Per Habit** — Detail statistik per habit termasuk jumlah hari selesai, completion rate, dan streak terkini.
+  12. **Quick Insights** — Analisis otomatis berdasarkan data habit 30 hari terakhir, dibandingkan dengan periode sebelumnya.
+
+- All headings updated with `flex items-center gap-2` classes to accommodate the inline ChartInfo icon
+- Lint: 0 errors. Dev server compiled successfully.
+
+
+---
+
+## Task 4: Add ChartInfo Calculation Explanations to Finance Charts
+
+**File modified:** `src/components/habit-tracker/finance.tsx`
+
+**Changes:**
+1. Added `Info` to lucide-react imports
+2. Added `Tooltip`, `TooltipContent`, `TooltipProvider`, `TooltipTrigger` from `@/components/ui/tooltip`
+3. Created inline `ChartInfo` component (small info icon button with tooltip) placed after all imports, before type definitions
+4. Added `ChartInfo` with Indonesian explanation text to all 13 chart/graph headings:
+   - **RINGKASAN tab (3):** Tren Pengeluaran Harian, Pengeluaran per Kategori, Status Budget Bulan Ini
+   - **ANALITIK tab (10):** Tren Bulanan (6 Bulan), Kategori Pengeluaran Teratas, Sumber Pemasukan, Komposisi Pengeluaran Bulanan, Peta Panas Pengeluaran, Tren Tabungan, Perbandingan Bulan Ini vs Bulan Lalu, Skor Kesehatan Keuangan, Pola Pengeluaran per Hari, Ringkasan & Pengeluaran Terbesar
+5. Each CardTitle was updated with `flex items-center gap-2` classes and the `<ChartInfo>` component
+
+**Verification:** ESLint passes cleanly, dev server compiles successfully.

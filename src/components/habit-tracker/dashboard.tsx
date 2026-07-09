@@ -47,7 +47,26 @@ import {
   GraduationCap,
   BookOpen as BookOpenIcon,
   Wallet,
+  Info,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+function ChartInfo({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Info">
+            <Info className="w-3 h-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          <p>{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 type Period = '7d' | '1m' | '3m' | 'all';
 
@@ -640,7 +659,10 @@ export default function Dashboard() {
       <section aria-label="Progress overview">
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4">Progress Overview</h3>
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              Progress Overview
+              <ChartInfo text="Persentase hari yang berhasil menyelesaikan minimal 1 habit dari total hari dalam periode yang dipilih." />
+            </h3>
             <div className="flex items-center justify-around flex-wrap gap-6">
               <div className="relative">
                 <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Overall" />
@@ -660,7 +682,10 @@ export default function Dashboard() {
       <section aria-label="Charts" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4">Weekly Completion</h3>
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              Weekly Completion
+              <ChartInfo text="Jumlah habit yang diselesaikan (hijau) vs tidak diselesaikan (merah) per hari dalam 7 hari terakhir. Total harian = jumlah habit aktif pada tanggal tersebut." />
+            </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeklyBarData} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}>
@@ -705,7 +730,10 @@ export default function Dashboard() {
 
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4">Category Performance</h3>
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              Category Performance
+              <ChartInfo text="Rasio penyelesaian per kategori: (jumlah log completed) / (jumlah habit × jumlah hari sejak habit pertama dibuat dalam kategori)." />
+            </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -761,13 +789,14 @@ export default function Dashboard() {
       <section aria-label="Period trend">
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4">
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
               {chartLabel} Completion Trend
               {period !== 'all' && (
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
                   (filter aktif)
                 </span>
               )}
+              <ChartInfo text="Tren persentase penyelesaian harian selama periode yang dipilih. Setiap titik menunjukkan rasio habit completed terhadap total habit aktif pada hari tersebut." />
             </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -822,7 +851,10 @@ export default function Dashboard() {
       <section aria-label="Details" className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4">Habit Leaderboard</h3>
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              Habit Leaderboard
+              <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
+            </h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex flex-col items-center text-center gap-2">
                 <div className="flex items-center gap-1 text-xs font-medium text-primary">
@@ -851,7 +883,10 @@ export default function Dashboard() {
         <Card className="p-4">
           <CardContent className="p-0">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Today&apos;s Focus</h3>
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                Today&apos;s Focus
+                <ChartInfo text="Menampilkan daftar habit yang belum diselesaikan hari ini. Urut berdasarkan prioritas." />
+              </h3>
               <Badge variant="secondary" className="text-xs">
                 {displayData.todayFocus.length} remaining
               </Badge>
@@ -903,7 +938,10 @@ export default function Dashboard() {
                   <GraduationCap className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">Daily Learning</h3>
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    Daily Learning
+                    <ChartInfo text="Status Daily Learning hari ini. Streak dihitung dari jumlah hari berturut-turut menyelesaikan pembacaan." />
+                  </h3>
                   <p className="text-xs text-muted-foreground">
                     {displayData.learningStatus.completedToday
                       ? 'Sudah dibaca hari ini'
@@ -939,7 +977,10 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold">Keuangan Bulan Ini</h3>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  Keuangan Bulan Ini
+                  <ChartInfo text="Pemasukan dan pengeluaran dari semua transaksi bulan ini. Saldo = pemasukan − pengeluaran. Status anggaran menunjukkan jumlah kategori yang terlampaui 80% atau 100%." />
+                </h3>
               </div>
               <Badge variant="secondary" className="text-[10px]">
                 {displayData.financeOverview.transactionCount} transaksi
@@ -1015,8 +1056,9 @@ export default function Dashboard() {
       <section aria-label="Habit completion detail" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-1">
+            <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
               {chartLabel} Detail
+              <ChartInfo text="Setiap bar menunjukkan jumlah habit completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit yang aktif pada tanggal tersebut, bukan jumlah log." />
             </h3>
             <p className="text-[10px] text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
             <div className="h-56">
@@ -1056,7 +1098,10 @@ export default function Dashboard() {
         {/* Weekly Pattern */}
         <Card className="p-4">
           <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-1">Pola Mingguan</h3>
+            <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+              Pola Mingguan
+              <ChartInfo text="Rata-rata tingkat penyelesaian per hari dalam seminggu selama 30 hari terakhir. Misal Senin = rata-rata completion rate semua hari Senin dalam 30 hari." />
+            </h3>
             <p className="text-[10px] text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -1113,7 +1158,10 @@ export default function Dashboard() {
         <section aria-label="Habit details">
           <Card className="p-4">
             <CardContent className="p-0">
-              <h3 className="text-sm font-semibold mb-4">Performa Per Habit</h3>
+              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                Performa Per Habit
+                <ChartInfo text="Detail statistik per habit termasuk jumlah hari selesai, completion rate, dan streak terkini dalam periode yang dipilih." />
+              </h3>
               <div className="max-h-80 overflow-y-auto pr-1">
                 <div className="space-y-2">
                   {displayData.habitDetailStats.map((habit) => (
@@ -1155,7 +1203,10 @@ export default function Dashboard() {
         <section aria-label="Quick insights">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Quick Insights</h3>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              Quick Insights
+              <ChartInfo text="Analisis otomatis berdasarkan data habit 30 hari terakhir. Dibandingkan dengan periode sebelumnya." />
+            </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {insights.map((insight, i) => (
