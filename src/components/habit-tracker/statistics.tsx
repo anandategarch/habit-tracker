@@ -249,7 +249,7 @@ export default function Statistics() {
 
   const total = useMemo(() => {
     if (!data) return 0;
-    return data.totalCompletion + data.missCount;
+    return data.totalEntries; // theoretical max (habits × days)
   }, [data]);
 
   if (loading) return <LoadingSkeleton />;
@@ -303,7 +303,7 @@ export default function Statistics() {
           icon={CheckCircle}
           label="Total Completions"
           value={displayData.totalCompletion}
-          subValue={`of ${displayData.totalEntries} entries`}
+          subValue={`of ${displayData.totalEntries} possible`}
           color="text-green-600"
         />
 
@@ -311,7 +311,7 @@ export default function Statistics() {
           icon={XCircle}
           label="Miss Count"
           value={displayData.missCount}
-          subValue={total > 0 ? `${((displayData.missCount / total) * 100).toFixed(1)}% of total` : undefined}
+          subValue={displayData.totalEntries > 0 ? `${((displayData.missCount / displayData.totalEntries) * 100).toFixed(1)}% of total` : undefined}
           color="text-amber-600"
         />
 
