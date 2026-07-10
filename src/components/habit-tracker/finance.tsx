@@ -312,20 +312,51 @@ export default function Finance() {
 
   // ── Derived category helpers ──────────────────────────────────────────────
 
-  const expenseCategories = categories.filter(c => c.type === 'expense');
-  const incomeCategories = categories.filter(c => c.type === 'income');
+
+  const ALL_KNOWN_EMOJIS = useMemo(() => {
+    const map = new Map<string, { emoji: string; color: string }>();
+    [...FALLBACK_EXPENSE, ...FALLBACK_INCOME].forEach(c => map.set(c.value, { emoji: c.emoji, color: c.color }));
+    return map;
+  }, []);
+
+  // Resolve emoji: if category has default 📦, use known fallback by name
+  const resolveEmoji = useCallback((cat: FinanceCategory) => {
+    if (cat.emoji !== '📦') return cat;
+    const known = ALL_KNOWN_EMOJIS.get(cat.name);
+    return known ? { ...cat, emoji: known.emoji, color: known.color || cat.color } : cat;
+  }, [ALL_KNOWN_EMOJIS]);
+
+  const expenseCategories = categories.filter(c => c.type === 'expense').map(resolveEmoji);
+  const incomeCategories = categories.filter(c => c.type === 'income').map(resolveEmoji);
 
   const getCategoryMeta = useCallback((cat: string) => {
     const found = categories.find(c => c.name === cat);
-    if (found) return { emoji: found.emoji, color: found.color };
+    if (found) {
+      // If category still has default emoji, try to match by name
+      if (found.emoji === '📦') {
+        const known = ALL_KNOWN_EMOJIS.get(cat);
+        if (known) return { emoji: known.emoji, color: known.color || found.color };
+      }
+      return { emoji: found.emoji, color: found.color };
+    }
+    // Category not in DB — try fallback match
+    const known = ALL_KNOWN_EMOJIS.get(cat);
+    if (known) return known;
     return { emoji: '📦', color: '#78716c' };
-  }, [categories]);
+  }, [categories, ALL_KNOWN_EMOJIS]);
 
   const getCategoryList = useCallback((type: string) => {
     const cats = categories.filter(c => c.type === type);
-    if (cats.length > 0) return cats.map(c => ({ value: c.name, emoji: c.emoji, color: c.color }));
+    if (cats.length > 0) return cats.map(c => {
+      // If still has default emoji, use known fallback
+      if (c.emoji === '📦') {
+        const known = ALL_KNOWN_EMOJIS.get(c.name);
+        if (known) return { value: c.name, emoji: known.emoji, color: known.color || c.color };
+      }
+      return { value: c.name, emoji: c.emoji, color: c.color };
+    });
     return type === 'expense' ? FALLBACK_EXPENSE : FALLBACK_INCOME;
-  }, [categories]);
+  }, [categories, ALL_KNOWN_EMOJIS]);
 
   const getActiveSources = useCallback(() => {
     if (sources.length > 0) return sources;
@@ -343,7 +374,16 @@ export default function Finance() {
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/finance/categories');
-      if (res.ok) setCategories(await res.json());
+      if (res.ok) {
+        const cats = await res.json();
+        setCategories(cats);
+        // Auto-migrate categories with default 📦 emoji (one-time)
+        if (cats.some((c: FinanceCategory) => c.emoji === '📦')) {
+          fetch('/api/finance/categories/migrate-emojis', { method: 'POST' }).then(r => {
+            if (r.ok) fetchCategories(); // re-fetch with corrected emojis
+          }).catch(() => {});
+        }
+      }
     } catch { /* silent */ }
   }, []);
 
