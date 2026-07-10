@@ -135,14 +135,12 @@ model FinanceCategory {
 }
 
 model FundSource {
-  id             String   @id @default(cuid())
-  name           String   @unique
-  emoji          String   @default("💵")
-  type           String   @default("tunai") // "tunai", "bank", "dompet_digital", "tabungan", "investasi"
-  initialBalance Float    @default(0)
-  order          Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String   @unique
+  emoji     String   @default("💵")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Transaction {

@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, format, startOfWeek, startOfMonth,
-  subMonths, eachDayOfInterval,
+  subMonths, eachDayOfInterval, differenceInDays,
 } from 'date-fns';
 
 export async function GET(request: NextRequest) {
