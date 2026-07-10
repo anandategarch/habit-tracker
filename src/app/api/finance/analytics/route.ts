@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/finance/analytics?months=6
 export async function GET(request: NextRequest) {
   try {
@@ -357,6 +359,11 @@ export async function GET(request: NextRequest) {
       categoryComparison,
       financialHealth,
       sparklineData,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+      },
     });
   } catch (error) {
     console.error('GET /api/finance/analytics error:', error);
