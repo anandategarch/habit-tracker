@@ -247,3 +247,25 @@ Stage Summary:
 5. Each CardTitle was updated with `flex items-center gap-2` classes and the `<ChartInfo>` component
 
 **Verification:** ESLint passes cleanly, dev server compiles successfully.
+
+---
+Task ID: 1
+Agent: Main
+Task: Fix category emoji picker, transaction date format, filter bugs
+
+Work Log:
+- Investigated category "icons all the same" issue — API returns correct different emojis, data is intact in DB
+- Investigated "categories disappear on add" — fixed race condition by adding `await` to fetchCategories()
+- Fixed filteredTransactions to actually use type/category/source filter selects (was only filtering by search)
+- Replaced flat transaction table with grouped-by-date view
+- Date format now shows "10 Juli, Jumat" with day-of-week merged
+- Added daily total (income/expense/net) per date group with color-coded badge
+- Added emoji picker grid (50 emojis) to category form replacing plain text input
+- Made sub-tab icons visible on mobile (removed hidden sm:inline)
+- Removed unused Table component imports
+- Fixed handleSubmitCat race condition (await fetchCategories before triggerRefresh)
+
+Stage Summary:
+- All changes committed and pushed to GitHub (d12b11c)
+- Browser verified: transaction grouping works, emoji picker works
+- Dev server running with no errors
