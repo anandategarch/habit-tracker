@@ -378,7 +378,8 @@ export default function Finance() {
     try {
       const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
       if (res.ok) setDashboardData(await res.json());
-    } catch { /* silent */ }
+      else console.warn('[Finance] Dashboard API error:', res.status);
+    } catch (e) { console.warn('[Finance] Dashboard fetch failed:', e); }
   }, [selectedMonth]);
 
   const fetchTransactions = useCallback(async () => {
@@ -411,7 +412,8 @@ export default function Finance() {
     try {
       const res = await fetch('/api/finance/analytics?months=6');
       if (res.ok) setAnalyticsData(await res.json());
-    } catch { /* silent */ }
+      else console.warn('[Finance] Analytics API error:', res.status);
+    } catch (e) { console.warn('[Finance] Analytics fetch failed:', e); }
   }, []);
 
   useEffect(() => {
@@ -948,7 +950,7 @@ export default function Finance() {
 
         {/* ─── OVERVIEW TAB ─── */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          {dashboardData && (
+          {dashboardData ? (
             <>
               {/* KPI Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1209,6 +1211,11 @@ export default function Finance() {
                 </Card>
               )}
             </>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              <Wallet className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              Gagal memuat data. Coba refresh halaman.
+            </div>
           )}
         </TabsContent>
 
@@ -1469,7 +1476,7 @@ export default function Finance() {
 
         {/* ─── ANALYTICS TAB ─── */}
         <TabsContent value="analytics" className="space-y-4 mt-4">
-          {analyticsData && (
+          {analyticsData ? (
             <>
               {/* Monthly Trend */}
               <Card>
@@ -1926,6 +1933,11 @@ export default function Finance() {
                 </Card>
               </div>
             </>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              {loading ? 'Memuat analitik...' : 'Gagal memuat data analitik. Coba refresh halaman.'}
+            </div>
           )}
         </TabsContent>
       </Tabs>
