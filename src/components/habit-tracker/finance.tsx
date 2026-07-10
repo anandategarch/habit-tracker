@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -371,17 +371,20 @@ export default function Finance() {
 
   // ── Data Fetching ─────────────────────────────────────────────────────────
 
-  const fetchCategories = useCallback(async () => {
+  const migrateAttempted = useRef(false);
+
+  const fetchCategories = useCallback(async (skipMigration = false) => {
     try {
       const res = await fetch('/api/finance/categories');
       if (res.ok) {
         const cats = await res.json();
         setCategories(cats);
-        // Auto-migrate categories with default 📦 emoji (one-time)
-        if (cats.some((c: FinanceCategory) => c.emoji === '📦')) {
-          fetch('/api/finance/categories/migrate-emojis', { method: 'POST' }).then(r => {
-            if (r.ok) fetchCategories(); // re-fetch with corrected emojis
-          }).catch(() => {});
+        // Auto-migrate categories with default 📦 emoji (only once per session)
+        if (!skipMigration && !migrateAttempted.current && cats.some((c: FinanceCategory) => c.emoji === '📦')) {
+          migrateAttempted.current = true;
+          fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
+            .then(r => { if (r.ok) fetchCategories(true); })
+            .catch(() => {});
         }
       }
     } catch { /* silent */ }
