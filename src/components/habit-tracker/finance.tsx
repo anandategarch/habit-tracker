@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -181,8 +181,6 @@ interface AnalyticsData {
     overallScore: number;
   };
   sparklineData: { date: string; income: number; expense: number; balance: number; dailyAvg: number }[];
-  walletAnalytics: { name: string; emoji: string; type: string; income: number; expense: number; net: number; txCount: number }[];
-  walletMonthlyFlow: { month: string; monthLabel: string; wallets: Record<string, { income: number; expense: number }> }[];
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -196,31 +194,10 @@ interface FinanceCategory {
   order: number;
 }
 
-interface WalletInfo {
-  id: string;
-  name: string;
-  emoji: string;
-  type: string;
-  initialBalance: number;
-  currentBalance: number;
-  totalIncome: number;
-  totalExpense: number;
-  txCount: number;
-}
-
-interface WalletData {
-  wallets: WalletInfo[];
-  totalBalance: number;
-  totalIncome: number;
-  totalExpense: number;
-}
-
 interface FundSource {
   id: string;
   name: string;
   emoji: string;
-  type: string;
-  initialBalance: number;
   order: number;
 }
 
@@ -260,14 +237,6 @@ const FALLBACK_SOURCES = [
   { value: 'ShopeePay', emoji: '🧡' },
   { value: 'E-Money Lainnya', emoji: '💳' },
 ];
-
-const WALLET_TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
-  tunai: { label: 'Tunai', color: 'text-green-700 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900' },
-  bank: { label: 'Bank', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900' },
-  dompet_digital: { label: 'E-Wallet', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900' },
-  tabungan: { label: 'Tabungan', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900' },
-  investasi: { label: 'Investasi', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-900' },
-};
 
 // Format raw digits to display with dot thousand separator: 12000 → "12.000"
 const formatNominalInput = (value: string): string => {
@@ -311,11 +280,10 @@ export default function Finance() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
   const [sources, setSources] = useState<FundSource[]>([]);
-  const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<FundSource | null>(null);
-  const [sourceForm, setSourceForm] = useState({ name: '', emoji: '💵', type: 'tunai', initialBalance: '' });
+  const [sourceForm, setSourceForm] = useState({ name: '', emoji: '💵' });
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
@@ -349,7 +317,7 @@ export default function Finance() {
 
   const getActiveSources = useCallback(() => {
     if (sources.length > 0) return sources;
-    return FALLBACK_SOURCES.map(s => ({ id: '', name: s.value, emoji: s.emoji, type: 'tunai', initialBalance: 0, order: 0 }));
+    return FALLBACK_SOURCES.map(s => ({ id: '', name: s.value, emoji: s.emoji, order: 0 }));
   }, [sources]);
 
   const getSourceEmoji = useCallback((name: string) => {
@@ -378,8 +346,7 @@ export default function Finance() {
     try {
       const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
       if (res.ok) setDashboardData(await res.json());
-      else console.warn('[Finance] Dashboard API error:', res.status);
-    } catch (e) { console.warn('[Finance] Dashboard fetch failed:', e); }
+    } catch { /* silent */ }
   }, [selectedMonth]);
 
   const fetchTransactions = useCallback(async () => {
@@ -401,25 +368,17 @@ export default function Finance() {
     } catch { /* silent */ }
   }, []);
 
-  const fetchWallets = useCallback(async () => {
-    try {
-      const res = await fetch('/api/finance/wallets');
-      if (res.ok) setWalletData(await res.json());
-    } catch { /* silent */ }
-  }, []);
-
   const fetchAnalytics = useCallback(async () => {
     try {
       const res = await fetch('/api/finance/analytics?months=6');
       if (res.ok) setAnalyticsData(await res.json());
-      else console.warn('[Finance] Analytics API error:', res.status);
-    } catch (e) { console.warn('[Finance] Analytics fetch failed:', e); }
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchCategories(), fetchSources(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics(), fetchWallets()]).finally(() => setLoading(false));
-  }, [fetchCategories, fetchSources, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, fetchWallets, refreshKey]);
+    Promise.all([fetchCategories(), fetchSources(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchSources, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
 
@@ -681,13 +640,13 @@ export default function Finance() {
 
   const openNewSource = () => {
     setEditingSource(null);
-    setSourceForm({ name: '', emoji: '💵', type: 'tunai', initialBalance: '' });
+    setSourceForm({ name: '', emoji: '💵' });
     setSourceFormOpen(true);
   };
 
   const openEditSource = (src: FundSource) => {
     setEditingSource(src);
-    setSourceForm({ name: src.name, emoji: src.emoji, type: src.type || 'tunai', initialBalance: String(src.initialBalance || 0) });
+    setSourceForm({ name: src.name, emoji: src.emoji });
     setSourceFormOpen(true);
   };
 
@@ -697,18 +656,12 @@ export default function Finance() {
       return;
     }
     setSubmitting(true);
-    const payload = {
-      name: sourceForm.name,
-      emoji: sourceForm.emoji,
-      type: sourceForm.type,
-      initialBalance: parseFloat(sourceForm.initialBalance) || 0,
-    };
     try {
       if (editingSource) {
         const res = await fetch(`/api/finance/sources/${editingSource.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(sourceForm),
         });
         if (res.ok) {
           toast.success('Sumber dana berhasil diupdate');
@@ -721,7 +674,7 @@ export default function Finance() {
         const res = await fetch('/api/finance/sources', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(sourceForm),
         });
         if (res.ok) {
           toast.success('Sumber dana berhasil ditambahkan');
@@ -950,7 +903,7 @@ export default function Finance() {
 
         {/* ─── OVERVIEW TAB ─── */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          {dashboardData ? (
+          {dashboardData && (
             <>
               {/* KPI Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1044,45 +997,6 @@ export default function Finance() {
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Wallet Balance Cards */}
-              {walletData && walletData.wallets.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Wallet className="h-4 w-4" />
-                        Saldo Dompet
-                      </CardTitle>
-                      <span className={cn('text-sm font-bold', walletData.totalBalance >= 0 ? 'text-green-600' : 'text-red-500')}>
-                        Total: {formatRupiah(walletData.totalBalance)}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {walletData.wallets.slice(0, 8).map(w => {
-                        const meta = WALLET_TYPE_META[w.type] || WALLET_TYPE_META.tunai;
-                        return (
-                          <div key={w.id || w.name} className={cn('p-3 rounded-lg border', meta.bg)}>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <span className="text-base">{w.emoji}</span>
-                              <span className="text-xs font-medium truncate">{w.name}</span>
-                            </div>
-                            <p className={cn('text-base font-bold', w.currentBalance >= 0 ? meta.color : 'text-red-500')}>
-                              {formatRupiah(w.currentBalance)}
-                            </p>
-                            <div className="flex gap-2 mt-1 text-[10px] text-muted-foreground">
-                              <span className="text-green-600">+{formatRupiah(w.totalIncome)}</span>
-                              <span className="text-red-500">-{formatRupiah(w.totalExpense)}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Daily Spending Chart */}
@@ -1211,11 +1125,6 @@ export default function Finance() {
                 </Card>
               )}
             </>
-          ) : (
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              <Wallet className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              Gagal memuat data. Coba refresh halaman.
-            </div>
           )}
         </TabsContent>
 
@@ -1476,7 +1385,7 @@ export default function Finance() {
 
         {/* ─── ANALYTICS TAB ─── */}
         <TabsContent value="analytics" className="space-y-4 mt-4">
-          {analyticsData ? (
+          {analyticsData && (
             <>
               {/* Monthly Trend */}
               <Card>
@@ -1646,52 +1555,107 @@ export default function Finance() {
                 </CardContent>
               </Card>
 
-              {/* 2. Wallet Flow Chart - 3 Months Trend */}
+              {/* 2. Heatmap Calendar - Spending Intensity */}
               <Card>
                 <CardHeader className="pb-2 pt-4 px-4">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  Alur Dompet (3 Bulan)
-                  <ChartInfo text="Perbandingan pemasukan dan pengeluaran per sumber dana selama 3 bulan terakhir. Setiap bar menunjukkan jumlah uang masuk (hijau) dan keluar (merah) per dompet." />
+                  Peta Panas Pengeluaran
+                  <ChartInfo text="Intensitas pengeluaran harian selama 90 hari terakhir. Abu-abu = rendah, merah = tinggi. Intensitas dihitung relatif terhadap hari pengeluaran tertinggi. Kolom = minggu, baris = hari (Sen-Min)." />
                 </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
-                  {analyticsData.walletMonthlyFlow && analyticsData.walletMonthlyFlow.length > 0 && analyticsData.walletAnalytics && analyticsData.walletAnalytics.length > 0 ? (
+                  {analyticsData.dailySpending && analyticsData.dailySpending.length > 0 ? (
                     (() => {
-                      const srcNames = analyticsData.walletAnalytics.map(w => w.name);
-                      const colors = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ef4444', '#06b6d4', '#eab308', '#ec4899'];
-                      const data = analyticsData.walletMonthlyFlow.map(m => {
-                        const row: Record<string, string | number> = { month: m.monthLabel };
-                        srcNames.forEach(s => {
-                          const flow = m.wallets[s] || { income: 0, expense: 0 };
-                          row[`${s} (masuk)`] = Math.round(flow.income);
-                          row[`${s} (keluar)`] = -Math.round(flow.expense);
-                        });
-                        return row;
+                      // Pre-compute percentile thresholds for better color distribution
+                      const nonZeroAmounts = analyticsData.dailySpending.filter(d => d.amount > 0).map(d => d.amount).sort((a, b) => a - b);
+                      const len = nonZeroAmounts.length;
+                      const q1 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.25)] || nonZeroAmounts[0] : 1;
+                      const q2 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.5)] || nonZeroAmounts[0] : 1;
+                      const q3 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.75)] || nonZeroAmounts[0] : 1;
+
+                      // Pre-compute weeks
+                      const weeks: { date: string; amount: number }[][] = [[]];
+                      let currentWeekStart = -1;
+                      analyticsData.dailySpending.forEach(d => {
+                        const day = new Date(d.date + 'T00:00:00').getDay();
+                        const adjustedDay = day === 0 ? 6 : day - 1;
+                        if (currentWeekStart === -1) currentWeekStart = adjustedDay;
+                        if (adjustedDay < currentWeekStart && weeks[weeks.length - 1].length > 0) {
+                          weeks.push([]);
+                        }
+                        currentWeekStart = adjustedDay;
+                        weeks[weeks.length - 1].push(d);
                       });
+
+                      function getHeatBg(amount: number | undefined): string {
+                        if (amount === undefined || amount <= 0) return 'bg-stone-200 dark:bg-stone-800';
+                        // Percentile-based: bottom 25% → light, 25-50% → medium, 50-75% → high, top 25% → intense
+                        if (amount <= q1) return 'bg-amber-200 dark:bg-amber-900';
+                        if (amount <= q2) return 'bg-amber-400 dark:bg-amber-700';
+                        if (amount <= q3) return 'bg-orange-500 dark:bg-orange-600';
+                        return 'bg-red-500 dark:bg-red-500';
+                      }
+
                       return (
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={data}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(Math.abs(v) / 1000).toFixed(0)}k`} />
-                            <RechartsTooltip
-                              formatter={(value: number, name: string) => [formatRupiah(Math.abs(value)), name]}
-                              contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                            />
-                            <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '4px' }} iconSize={8} />
-                            {srcNames.map((s, i) => (
-                              <Fragment key={s}>
-                                <Bar dataKey={`${s} (masuk)`} fill={colors[i % colors.length]} radius={[4, 4, 0, 0]} stackId={s} />
-                                <Bar dataKey={`${s} (keluar)`} fill={colors[i % colors.length]} fillOpacity={0.4} radius={[4, 4, 0, 0]} stackId={s} />
-                              </Fragment>
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[500px]">
+                            {/* Day labels */}
+                            <div className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-1">
+                              <div className="text-[10px] text-muted-foreground" />
+                              {(() => {
+                                const months: string[] = [];
+                                let lastMonth = '';
+                                analyticsData.dailySpending.forEach(d => {
+                                  const m = d.date.slice(0, 7);
+                                  if (m !== lastMonth) { months.push(m); lastMonth = m; }
+                                });
+                                return months.map(m => (
+                                  <div key={m} className="text-[10px] text-muted-foreground text-center">
+                                    {new Date(m + '-01').toLocaleDateString('en-US', { month: 'short' })}
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                            {/* Day rows */}
+                            {[1, 2, 3, 4, 5, 6, 0].map(dow => (
+                              <div key={dow} className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-[3px]">
+                                <div className="text-[10px] text-muted-foreground flex items-center">
+                                  {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][dow === 0 ? 6 : dow - 1]}
+                                </div>
+                                {weeks.slice(0, 13).map((week, wi) => {
+                                  const day = week.find(d => {
+                                    const dayOfWeek = new Date(d.date + 'T00:00:00').getDay();
+                                    return (dayOfWeek === 0 ? 6 : dayOfWeek - 1) === dow;
+                                  });
+                                  return (
+                                    <div
+                                      key={wi}
+                                      className={cn('w-full aspect-square rounded-sm', getHeatBg(day?.amount))}
+                                      title={day ? `${day.date}: ${formatRupiah(day.amount)}` : 'Tidak ada data'}
+                                    />
+                                  );
+                                })}
+                              </div>
                             ))}
-                          </BarChart>
-                        </ResponsiveContainer>
+                            {/* Color legend */}
+                            <div className="flex items-center gap-2 mt-2 justify-end">
+                              <span className="text-[9px] text-muted-foreground">Sedikit</span>
+                              <div className="flex gap-[2px]">
+                                <div className="w-3 h-3 rounded-sm bg-stone-200 dark:bg-stone-800" />
+                                <div className="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-900" />
+                                <div className="w-3 h-3 rounded-sm bg-amber-400 dark:bg-amber-700" />
+                                <div className="w-3 h-3 rounded-sm bg-orange-500 dark:bg-orange-600" />
+                                <div className="w-3 h-3 rounded-sm bg-red-500 dark:bg-red-500" />
+                              </div>
+                              <span className="text-[9px] text-muted-foreground">Banyak</span>
+                            </div>
+                          </div>
+                        </div>
                       );
                     })()
                   ) : (
-                    <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
-                      Tambahkan sumber dana untuk melihat alur dompet
+                    <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                      Belum ada data
                     </div>
                   )}
                 </CardContent>
@@ -1851,35 +1815,28 @@ export default function Finance() {
               </Card>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Wallet Spending Distribution */}
+                {/* Weekly Pattern */}
                 <Card>
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    Distribusi Pengeluaran per Dompet
-                    <ChartInfo text="Total pemasukan (hijau) dan pengeluaran (merah) per sumber dana selama 6 bulan terakhir. Memudahkan melihat dompet mana yang paling aktif." />
+                    Pola Pengeluaran per Hari
+                    <ChartInfo text="Total dan rata-rata pengeluaran per hari dalam seminggu selama 6 bulan terakhir. Berguna untuk melihat pola: hari mana biasanya pengeluaran lebih tinggi." />
                   </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4">
-                    {analyticsData.walletAnalytics && analyticsData.walletAnalytics.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={analyticsData.walletAnalytics} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                          <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                          <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10 }} />
-                          <RechartsTooltip
-                            formatter={(value: number, name: string) => [formatRupiah(value), name === 'income' ? 'Pemasukan' : 'Pengeluaran']}
-                            contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                          />
-                          <Legend wrapperStyle={{ fontSize: '10px' }} iconSize={8} />
-                          <Bar dataKey="income" fill="#22c55e" name="Pemasukan" radius={[0, 4, 4, 0]} />
-                          <Bar dataKey="expense" fill="#ef4444" name="Pengeluaran" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                        Tambahkan sumber dana untuk melihat distribusi
-                      </div>
-                    )}
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={analyticsData.weeklyPattern}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <RechartsTooltip
+                          formatter={(value: number, name: string) => [formatRupiah(value), name === 'total' ? 'Total' : 'Rata-rata']}
+                          contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                        />
+                        <Bar dataKey="total" fill="#a855f7" radius={[4, 4, 0, 0]} name="total" />
+                        <Bar dataKey="avg" fill="#c084fc" radius={[4, 4, 0, 0]} name="avg" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
@@ -1933,11 +1890,6 @@ export default function Finance() {
                 </Card>
               </div>
             </>
-          ) : (
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              {loading ? 'Memuat analitik...' : 'Gagal memuat data analitik. Coba refresh halaman.'}
-            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -2348,15 +2300,10 @@ export default function Finance() {
               </Button>
             </div>
             <div className="space-y-1.5 max-h-80 overflow-y-auto custom-scrollbar">
-              {getActiveSources().map(src => {
-                const meta = src.type ? (WALLET_TYPE_META[src.type] || WALLET_TYPE_META.tunai) : null;
-                return (
+              {getActiveSources().map(src => (
                 <div key={src.id || src.name} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
                   <span className="text-lg">{src.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium truncate block">{src.name}</span>
-                    {meta && <span className={cn('text-[10px]', meta.color)}>{meta.label}</span>}
-                  </div>
+                  <span className="flex-1 text-sm font-medium truncate">{src.name}</span>
                   {src.id && (
                     <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSource(src)}>
@@ -2368,8 +2315,7 @@ export default function Finance() {
                     </div>
                   )}
                 </div>
-                );
-              })}
+              ))}
             </div>
           </div>
         </DialogContent>
@@ -2381,7 +2327,7 @@ export default function Finance() {
           <DialogHeader>
             <DialogTitle>{editingSource ? 'Edit Sumber Dana' : 'Tambah Sumber Dana'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="grid grid-cols-[60px_1fr] gap-3">
               <div>
                 <Label className="text-xs">Emoji</Label>
@@ -2395,40 +2341,14 @@ export default function Finance() {
               <div>
                 <Label className="text-xs">Nama Sumber</Label>
                 <Input
-                  placeholder="Contoh: Bank BCA, GoPay"
+                  placeholder="Contoh: Bank BCA"
                   value={sourceForm.name}
                   onChange={e => setSourceForm(f => ({ ...f, name: e.target.value }))}
                   className="mt-1"
                 />
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Tipe</Label>
-              <Select value={sourceForm.type} onValueChange={v => setSourceForm(f => ({ ...f, type: v }))}>
-                <SelectTrigger className="mt-1 h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tunai">💵 Tunai</SelectItem>
-                  <SelectItem value="bank">🏦 Bank</SelectItem>
-                  <SelectItem value="dompet_digital">📱 Dompet Digital</SelectItem>
-                  <SelectItem value="tabungan">💰 Tabungan</SelectItem>
-                  <SelectItem value="investasi">📈 Investasi</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Saldo Awal (Rp)</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={sourceForm.initialBalance}
-                onChange={e => setSourceForm(f => ({ ...f, initialBalance: e.target.value }))}
-                className="mt-1"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">Saldo saat pertama kali dicatat. Transaksi selanjutnya akan otomatis mengubah saldo.</p>
-            </div>
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setSourceFormOpen(false)}>Batal</Button>
               <Button className="flex-1" onClick={handleSubmitSource} disabled={submitting}>
                 {submitting ? 'Menyimpan...' : editingSource ? 'Update' : 'Simpan'}
