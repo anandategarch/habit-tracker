@@ -63,6 +63,7 @@ import {
   LineChart,
   Settings2,
   Info,
+  Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -192,6 +193,18 @@ interface FinanceCategory {
   emoji: string;
   color: string;
   order: number;
+  trackLastDone: boolean;
+}
+
+interface LastDoneItem {
+  category: string;
+  emoji: string;
+  color: string;
+  type: string;
+  lastDate: string | null;
+  daysAgo: number | null;
+  lastAmount: number | null;
+  description: string | null;
 }
 
 interface FundSource {
@@ -282,6 +295,7 @@ export default function Finance() {
   const [sources, setSources] = useState<FundSource[]>([]);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
+  const [lastDoneData, setLastDoneData] = useState<LastDoneItem[]>([]);
   const [editingSource, setEditingSource] = useState<FundSource | null>(null);
   const [sourceForm, setSourceForm] = useState({ name: '', emoji: '💵' });
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
@@ -292,7 +306,7 @@ export default function Finance() {
   // Form states
   const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '', source: 'Kas' });
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
-  const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c' });
+  const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
 
   // Filter states
@@ -375,10 +389,17 @@ export default function Finance() {
     } catch { /* silent */ }
   }, []);
 
+  const fetchLastDone = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finance/last-done');
+      if (res.ok) setLastDoneData(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchCategories(), fetchSources(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics()]).finally(() => setLoading(false));
-  }, [fetchCategories, fetchSources, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, refreshKey]);
+    Promise.all([fetchCategories(), fetchSources(), fetchDashboard(), fetchTransactions(), fetchBudgets(), fetchAnalytics(), fetchLastDone()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchSources, fetchDashboard, fetchTransactions, fetchBudgets, fetchAnalytics, fetchLastDone, refreshKey]);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
 
@@ -567,13 +588,13 @@ export default function Finance() {
 
   const openNewCat = (type: 'income' | 'expense') => {
     setEditingCat(null);
-    setCatForm({ type, name: '', emoji: '📦', color: '#78716c' });
+    setCatForm({ type, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
     setCatFormOpen(true);
   };
 
   const openEditCat = (cat: FinanceCategory) => {
     setEditingCat(cat);
-    setCatForm({ type: cat.type, name: cat.name, emoji: cat.emoji, color: cat.color });
+    setCatForm({ type: cat.type, name: cat.name, emoji: cat.emoji, color: cat.color, trackLastDone: cat.trackLastDone });
     setCatFormOpen(true);
   };
 
@@ -998,6 +1019,52 @@ export default function Finance() {
                 </Card>
               </div>
 
+              {/* Last Done Tracking Card */}
+              {lastDoneData.length > 0 && (
+                <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      Terakhir Transaksi
+                      <ChartInfo text="Menampilkan kapan terakhir transaksi untuk kategori yang kamu tandai 'Track Terakhir Transaksi' di pengaturan Kategori. Diurutkan dari yang paling lama belum transaksi." />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {lastDoneData.map(item => (
+                        <div key={item.category} className="flex items-center gap-3 p-2.5 rounded-lg border bg-card">
+                          <span className="text-lg">{item.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{item.category}</p>
+                            {item.daysAgo !== null ? (
+                              <>
+                                <p className={cn('text-[11px]', item.daysAgo <= 3 ? 'text-green-600' : item.daysAgo <= 7 ? 'text-amber-600' : 'text-red-500')}>
+                                  {item.daysAgo === 0 ? 'Hari ini' : item.daysAgo === 1 ? 'Kemarin' : `${item.daysAgo} hari lalu`}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {item.lastDate ? format(new Date(item.lastDate), 'EEE, d MMM', { locale: idLocale }) : ''}
+                                  {item.lastAmount !== null ? ` · ${formatRupiah(item.lastAmount)}` : ''}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground italic">Belum ada transaksi</p>
+                            )}
+                          </div>
+                          {item.daysAgo !== null && item.daysAgo > 7 && (
+                            <div className={cn(
+                              'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
+                              item.daysAgo > 14 ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
+                            )}>
+                              {item.daysAgo > 14 ? '⚠️' : '🕐'} {item.daysAgo}d
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Daily Spending Chart */}
                 <Card className="lg:col-span-2">
@@ -1318,6 +1385,14 @@ export default function Finance() {
                 const isOver = pct > 100;
                 const remaining = Math.max(0, b.amount - spent);
 
+                // Calculate remaining days in the selected month
+                const [bYear, bMonth] = selectedMonth.split('-').map(Number);
+                const totalDaysInMonth = new Date(bYear, bMonth, 0).getDate();
+                const now = new Date();
+                const jakartaNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 7 * 60 * 60000);
+                const isCurrentMonth = jakartaNow.getFullYear() === bYear && (jakartaNow.getMonth() + 1) === bMonth;
+                const daysLeft = isCurrentMonth ? Math.max(1, totalDaysInMonth - jakartaNow.getDate() + 1) : null;
+
                 return (
                   <Card key={b.id} className={cn('transition-colors group', isOver && 'border-red-300 dark:border-red-800')}>
                     <CardContent className="p-4">
@@ -1368,9 +1443,9 @@ export default function Finance() {
                           <span className={cn(isOver ? 'text-red-500 font-medium' : 'text-green-600')}>
                             {isOver ? `Over ${formatRupiah(spent - b.amount)}` : `Sisa ${formatRupiah(remaining)}`}
                           </span>
-                          {b.amount > 0 && (
+                          {b.amount > 0 && daysLeft !== null && !isOver && remaining > 0 && (
                             <span className="text-muted-foreground">
-                              ~{formatRupiah((b.amount - spent) / Math.max(1, new Date(selectedMonth + '-01').getMonth() === new Date().getMonth() ? new Date().getDate() : 30))}/hari
+                              ~{formatRupiah(remaining / daysLeft)}/hari ({daysLeft} hari tersisa)
                             </span>
                           )}
                         </div>
@@ -2170,6 +2245,7 @@ export default function Finance() {
                     <span className="text-lg">{cat.emoji}</span>
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
+                    {cat.trackLastDone && <span className="text-[10px] text-amber-600 bg-amber-100 dark:bg-amber-950 dark:text-amber-400 px-1.5 py-0.5 rounded-full shrink-0">track</span>}
                     <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}>
                         <Edit3 className="h-3.5 w-3.5" />
@@ -2202,6 +2278,7 @@ export default function Finance() {
                     <span className="text-lg">{cat.emoji}</span>
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
+                    {cat.trackLastDone && <span className="text-[10px] text-amber-600 bg-amber-100 dark:bg-amber-950 dark:text-amber-400 px-1.5 py-0.5 rounded-full shrink-0">track</span>}
                     <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}>
                         <Edit3 className="h-3.5 w-3.5" />
@@ -2275,6 +2352,17 @@ export default function Finance() {
                     placeholder="#78716c"
                   />
                 </div>
+              </div>
+              <div className="flex items-center gap-2 py-1">
+                <Checkbox
+                  id="trackLastDone"
+                  checked={catForm.trackLastDone}
+                  onCheckedChange={(checked) => setCatForm(f => ({ ...f, trackLastDone: !!checked }))}
+                />
+                <label htmlFor="trackLastDone" className="text-xs cursor-pointer select-none">
+                  <span className="font-medium">Track Terakhir Transaksi</span>
+                  <span className="text-muted-foreground ml-1">Tampilkan kapan terakhir transaksi di kategori ini</span>
+                </label>
               </div>
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setCatFormOpen(false)}>Batal</Button>
