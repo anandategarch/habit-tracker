@@ -18,14 +18,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, emoji, type, initialBalance } = body;
+    const { name, emoji } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Source name is required' }, { status: 400 });
     }
-
-    const validTypes = ['tunai', 'bank', 'dompet_digital', 'tabungan', 'investasi'];
-    const sourceType = validTypes.includes(type) ? type : 'tunai';
 
     // Check duplicate name
     const existing = await db.fundSource.findUnique({ where: { name: name.trim() } });
@@ -42,8 +39,6 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         emoji: emoji || '💵',
-        type: sourceType,
-        initialBalance: typeof initialBalance === 'number' ? initialBalance : 0,
         order: (maxOrder?.order || 0) + 1,
       },
     });
