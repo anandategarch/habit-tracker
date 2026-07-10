@@ -333,6 +333,59 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // ─── NEW: Wallet Analytics ───
+    const fundSources = await db.fundSource.findMany({ orderBy: { order: 'asc' } });
+    const allTxForWallet = transactions; // already fetched for the range
+
+    const walletAnalytics: { name: string; emoji: string; type: string; income: number; expense: number; net: number; txCount: number }[] = [];
+    fundSources.forEach(fs => {
+      const srcTx = allTxForWallet.filter(t => t.source === fs.name);
+      const inc = srcTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const exp = srcTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      walletAnalytics.push({
+        name: fs.name,
+        emoji: fs.emoji,
+        type: fs.type,
+        income: Math.round(inc),
+        expense: Math.round(exp),
+        net: Math.round(inc - exp),
+        txCount: srcTx.length,
+      });
+    });
+    // Also include "Kas" if not in fundSources and has transactions
+    if (!fundSources.find(f => f.name === 'Kas')) {
+      const kasTx = allTxForWallet.filter(t => t.source === 'Kas');
+      if (kasTx.length > 0) {
+        const inc = kasTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const exp = kasTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        walletAnalytics.push({
+          name: 'Kas', emoji: '💵', type: 'tunai',
+          income: Math.round(inc), expense: Math.round(exp),
+          net: Math.round(inc - exp), txCount: kasTx.length,
+        });
+      }
+    }
+
+    // Monthly wallet flow (income/expense per source per month for the last 3 months)
+    const walletMonthlyFlow: { month: string; monthLabel: string; wallets: Record<string, { income: number; expense: number }> }[] = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(jakartaNow.getFullYear(), jakartaNow.getMonth() - i, 1);
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+      const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      const key = d.toISOString().slice(0, 7);
+      const monthTx = allTxForWallet.filter(t => {
+        const td = new Date(t.date);
+        return td >= d && td <= monthEnd;
+      });
+      const flow: Record<string, { income: number; expense: number }> = {};
+      monthTx.forEach(t => {
+        if (!flow[t.source]) flow[t.source] = { income: 0, expense: 0 };
+        if (t.type === 'income') flow[t.source].income += t.amount;
+        else flow[t.source].expense += t.amount;
+      });
+      walletMonthlyFlow.push({ month: key, monthLabel: label, wallets: flow });
+    }
+
     return NextResponse.json({
       monthlyTrend,
       topCategories,
@@ -349,6 +402,8 @@ export async function GET(request: NextRequest) {
       categoryComparison,
       financialHealth,
       sparklineData,
+      walletAnalytics,
+      walletMonthlyFlow,
     });
   } catch (error) {
     console.error('GET /api/finance/analytics error:', error);

@@ -6,7 +6,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, emoji } = body;
+    const { name, emoji, type, initialBalance } = body;
 
     const existing = await db.fundSource.findUnique({ where: { id } });
     if (!existing) {
@@ -24,11 +24,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    const validTypes = ['tunai', 'bank', 'dompet_digital', 'tabungan', 'investasi'];
+
     const source = await db.fundSource.update({
       where: { id },
       data: {
         ...(name && { name: newName }),
         ...(emoji && { emoji }),
+        ...(type && validTypes.includes(type) && { type }),
+        ...(initialBalance !== undefined && { initialBalance }),
       },
     });
 
