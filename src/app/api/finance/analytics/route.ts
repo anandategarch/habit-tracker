@@ -257,21 +257,29 @@ export async function GET(request: NextRequest) {
       rasioTabungan = 0;
     }
 
-    // 2. Diversifikasi (number of unique expense categories, max score at 4+)
-    // Having 1-2 categories is too narrow, 4+ is well-diversified
+    // 2. Diversifikasi (number of unique expense categories)
+    // Logarithmic curve: 1 cat=33%, 2=50%, 4=75%, 8=100%
     const uniqueExpenseCats = new Set(thisMonthExpenses.map(t => t.category)).size;
-    const diversifikasi = Math.min(100, Math.round((uniqueExpenseCats / 4) * 100));
+    const diversifikasi = Math.min(100, Math.round((Math.log2(uniqueExpenseCats + 1) / Math.log2(9)) * 100));
 
-    // 3. Disiplin Budget (percentage of budgets not exceeded)
+    // 3. Disiplin Budget (how well spending stays within budget)
+    // Per-budget score: based on utilization ratio. Lower utilization = higher score.
+    // Exceeded budget = 0. At 100% utilization = 20. At 50% = 60. At 0% = 100.
     const budgets = await db.budget.findMany();
     let budgetDiscipline = 0;
     if (budgets.length > 0) {
-      let notExceeded = 0;
+      let totalBudgetScore = 0;
       budgets.forEach(b => {
         const spent = thisMonthCats[b.category] || 0;
-        if (spent <= b.amount) notExceeded++;
+        if (spent > b.amount) {
+          totalBudgetScore += 0; // Over budget
+        } else {
+          const utilRatio = b.amount > 0 ? spent / b.amount : 0;
+          // Score: 100 at 0% utilization, 20 at 100%, linear in between
+          totalBudgetScore += Math.round(100 - utilRatio * 80);
+        }
       });
-      budgetDiscipline = Math.round((notExceeded / budgets.length) * 100);
+      budgetDiscipline = Math.round(totalBudgetScore / budgets.length);
     } else {
       budgetDiscipline = 50; // Neutral if no budgets
     }
@@ -289,14 +297,14 @@ export async function GET(request: NextRequest) {
     const konsistensi = Math.min(100, Math.round((daysWithTx / daysInMonth) * 100));
 
     // 5. Keseimbangan (multiple income sources indicate diversified income)
-    // Score based on having 2+ income sources (normal to have more expense than income categories)
+    // Gradual scale: 1 source=25%, 2=50%, 3=75%, 4+=100%
     const incomeCats = new Set(
       transactions.filter(t => {
         const td = new Date(t.date);
         return td >= thisMonthStart && td <= thisMonthEnd && t.type === 'income';
       }).map(t => t.category)
     ).size;
-    const keseimbangan = Math.min(100, incomeCats >= 2 ? 100 : incomeCats * 50);
+    const keseimbangan = Math.min(100, Math.round((incomeCats / 4) * 100));
 
     const overallScore = Math.round((rasioTabungan + diversifikasi + budgetDiscipline + konsistensi + keseimbangan) / 5);
 
