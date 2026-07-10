@@ -269,3 +269,22 @@ Stage Summary:
 - All changes committed and pushed to GitHub (d12b11c)
 - Browser verified: transaction grouping works, emoji picker works
 - Dev server running with no errors
+
+---
+Task ID: 2
+Agent: Main
+Task: Fix analytics 100% scores + investigate icon issue
+
+Work Log:
+- Tested analytics API — confirmed Diversifikasi=100, DisiplinBudget=100, Keseimbangan=100
+- Root cause: scoring formulas too easy to max out (4 cats=100%, 2 income sources=100%, binary budget check)
+- Fixed Diversifikasi: logarithmic curve (log2(cats+1)/log2(9)*100), 7 cats → 82%
+- Fixed Disiplin Budget: per-budget utilization score (100 at 0% used, 20 at 100% used, 0 if exceeded)
+- Fixed Keseimbangan: gradual scale (incomeCats/4*100), 3 sources → 75%
+- Overall score dropped from 96 to 84 (more realistic)
+- Investigated icon issue — sandbox shows all different emojis correctly in overview, budget, transactions, category dialog
+- Concluded icon issue is on user's deployed version (may need to edit existing categories to change emojis)
+
+Stage Summary:
+- Analytics fix committed and pushed (19bec79)
+- Emoji picker already added in previous commit for easy editing
