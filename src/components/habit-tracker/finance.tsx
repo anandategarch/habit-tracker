@@ -23,14 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -236,6 +228,10 @@ const FALLBACK_INCOME = [
   { value: 'Lainnya', emoji: '💸', color: '#78716c' },
 ];
 
+const EMOJI_OPTIONS = [
+  '🍽️','🚗','🛍️','🎮','🏥','📚','📋','🏦','📦','🐱','🐶','🏠','✈️','👕','💊','☕','🍰','🍕','🛒','💰','💳','📱','💻','🔧','👶','🎵','🎬','⚽','🏋️','🎓','⛽','🚕','🛵','📡','💡','🎁','❤️','⭐','🔥','✅','⚙️','📌','🏷️','🥤','🌮','🍱','🧃','🧹','📖','✏️','🪴','🛡️',
+];
+
 const FALLBACK_SOURCES = [
   { value: 'Kas', emoji: '💵' },
   { value: 'Bank BCA', emoji: '🏦' },
@@ -266,6 +262,8 @@ const parseNominalInput = (value: string): string => {
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 };
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#3b82f6', '#6366f1', '#14b8a6', '#22c55e', '#78716c'];
 
@@ -632,7 +630,7 @@ export default function Finance() {
         }
       }
       setCatFormOpen(false);
-      fetchCategories();
+      await fetchCategories();
       triggerRefresh();
     } catch {
       toast.error('Terjadi kesalahan');
@@ -812,6 +810,9 @@ export default function Finance() {
   // ── Render Helpers ────────────────────────────────────────────────────────
 
   const filteredTransactions = transactions.filter(tx => {
+    if (txFilter.type !== 'all' && tx.type !== txFilter.type) return false;
+    if (txFilter.category !== 'all' && tx.category !== txFilter.category) return false;
+    if (txFilter.source !== 'all' && tx.source !== txFilter.source) return false;
     if (txFilter.search && !tx.description?.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.category.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.notes?.toLowerCase().includes(txFilter.search.toLowerCase())) return false;
     return true;
   });
@@ -938,19 +939,19 @@ export default function Finance() {
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview" className="text-xs sm:text-sm">
-            <BarChart3 className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            <BarChart3 className="h-3.5 w-3.5 mr-1" />
             Ringkasan
           </TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm">
-            <Wallet className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            <Wallet className="h-3.5 w-3.5 mr-1" />
             Transaksi
           </TabsTrigger>
           <TabsTrigger value="budgets" className="text-xs sm:text-sm">
-            <Target className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            <Target className="h-3.5 w-3.5 mr-1" />
             Budget
           </TabsTrigger>
           <TabsTrigger value="analytics" className="text-xs sm:text-sm">
-            <PieChart className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+            <PieChart className="h-3.5 w-3.5 mr-1" />
             Analitik
           </TabsTrigger>
         </TabsList>
@@ -1278,113 +1279,94 @@ export default function Finance() {
             </Select>
           </div>
 
-          {/* Bulk Delete Bar */}
-          {selectedTxIds.size > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
-              <span className="text-sm font-medium text-red-700 dark:text-red-400">
-                {selectedTxIds.size} transaksi dipilih
-              </span>
-              <div className="flex-1" />
-              <Button size="sm" variant="outline" onClick={() => setSelectedTxIds(new Set())}>
-                Batal Pilih
-              </Button>
-              <Button size="sm" className="bg-red-500 hover:bg-red-600" onClick={() => setBulkDeleteOpen(true)}>
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Hapus ({selectedTxIds.size})
-              </Button>
-            </div>
-          )}
-
-          {/* Transactions Table */}
+          {/* Transactions Grouped by Date */}
           <Card>
             <CardContent className="p-0">
-              <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs w-10">
-                        <Checkbox
-                          checked={filteredTransactions.length > 0 && selectedTxIds.size === filteredTransactions.length}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </TableHead>
-                      <TableHead className="text-xs w-12">Tipe</TableHead>
-                      <TableHead className="text-xs">Tanggal</TableHead>
-                      <TableHead className="text-xs">Kategori</TableHead>
-                      <TableHead className="text-xs">Sumber</TableHead>
-                      <TableHead className="text-xs">Deskripsi</TableHead>
-                      <TableHead className="text-xs text-right">Jumlah</TableHead>
-                      <TableHead className="text-xs w-20 text-center">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
-                          <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                          Belum ada transaksi
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredTransactions.map(tx => {
-                        const meta = getCategoryMeta(tx.category);
-                        return (
-                          <TableRow key={tx.id} className="group">
-                            <TableCell>
+              <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                {filteredTransactions.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground text-sm">
+                    <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    Belum ada transaksi
+                  </div>
+                ) : (
+                  <div>
+                    {/* Select All Bar */}
+                    <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30 sticky top-0 z-10">
+                      <Checkbox
+                        checked={filteredTransactions.length > 0 && selectedTxIds.size === filteredTransactions.length}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {selectedTxIds.size > 0 ? `${selectedTxIds.size} dipilih` : 'Pilih semua'}
+                      </span>
+                      {selectedTxIds.size > 0 && (
+                        <Button size="sm" variant="ghost" className="ml-auto h-6 text-xs text-red-500 hover:text-red-600" onClick={() => setBulkDeleteOpen(true)}>
+                          <Trash2 className="h-3 w-3 mr-1" /> Hapus ({selectedTxIds.size})
+                        </Button>
+                      )}
+                    </div>
+
+                    {groupedTransactions.map(group => (
+                      <div key={group.dateKey}>
+                        {/* Date Header with Daily Total */}
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b sticky top-[37px] z-10">
+                          <div className="flex items-center gap-2">
+                            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs font-semibold">{group.dateLabel}</span>
+                            <span className="text-xs text-muted-foreground">, {capitalize(group.dayName)}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs">
+                            {group.totalIncome > 0 && (
+                              <span className="text-green-600 font-medium">+{formatRupiah(group.totalIncome)}</span>
+                            )}
+                            {group.totalExpense > 0 && (
+                              <span className="text-red-500 font-medium">-{formatRupiah(group.totalExpense)}</span>
+                            )}
+                            <span className={cn('font-semibold px-1.5 py-0.5 rounded text-[10px]', group.net >= 0 ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400')}>
+                              {group.net >= 0 ? '+' : ''}{formatRupiah(group.net)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Transactions for this date */}
+                        {group.txs.map(tx => {
+                          const meta = getCategoryMeta(tx.category);
+                          return (
+                            <div key={tx.id} className="flex items-center gap-2 px-4 py-2.5 border-b last:border-b-0 group hover:bg-accent/30 transition-colors">
                               <Checkbox
                                 checked={selectedTxIds.has(tx.id)}
                                 onCheckedChange={() => toggleSelectTx(tx.id)}
+                                className="shrink-0"
                               />
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  'text-[10px] px-1.5 py-0',
-                                  tx.type === 'income'
-                                    ? 'border-green-300 text-green-700 bg-green-50 dark:bg-green-950/30'
-                                    : 'border-red-300 text-red-700 bg-red-50 dark:bg-red-950/30'
-                                )}
-                              >
-                                {tx.type === 'income' ? '↑' : '↓'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {format(new Date(tx.date), 'd MMM', { locale: idLocale })}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm">{meta.emoji}</span>
-                                <span className="text-xs font-medium">{tx.category}</span>
+                              <span className="text-sm shrink-0">{meta.emoji}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium truncate">{tx.category}</span>
+                                  <span className="text-muted-foreground text-[10px]">·</span>
+                                  <span className="text-xs text-muted-foreground truncate">{tx.description || '-'}</span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
+                                </div>
                               </div>
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-                                {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                              {tx.description || '-'}
-                            </TableCell>
-                            <TableCell className={cn('text-xs text-right font-semibold', tx.type === 'income' ? 'text-green-600' : 'text-red-500')}>
-                              {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTx(tx)}>
-                                  <Edit3 className="h-3.5 w-3.5" />
+                              <span className={cn('text-xs font-semibold shrink-0', tx.type === 'income' ? 'text-green-600' : 'text-red-500')}>
+                                {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
+                              </span>
+                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTx(tx)}>
+                                  <Edit3 className="h-3 w-3" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => { setDeletingId(tx.id); setDeleteDialogOpen(true); }}>
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" onClick={() => { setDeletingId(tx.id); setDeleteDialogOpen(true); }}>
+                                  <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -2349,25 +2331,32 @@ export default function Finance() {
                   </Badge>
                 </div>
               </div>
-              <div className="grid grid-cols-[60px_1fr] gap-3">
-                <div>
-                  <Label className="text-xs">Emoji</Label>
-                  <Input
-                    value={catForm.emoji}
-                    onChange={e => setCatForm(f => ({ ...f, emoji: e.target.value }))}
-                    className="mt-1 text-center text-lg"
-                    maxLength={4}
-                  />
+              <div>
+                <Label className="text-xs">Emoji</Label>
+                <div className="mt-1 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1 border rounded-lg bg-muted/30 custom-scrollbar">
+                  {EMOJI_OPTIONS.map(e => (
+                    <button
+                      key={e}
+                      type="button"
+                      className={cn(
+                        'w-8 h-8 flex items-center justify-center rounded-md text-lg hover:bg-accent transition-colors',
+                        catForm.emoji === e && 'ring-2 ring-primary bg-accent'
+                      )}
+                      onClick={() => setCatForm(f => ({ ...f, emoji: e }))}
+                    >
+                      {e}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <Label className="text-xs">Nama Kategori</Label>
-                  <Input
-                    placeholder="Contoh: Makan Siang"
-                    value={catForm.name}
-                    onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Nama Kategori</Label>
+                <Input
+                  placeholder="Contoh: Makan Siang"
+                  value={catForm.name}
+                  onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))}
+                  className="mt-1"
+                />
               </div>
               <div>
                 <Label className="text-xs">Warna</Label>
