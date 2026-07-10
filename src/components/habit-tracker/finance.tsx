@@ -196,6 +196,25 @@ interface FinanceCategory {
   order: number;
 }
 
+interface WalletInfo {
+  id: string;
+  name: string;
+  emoji: string;
+  type: string;
+  initialBalance: number;
+  currentBalance: number;
+  totalIncome: number;
+  totalExpense: number;
+  txCount: number;
+}
+
+interface WalletData {
+  wallets: WalletInfo[];
+  totalBalance: number;
+  totalIncome: number;
+  totalExpense: number;
+}
+
 interface FundSource {
   id: string;
   name: string;
@@ -292,7 +311,7 @@ export default function Finance() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
   const [sources, setSources] = useState<FundSource[]>([]);
-  const [walletData, setWalletData] = useState<{ wallets: { id: string; name: string; emoji: string; type: string; initialBalance: number; currentBalance: number; totalIncome: number; totalExpense: number; txCount: number }[]; totalBalance: number; totalIncome: number; totalExpense: number } | null>(null);
+  const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<FundSource | null>(null);
