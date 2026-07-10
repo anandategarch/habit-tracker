@@ -44,7 +44,6 @@ import {
   Quote,
   RefreshCw,
   Calendar,
-  GraduationCap,
   BookOpen as BookOpenIcon,
   Wallet,
   Info,
@@ -110,7 +109,6 @@ interface DashboardData {
   categoryPerformance: { category: string; done: number; total: number; rate: number }[];
   todayFocus: { id: string; name: string; icon: string; priority: string }[];
   period: string;
-  learningStatus: { completedToday: boolean; streak: number; longestStreak: number; totalDays: number };
   habitDetailStats: { id: string; name: string; icon: string; color: string; category: string; completed: number; total: number; rate: number; streak: number }[];
   stackedBarData: { day: string; completed: number; missed: number; total: number; rate: number }[];
   weeklyPattern: { day: string; fullDay: string; rate: number; avgCompleted: string }[];
@@ -265,7 +263,6 @@ const DEFAULT_DATA: DashboardData = {
   categoryPerformance: [],
   todayFocus: [],
   period: 'all',
-  learningStatus: { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 },
   habitDetailStats: [],
   stackedBarData: [],
   weeklyPattern: [],
@@ -914,58 +911,6 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* ── Daily Learning Status ─────────────────────────────────────── */}
-      <section aria-label="Daily Learning">
-        <Card className={cn(
-          'p-4 border-2 transition-colors',
-          displayData.learningStatus.completedToday
-            ? 'border-green-300 bg-green-50/50 dark:bg-green-950/10 dark:border-green-900'
-            : 'border-violet-200 bg-violet-50/50 dark:bg-violet-950/10 dark:border-violet-900'
-        )}>
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  'w-10 h-10 rounded-xl flex items-center justify-center',
-                  displayData.learningStatus.completedToday
-                    ? 'bg-green-100 dark:bg-green-900/50 text-green-600'
-                    : 'bg-violet-100 dark:bg-violet-900/50 text-violet-600'
-                )}>
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    Daily Learning
-                    <ChartInfo text="Status Daily Learning hari ini. Streak dihitung dari jumlah hari berturut-turut menyelesaikan pembacaan." />
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {displayData.learningStatus.completedToday
-                      ? 'Sudah dibaca hari ini'
-                      : 'Belum dibaca hari ini'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                {displayData.learningStatus.streak > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{displayData.learningStatus.streak}</span>
-                    <span className="text-xs text-orange-500">hari</span>
-                  </div>
-                )}
-                <div className="text-right">
-                  <div className="text-lg font-bold">{displayData.learningStatus.totalDays}</div>
-                  <p className="text-[10px] text-muted-foreground">total hari belajar</p>
-                </div>
-                {displayData.learningStatus.completedToday && (
-                  <CheckCircle className="h-6 w-6 text-green-500" />
-                )}
-              </div>
-            </div>
           </CardContent>
         </Card>
       </section>
