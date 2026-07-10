@@ -303,6 +303,7 @@ export default function Finance() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
   const [budgetEditOpen, setBudgetEditOpen] = useState(false);
+  const [deletingSource, setDeletingSource] = useState<FundSource | null>(null);
 
   // Form states
   const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '', source: 'Kas' });
@@ -1721,112 +1722,6 @@ export default function Finance() {
                 </CardContent>
               </Card>
 
-              {/* 2. Heatmap Calendar - Spending Intensity */}
-              <Card>
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  Peta Panas Pengeluaran
-                  <ChartInfo text="Intensitas pengeluaran harian selama 90 hari terakhir. Abu-abu = rendah, merah = tinggi. Intensitas dihitung relatif terhadap hari pengeluaran tertinggi. Kolom = minggu, baris = hari (Sen-Min)." />
-                </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  {analyticsData.dailySpending && analyticsData.dailySpending.length > 0 ? (
-                    (() => {
-                      // Pre-compute percentile thresholds for better color distribution
-                      const nonZeroAmounts = analyticsData.dailySpending.filter(d => d.amount > 0).map(d => d.amount).sort((a, b) => a - b);
-                      const len = nonZeroAmounts.length;
-                      const q1 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.25)] || nonZeroAmounts[0] : 1;
-                      const q2 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.5)] || nonZeroAmounts[0] : 1;
-                      const q3 = len > 0 ? nonZeroAmounts[Math.floor(len * 0.75)] || nonZeroAmounts[0] : 1;
-
-                      // Pre-compute weeks
-                      const weeks: { date: string; amount: number }[][] = [[]];
-                      let currentWeekStart = -1;
-                      analyticsData.dailySpending.forEach(d => {
-                        const day = new Date(d.date + 'T00:00:00').getDay();
-                        const adjustedDay = day === 0 ? 6 : day - 1;
-                        if (currentWeekStart === -1) currentWeekStart = adjustedDay;
-                        if (adjustedDay < currentWeekStart && weeks[weeks.length - 1].length > 0) {
-                          weeks.push([]);
-                        }
-                        currentWeekStart = adjustedDay;
-                        weeks[weeks.length - 1].push(d);
-                      });
-
-                      function getHeatBg(amount: number | undefined): string {
-                        if (amount === undefined || amount <= 0) return 'bg-stone-200 dark:bg-stone-800';
-                        // Percentile-based: bottom 25% → light, 25-50% → medium, 50-75% → high, top 25% → intense
-                        if (amount <= q1) return 'bg-amber-200 dark:bg-amber-900';
-                        if (amount <= q2) return 'bg-amber-400 dark:bg-amber-700';
-                        if (amount <= q3) return 'bg-orange-500 dark:bg-orange-600';
-                        return 'bg-red-500 dark:bg-red-500';
-                      }
-
-                      return (
-                        <div className="overflow-x-auto">
-                          <div className="min-w-[500px]">
-                            {/* Day labels */}
-                            <div className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-1">
-                              <div className="text-[10px] text-muted-foreground" />
-                              {(() => {
-                                const months: string[] = [];
-                                let lastMonth = '';
-                                analyticsData.dailySpending.forEach(d => {
-                                  const m = d.date.slice(0, 7);
-                                  if (m !== lastMonth) { months.push(m); lastMonth = m; }
-                                });
-                                return months.map(m => (
-                                  <div key={m} className="text-[10px] text-muted-foreground text-center">
-                                    {new Date(m + '-01').toLocaleDateString('en-US', { month: 'short' })}
-                                  </div>
-                                ));
-                              })()}
-                            </div>
-                            {/* Day rows */}
-                            {[1, 2, 3, 4, 5, 6, 0].map(dow => (
-                              <div key={dow} className="grid grid-cols-[40px_repeat(13,1fr)] gap-[3px] mb-[3px]">
-                                <div className="text-[10px] text-muted-foreground flex items-center">
-                                  {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][dow === 0 ? 6 : dow - 1]}
-                                </div>
-                                {weeks.slice(0, 13).map((week, wi) => {
-                                  const day = week.find(d => {
-                                    const dayOfWeek = new Date(d.date + 'T00:00:00').getDay();
-                                    return (dayOfWeek === 0 ? 6 : dayOfWeek - 1) === dow;
-                                  });
-                                  return (
-                                    <div
-                                      key={wi}
-                                      className={cn('w-full aspect-square rounded-sm', getHeatBg(day?.amount))}
-                                      title={day ? `${day.date}: ${formatRupiah(day.amount)}` : 'Tidak ada data'}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            ))}
-                            {/* Color legend */}
-                            <div className="flex items-center gap-2 mt-2 justify-end">
-                              <span className="text-[9px] text-muted-foreground">Sedikit</span>
-                              <div className="flex gap-[2px]">
-                                <div className="w-3 h-3 rounded-sm bg-stone-200 dark:bg-stone-800" />
-                                <div className="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-900" />
-                                <div className="w-3 h-3 rounded-sm bg-amber-400 dark:bg-amber-700" />
-                                <div className="w-3 h-3 rounded-sm bg-orange-500 dark:bg-orange-600" />
-                                <div className="w-3 h-3 rounded-sm bg-red-500 dark:bg-red-500" />
-                              </div>
-                              <span className="text-[9px] text-muted-foreground">Banyak</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                      Belum ada data
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* 3. Savings Trend */}
                 <Card>
@@ -2532,7 +2427,7 @@ export default function Finance() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSource(src)}>
                         <Edit3 className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteSource(src)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => setDeletingSource(src)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -2597,6 +2492,37 @@ export default function Finance() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ─── DELETE SOURCE CONFIRMATION ─── */}
+      <AlertDialog open={!!deletingSource} onOpenChange={(open) => { if (!open) setDeletingSource(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Sumber Dana</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus <strong>{deletingSource?.emoji} {deletingSource?.name}</strong>?
+              {deletingSource && (deletingSource.balance || 0) !== 0 && (
+                <span className="block mt-1 text-amber-600 dark:text-amber-400">
+                  Sumber ini memiliki saldo {formatRupiah(deletingSource.balance || 0)}.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingSource(null)}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (deletingSource) {
+                  handleDeleteSource(deletingSource);
+                  setDeletingSource(null);
+                }
+              }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

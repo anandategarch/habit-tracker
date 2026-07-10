@@ -38,11 +38,24 @@ export async function POST() {
       }
     }
 
-    // ── FundSource table — add balance column if missing ──
+    // ── FundSource table — create if missing, add balance column if needed ──
     const srcRows = await db.$queryRawUnsafe<{ name: string }[]>(
       `SELECT name FROM sqlite_master WHERE type='table' AND name='FundSource'`
     );
-    if (srcRows.length > 0) {
+    if (srcRows.length === 0) {
+      await db.$executeRawUnsafe(`
+        CREATE TABLE "FundSource" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL UNIQUE,
+          "emoji" TEXT NOT NULL DEFAULT '💵',
+          "balance" REAL NOT NULL DEFAULT 0,
+          "order" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        )
+      `);
+      migrations.push('created FundSource table');
+    } else {
       const srcCols = await db.$queryRawUnsafe<{ name: string }[]>(
         `PRAGMA table_info("FundSource")`
       );
