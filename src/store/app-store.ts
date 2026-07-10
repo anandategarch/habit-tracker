@@ -4,15 +4,12 @@ export type TabId =
   | 'dashboard'
   | 'tracker'
   | 'habits'
-  | 'analytics'
   | 'calendar'
   | 'goals'
   | 'challenges'
   | 'rewards'
   | 'badges'
   | 'finance'
-  | 'statistics'
-  | 'insights'
   | 'settings';
 
 interface AppState {
