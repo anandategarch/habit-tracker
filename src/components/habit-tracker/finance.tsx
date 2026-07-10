@@ -837,6 +837,39 @@ export default function Finance() {
     .map(([name, value]) => ({ name, value: Math.round(value) }))
     .sort((a, b) => b.value - a.value) : [];
 
+  // Group transactions by date with daily totals
+  const groupedTransactions = useMemo(() => {
+    const sorted = [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const groups: { dateKey: string; dateLabel: string; dayName: string; txs: Transaction[]; totalIncome: number; totalExpense: number; net: number }[] = [];
+    let currentGroup: typeof groups[0] | null = null;
+
+    for (const tx of sorted) {
+      const d = new Date(tx.date);
+      const dateKey = d.toISOString().split('T')[0];
+      if (!currentGroup || currentGroup.dateKey !== dateKey) {
+        currentGroup = {
+          dateKey,
+          dateLabel: format(d, 'd MMMM', { locale: idLocale }),
+          dayName: format(d, 'EEEE', { locale: idLocale }),
+          txs: [],
+          totalIncome: 0,
+          totalExpense: 0,
+          net: 0,
+        };
+        groups.push(currentGroup);
+      }
+      currentGroup.txs.push(tx);
+      if (tx.type === 'income') {
+        currentGroup.totalIncome += tx.amount;
+        currentGroup.net += tx.amount;
+      } else {
+        currentGroup.totalExpense += tx.amount;
+        currentGroup.net -= tx.amount;
+      }
+    }
+    return groups;
+  }, [filteredTransactions]);
+
   if (loading && !dashboardData) {
     return (
       <div className="space-y-4">
