@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, name, emoji, color } = body;
+    const { type, name, emoji, color, trackLastDone } = body;
 
     if (!type || !['income', 'expense'].includes(type)) {
       return NextResponse.json({ error: 'Valid type (income/expense) is required' }, { status: 400 });
@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         emoji: emoji || '📦',
         color: color || '#78716c',
+        trackLastDone: !!trackLastDone,
         order: (maxOrder?.order || 0) + 1,
       },
     });

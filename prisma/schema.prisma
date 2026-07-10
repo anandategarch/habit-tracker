@@ -124,14 +124,15 @@ model Reward {
 // ==================== FINANCE TRACKER ====================
 
 model FinanceCategory {
-  id        String   @id @default(cuid())
-  type      String   // "income" or "expense"
-  name      String
-  emoji     String   @default("📦")
-  color     String   @default("#78716c")
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  type          String   // "income" or "expense"
+  name          String
+  emoji         String   @default("📦")
+  color         String   @default("#78716c")
+  order         Int      @default(0)
+  trackLastDone Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model FundSource {

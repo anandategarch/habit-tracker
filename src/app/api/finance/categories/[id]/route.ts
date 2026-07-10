@@ -6,7 +6,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, emoji, color, order } = body;
+    const { name, emoji, color, order, trackLastDone } = body;
 
     // If renaming, also update all transactions and budgets that use the old name
     const existing = await db.financeCategory.findUnique({ where: { id } });
@@ -24,6 +24,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(emoji && { emoji }),
         ...(color && { color }),
         ...(order !== undefined && { order }),
+        ...(trackLastDone !== undefined && { trackLastDone: !!trackLastDone }),
       },
     });
 
