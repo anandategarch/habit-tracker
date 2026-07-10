@@ -11,15 +11,12 @@ import {
   LayoutDashboard,
   CheckSquare,
   ListChecks,
-  BarChart3,
   CalendarDays,
   Target,
   Trophy,
   Gift,
   Medal,
   Wallet,
-  Calculator,
-  Brain,
   Settings as SettingsIcon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -31,30 +28,24 @@ import dynamic from 'next/dynamic';
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
 const HabitMaster = dynamic(() => import('@/components/habit-tracker/habit-master'), { ssr: false });
-const Analytics = dynamic(() => import('@/components/habit-tracker/analytics'), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false });
 const Challenges = dynamic(() => import('@/components/habit-tracker/challenges'), { ssr: false });
 const Rewards = dynamic(() => import('@/components/habit-tracker/rewards'), { ssr: false });
 const Badges = dynamic(() => import('@/components/habit-tracker/badges'), { ssr: false });
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false });
-const Statistics = dynamic(() => import('@/components/habit-tracker/statistics'), { ssr: false });
-const AIInsights = dynamic(() => import('@/components/habit-tracker/ai-insights'), { ssr: false });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false });
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'tracker', label: 'Daily Tracker', icon: CheckSquare },
   { id: 'habits', label: 'Habit Master', icon: ListChecks },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'challenges', label: 'Challenges', icon: Trophy },
   { id: 'rewards', label: 'Rewards', icon: Gift },
   { id: 'badges', label: 'Badges', icon: Medal },
   { id: 'finance', label: 'Finance', icon: Wallet },
-  { id: 'statistics', label: 'Statistics', icon: Calculator },
-  { id: 'insights', label: 'AI Insights', icon: Brain },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
@@ -62,15 +53,12 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   dashboard: Dashboard,
   tracker: DailyTracker,
   habits: HabitMaster,
-  analytics: Analytics,
   calendar: CalendarView,
   goals: Goals,
   challenges: Challenges,
   rewards: Rewards,
   badges: Badges,
   finance: Finance,
-  statistics: Statistics,
-  insights: AIInsights,
   settings: SettingsTab,
 };
 

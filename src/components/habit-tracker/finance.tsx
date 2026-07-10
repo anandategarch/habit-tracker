@@ -203,6 +203,7 @@ interface FundSource {
   id: string;
   name: string;
   emoji: string;
+  balance: number;
   order: number;
 }
 
@@ -295,7 +296,9 @@ export default function Finance() {
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [lastDoneData, setLastDoneData] = useState<LastDoneItem[]>([]);
   const [editingSource, setEditingSource] = useState<FundSource | null>(null);
-  const [sourceForm, setSourceForm] = useState({ name: '', emoji: '💵' });
+  const [sourceForm, setSourceForm] = useState({ name: '', emoji: '💵', balance: 0 });
+  const [balanceEditId, setBalanceEditId] = useState<string | null>(null);
+  const [balanceEditValue, setBalanceEditValue] = useState('');
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
@@ -709,13 +712,13 @@ export default function Finance() {
 
   const openNewSource = () => {
     setEditingSource(null);
-    setSourceForm({ name: '', emoji: '💵' });
+    setSourceForm({ name: '', emoji: '💵', balance: 0 });
     setSourceFormOpen(true);
   };
 
   const openEditSource = (src: FundSource) => {
     setEditingSource(src);
-    setSourceForm({ name: src.name, emoji: src.emoji });
+    setSourceForm({ name: src.name, emoji: src.emoji, balance: src.balance || 0 });
     setSourceFormOpen(true);
   };
 
@@ -777,6 +780,29 @@ export default function Finance() {
     } catch {
       toast.error('Terjadi kesalahan');
     }
+  };
+
+  const handleSaveBalance = async (sourceId: string) => {
+    const val = parseFloat(balanceEditValue.replace(/[^\d.-]/g, ''));
+    if (isNaN(val)) {
+      setBalanceEditId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/finance/sources/${sourceId}/balance`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance: val }),
+      });
+      if (res.ok) {
+        toast.success('Saldo berhasil diupdate');
+        fetchSources();
+      }
+    } catch {
+      toast.error('Gagal update saldo');
+    }
+    setBalanceEditId(null);
+    setBalanceEditValue('');
   };
 
   // ── Bulk Delete ─────────────────────────────────────────────────────────
@@ -2453,6 +2479,14 @@ export default function Finance() {
             <DialogTitle>Kelola Sumber Dana</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Total Balance Card */}
+            <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 p-4">
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mb-1">Total Saldo Semua Sumber</p>
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                {formatRupiah(sources.reduce((s, src) => s + (src.balance || 0), 0))}
+              </p>
+            </div>
+
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">Kelola akun bank, e-wallet, kas, dll</p>
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openNewSource}>
@@ -2461,9 +2495,38 @@ export default function Finance() {
             </div>
             <div className="space-y-1.5 max-h-80 overflow-y-auto custom-scrollbar">
               {getActiveSources().map(src => (
-                <div key={src.id || src.name} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
+                <div key={src.id || src.name} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
                   <span className="text-lg">{src.emoji}</span>
-                  <span className="flex-1 text-sm font-medium truncate">{src.name}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{src.name}</p>
+                    {balanceEditId === src.id ? (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-xs text-muted-foreground">Rp</span>
+                        <Input
+                          autoFocus
+                          className="h-6 text-xs w-28 px-1.5 py-0"
+                          value={balanceEditValue}
+                          onChange={e => setBalanceEditValue(formatNominalInput(e.target.value))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleSaveBalance(src.id);
+                            if (e.key === 'Escape') setBalanceEditId(null);
+                          }}
+                          onBlur={() => handleSaveBalance(src.id)}
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        className="text-xs font-semibold hover:underline cursor-pointer"
+                        style={{ color: (src.balance || 0) >= 0 ? '#059669' : '#dc2626' }}
+                        onClick={() => {
+                          setBalanceEditId(src.id);
+                          setBalanceEditValue(src.balance ? String(Math.abs(src.balance)) : '');
+                        }}
+                      >
+                        {(src.balance || 0) < 0 ? '-' : ''}{formatRupiah(Math.abs(src.balance || 0))}
+                      </button>
+                    )}
+                  </div>
                   {src.id && (
                     <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSource(src)}>
@@ -2508,6 +2571,23 @@ export default function Finance() {
                 />
               </div>
             </div>
+            {!editingSource && (
+              <div>
+                <Label className="text-xs">Saldo Awal</Label>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
+                  <Input
+                    placeholder="0"
+                    value={formatNominalInput(String(sourceForm.balance || ''))}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^\d]/g, '');
+                      setSourceForm(f => ({ ...f, balance: parseInt(raw || '0', 10) }));
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setSourceFormOpen(false)}>Batal</Button>
               <Button className="flex-1" onClick={handleSubmitSource} disabled={submitting}>

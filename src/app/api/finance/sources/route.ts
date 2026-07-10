@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         emoji: emoji || '💵',
+        balance: typeof body.balance === 'number' ? body.balance : 0,
         order: (maxOrder?.order || 0) + 1,
       },
     });
