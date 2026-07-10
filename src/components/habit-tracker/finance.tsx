@@ -375,13 +375,20 @@ export default function Finance() {
 
   const fetchCategories = useCallback(async (skipMigration = false) => {
     try {
+      // First time: ensure FinanceCategory table exists (for Turso deployments)
+      if (!skipMigration && !migrateAttempted.current) {
+        migrateAttempted.current = true;
+        try {
+          await fetch('/api/finance/categories/ensure-table', { method: 'POST' });
+        } catch { /* silent */ }
+      }
+
       const res = await fetch('/api/finance/categories');
       if (res.ok) {
         const cats = await res.json();
         setCategories(cats);
         // Auto-migrate categories with default 📦 emoji (only once per session)
-        if (!skipMigration && !migrateAttempted.current && cats.some((c: FinanceCategory) => c.emoji === '📦')) {
-          migrateAttempted.current = true;
+        if (!skipMigration && cats.some((c: FinanceCategory) => c.emoji === '📦')) {
           fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
             .then(r => { if (r.ok) fetchCategories(true); })
             .catch(() => {});
