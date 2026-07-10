@@ -288,3 +288,22 @@ Work Log:
 Stage Summary:
 - Analytics fix committed and pushed (19bec79)
 - Emoji picker already added in previous commit for easy editing
+
+---
+Task ID: fix-infinite-loop-analytics
+Agent: Main
+Task: Fix 500 error when adding categories + analytics still showing 100%
+
+Work Log:
+- Analyzed user's error screenshot: 500 status code when adding category
+- Found root cause: `fetchCategories()` had infinite recursion — called `migrate-emojis` → re-fetched → if 📦 still present → called migrate again → infinite loop
+- This infinite loop exhausted database connections on Vercel, causing all subsequent requests (including POST to add category) to fail with 500
+- Fixed by adding `useRef(false)` (`migrateAttempted`) to track migration attempt, and `skipMigration` parameter to break recursive chain
+- For analytics: added `export const dynamic = 'force-dynamic'` and `Cache-Control: no-store` headers to prevent Vercel edge caching of stale 100% scores
+- Verified in sandbox: migration runs exactly ONCE then stops, category creation returns 201, analytics shows correct scores (84 overall, not 100%)
+- Pushed to GitHub: commit d163fb0
+
+Stage Summary:
+- Fixed infinite migration loop (root cause of 500 errors)
+- Added cache-busting to analytics API
+- All verified working in sandbox, pushed to GitHub for Vercel auto-deploy
