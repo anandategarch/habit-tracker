@@ -20,7 +20,7 @@ import {
   Settings as SettingsIcon,
   PanelLeftClose,
   PanelLeftOpen,
-  Flame,
+  Sprout,
 } from 'lucide-react';
 
 import dynamic from 'next/dynamic';
@@ -106,12 +106,9 @@ export default function Home() {
           {/* Logo */}
           <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
-              <Flame className="h-5 w-5" />
+              <Sprout className="h-5 w-5" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-sm leading-tight">Habit Tracker</span>
-              <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">Professional V2</span>
-            </div>
+            <span className="font-bold text-sm leading-tight tracking-tight">Rutina</span>
           </div>
 
           {/* Navigation */}
@@ -142,14 +139,8 @@ export default function Home() {
           <Separator />
 
           {/* Footer */}
-          <div className="p-3 flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-white text-xs font-bold shrink-0">
-              U
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold truncate">Habit Tracker</span>
-              <span className="text-[10px] text-muted-foreground">Build better habits</span>
-            </div>
+          <div className="px-4 py-3 shrink-0">
+            <p className="text-[10px] text-muted-foreground/60">by Ananda Tegar</p>
           </div>
         </aside>
 
