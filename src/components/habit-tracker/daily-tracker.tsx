@@ -230,28 +230,28 @@ export default function DailyTracker() {
       }
 
       const active = habitList.filter((h) => h.status === 'active');
-      const results = await Promise.allSettled(
-        active.map(async (habit) => {
-          const res = await fetch(`/api/habits/${habit.id}/logs?month=${month}`);
-          if (!res.ok) throw new Error();
-          const logs: HabitLog[] = await res.json();
-          return { habitId: habit.id, logs };
-        }),
-      );
+      const ids = active.map((h) => h.id);
+
+      let groupedLogs: Record<string, HabitLog[]> = {};
+      try {
+        const res = await fetch(
+          `/api/habits/batch-logs?month=${month}&habitIds=${ids.join(',')}`,
+        );
+        if (res.ok) {
+          groupedLogs = await res.json();
+        }
+      } catch {
+        // fall through to empty defaults
+      }
 
       const monthCache: Record<string, HabitLog[]> = {};
       const map: Record<string, boolean> = {};
 
-      results.forEach((result, idx) => {
-        const id = active[idx].id;
-        if (result.status === 'fulfilled') {
-          monthCache[id] = result.value.logs;
-          const dayLog = result.value.logs.find((l) => toDateString(l.date) === date);
-          map[id] = dayLog?.completed ?? false;
-        } else {
-          monthCache[id] = [];
-          map[id] = false;
-        }
+      active.forEach((habit) => {
+        const logs = groupedLogs[habit.id] || [];
+        monthCache[habit.id] = logs;
+        const dayLog = logs.find((l) => toDateString(l.date) === date);
+        map[habit.id] = dayLog?.completed ?? false;
       });
 
       monthLogsCacheRef.current[month] = monthCache;
