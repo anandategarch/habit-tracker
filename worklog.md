@@ -350,3 +350,24 @@ Stage Summary:
 - Initial page load no longer bundles Recharts, improving first paint performance
 - Dashboard charts show skeleton placeholders while the chunk loads
 - File reduced from 1178 to ~913 lines
+---
+Task ID: 1
+Agent: Main Agent
+Task: Make theme colors changeable from Settings page with live preview
+
+Work Log:
+- Created `/src/lib/theme-utils.ts` — hex/RGB conversion, luminance calculation, contrast foreground, CSS variable application, 8 preset theme definitions
+- Created `/src/components/theme-provider.tsx` — fetches settings on app load, applies theme colors and dark mode, uses sessionStorage cache for fast restore, listens for `rutina:theme-change` events
+- Rewrote `/src/components/habit-tracker/settings.tsx` — added 8 preset theme swatches (Emerald, Ocean, Violet, Rose, Amber, Slate, Teal, Crimson), live color preview on picker change, theme toggle applies immediately, save persists to DB + sessionStorage
+- Fixed `/src/app/loading.tsx` — changed "Habit Tracker" to "Rutina"
+- Updated `/src/app/layout.tsx` — added `<ThemeProvider />` before children
+
+Stage Summary:
+- Theme switching is fully functional: preset swatches, color pickers, light/dark toggle all apply in real-time
+- 8 color presets available as one-click options
+- Custom hex color pickers with live preview
+- Theme persists across page loads via sessionStorage cache + DB storage
+- Save button persists to database
+- When Emerald (default) is selected, resets to clean oklch CSS defaults
+- All hardcoded green references in Settings replaced with `text-primary` / `bg-primary` classes
+- Verified via agent-browser: Ocean preset changes --primary to #0ea5e9, Dark mode toggles .dark class, Emerald resets to oklch defaults
