@@ -307,3 +307,46 @@ Stage Summary:
 - Fixed infinite migration loop (root cause of 500 errors)
 - Added cache-busting to analytics API
 - All verified working in sandbox, pushed to GitHub for Vercel auto-deploy
+---
+Task ID: 2-a and 3
+Agent: Main
+Task: Lazy-load FinanceOverview + fix ensure-table to run once per session
+
+Work Log:
+- Changed static `import FinanceOverview from './finance-overview'` to `dynamic(() => import(...))` with SSR disabled and skeleton loading placeholder (matches FinanceAnalytics pattern)
+- Replaced `useRef(false)` based migration tracking with `sessionStorage.getItem('finance_migrated')` so ensure-table API only runs once per browser session, not per component mount
+- Removed unused `migrateAttempted` ref (kept `useRef` import since `loadedTabs` still uses it)
+- Lint: 0 errors
+
+Stage Summary:
+- FinanceOverview (which imports Recharts ~200KB) is now lazy-loaded with skeleton fallback
+- ensure-table API call reduced from every component mount to once per browser session via sessionStorage
+
+---
+Task ID: 1
+Agent: Main
+Task: Extract Recharts charts from dashboard.tsx into lazy-loaded dashboard-charts.tsx
+
+Work Log:
+- Read full dashboard.tsx (1178 lines) and identified 4 chart sections using Recharts components
+- Created `/src/components/habit-tracker/dashboard-charts.tsx` as a 'use client' component containing:
+  - CATEGORY_COLORS constant (moved from dashboard.tsx)
+  - ChartInfo component (duplicated, needed for chart section tooltips)
+  - DashboardChartsProps interface with all required data types
+  - 4 chart sections: Weekly Completion BarChart, Category Performance horizontal BarChart, Monthly/Period Trend AreaChart, Stacked Bar + Weekly Pattern BarCharts
+  - All Recharts imports (BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell, AreaChart, Area)
+- Updated dashboard.tsx:
+  - Removed all Recharts imports (BarChart, Bar, XAxis, YAxis, etc.)
+  - Removed CATEGORY_COLORS constant
+  - Kept ChartInfo in dashboard.tsx (still used by progress rings, leaderboard, today's focus, finance, per-habit table, insights sections)
+  - Added `import dynamic from 'next/dynamic'`
+  - Added `const DashboardCharts = dynamic(() => import('./dashboard-charts'), { ssr: false, loading: () => <Skeleton placeholders> })`
+  - Replaced 3 chart sections (aria-label="Charts", aria-label="Period trend", aria-label="Habit completion detail") with single `<DashboardCharts />` component
+  - weeklyBarData computation stays in dashboard.tsx (derived from displayData.weeklyChartData)
+- Lint: 0 errors, dev server compiled successfully
+
+Stage Summary:
+- Recharts (~200KB) no longer imported directly in dashboard.tsx — loaded lazily via next/dynamic
+- Initial page load no longer bundles Recharts, improving first paint performance
+- Dashboard charts show skeleton placeholders while the chunk loads
+- File reduced from 1178 to ~913 lines
