@@ -35,7 +35,38 @@ export async function GET() {
       results.push('FundSource table already exists');
     }
 
-    // 3. Seed default sources if empty
+    // 3. Ensure HabitOption table exists
+    try {
+      await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "HabitOption" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "type" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "color" TEXT NOT NULL DEFAULT 'gray',
+        "xp" INTEGER NOT NULL DEFAULT 0,
+        "order" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+        "updatedAt" TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      results.push('HabitOption table ensured');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes('already exists')) throw e;
+      results.push('HabitOption table already exists');
+    }
+
+    // Create indexes for HabitOption
+    try {
+      await db.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "HabitOption_type_name_key" ON "HabitOption"("type", "name")`
+      );
+    } catch { /* ignore */ }
+    try {
+      await db.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "HabitOption_type_idx" ON "HabitOption"("type")`
+      );
+    } catch { /* ignore */ }
+
+    // 4. Seed default sources if empty
     try {
       const count = await db.fundSource.count();
       if (count === 0) {
