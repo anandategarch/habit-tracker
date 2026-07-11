@@ -460,3 +460,30 @@ Stage Summary:
 - Two files modified: `src/app/api/seed/route.ts` and `src/app/api/habit-options/route.ts`
 - Users can now manage Categories, Priorities, and Difficulties from Settings > Habit Labels section
 - Auto-seed ensures fresh installs get sensible defaults (General, Health, Fitness, etc.)
+
+---
+Task ID: 7
+Agent: Main
+Task: Fix slow loading/infinite loading in dashboard, daily tracker, and labels not showing in settings
+
+Work Log:
+- Identified 3 root causes:
+  1. `useHabitOptions` hook used module-level side effect for fetch (unreliable, fails silently)
+  2. All components had `.catch(() => {})` swallowing errors, causing infinite loading
+  3. Dashboard API had O(n²) `habitsActiveOnDate` function (linear scan per day × per habit)
+- Rewrote `useHabitOptions` hook: useEffect-based fetch, visibility change re-fetch, error state
+- Optimized dashboard API: replaced O(n) linear scan with O(log n) binary search on sorted habitCreatedDates
+- Fixed dashboard.tsx: added fetchError state + Retry button UI
+- Fixed daily-tracker.tsx: wrapped initial load in try/finally to guarantee setLoading(false)
+- Fixed ai-insights.tsx: added fetchError state + retry (was stuck on skeleton forever)
+- Fixed statistics.tsx: added fetchError state + retry (was stuck on skeleton forever)
+- Fixed learning.tsx: 3 silent catches → toast.error notifications
+- Fixed settings.tsx: silent catch → toast.error
+- Fixed finance.tsx: silent catch → console.error
+- All changes pass lint
+- Pushed to GitHub
+
+Stage Summary:
+- 9 files modified, 164 insertions, 58 deletions
+- Core fix: no more infinite loading when APIs fail
+- Performance: dashboard API now O(days × log n) instead of O(days × n)
