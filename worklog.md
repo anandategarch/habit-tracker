@@ -408,3 +408,28 @@ Stage Summary:
 **Files created:**
 - `src/lib/label-colors.ts` — Color palette mapping 19 color keys (gray, slate, red, rose, pink, fuchsia, purple, violet, indigo, blue, sky, cyan, teal, emerald, green, lime, amber, orange, yellow) to Tailwind CSS class sets (`badge`, `dot`, `light`, `text`, `hex`). Includes `getLabelColor()`, `getBadgeClass()`, `getDotClass()` helper functions with gray fallback.
 - `src/hooks/use-habit-options.ts` — Client hook that fetches all habit options from `/api/habit-options` and provides derived sorted arrays (`categories`, `priorities`, `difficulties`), name-to-option maps (`categoryMap`, `priorityMap`, `difficultyMap`), an XP map for difficulties, and a `refetch` helper.
+---
+Task ID: 3
+Agent: Main Agent + subagents
+Task: Make categories, priorities, and difficulties user-manageable in Daily Tracker
+
+Work Log:
+- Added HabitOption model to Prisma schema (type, name, color, xp, order)
+- Ran db:push and prisma generate
+- Created seed-options.ts with 20 default options (13 categories, 3 priorities, 4 difficulties)
+- Created /api/habit-options GET/POST and /api/habit-options/[id] PUT/DELETE
+- Created label-colors.ts with 19-color palette and getBadgeClass/getDotClass helpers
+- Created useHabitOptions() hook using useSyncExternalStore for shared state across components
+- Created LabelManager component with 3 tabs (Categories/Priorities/Difficulties), inline edit/add/delete, color picker
+- Updated daily-tracker.tsx: removed XP_MAP, PRIORITY_COLORS, CATEGORY_STYLES; uses dynamic options
+- Updated habit-master.tsx: removed CATEGORIES, PRIORITIES, DIFFICULTIES, CATEGORY_COLORS, PRIORITY_STYLES, DIFFICULTY_STYLES; uses dynamic options
+- Updated goals.tsx: removed PRIORITY_STYLES; uses dynamic options
+- Updated dashboard API: removed hardcoded XP_MAP; fetches from DB
+- Integrated LabelManager into Settings page
+
+Stage Summary:
+- Full CRUD for categories, priorities, difficulties in Settings > Habit Labels
+- 19-color palette for customizing label colors
+- All components now read from database instead of hardcoded constants
+- Difficulty XP is now user-configurable
+- Pushed to GitHub: 47c6155
