@@ -1,9 +1,26 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+let columnsEnsured = false;
+
+async function ensureColumns() {
+  if (columnsEnsured) return;
+  try {
+    await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "trackTime" BOOLEAN NOT NULL DEFAULT 0');
+  } catch { /* already exists */ }
+  try {
+    await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "targetTime" TEXT');
+  } catch { /* already exists */ }
+  try {
+    await db.$executeRawUnsafe('ALTER TABLE "HabitLog" ADD COLUMN "completedAt" TEXT');
+  } catch { /* already exists */ }
+  columnsEnsured = true;
+}
+
 // GET /api/habits - list all habits
 export async function GET() {
   try {
+    await ensureColumns();
     const habits = await db.habit.findMany({
       where: { status: { in: ['active', 'paused'] } },
       orderBy: { order: 'asc' },
@@ -22,7 +39,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, icon, category, priority, difficulty, target, targetType, color, reminder, startDate, endDate, notes } = body;
+    const { name, icon, category, priority, difficulty, target, targetType, color, reminder, startDate, endDate, notes, trackTime, targetTime } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Habit name is required' }, { status: 400 });
@@ -48,6 +65,8 @@ export async function POST(request: NextRequest) {
         startDate: startDate ? new Date(startDate) : new Date(),
         endDate: endDate ? new Date(endDate) : null,
         notes: notes || null,
+        trackTime: trackTime === true,
+        targetTime: targetTime || null,
         order: (maxOrder?.order || 0) + 1,
       },
     });

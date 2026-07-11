@@ -52,6 +52,8 @@ export async function PUT(
     if (body.status !== undefined) updateData.status = body.status;
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.order !== undefined) updateData.order = body.order;
+    if (body.trackTime !== undefined) updateData.trackTime = body.trackTime === true;
+    if (body.targetTime !== undefined) updateData.targetTime = body.targetTime || null;
 
     const habit = await db.habit.update({
       where: { id },

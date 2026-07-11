@@ -25,18 +25,21 @@ model Habit {
   status      String   @default("active")
   notes       String?
   order       Int      @default(0)
+  trackTime   Boolean  @default(false)
+  targetTime  String?  // format "HH:mm", e.g. "05:30"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   logs        HabitLog[]
 }
 
 model HabitLog {
-  id        String   @id @default(cuid())
-  habitId   String
-  date      DateTime
-  completed Boolean  @default(false)
-  value     Int      @default(1)
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  habitId     String
+  date        DateTime
+  completed   Boolean   @default(false)
+  value       Int       @default(1)
+  completedAt DateTime? // exact time when completed (for time-tracked habits)
+  createdAt   DateTime  @default(now())
 
   habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
 

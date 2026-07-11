@@ -80,7 +80,46 @@ export async function GET() {
       );
     } catch { /* ignore */ }
 
-    // 4. Seed default sources if empty
+    // 4. Ensure Habit table has trackTime column
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "trackTime" BOOLEAN NOT NULL DEFAULT 0');
+      results.push('Column "trackTime" added to Habit table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "trackTime" already exists in Habit');
+      } else {
+        results.push(`Habit trackTime migration skipped: ${msg}`);
+      }
+    }
+
+    // 5. Ensure Habit table has targetTime column
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "targetTime" TEXT');
+      results.push('Column "targetTime" added to Habit table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "targetTime" already exists in Habit');
+      } else {
+        results.push(`Habit targetTime migration skipped: ${msg}`);
+      }
+    }
+
+    // 6. Ensure HabitLog table has completedAt column
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "HabitLog" ADD COLUMN "completedAt" TEXT');
+      results.push('Column "completedAt" added to HabitLog table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "completedAt" already exists in HabitLog');
+      } else {
+        results.push(`HabitLog completedAt migration skipped: ${msg}`);
+      }
+    }
+
+    // 7. Seed default sources if empty
     try {
       const count = await db.fundSource.count();
       if (count === 0) {

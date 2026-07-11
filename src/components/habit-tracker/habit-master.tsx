@@ -48,6 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Switch } from '@/components/ui/switch';
 import {
   Plus,
   Pencil,
@@ -56,6 +57,7 @@ import {
   Search,
   Filter,
   ListFilter,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -81,6 +83,8 @@ interface Habit {
   status: string;
   notes: string | null;
   order: number;
+  trackTime: boolean;
+  targetTime: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,6 +122,8 @@ function emptyForm(): HabitFormData {
     status: 'active',
     notes: '',
     order: 0,
+    trackTime: false,
+    targetTime: '',
   };
 }
 
@@ -137,6 +143,8 @@ function habitToForm(h: Habit): HabitFormData {
     status: h.status,
     notes: h.notes ?? '',
     order: h.order,
+    trackTime: h.trackTime ?? false,
+    targetTime: h.targetTime ?? '',
   };
 }
 
@@ -234,6 +242,7 @@ export default function HabitMaster() {
         endDate: form.endDate || null,
         notes: form.notes || null,
         target: Number(form.target) || 1,
+        targetTime: form.targetTime || null,
       };
 
       if (editingId) {
@@ -622,6 +631,41 @@ export default function HabitMaster() {
                 </div>
               </div>
 
+              {/* Track Time */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="track-time" className="cursor-pointer">Track Waktu</Label>
+                  </div>
+                  <Switch
+                    id="track-time"
+                    checked={form.trackTime}
+                    onCheckedChange={(v) => updateForm('trackTime', v)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Catat waktu saat habit dicentang. Cocok untuk bangun pagi, olahraga, dll.
+                </p>
+                {form.trackTime && (
+                  <div className="space-y-2 pt-1">
+                    <Label htmlFor="target-time">
+                      Target Jam <span className="text-muted-foreground text-xs">(opsional)</span>
+                    </Label>
+                    <Input
+                      id="target-time"
+                      type="time"
+                      value={form.targetTime || ''}
+                      onChange={(e) => updateForm('targetTime', e.target.value)}
+                      className="w-40"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Digunakan untuk menghitung apakah kamu tepat waktu.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Notes */}
               <div className="space-y-2">
                 <Label>Notes</Label>
@@ -875,6 +919,12 @@ export default function HabitMaster() {
                           >
                             {habit.difficulty}
                           </Badge>
+                          {habit.trackTime && (
+                            <span className="ml-1.5 inline-flex items-center text-xs text-muted-foreground" title="Track Waktu aktif">
+                              <Clock className="h-3 w-3 mr-0.5" />
+                              {habit.targetTime || 'on'}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-medium">
