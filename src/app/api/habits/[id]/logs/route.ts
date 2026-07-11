@@ -58,23 +58,18 @@ export async function POST(
 
     const dateObj = startOfDay(new Date(date));
 
-    // Build the completedAt value
-    let completedAtDate: Date | null = null;
+    // Build the completedAt value (stored as ISO string)
+    let completedAtStr: string | null = null;
     if (completed && completedAt) {
-      completedAtDate = new Date(completedAt);
-      // Prevent times more than 1 hour in the future (timezone tolerance)
-      const oneHourAhead = new Date(Date.now() + 60 * 60 * 1000);
-      if (completedAtDate > oneHourAhead) {
-        return NextResponse.json({ error: 'Cannot set completion time in the future' }, { status: 400 });
-      }
+      completedAtStr = completedAt; // already an ISO string from the client
       // Prevent times older than 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      if (completedAtDate < sevenDaysAgo) {
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const completedAtMs = new Date(completedAtStr).getTime();
+      if (completedAtMs < sevenDaysAgo) {
         return NextResponse.json({ error: 'Cannot set completion time more than 7 days ago' }, { status: 400 });
       }
     } else if (completed) {
-      completedAtDate = new Date();
+      completedAtStr = new Date().toISOString();
     }
 
     const log = await db.habitLog.upsert({
@@ -89,12 +84,12 @@ export async function POST(
         date: dateObj,
         completed: completed ?? true,
         value: value ?? 1,
-        completedAt: completedAtDate,
+        completedAt: completedAtStr,
       },
       update: {
         completed: completed ?? true,
         value: value ?? 1,
-        completedAt: completed ? completedAtDate : null,
+        completedAt: completed ? completedAtStr : null,
       },
     });
 
