@@ -51,6 +51,8 @@ import { cn } from '@/lib/utils';
 import { format, isPast, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
+import { useHabitOptions } from '@/hooks/use-habit-options';
+import { getBadgeClass } from '@/lib/label-colors';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,12 +85,6 @@ interface GoalFormData {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const PRIORITY_STYLES: Record<string, string> = {
-  High: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900',
-  Medium: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-  Low: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400 border-green-200 dark:border-green-900',
-};
 
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
@@ -124,6 +120,7 @@ const EMPTY_FORM: GoalFormData = {
 
 export default function GoalsTab() {
   const { refreshKey, triggerRefresh } = useAppStore();
+  const { priorityMap } = useHabitOptions();
 
   const [goals, setGoals] = useState<Goal[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -395,7 +392,7 @@ export default function GoalsTab() {
                 </h3>
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px] px-1.5 py-0', PRIORITY_STYLES[goal.priority] ?? '')}
+                  className={cn('text-[10px] px-1.5 py-0', getBadgeClass(priorityMap[goal.priority]?.color || 'gray'))}
                 >
                   {goal.priority}
                 </Badge>

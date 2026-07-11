@@ -60,6 +60,8 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
+import { useHabitOptions } from '@/hooks/use-habit-options';
+import { getBadgeClass, getDotClass, getLabelColor } from '@/lib/label-colors';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,49 +89,10 @@ type HabitFormData = Omit<Habit, 'id' | 'createdAt' | 'updatedAt'>;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  'Health',
-  'Fitness',
-  'Learning',
-  'Productivity',
-  'Mindfulness',
-  'Social',
-  'Finance',
-  'Creative',
-  'General',
-] as const;
-
-const PRIORITIES = ['High', 'Medium', 'Low'] as const;
-const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Expert'] as const;
 const TARGET_TYPES = ['daily', 'weekly', 'monthly'] as const;
 const STATUSES = ['active', 'paused', 'archived'] as const;
 
 const DEFAULT_EMOJIS = ['🎯', '💪', '📚', '🧘', '🏃', '💧', '🍎', '💤', '✍️', '🎨'];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Health: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  Fitness: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-  Learning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  Productivity: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
-  Mindfulness: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-  Social: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
-  Finance: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
-  Creative: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300',
-  General: 'bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-300',
-};
-
-const PRIORITY_STYLES: Record<string, { dot: string; text: string }> = {
-  High: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
-  Medium: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
-  Low: { dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
-};
-
-const DIFFICULTY_STYLES: Record<string, string> = {
-  Easy: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  Medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  Hard: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  Expert: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-};
 
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
@@ -181,6 +144,7 @@ function habitToForm(h: Habit): HabitFormData {
 
 export default function HabitMaster() {
   const { refreshKey, triggerRefresh } = useAppStore();
+  const { categories, priorities, difficulties, categoryMap, priorityMap, difficultyMap } = useHabitOptions();
 
   // Data state
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -514,9 +478,9 @@ export default function HabitMaster() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
+                      {categories.map((c) => (
+                        <SelectItem key={c.name} value={c.name}>
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -532,9 +496,9 @@ export default function HabitMaster() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {PRIORITIES.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
+                      {priorities.map((p) => (
+                        <SelectItem key={p.name} value={p.name}>
+                          {p.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -550,9 +514,9 @@ export default function HabitMaster() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {DIFFICULTIES.map((d) => (
-                        <SelectItem key={d} value={d}>
-                          {d}
+                      {difficulties.map((d) => (
+                        <SelectItem key={d.name} value={d.name}>
+                          {d.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -775,9 +739,9 @@ export default function HabitMaster() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
+                  {categories.map((c) => (
+                    <SelectItem key={c.name} value={c.name}>
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -877,7 +841,7 @@ export default function HabitMaster() {
                             variant="secondary"
                             className={cn(
                               'font-medium border-0',
-                              CATEGORY_COLORS[habit.category] ?? CATEGORY_COLORS.General
+                              getBadgeClass(categoryMap[habit.category]?.color || 'gray')
                             )}
                           >
                             {habit.category}
@@ -888,13 +852,13 @@ export default function HabitMaster() {
                             <span
                               className={cn(
                                 'h-2 w-2 rounded-full',
-                                PRIORITY_STYLES[habit.priority]?.dot
+                                getDotClass(priorityMap[habit.priority]?.color || 'gray')
                               )}
                             />
                             <span
                               className={cn(
                                 'text-sm font-medium',
-                                PRIORITY_STYLES[habit.priority]?.text
+                                getLabelColor(priorityMap[habit.priority]?.color || 'gray').text
                               )}
                             >
                               {habit.priority}
@@ -906,7 +870,7 @@ export default function HabitMaster() {
                             variant="secondary"
                             className={cn(
                               'font-medium border-0',
-                              DIFFICULTY_STYLES[habit.difficulty]
+                              getBadgeClass(difficultyMap[habit.difficulty]?.color || 'gray')
                             )}
                           >
                             {habit.difficulty}
@@ -993,7 +957,7 @@ export default function HabitMaster() {
                             variant="secondary"
                             className={cn(
                               'text-[11px] px-1.5 py-0 border-0',
-                              CATEGORY_COLORS[habit.category] ?? CATEGORY_COLORS.General
+                              getBadgeClass(categoryMap[habit.category]?.color || 'gray')
                             )}
                           >
                             {habit.category}
@@ -1002,7 +966,7 @@ export default function HabitMaster() {
                             variant="secondary"
                             className={cn(
                               'text-[11px] px-1.5 py-0 border-0',
-                              DIFFICULTY_STYLES[habit.difficulty]
+                              getBadgeClass(difficultyMap[habit.difficulty]?.color || 'gray')
                             )}
                           >
                             {habit.difficulty}
@@ -1024,13 +988,13 @@ export default function HabitMaster() {
                           <span
                             className={cn(
                               'h-1.5 w-1.5 rounded-full',
-                              PRIORITY_STYLES[habit.priority]?.dot
+                              getDotClass(priorityMap[habit.priority]?.color || 'gray')
                             )}
                           />
                           <span
                             className={cn(
                               'text-xs',
-                              PRIORITY_STYLES[habit.priority]?.text
+                              getLabelColor(priorityMap[habit.priority]?.color || 'gray').text
                             )}
                           >
                             {habit.priority} priority

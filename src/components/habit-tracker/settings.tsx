@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useRef } from 'react';
+import LabelManager from './label-manager';
 import {
   Settings as SettingsIcon,
   User,
@@ -520,6 +521,9 @@ export default function Settings() {
           </div>
         </FormRow>
       </SectionCard>
+
+      {/* Habit Labels Section */}
+      <LabelManager />
 
       {/* Data Section */}
       <SectionCard icon={Database} title="Data">

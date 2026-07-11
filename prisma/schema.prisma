@@ -206,3 +206,17 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model HabitOption {
+  id        String   @id @default(cuid())
+  type      String   // 'category', 'priority', 'difficulty'
+  name      String
+  color     String   @default("gray")  // key into LABEL_COLORS palette
+  xp        Int      @default(0)       // only used for 'difficulty' type
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, name])
+  @@index([type])
+}

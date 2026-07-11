@@ -30,6 +30,8 @@ import {
   Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useHabitOptions } from '@/hooks/use-habit-options';
+import { getBadgeClass, getDotClass } from '@/lib/label-colors';
 import {
   format,
   addDays,
@@ -87,34 +89,7 @@ const MOOD_LABELS = [
 
 const ENERGY_LABELS = ['Exhausted', 'Low', 'Medium', 'High', 'Supercharged'];
 
-const XP_MAP: Record<string, number> = {
-  Easy: 10,
-  Medium: 20,
-  Hard: 30,
-  Expert: 50,
-};
 
-const PRIORITY_COLORS: Record<string, string> = {
-  High: 'bg-red-500',
-  Medium: 'bg-amber-500',
-  Low: 'bg-green-500',
-};
-
-const CATEGORY_STYLES: Record<string, string> = {
-  Health: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400',
-  Fitness: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400',
-  Learning: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
-  Education: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
-  Productivity: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
-  Work: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
-  Mindfulness: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400',
-  Wellness: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400',
-  Social: 'bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400',
-  Creative: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-400',
-  Financial: 'bg-lime-100 text-lime-700 dark:bg-lime-950/50 dark:text-lime-400',
-  SelfCare: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
-  General: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -124,13 +99,6 @@ function getSleepColorClass(hours: number): string {
   if (hours < 6) return 'text-red-500';
   if (hours < 7) return 'text-amber-500';
   return 'text-emerald-500';
-}
-
-function getCategoryStyle(category: string): string {
-  return (
-    CATEGORY_STYLES[category] ||
-    'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-  );
 }
 
 function sleepLabel(hours: number): string {
@@ -150,6 +118,7 @@ function toDateString(isoLike: string): string {
 
 export default function DailyTracker() {
   const { selectedDate, setSelectedDate, refreshKey } = useAppStore();
+  const { xpMap, priorityMap, categoryMap } = useHabitOptions();
 
   // ---- state ----
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -195,7 +164,7 @@ export default function DailyTracker() {
 
   const todayXP = useMemo(() => {
     return activeHabits.reduce((sum, h) => {
-      if (completionMap[h.id]) return sum + (XP_MAP[h.difficulty] || 20);
+      if (completionMap[h.id]) return sum + (xpMap[h.difficulty] || 20);
       return sum;
     }, 0);
   }, [activeHabits, completionMap]);
@@ -697,7 +666,7 @@ export default function DailyTracker() {
                       variant="secondary"
                       className={cn(
                         'hidden sm:inline-flex text-[10px] px-1.5 py-0 h-5',
-                        getCategoryStyle(habit.category),
+                        getBadgeClass(categoryMap[habit.category]?.color || 'gray'),
                       )}
                     >
                       {habit.category}
@@ -708,7 +677,7 @@ export default function DailyTracker() {
                       <div
                         className={cn(
                           'w-2 h-2 rounded-full',
-                          PRIORITY_COLORS[habit.priority] || 'bg-gray-400',
+                          getDotClass(priorityMap[habit.priority]?.color || 'gray'),
                         )}
                         title={habit.priority}
                       />
