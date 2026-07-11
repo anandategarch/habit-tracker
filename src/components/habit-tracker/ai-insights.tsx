@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Brain,
   Sparkles,
@@ -171,16 +172,25 @@ function EmptyState() {
 export default function AIInsights() {
   const { refreshKey } = useAppStore();
   const [data, setData] = useState<AIInsightsData | null>(null);
-  const loading = data === null;
+  const [fetchError, setFetchError] = useState(false);
+  const loading = data === null && !fetchError;
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/ai-insights')
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {});
+    requestAnimationFrame(() => {
+      setFetchError(false);
+      fetch('/api/ai-insights')
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled) setData(d);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setFetchError(true);
+            toast.error('Gagal memuat AI insights');
+          }
+        });
+    });
     return () => { cancelled = true; };
   }, [refreshKey]);
 

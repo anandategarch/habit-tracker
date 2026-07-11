@@ -65,6 +65,11 @@ export async function GET(request: NextRequest) {
 
     const totalHabits = habits.length;
 
+    // Pre-sort habit creation dates for O(log n) binary search lookups
+    const habitCreatedDates = habits
+      .map(h => startOfDay(h.createdAt).getTime())
+      .sort((a, b) => a - b);
+
     // ── Determine period start date ──────────────────────────────────
     let periodStart: Date;
     if (period === 'all') {
@@ -109,12 +114,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Helper: count habits active on a given date ──────────────────
+    // ── Helper: count habits active on a given date (O(log n) via binary search) ──
     function habitsActiveOnDate(date: Date): number {
-      return habits.filter(h => {
-        const created = startOfDay(h.createdAt);
-        return created <= date;
-      }).length;
+      const ts = startOfDay(date).getTime();
+      // Find rightmost index where createdDate <= ts
+      let lo = 0, hi = habitCreatedDates.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (habitCreatedDates[mid] <= ts) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
     }
 
     // ── Helper: count theoretical possible completions for a date range ──

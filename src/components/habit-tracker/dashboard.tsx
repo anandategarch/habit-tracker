@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -272,11 +272,15 @@ export default function Dashboard() {
   const [quote, setQuote] = useState<MotivationalQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const fetchErrorRef = useRef(false);
   const loading = data === null;
 
   // Fetch dashboard data with period
   useEffect(() => {
     let cancelled = false;
+    fetchErrorRef.current = false;
     requestAnimationFrame(() => {
       setFetching(true);
       fetch(`/api/dashboard?period=${period}`)
@@ -285,15 +289,24 @@ export default function Dashboard() {
           return res.json();
         })
         .then((json) => {
-          if (!cancelled && !json.error) setData(json);
+          if (!cancelled) {
+            if (json.error) {
+              setFetchError(true);
+            } else {
+              setData(json);
+              setFetchError(false);
+            }
+          }
         })
-        .catch(() => {})
+        .catch(() => {
+          if (!cancelled) setFetchError(true);
+        })
         .finally(() => {
           if (!cancelled) setFetching(false);
         });
     });
     return () => { cancelled = true; };
-  }, [refreshKey, period]);
+  }, [refreshKey, period, retryCount]);
 
   // Fetch motivational quote
   useEffect(() => {
@@ -306,7 +319,9 @@ export default function Dashboard() {
             setQuote({ quote: d.quote, translation: d.translation || '', author: d.author });
           }
         })
-        .catch(() => {})
+        .catch((err) => {
+          if (!cancelled) console.error('Failed to fetch motivational quote:', err);
+        })
         .finally(() => {
           if (!cancelled) setQuoteLoading(false);
         });
@@ -326,7 +341,7 @@ export default function Dashboard() {
       .then((d) => {
         if (d.quote) setQuote({ quote: d.quote, translation: d.translation || '', author: d.author });
       })
-      .catch(() => {})
+      .catch((err) => console.error('Failed to refresh quote:', err))
       .finally(() => setQuoteLoading(false));
   };
 
@@ -391,6 +406,20 @@ export default function Dashboard() {
       default: return '30 Hari';
     }
   }, [period]);
+
+  if (fetchError && !fetching) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="text-center space-y-2">
+          <p className="text-sm text-muted-foreground">Failed to load dashboard data</p>
+          <Button variant="outline" size="sm" onClick={() => { setFetchError(false); setRetryCount((c) => c + 1); }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

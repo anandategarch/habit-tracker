@@ -28,6 +28,7 @@ import {
   Target,
   AlertTriangle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Period = '7d' | '1m' | '3m' | 'all';
 
@@ -212,14 +213,16 @@ function LoadingSkeleton() {
 export default function Statistics() {
   const { refreshKey } = useAppStore();
   const [data, setData] = useState<StatisticsData | null>(null);
+  const [fetchError, setFetchError] = useState(false);
   const [period, setPeriod] = useState<Period>('all');
   const [fetching, setFetching] = useState(false);
-  const loading = data === null;
+  const loading = data === null && !fetchError;
 
   useEffect(() => {
     let cancelled = false;
     requestAnimationFrame(() => {
       setFetching(true);
+      setFetchError(false);
       fetch(`/api/statistics?period=${period}`)
         .then((r) => r.json())
         .then((d) => {
@@ -227,7 +230,12 @@ export default function Statistics() {
             setData(d);
           }
         })
-        .catch(() => {})
+        .catch(() => {
+          if (!cancelled) {
+            setFetchError(true);
+            toast.error('Gagal memuat statistik');
+          }
+        })
         .finally(() => {
           if (!cancelled) setFetching(false);
         });

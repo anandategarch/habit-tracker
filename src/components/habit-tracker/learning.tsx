@@ -172,7 +172,7 @@ export default function LearningTab() {
             setArticle({ title: d.title, content: d.content, funFact: d.funFact, topic: d.topic, source: d.source });
           }
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) toast.error('Gagal memuat artikel'); })
         .finally(() => {
           if (!cancelled) setArticleLoading(false);
         });
@@ -191,7 +191,7 @@ export default function LearningTab() {
         .then(d => {
           if (!cancelled) setStatus(d);
         })
-        .catch(() => {});
+        .catch((err) => { console.error('Failed to fetch learning status:', err); });
     });
     return () => { cancelled = true; };
   }, [refreshKey]);
@@ -209,7 +209,7 @@ export default function LearningTab() {
           setArticle({ title: d.title, content: d.content, funFact: d.funFact, topic: d.topic, source: d.source });
         }
       })
-      .catch(() => {})
+      .catch(() => { toast.error('Gagal memuat artikel'); })
       .finally(() => setArticleLoading(false));
   };
 

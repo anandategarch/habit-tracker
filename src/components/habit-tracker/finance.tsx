@@ -224,7 +224,7 @@ export default function Finance() {
         if (!skipMigration && cats.some((c: FinanceCategory) => c.emoji === '📦')) {
           fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
             .then(r => { if (r.ok) fetchCategories(true); })
-            .catch(() => {});
+            .catch((err) => { console.error('Failed to migrate emojis:', err); });
         }
       }
     } catch { /* silent */ }

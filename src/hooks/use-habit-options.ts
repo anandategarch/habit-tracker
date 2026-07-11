@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 
 export interface HabitOption {
   id: string;
@@ -13,46 +13,90 @@ export interface HabitOption {
 
 const EMPTY: HabitOption[] = [];
 
-// Simple in-memory cache shared across all hook instances
+// ── Shared in-memory cache (module-level, shared across hook instances) ──
 let cachedOptions: HabitOption[] = EMPTY;
 let cachedLoading = true;
+let cachedError = false;
 const listeners = new Set<() => void>();
+let fetchInProgress: Promise<void> | null = null;
 
 function notifyAll() {
   listeners.forEach(l => l());
 }
 
-async function fetchAndSet() {
+function fetchAndSet(): Promise<void> {
+  // Deduplicate concurrent fetches
+  if (fetchInProgress) return fetchInProgress;
+
   cachedLoading = true;
+  cachedError = false;
   notifyAll();
-  try {
-    const res = await fetch('/api/habit-options');
-    if (res.ok) {
-      cachedOptions = await res.json();
-    }
-  } catch { /* ignore */ }
-  cachedLoading = false;
-  notifyAll();
+
+  fetchInProgress = fetch('/api/habit-options')
+    .then((res) => {
+      if (res.ok) {
+        return res.json().then((data: HabitOption[]) => {
+          cachedOptions = data;
+          cachedError = false;
+        });
+      }
+      cachedError = true;
+    })
+    .catch(() => {
+      cachedError = true;
+    })
+    .finally(() => {
+      cachedLoading = false;
+      fetchInProgress = null;
+      notifyAll();
+    });
+
+  return fetchInProgress;
 }
 
-// Kick off initial fetch once
-if (typeof window !== 'undefined' && cachedLoading) {
-  fetchAndSet();
-}
-
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function getSnapshot(): HabitOption[] { return cachedOptions; }
-function getLoadingSnapshot(): boolean { return cachedLoading; }
+// ── Hook ──────────────────────────────────────────────────────────────────
 
 export function useHabitOptions() {
-  const options = useSyncExternalStore(subscribe, getSnapshot);
-  const loading = useSyncExternalStore(subscribe, getLoadingSnapshot);
+  // A tick counter forces re-render when the external store notifies
+  const [, setTick] = useState(0);
+  const subscribedRef = useRef(false);
 
-  const refetch = useCallback(() => { fetchAndSet(); }, []);
+  // Subscribe to external store changes on mount
+  useEffect(() => {
+    if (subscribedRef.current) return;
+    subscribedRef.current = true;
+
+    const sub = () => setTick(t => t + 1);
+    listeners.add(sub);
+
+    // Trigger initial fetch if needed
+    if (cachedLoading || cachedError || cachedOptions === EMPTY) {
+      fetchAndSet();
+    }
+
+    return () => {
+      listeners.delete(sub);
+      subscribedRef.current = false;
+    };
+  }, []);
+
+  // Re-fetch when tab becomes visible again (e.g., switching back to app)
+  useEffect(() => {
+    const onVisible = () => {
+      if (cachedError) fetchAndSet();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const options = cachedOptions;
+  const loading = cachedLoading;
+  const error = cachedError;
+
+  const refetch = useCallback(() => {
+    fetchInProgress = null;
+    return fetchAndSet();
+  }, []);
 
   const categories = useMemo(() =>
     options.filter(o => o.type === 'category').sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)),
@@ -96,6 +140,7 @@ export function useHabitOptions() {
   return {
     options,
     loading,
+    error,
     categories,
     priorities,
     difficulties,

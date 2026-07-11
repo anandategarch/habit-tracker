@@ -214,7 +214,7 @@ export default function Settings() {
           });
         }
       })
-      .catch(() => {})
+      .catch(() => { toast.error('Gagal memuat pengaturan'); })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
