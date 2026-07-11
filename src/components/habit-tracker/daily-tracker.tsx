@@ -204,6 +204,7 @@ export default function DailyTracker() {
         setNotes('');
       }
     } catch {
+      toast.error('Gagal memuat data');
       setMood(3);
       setEnergy(3);
       setSleepHours(7);
@@ -273,7 +274,7 @@ export default function DailyTracker() {
             body: JSON.stringify({ date: selectedDate, ...patch }),
           });
         } catch {
-          // silent – user can retry
+          toast.error('Gagal menyimpan data');
         }
       }, 500);
     },
@@ -370,13 +371,16 @@ export default function DailyTracker() {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const data = await fetchHabits();
-      if (cancelled) return;
-      await Promise.all([
-        fetchDailyLog(selectedDate),
-        fetchCompletions(data, selectedDate),
-      ]);
-      if (!cancelled) setLoading(false);
+      try {
+        const data = await fetchHabits();
+        if (cancelled) return;
+        await Promise.all([
+          fetchDailyLog(selectedDate),
+          fetchCompletions(data, selectedDate),
+        ]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
     load();
     return () => {
