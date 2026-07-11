@@ -434,7 +434,7 @@ export default function GoalsTab() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                  className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/5"
                   onClick={() => handleCompleteGoal(goal)}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -510,7 +510,7 @@ export default function GoalsTab() {
                       checked={ms.done}
                       disabled={isCompleted || isCancelled}
                       onCheckedChange={() => toggleMilestone(goal.id, idx, goal.milestones)}
-                      className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                      className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     />
                     <span
                       className={cn(
@@ -538,7 +538,7 @@ export default function GoalsTab() {
         <DialogTrigger asChild>
           <Button
             onClick={openNewForm}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-primary hover:bg-primary text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Goal
@@ -547,7 +547,7 @@ export default function GoalsTab() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-green-600" />
+              <Target className="h-5 w-5 text-primary" />
               {form.id ? 'Edit Goal' : 'New Goal'}
             </DialogTitle>
           </DialogHeader>
@@ -660,7 +660,7 @@ export default function GoalsTab() {
                   size="sm"
                   onClick={addMilestone}
                   disabled={!newMilestone.trim()}
-                  className="h-9 flex-shrink-0 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-900 dark:text-green-400 dark:hover:bg-green-950"
+                  className="h-9 flex-shrink-0 border-primary/20 text-primary hover:bg-primary/5"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Add
@@ -679,7 +679,7 @@ export default function GoalsTab() {
               <Button
                 onClick={handleSave}
                 disabled={saving || !form.title.trim()}
-                className="bg-green-600 hover:bg-green-700 text-white min-w-[120px]"
+                className="bg-primary hover:bg-primary text-white min-w-[120px]"
               >
                 {saving ? 'Saving...' : form.id ? 'Update Goal' : 'Create Goal'}
               </Button>
@@ -738,8 +738,8 @@ export default function GoalsTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-green-100 dark:bg-green-950">
-            <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+            <Target className="h-4 w-4 text-primary" />
           </div>
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Goals</h2>
@@ -761,16 +761,16 @@ export default function GoalsTab() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Completed</p>
-            <p className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
+            <p className="text-xs text-primary font-medium">Completed</p>
+            <p className="text-2xl font-bold mt-1 text-primary">
               {stats.completed}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-green-600 dark:text-green-400 font-medium">In Progress</p>
-            <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
+            <p className="text-xs text-primary font-medium">In Progress</p>
+            <p className="text-2xl font-bold mt-1 text-primary">
               {stats.inProgress}
             </p>
           </CardContent>
@@ -781,8 +781,8 @@ export default function GoalsTab() {
       {goals.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 dark:bg-green-950 mb-4">
-              <Target className="h-7 w-7 text-green-600 dark:text-green-400" />
+            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-primary/10 mb-4">
+              <Target className="h-7 w-7 text-primary" />
             </div>
             <h3 className="font-medium text-sm mb-1">No goals yet</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
@@ -790,7 +790,7 @@ export default function GoalsTab() {
             </p>
             <Button
               onClick={openNewForm}
-              className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+              className="mt-4 bg-primary hover:bg-primary text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
               Create First Goal

@@ -145,7 +145,7 @@ function getMoodColor(mood: number): string {
     case 4:
       return 'bg-lime-100 text-lime-700 dark:bg-lime-950 dark:text-lime-400';
     case 5:
-      return 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400';
+      return 'bg-primary/10 text-primary';
     default:
       return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
   }
@@ -154,7 +154,7 @@ function getMoodColor(mood: number): string {
 function getStressColor(stress: number): string {
   switch (stress) {
     case 1:
-      return 'text-green-600 dark:text-green-400';
+      return 'text-primary';
     case 2:
       return 'text-lime-600 dark:text-lime-400';
     case 3:
@@ -179,7 +179,7 @@ function getEnergyColor(energy: number): string {
     case 4:
       return 'text-lime-600 dark:text-lime-400';
     case 5:
-      return 'text-green-600 dark:text-green-400';
+      return 'text-primary';
     default:
       return 'text-muted-foreground';
   }
@@ -188,8 +188,8 @@ function getEnergyColor(energy: number): string {
 function getSleepColor(sleep: number): string {
   if (sleep < 6) return 'text-red-500';
   if (sleep < 7) return 'text-amber-500';
-  if (sleep < 9) return 'text-green-500';
-  return 'text-green-400';
+  if (sleep < 9) return 'text-primary';
+  return 'text-primary';
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ export default function JournalTab() {
         <DialogTrigger asChild>
           <Button
             onClick={openNewForm}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-primary hover:bg-primary text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Entry
@@ -333,7 +333,7 @@ export default function JournalTab() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-green-600" />
+              <BookOpen className="h-5 w-5 text-primary" />
               {form.id ? 'Edit Journal Entry' : 'New Journal Entry'}
             </DialogTitle>
           </DialogHeader>
@@ -362,7 +362,7 @@ export default function JournalTab() {
                     className={cn(
                       'flex flex-col items-center gap-1 rounded-xl border-2 px-4 py-3 transition-all hover:scale-105',
                       form.mood === opt.value
-                        ? 'border-green-500 bg-green-50 dark:bg-green-950 shadow-sm'
+                        ? 'border-primary bg-primary/10 shadow-sm'
                         : 'border-transparent bg-muted/50 hover:bg-muted'
                     )}
                   >
@@ -491,7 +491,7 @@ export default function JournalTab() {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-green-600 hover:bg-green-700 text-white min-w-[120px]"
+                className="bg-primary hover:bg-primary text-white min-w-[120px]"
               >
                 {saving ? 'Saving...' : 'Save Entry'}
               </Button>
@@ -530,7 +530,7 @@ export default function JournalTab() {
                   {isToday && (
                     <Badge
                       variant="secondary"
-                      className="bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400 text-[10px] px-1.5 py-0"
+                      className="bg-primary/10 text-primary text-[10px] px-1.5 py-0"
                     >
                       Today
                     </Badge>
@@ -607,7 +607,7 @@ export default function JournalTab() {
 
               {entry.winToday && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-green-600 dark:text-green-400 mb-1">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-primary mb-1">
                     Win Today
                   </h4>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -683,8 +683,8 @@ export default function JournalTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-green-100 dark:bg-green-950">
-            <BookOpen className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+            <BookOpen className="h-4 w-4 text-primary" />
           </div>
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Journal</h2>
@@ -700,8 +700,8 @@ export default function JournalTab() {
       {journals.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 dark:bg-green-950 mb-4">
-              <BookOpen className="h-7 w-7 text-green-600 dark:text-green-400" />
+            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-primary/10 mb-4">
+              <BookOpen className="h-7 w-7 text-primary" />
             </div>
             <h3 className="font-medium text-sm mb-1">No journal entries yet</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
@@ -709,7 +709,7 @@ export default function JournalTab() {
             </p>
             <Button
               onClick={openNewForm}
-              className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+              className="mt-4 bg-primary hover:bg-primary text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
               Write First Entry

@@ -436,7 +436,7 @@ export default function HabitMaster() {
           <DialogTrigger asChild>
             <Button
               onClick={openAdd}
-              className="bg-green-600 hover:bg-green-700 text-white gap-2 w-full sm:w-auto"
+              className="bg-primary hover:bg-primary text-white gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
               Add Habit
@@ -681,7 +681,7 @@ export default function HabitMaster() {
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !form.name.trim()}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-primary hover:bg-primary text-white"
                 >
                   {submitting ? 'Saving...' : editingId ? 'Update Habit' : 'Create Habit'}
                 </Button>
@@ -692,7 +692,7 @@ export default function HabitMaster() {
       </div>
 
       {/* Quick Add Bar */}
-      <Card className="border-dashed border-green-300 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+      <Card className="border-dashed border-primary/20 bg-primary/10">
         <CardContent className="p-3">
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -741,7 +741,7 @@ export default function HabitMaster() {
             <Button
               onClick={handleQuickAdd}
               disabled={quickAdding || !quickName.trim()}
-              className="bg-green-600 hover:bg-green-700 text-white gap-1 shrink-0"
+              className="bg-primary hover:bg-primary text-white gap-1 shrink-0"
               size="sm"
             >
               <Plus className="h-4 w-4" />
@@ -830,7 +830,7 @@ export default function HabitMaster() {
             {habits.length === 0 && (
               <Button
                 onClick={openAdd}
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+                className="mt-4 bg-primary hover:bg-primary text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Habit

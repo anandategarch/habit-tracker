@@ -286,7 +286,7 @@ export default function CalendarView() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarDays className="h-6 w-6 text-green-600" />
+            <CalendarDays className="h-6 w-6 text-primary" />
             Calendar View
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -350,15 +350,15 @@ export default function CalendarView() {
                       transition-all duration-150
                       ${getHeatmapColor(day.completionRate)}
                       ${!day.isCurrentMonth ? 'opacity-35' : ''}
-                      ${day.isToday ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}
-                      hover:ring-1 hover:ring-green-400/50 cursor-default
+                      ${day.isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}
+                      hover:ring-1 hover:ring-primary/50 cursor-default
                     `}
                   >
                     <div className="flex items-center justify-between">
                       <span
                         className={`text-xs sm:text-sm font-medium ${
                           day.isToday
-                            ? 'text-green-700 dark:text-green-300 font-bold'
+                            ? 'text-primary font-bold'
                             : !day.isCurrentMonth
                             ? 'text-muted-foreground'
                             : 'text-foreground'
@@ -384,7 +384,7 @@ export default function CalendarView() {
                         </span>
                         <div className="w-full bg-black/10 rounded-full h-1 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-green-600 transition-all duration-300"
+                            className="h-full rounded-full bg-primary transition-all duration-300"
                             style={{
                               width: `${Math.max(day.completionRate, 0)}%`,
                             }}
@@ -434,7 +434,7 @@ export default function CalendarView() {
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded ring-2 ring-green-500 ring-offset-1 bg-green-50" />
+                    <div className="h-6 w-6 rounded ring-2 ring-primary ring-offset-1 bg-primary/10" />
                     <span className="text-xs text-muted-foreground">Today</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -455,11 +455,11 @@ export default function CalendarView() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
+                  <div className="space-y-1 p-3 rounded-lg bg-primary/10">
                     <p className="text-xs text-muted-foreground">
                       Average Completion
                     </p>
-                    <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                    <p className="text-2xl font-bold text-primary">
                       {monthSummary.avg.toFixed(1)}%
                     </p>
                   </div>
@@ -474,16 +474,16 @@ export default function CalendarView() {
                   </div>
 
                   {monthSummary.best && (
-                    <div className="space-y-1 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
+                    <div className="space-y-1 p-3 rounded-lg bg-primary/10">
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Flame className="h-3 w-3 text-green-600" /> Best Day
+                        <Flame className="h-3 w-3 text-primary" /> Best Day
                       </p>
-                      <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                      <p className="text-lg font-bold text-primary">
                         {format(monthSummary.best.date, 'MMM d')}
                       </p>
                       <Badge
                         variant="secondary"
-                        className="bg-green-100 text-green-700 hover:bg-green-100 text-xs"
+                        className="bg-primary/10 text-primary hover:bg-primary/10 text-xs"
                       >
                         {monthSummary.best.completionRate}%
                       </Badge>

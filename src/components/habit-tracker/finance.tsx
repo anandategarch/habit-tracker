@@ -657,7 +657,7 @@ export default function Finance() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-red-500 hover:bg-red-600 text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} className={cn(txForm.type === 'income' && 'bg-green-500 hover:bg-green-600 text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
+              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} className={cn(txForm.type === 'income' && 'bg-primary hover:bg-primary text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
             </div>
             <div><Label className="text-xs">Jumlah (Rp)</Label><Input type="text" inputMode="numeric" placeholder="0" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="mt-1" /></div>
             <div><Label className="text-xs">Kategori</Label><Select value={txForm.category} onValueChange={v => setTxForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList(txForm.type).map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
@@ -738,7 +738,7 @@ export default function Finance() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-green-600">💰 Pemasukan</h3>
+                <h3 className="text-sm font-semibold text-primary">💰 Pemasukan</h3>
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('income')}><Plus className="h-3 w-3 mr-1" />Tambah</Button>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
@@ -780,9 +780,9 @@ export default function Finance() {
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Kelola Sumber Dana</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 p-4">
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mb-1">Total Saldo Semua Sumber</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatRupiah(sources.reduce((s, src) => s + (src.balance || 0), 0))}</p>
+            <div className="rounded-xl bg-gradient-to-br from-primary/10 to-teal-50 dark:to-teal-950/30 border border-primary/20 p-4">
+              <p className="text-xs text-primary font-medium mb-1">Total Saldo Semua Sumber</p>
+              <p className="text-2xl font-bold text-primary">{formatRupiah(sources.reduce((s, src) => s + (src.balance || 0), 0))}</p>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">Kelola akun bank, e-wallet, kas, dll</p>

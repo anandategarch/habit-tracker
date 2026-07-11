@@ -673,7 +673,7 @@ export default function DailyTracker() {
                       className={cn(
                         'shrink-0 transition-colors duration-200',
                         done &&
-                          'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600',
+                          'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
                       )}
                     />
 
@@ -734,16 +734,16 @@ export default function DailyTracker() {
 
       {/* ────────────────────────── Summary Footer ────────────────────────── */}
       {totalCount > 0 && (
-        <Card className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-200/50 dark:border-emerald-800/30 py-4">
+        <Card className="bg-gradient-to-r from-primary/5 to-primary/5 border-primary/20 py-4">
           <CardContent>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               {/* Completion */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-                  <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                  <Check className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  <p className="text-2xl font-bold tabular-nums text-primary">
                     {completionPct}%
                   </p>
                   <p className="text-xs text-muted-foreground">

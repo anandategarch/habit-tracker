@@ -418,7 +418,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                   <div key={item.label} className="space-y-0.5">
                     <div className="flex justify-between text-xs">
                       <span className="font-medium">{item.label}</span>
-                      <span className={cn('font-semibold', item.score >= 70 ? 'text-green-600' : item.score >= 40 ? 'text-amber-600' : 'text-red-500')}>
+                      <span className={cn('font-semibold', item.score >= 70 ? 'text-primary' : item.score >= 40 ? 'text-amber-600' : 'text-red-500')}>
                         {item.score}/100
                       </span>
                     </div>
@@ -478,17 +478,17 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/20">
+              <div className="text-center p-3 rounded-lg bg-primary/10">
                 <p className="text-[10px] text-muted-foreground mb-1">Total Masuk</p>
-                <p className="text-sm font-bold text-green-600">{formatRupiah(data.totalIncomeInRange)}</p>
+                <p className="text-sm font-bold text-primary">{formatRupiah(data.totalIncomeInRange)}</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/20">
                 <p className="text-[10px] text-muted-foreground mb-1">Total Keluar</p>
                 <p className="text-sm font-bold text-red-500">{formatRupiah(data.totalExpenseInRange)}</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+              <div className="text-center p-3 rounded-lg bg-primary/10">
                 <p className="text-[10px] text-muted-foreground mb-1">Rasio Tabungan</p>
-                <p className={cn('text-sm font-bold', data.savingsRate >= 0 ? 'text-blue-600' : 'text-red-500')}>
+                <p className={cn('text-sm font-bold', data.savingsRate >= 0 ? 'text-primary' : 'text-red-500')}>
                   {data.savingsRate}%
                 </p>
               </div>

@@ -74,7 +74,7 @@ function ProgressRing({ value, size = 64, strokeWidth = 5 }: { value: number; si
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(value, 100) / 100) * circumference;
-  const color = value >= 80 ? 'text-green-500' : value >= 50 ? 'text-amber-500' : 'text-red-500';
+  const color = value >= 80 ? 'text-primary' : value >= 50 ? 'text-amber-500' : 'text-red-500';
 
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
@@ -128,8 +128,8 @@ function StatCard({
             <p className={cn('text-2xl font-bold mt-1', color || 'text-foreground')}>{value}</p>
             {subValue && <p className="text-xs text-muted-foreground mt-0.5">{subValue}</p>}
           </div>
-          <div className={cn('p-2 rounded-lg shrink-0', color === 'text-green-600' ? 'bg-green-100 dark:bg-green-950/50' : color === 'text-amber-600' ? 'bg-amber-100 dark:bg-amber-950/50' : color === 'text-red-500' ? 'bg-red-100 dark:bg-red-950/50' : 'bg-muted')}>
-            <Icon className={cn('h-4 w-4', color === 'text-green-600' ? 'text-green-600' : color === 'text-amber-600' ? 'text-amber-600' : color === 'text-red-500' ? 'text-red-500' : 'text-muted-foreground')} />
+          <div className={cn('p-2 rounded-lg shrink-0', color === 'text-primary' ? 'bg-primary/10' : color === 'text-amber-600' ? 'bg-amber-100 dark:bg-amber-950/50' : color === 'text-red-500' ? 'bg-red-100 dark:bg-red-950/50' : 'bg-muted')}>
+            <Icon className={cn('h-4 w-4', color === 'text-primary' ? 'text-primary' : color === 'text-amber-600' ? 'text-amber-600' : color === 'text-red-500' ? 'text-red-500' : 'text-muted-foreground')} />
           </div>
         </div>
       </CardContent>
@@ -304,7 +304,7 @@ export default function Statistics() {
           label="Total Completions"
           value={displayData.totalCompletion}
           subValue={`of ${displayData.totalEntries} possible`}
-          color="text-green-600"
+          color="text-primary"
         />
 
         <StatCard
@@ -321,7 +321,7 @@ export default function Statistics() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Success Rate</p>
-                <p className="text-lg font-bold mt-1 text-green-600">{displayData.successRate.toFixed(1)}%</p>
+                <p className="text-lg font-bold mt-1 text-primary">{displayData.successRate.toFixed(1)}%</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {period !== 'all' ? `${PERIOD_OPTIONS.find(p => p.value === period)?.label} completion` : 'Overall completion'}
                 </p>
@@ -342,7 +342,7 @@ export default function Statistics() {
                     className={cn(
                       'h-full rounded-full transition-all duration-700 ease-out',
                       displayData.averageScore >= 80
-                        ? 'bg-green-500'
+                        ? 'bg-primary'
                         : displayData.averageScore >= 50
                           ? 'bg-amber-500'
                           : 'bg-red-500'
@@ -370,7 +370,7 @@ export default function Statistics() {
           label="Best Streak"
           value={`${displayData.longestSuccess}d`}
           subValue="Consecutive successes"
-          color="text-green-600"
+          color="text-primary"
         />
 
         <StatCard
@@ -391,7 +391,7 @@ export default function Statistics() {
             label="Best Day"
             date={displayData.bestDay?.date && isValid(parseISO(displayData.bestDay.date)) ? format(parseISO(displayData.bestDay.date), 'MMM d, yyyy') : 'N/A'}
             rate={displayData.bestDay?.rate ?? 0}
-            color="text-green-600"
+            color="text-primary"
             trend="up"
           />
           <HighlightCard
@@ -407,7 +407,7 @@ export default function Statistics() {
             label="Best Week"
             date={displayData.bestWeek?.week && isValid(parseISO(displayData.bestWeek.week)) ? format(parseISO(displayData.bestWeek.week), 'MMM d, yyyy') : displayData.bestWeek?.week ?? 'N/A'}
             rate={displayData.bestWeek?.rate ?? 0}
-            color="text-green-600"
+            color="text-primary"
             trend="up"
           />
           <HighlightCard
@@ -415,7 +415,7 @@ export default function Statistics() {
             label="Best Month"
             date={displayData.bestMonth?.month ?? 'N/A'}
             rate={displayData.bestMonth?.rate ?? 0}
-            color="text-green-600"
+            color="text-primary"
             trend="up"
           />
         </div>

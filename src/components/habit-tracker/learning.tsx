@@ -502,7 +502,7 @@ export default function LearningTab() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {status.completedToday ? (
-                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <div className="flex items-center gap-2 text-primary">
                     <CheckCircle className="h-5 w-5" />
                     <span className="text-sm font-medium">Sudah dibaca hari ini</span>
                   </div>
@@ -518,7 +518,7 @@ export default function LearningTab() {
                 className={cn(
                   'min-w-[160px]',
                   status.completedToday
-                    ? 'bg-green-600 text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-violet-600 hover:bg-violet-700 text-white'
                 )}
               >
