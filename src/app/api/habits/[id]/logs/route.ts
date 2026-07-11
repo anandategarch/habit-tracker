@@ -51,6 +51,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureTimeTrackingColumns();
     const { id } = await params;
     const body = await request.json();
     const { date, completed, value, completedAt } = body;
@@ -61,8 +62,9 @@ export async function POST(
     let completedAtDate: Date | null = null;
     if (completed && completedAt) {
       completedAtDate = new Date(completedAt);
-      // Prevent future times
-      if (completedAtDate > new Date()) {
+      // Prevent times more than 1 hour in the future (timezone tolerance)
+      const oneHourAhead = new Date(Date.now() + 60 * 60 * 1000);
+      if (completedAtDate > oneHourAhead) {
         return NextResponse.json({ error: 'Cannot set completion time in the future' }, { status: 400 });
       }
       // Prevent times older than 7 days
