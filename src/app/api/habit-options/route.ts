@@ -3,9 +3,42 @@ import { db } from '@/lib/db';
 
 const VALID_TYPES = ['category', 'priority', 'difficulty'] as const;
 
+const DEFAULTS = [
+  // Categories
+  { type: 'category', name: 'General', color: 'slate', xp: 0, order: 0 },
+  { type: 'category', name: 'Health', color: 'emerald', xp: 0, order: 1 },
+  { type: 'category', name: 'Fitness', color: 'orange', xp: 0, order: 2 },
+  { type: 'category', name: 'Learning', color: 'blue', xp: 0, order: 3 },
+  { type: 'category', name: 'Mindfulness', color: 'violet', xp: 0, order: 4 },
+  { type: 'category', name: 'Productivity', color: 'amber', xp: 0, order: 5 },
+  { type: 'category', name: 'Social', color: 'pink', xp: 0, order: 6 },
+  { type: 'category', name: 'Creative', color: 'fuchsia', xp: 0, order: 7 },
+  // Priorities
+  { type: 'priority', name: 'Low', color: 'green', xp: 0, order: 0 },
+  { type: 'priority', name: 'Medium', color: 'amber', xp: 0, order: 1 },
+  { type: 'priority', name: 'High', color: 'red', xp: 0, order: 2 },
+  // Difficulties
+  { type: 'difficulty', name: 'Easy', color: 'green', xp: 10, order: 0 },
+  { type: 'difficulty', name: 'Medium', color: 'amber', xp: 20, order: 1 },
+  { type: 'difficulty', name: 'Hard', color: 'red', xp: 40, order: 2 },
+];
+
+let seeded = false;
+
+async function ensureDefaults() {
+  if (seeded) return;
+  const count = await db.habitOption.count();
+  if (count === 0) {
+    await db.habitOption.createMany({ data: DEFAULTS });
+  }
+  seeded = true;
+}
+
 // GET /api/habit-options?type=category
 export async function GET(request: NextRequest) {
   try {
+    await ensureDefaults();
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 

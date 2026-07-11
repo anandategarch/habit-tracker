@@ -433,3 +433,30 @@ Stage Summary:
 - All components now read from database instead of hardcoded constants
 - Difficulty XP is now user-configurable
 - Pushed to GitHub: 47c6155
+
+---
+Task ID: 6
+Agent: Main
+Task: Make categories, priorities, and difficulties in Daily Tracker editable (add, edit, delete)
+
+Work Log:
+- Discovered the entire feature was already built in a previous session but missing only default seed data
+- Existing infrastructure found:
+  - `HabitOption` model in Prisma schema (type, name, color, xp, order)
+  - `/api/habit-options` route.ts (GET + POST)
+  - `/api/habit-options/[id]/route.ts` (PUT + DELETE)
+  - `useHabitOptions` hook with caching and real-time sync via useSyncExternalStore
+  - `LabelManager` component with full CRUD UI (tabs for Category/Priority/Difficulty, color picker, inline edit)
+  - `LabelManager` rendered in Settings page at line 526
+  - `habit-master.tsx` and `daily-tracker.tsx` already consume the hook
+- Added default seed data to `/api/seed/route.ts` (8 categories, 3 priorities, 3 difficulties)
+- Added auto-seed fallback in `/api/habit-options/route.ts` GET endpoint (seeds if table empty)
+- Tested CRUD operations via curl: POST (create), PUT (update), DELETE all working
+- Cleaned up test data
+- Lint passes clean
+
+Stage Summary:
+- Feature was 95% complete from previous work; only seed data was missing
+- Two files modified: `src/app/api/seed/route.ts` and `src/app/api/habit-options/route.ts`
+- Users can now manage Categories, Priorities, and Difficulties from Settings > Habit Labels section
+- Auto-seed ensures fresh installs get sensible defaults (General, Health, Fitness, etc.)
