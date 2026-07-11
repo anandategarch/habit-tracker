@@ -25,11 +25,59 @@ const DEFAULTS = [
 
 let seeded = false;
 
+/** Ensure the HabitOption table exists (auto-migration for Turso/Vercel) */
+async function ensureTable() {
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "HabitOption" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "type" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "color" TEXT NOT NULL DEFAULT 'gray',
+        "xp" INTEGER NOT NULL DEFAULT 0,
+        "order" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+        "updatedAt" TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+    // Create unique index if not exists (SQLite ignores IF NOT EXISTS for indexes sometimes)
+    try {
+      await db.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "HabitOption_type_name_key" ON "HabitOption"("type", "name")`
+      );
+    } catch {
+      // Index might already exist, ignore
+    }
+    try {
+      await db.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "HabitOption_type_idx" ON "HabitOption"("type")`
+      );
+    } catch {
+      // Index might already exist, ignore
+    }
+  } catch (error) {
+    console.error('Failed to create HabitOption table:', error);
+  }
+}
+
 async function ensureDefaults() {
   if (seeded) return;
-  const count = await db.habitOption.count();
-  if (count === 0) {
-    await db.habitOption.createMany({ data: DEFAULTS });
+  try {
+    const count = await db.habitOption.count();
+    if (count === 0) {
+      await db.habitOption.createMany({ data: DEFAULTS });
+    }
+  } catch {
+    // Table might not exist yet, try creating it
+    await ensureTable();
+    try {
+      const count = await db.habitOption.count();
+      if (count === 0) {
+        await db.habitOption.createMany({ data: DEFAULTS });
+      }
+    } catch (err) {
+      console.error('Failed to seed habit options after table creation:', err);
+    }
   }
   seeded = true;
 }

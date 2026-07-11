@@ -197,11 +197,18 @@ export async function GET() {
     }
 
     // Default habit options (categories, priorities, difficulties)
-    const habitOptionCount = await db.habitOption.count();
-    if (habitOptionCount === 0) {
-      await db.habitOption.createMany({
-        data: [...DEFAULT_HABIT_CATEGORIES, ...DEFAULT_HABIT_PRIORITIES, ...DEFAULT_HABIT_DIFFICULTIES],
-      });
+    // Wrap in try/catch in case HabitOption table doesn't exist yet
+    let habitOptionCount = 0;
+    try {
+      habitOptionCount = await db.habitOption.count();
+      if (habitOptionCount === 0) {
+        await db.habitOption.createMany({
+          data: [...DEFAULT_HABIT_CATEGORIES, ...DEFAULT_HABIT_PRIORITIES, ...DEFAULT_HABIT_DIFFICULTIES],
+        });
+        habitOptionCount = DEFAULT_HABIT_CATEGORIES.length + DEFAULT_HABIT_PRIORITIES.length + DEFAULT_HABIT_DIFFICULTIES.length;
+      }
+    } catch (err) {
+      console.error('HabitOption seed skipped (table may not exist):', err);
     }
 
     return NextResponse.json({
@@ -210,7 +217,7 @@ export async function GET() {
       transactions: txCount === 0 ? SAMPLE_TRANSACTIONS.length : txCount,
       budgets: budgetCount === 0 ? SAMPLE_BUDGETS.length : budgetCount,
       categories: catCount === 0 ? DEFAULT_EXPENSE_CATEGORIES.length + DEFAULT_INCOME_CATEGORIES.length : catCount,
-      habitOptions: habitOptionCount === 0 ? DEFAULT_HABIT_CATEGORIES.length + DEFAULT_HABIT_PRIORITIES.length + DEFAULT_HABIT_DIFFICULTIES.length : habitOptionCount,
+      habitOptions: habitOptionCount,
       message: 'Seed completed',
     });
   } catch (error) {

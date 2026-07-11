@@ -53,10 +53,17 @@ export async function GET(request: NextRequest) {
     const monthStart = startOfMonth(today);
     const monthEnd = endOfMonth(today);
 
-    // Build XP map from database
-    const diffOptions = await db.habitOption.findMany({ where: { type: 'difficulty' } });
+    // Build XP map from database (graceful fallback if HabitOption table doesn't exist)
     const xpMap: Record<string, number> = {};
-    diffOptions.forEach(d => { xpMap[d.name] = d.xp; });
+    try {
+      const diffOptions = await db.habitOption.findMany({ where: { type: 'difficulty' } });
+      diffOptions.forEach(d => { xpMap[d.name] = d.xp; });
+    } catch {
+      // HabitOption table may not exist yet — use default XP values
+      xpMap['Easy'] = 10;
+      xpMap['Medium'] = 20;
+      xpMap['Hard'] = 40;
+    }
 
     // Fetch all active habits (with createdAt for smart day counting)
     const habits = await db.habit.findMany({
