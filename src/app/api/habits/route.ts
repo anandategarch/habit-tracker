@@ -1,26 +1,11 @@
 import { db } from '@/lib/db';
+import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
-
-let columnsEnsured = false;
-
-async function ensureColumns() {
-  if (columnsEnsured) return;
-  try {
-    await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "trackTime" BOOLEAN NOT NULL DEFAULT 0');
-  } catch { /* already exists */ }
-  try {
-    await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "targetTime" TEXT');
-  } catch { /* already exists */ }
-  try {
-    await db.$executeRawUnsafe('ALTER TABLE "HabitLog" ADD COLUMN "completedAt" TEXT');
-  } catch { /* already exists */ }
-  columnsEnsured = true;
-}
 
 // GET /api/habits - list all habits
 export async function GET() {
   try {
-    await ensureColumns();
+    await ensureTimeTrackingColumns();
     const habits = await db.habit.findMany({
       where: { status: { in: ['active', 'paused'] } },
       orderBy: { order: 'asc' },

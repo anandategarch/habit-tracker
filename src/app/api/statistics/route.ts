@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, format, startOfWeek,
@@ -31,6 +32,7 @@ function getPeriodDays(period: Period): number {
 
 export async function GET(request: NextRequest) {
   try {
+    await ensureTimeTrackingColumns();
     const { searchParams } = new URL(request.url);
     const period: Period = (searchParams.get('period') as Period) || 'all';
 
