@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 import { startOfDay } from 'date-fns';
 
@@ -8,6 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureTimeTrackingColumns();
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');

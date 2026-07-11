@@ -1,9 +1,11 @@
 import { db } from '@/lib/db';
+import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/habits/batch-logs?month=2024-01&habitIds=id1,id2,id3
 export async function GET(request: NextRequest) {
   try {
+    await ensureTimeTrackingColumns();
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
     const habitIdsParam = searchParams.get('habitIds');
