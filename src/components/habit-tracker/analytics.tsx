@@ -219,7 +219,7 @@ export default function AnalyticsTab() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Activity className="h-6 w-6 text-green-600" />
+            <Activity className="h-6 w-6 text-primary" />
             Analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -244,7 +244,7 @@ export default function AnalyticsTab() {
             variant="outline"
             className={`gap-1 border ${
               trendUp
-                ? 'border-green-500 text-green-700 bg-green-50'
+                ? 'border-primary text-primary bg-primary/10'
                 : 'border-red-400 text-red-700 bg-red-50'
             }`}
           >
@@ -330,7 +330,7 @@ export default function AnalyticsTab() {
             <Card className="flex flex-col">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  <TrendingUp className="h-4 w-4 text-primary" />
                   Monthly Forecast
                 </CardTitle>
               </CardHeader>
@@ -358,7 +358,7 @@ export default function AnalyticsTab() {
                       transform="rotate(-90 70 70)"
                     />
                   </svg>
-                  <span className="absolute text-3xl font-bold text-green-700">
+                  <span className="absolute text-3xl font-bold text-primary">
                     {data.forecast.toFixed(0)}%
                   </span>
                 </div>
@@ -371,7 +371,7 @@ export default function AnalyticsTab() {
                   </p>
                   <div className="w-full bg-muted rounded-full h-2 mt-2">
                     <div
-                      className="h-2 rounded-full bg-green-500 transition-all"
+                      className="h-2 rounded-full bg-primary transition-all"
                       style={{
                         width: `${(data.daysElapsed / data.daysInMonth) * 100}%`,
                       }}
@@ -379,8 +379,8 @@ export default function AnalyticsTab() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 w-full mt-2">
-                  <div className="text-center p-3 rounded-lg bg-green-50">
-                    <p className="text-2xl font-bold text-green-700">
+                  <div className="text-center p-3 rounded-lg bg-primary/10">
+                    <p className="text-2xl font-bold text-primary">
                       {latestRate.toFixed(0)}%
                     </p>
                     <p className="text-xs text-muted-foreground">Current</p>
@@ -613,7 +613,7 @@ export default function AnalyticsTab() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-green-600" />
+                  <Brain className="h-4 w-4 text-primary" />
                   Mood vs Completion
                 </CardTitle>
               </CardHeader>
@@ -674,7 +674,7 @@ export default function AnalyticsTab() {
                               <p className="font-medium">
                                 Mood: {['', '😰', '😟', '😐', '🙂', '😊'][d.x]} ({d.x}/5)
                               </p>
-                              <p className="text-green-600 font-semibold">
+                              <p className="text-primary font-semibold">
                                 Completion: {d.y.toFixed(0)}%
                               </p>
                               <p className="text-muted-foreground">

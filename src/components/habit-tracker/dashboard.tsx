@@ -436,7 +436,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* ── Motivational Quote Card ────────────────────────────────── */}
-      <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-emerald-50 dark:to-emerald-950/30">
+      <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
         <div className="absolute top-3 right-3 opacity-10">
           <Quote className="h-16 w-16 text-primary" />
         </div>
@@ -552,10 +552,10 @@ export default function Dashboard() {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-muted-foreground font-medium">Weekly</span>
-              <CalendarDays className="h-4 w-4 text-emerald-500" />
+              <CalendarDays className="h-4 w-4 text-primary" />
             </div>
             <div className="text-2xl font-bold">{displayData.weeklyCompletion}%</div>
-            <Progress value={displayData.weeklyCompletion} className="mt-2 h-1.5 [&>[data-slot=progress-indicator]]:bg-emerald-500" />
+            <Progress value={displayData.weeklyCompletion} className="mt-2 h-1.5 [&>[data-slot=progress-indicator]]:bg-primary" />
           </Card>
 
           <Card className="p-4">
@@ -661,7 +661,7 @@ export default function Dashboard() {
                 <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Overall" />
               </div>
               <div className="relative">
-                <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-emerald-500" label="This Week" />
+                <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-primary" label="This Week" />
               </div>
               <div className="relative">
                 <ProgressRing value={displayData.monthlyCompletion} size={110} strokeWidth={10} color="stroke-teal-500" label="This Month" />
@@ -769,12 +769,12 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {/* Income */}
-              <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 p-3 flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400">
+              <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
                   <TrendingUp className="h-3.5 w-3.5" />
                   Pemasukan
                 </div>
-                <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                <span className="text-lg font-bold text-primary">
                   {displayData.financeOverview.totalIncome.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
@@ -808,7 +808,7 @@ export default function Dashboard() {
                 'rounded-lg border p-3 flex flex-col gap-1.5',
                 (displayData.financeOverview.budgetExceeded > 0 || displayData.financeOverview.budgetWarning > 0)
                   ? 'border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900'
-                  : 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900'
+                  : 'border-primary/20 bg-primary/10'
               )}>
                 <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
                   <AlertTriangle className="h-3.5 w-3.5" />
@@ -823,7 +823,7 @@ export default function Dashboard() {
                     {displayData.financeOverview.budgetWarning} hampir limit
                   </span>
                 ) : (
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="text-sm font-bold text-primary">
                     Semua aman
                   </span>
                 )}
@@ -896,7 +896,7 @@ export default function Dashboard() {
                   'p-4',
                   insight.type === 'success' && 'border-primary/30 bg-primary/5',
                   insight.type === 'warning' && 'border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900',
-                  insight.type === 'info' && 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900'
+                  insight.type === 'info' && 'border-primary/20 bg-primary/10'
                 )}
               >
                 <CardContent className="p-0 flex items-start gap-3">

@@ -54,16 +54,16 @@ const STATUS_CONFIG: Record<
   },
   unlocked: {
     label: 'Unlocked',
-    color: 'text-green-700',
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/20',
     icon: Unlock,
   },
   redeemed: {
     label: 'Redeemed',
-    color: 'text-emerald-700',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/20',
     icon: Star,
   },
 };
@@ -266,7 +266,7 @@ export default function Rewards() {
           <DialogTrigger asChild>
             <Button
               onClick={openDialog}
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Reward
@@ -326,7 +326,7 @@ export default function Rewards() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  className="bg-green-600 text-white hover:bg-green-700"
+                  className="bg-primary text-white hover:bg-primary"
                 >
                   Create
                 </Button>
@@ -339,21 +339,21 @@ export default function Rewards() {
       {/* ── Stats Bar ─────────────────────────────────────────────────── */}
       {rewards.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <Card className="border-green-100">
+          <Card className="border-primary/20">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-green-700">{rewards.length}</p>
+              <p className="text-2xl font-bold text-primary">{rewards.length}</p>
               <p className="text-xs text-muted-foreground">Total Rewards</p>
             </CardContent>
           </Card>
-          <Card className="border-green-100">
+          <Card className="border-primary/20">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-green-700">{formatXp(totalXpValue)}</p>
+              <p className="text-2xl font-bold text-primary">{formatXp(totalXpValue)}</p>
               <p className="text-xs text-muted-foreground">Total Value</p>
             </CardContent>
           </Card>
-          <Card className="border-emerald-100">
+          <Card className="border-primary/20">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-emerald-700">{formatXp(redeemedXpValue)}</p>
+              <p className="text-2xl font-bold text-primary">{formatXp(redeemedXpValue)}</p>
               <p className="text-xs text-muted-foreground">XP Redeemed</p>
             </CardContent>
           </Card>
@@ -375,11 +375,11 @@ export default function Rewards() {
               return (
                 <Card
                   key={reward.id}
-                  className="group overflow-hidden border-green-100 bg-white transition-shadow hover:shadow-md"
+                  className="group overflow-hidden border-primary/20 bg-white transition-shadow hover:shadow-md"
                 >
                   <CardContent className="p-5 space-y-3">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-50 text-2xl">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl">
                         🎁
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
@@ -413,7 +413,7 @@ export default function Rewards() {
                     )}
 
                     {reward.unlockCondition && (
-                      <p className="text-xs text-green-700 bg-green-50 rounded-md px-2.5 py-1.5">
+                      <p className="text-xs text-primary bg-primary/10 rounded-md px-2.5 py-1.5">
                         {reward.unlockCondition}
                       </p>
                     )}
@@ -423,7 +423,7 @@ export default function Rewards() {
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
-                        className="flex-1 h-8 text-xs bg-emerald-600 text-white hover:bg-emerald-700"
+                        className="flex-1 h-8 text-xs bg-primary text-white hover:bg-primary"
                         onClick={() => handleRedeem(reward)}
                       >
                         <Gift className="mr-1.5 h-3 w-3" />
@@ -510,7 +510,7 @@ export default function Rewards() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 h-8 text-xs border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                        className="flex-1 h-8 text-xs border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
                         onClick={() => handleToggleUnlock(reward)}
                       >
                         <Unlock className="mr-1.5 h-3 w-3" />
@@ -546,11 +546,11 @@ export default function Rewards() {
               return (
                 <Card
                   key={reward.id}
-                  className="group overflow-hidden border-emerald-100 bg-emerald-50/30 transition-shadow hover:shadow-md"
+                  className="group overflow-hidden border-primary/20 bg-primary/5 transition-shadow hover:shadow-md"
                 >
                   <CardContent className="p-5 space-y-3">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-2xl">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl">
                         ✅
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
@@ -602,8 +602,8 @@ export default function Rewards() {
       {rewards.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 space-y-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-              <Gift className="h-7 w-7 text-green-500" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <Gift className="h-7 w-7 text-primary" />
             </div>
             <div className="text-center space-y-1">
               <p className="font-medium">No rewards yet</p>
@@ -613,7 +613,7 @@ export default function Rewards() {
             </div>
             <Button
               onClick={openDialog}
-              className="mt-2 bg-green-600 text-white hover:bg-green-700"
+              className="mt-2 bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Your First Reward

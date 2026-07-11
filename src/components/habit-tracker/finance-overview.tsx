@@ -55,14 +55,14 @@ export default function FinanceOverview({
   return (
     <div className="space-y-4 mt-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900">
+        <Card className="border-primary/20 bg-primary/10">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-green-700 dark:text-green-400">Pemasukan</span>
+              <span className="text-xs font-medium text-primary">Pemasukan</span>
             </div>
-            <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatRupiah(dashboardData.totalIncome)}</p>
+            <p className="text-xl font-bold text-primary">{formatRupiah(dashboardData.totalIncome)}</p>
             {dashboardData.previousMonth.income > 0 && (
-              <p className={cn('text-[11px] mt-1', incomeChange >= 0 ? 'text-green-600' : 'text-red-500')}>
+              <p className={cn('text-[11px] mt-1', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
                 {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs bulan lalu
               </p>
             )}
@@ -76,19 +76,19 @@ export default function FinanceOverview({
             </div>
             <p className="text-xl font-bold text-red-700 dark:text-red-400">{formatRupiah(dashboardData.totalExpense)}</p>
             {dashboardData.previousMonth.expense > 0 && (
-              <p className={cn('text-[11px] mt-1', expenseChange <= 0 ? 'text-green-600' : 'text-red-500')}>
+              <p className={cn('text-[11px] mt-1', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
                 {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs bulan lalu
               </p>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900">
+        <Card className="border-primary/20 bg-primary/10">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Saldo</span>
+              <span className="text-xs font-medium text-primary">Saldo</span>
             </div>
-            <p className={cn('text-xl font-bold', dashboardData.balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600')}>
+            <p className={cn('text-xl font-bold', dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600')}>
               {formatRupiah(dashboardData.balance)}
             </p>
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -129,7 +129,7 @@ export default function FinanceOverview({
                     <p className="text-xs font-medium truncate">{item.category}</p>
                     {item.daysAgo !== null ? (
                       <>
-                        <p className={cn('text-[11px]', item.daysAgo <= 3 ? 'text-green-600' : item.daysAgo <= 7 ? 'text-amber-600' : 'text-red-500')}>
+                        <p className={cn('text-[11px]', item.daysAgo <= 3 ? 'text-primary' : item.daysAgo <= 7 ? 'text-amber-600' : 'text-red-500')}>
                           {item.daysAgo === 0 ? 'Hari ini' : item.daysAgo === 1 ? 'Kemarin' : `${item.daysAgo} hari lalu`}
                         </p>
                         <p className="text-[10px] text-muted-foreground">

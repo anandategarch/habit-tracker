@@ -32,9 +32,9 @@ interface AIInsightsData {
 const SEVERITY_CONFIG = {
   positive: {
     label: 'Positive',
-    badgeClass: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400 border-green-200 dark:border-green-800',
-    borderClass: 'border-l-green-500',
-    iconBg: 'bg-green-100 dark:bg-green-950/50',
+    badgeClass: 'bg-primary/10 text-primary border-primary/20',
+    borderClass: 'border-l-primary',
+    iconBg: 'bg-primary/10',
   },
   negative: {
     label: 'Needs Attention',
@@ -93,7 +93,7 @@ function SeveritySection({
 
   const config = SEVERITY_CONFIG[severity];
   const colors: Record<string, string> = {
-    positive: 'text-green-600',
+    positive: 'text-primary',
     negative: 'text-red-500',
     neutral: 'text-gray-500 dark:text-gray-400',
   };
@@ -157,7 +157,7 @@ function LoadingSkeleton() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20">
-      <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-green-100 dark:bg-green-950/30 mb-4">
+      <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
         <span className="text-3xl">🚀</span>
       </div>
       <h3 className="text-lg font-semibold text-foreground">Start tracking habits</h3>
@@ -200,8 +200,8 @@ export default function AIInsights() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/50">
-            <Brain className="h-5 w-5 text-green-600" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+            <Brain className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight">AI Insights</h2>
@@ -218,13 +218,13 @@ export default function AIInsights() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/50">
-          <Brain className="h-5 w-5 text-green-600" />
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+          <Brain className="h-5 w-5 text-primary" />
         </div>
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold tracking-tight">AI Insights</h2>
-            <Sparkles className="h-4 w-4 text-green-500" />
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">Automated pattern analysis</p>
         </div>

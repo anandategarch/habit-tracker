@@ -205,7 +205,7 @@ export default function Badges() {
         <div className="space-y-1">
           <h2 className="text-2xl font-semibold tracking-tight">Badges</h2>
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-green-700">{stats.unlocked}</span>
+            <span className="font-medium text-primary">{stats.unlocked}</span>
             <span className="text-muted-foreground">/ {stats.total} Unlocked</span>
           </p>
         </div>
@@ -213,7 +213,7 @@ export default function Badges() {
           <DialogTrigger asChild>
             <Button
               onClick={openDialog}
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Badge
@@ -278,7 +278,7 @@ export default function Badges() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  className="bg-green-600 text-white hover:bg-green-700"
+                  className="bg-primary text-white hover:bg-primary"
                 >
                   Create
                 </Button>
@@ -290,18 +290,18 @@ export default function Badges() {
 
       {/* ── Overall Progress ───────────────────────────────────────────── */}
       {badges.length > 0 && (
-        <Card className="border-green-100">
+        <Card className="border-primary/20">
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Medal className="h-4 w-4 text-green-600" />
+                <Medal className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">Collection Progress</span>
               </div>
-              <span className="text-sm font-bold text-green-700">{stats.percentage}%</span>
+              <span className="text-sm font-bold text-primary">{stats.percentage}%</span>
             </div>
             <Progress
               value={stats.percentage}
-              className="h-2.5 [&>div]:bg-green-500"
+              className="h-2.5 [&>div]:bg-primary"
             />
             <p className="text-xs text-muted-foreground">
               {stats.unlocked} of {stats.total} badges unlocked &middot;{' '}
@@ -322,7 +322,7 @@ export default function Badges() {
               className={cn(
                 'group relative overflow-hidden transition-all hover:shadow-md',
                 badge.unlocked
-                  ? 'border-green-100 bg-white'
+                  ? 'border-primary/20 bg-white'
                   : 'border-gray-100 opacity-60 hover:opacity-90'
               )}
             >
@@ -333,7 +333,7 @@ export default function Badges() {
                     className={cn(
                       'flex h-14 w-14 items-center justify-center rounded-2xl text-3xl transition-colors',
                       badge.unlocked
-                        ? 'bg-green-50 ring-2 ring-green-200'
+                        ? 'bg-primary/10 ring-2 ring-primary/20'
                         : 'bg-gray-100'
                     )}
                   >
@@ -365,7 +365,7 @@ export default function Badges() {
                     className={cn(
                       'text-xs rounded-md px-2 py-1 w-full leading-relaxed',
                       badge.unlocked
-                        ? 'text-green-700 bg-green-50'
+                        ? 'text-primary bg-primary/10'
                         : 'text-muted-foreground bg-gray-50'
                     )}
                   >
@@ -377,7 +377,7 @@ export default function Badges() {
                 {badge.unlocked ? (
                   <Badge
                     variant="outline"
-                    className="border-green-200 text-green-700 bg-green-50 text-xs"
+                    className="border-primary/20 text-primary bg-primary/10 text-xs"
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" />
                     {badge.unlockedAt
@@ -400,7 +400,7 @@ export default function Badges() {
                       'h-7 text-xs flex-1 max-w-[100px]',
                       badge.unlocked
                         ? 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                        : 'border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800'
+                        : 'border-primary/20 text-primary hover:bg-primary/10 hover:text-primary'
                     )}
                     onClick={() => handleToggleUnlock(badge)}
                   >
@@ -425,8 +425,8 @@ export default function Badges() {
       {badges.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 space-y-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-              <Medal className="h-7 w-7 text-green-500" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <Medal className="h-7 w-7 text-primary" />
             </div>
             <div className="text-center space-y-1">
               <p className="font-medium">No badges yet</p>
@@ -436,7 +436,7 @@ export default function Badges() {
             </div>
             <Button
               onClick={openDialog}
-              className="mt-2 bg-green-600 text-white hover:bg-green-700"
+              className="mt-2 bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Badge

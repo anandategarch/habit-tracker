@@ -110,7 +110,7 @@ export default function FinanceBudgets({
                       className={cn('h-2.5', isOver && '[&>div]:bg-red-500', !isOver && pct > 80 && '[&>div]:bg-amber-500')}
                     />
                     <div className="flex justify-between text-xs">
-                      <span className={cn(isOver ? 'text-red-500 font-medium' : 'text-green-600')}>
+                      <span className={cn(isOver ? 'text-red-500 font-medium' : 'text-primary')}>
                         {isOver ? `Over ${formatRupiah(spent - b.amount)}` : `Sisa ${formatRupiah(remaining)}`}
                       </span>
                       {b.amount > 0 && daysLeft !== null && !isOver && remaining > 0 && (

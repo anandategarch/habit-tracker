@@ -83,15 +83,15 @@ const STATUS_CONFIG: Record<
 > = {
   active: {
     label: 'Active',
-    color: 'text-green-700',
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/20',
   },
   completed: {
     label: 'Completed',
-    color: 'text-emerald-700',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/20',
   },
   failed: {
     label: 'Failed',
@@ -358,7 +358,7 @@ export default function Challenges() {
           <DialogTrigger asChild>
             <Button
               onClick={openNewDialog}
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               New Challenge
@@ -431,7 +431,7 @@ export default function Challenges() {
                 </Button>
                 <Button
                   onClick={handleSave}
-                  className="bg-green-600 text-white hover:bg-green-700"
+                  className="bg-primary text-white hover:bg-primary"
                 >
                   {editingChallenge ? 'Update' : 'Create'}
                 </Button>
@@ -452,7 +452,7 @@ export default function Challenges() {
               key={preset.value}
               variant="outline"
               size="sm"
-              className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+              className="border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
               onClick={() => handleQuickPick(preset.value)}
             >
               <Flame className="mr-1.5 h-3.5 w-3.5" />
@@ -479,21 +479,21 @@ export default function Challenges() {
               return (
                 <Card
                   key={challenge.id}
-                  className="group relative overflow-hidden border-green-100 bg-white transition-shadow hover:shadow-md"
+                  className="group relative overflow-hidden border-primary/20 bg-white transition-shadow hover:shadow-md"
                 >
                   <CardContent className="p-5 space-y-4">
                     {/* Title Row */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Trophy className="h-4 w-4 text-green-600 shrink-0" />
+                          <Trophy className="h-4 w-4 text-primary shrink-0" />
                           <h4 className="font-semibold text-sm leading-tight truncate">
                             {challenge.title}
                           </h4>
                         </div>
                         <Badge
                           variant="outline"
-                          className="text-xs border-green-200 text-green-700 bg-green-50"
+                          className="text-xs border-primary/20 text-primary bg-primary/10"
                         >
                           {challenge.duration} Day Challenge
                         </Badge>
@@ -522,11 +522,11 @@ export default function Challenges() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium text-green-700">{pct}%</span>
+                        <span className="font-medium text-primary">{pct}%</span>
                       </div>
                       <Progress
                         value={pct}
-                        className="h-2 [&>div]:bg-green-500"
+                        className="h-2 [&>div]:bg-primary"
                       />
                     </div>
 
@@ -536,7 +536,7 @@ export default function Challenges() {
                         <Clock className="h-3.5 w-3.5" />
                         {info.elapsed} / {info.total} days
                       </span>
-                      <span className="font-medium text-green-700">{info.label}</span>
+                      <span className="font-medium text-primary">{info.label}</span>
                     </div>
 
                     {/* Date Range */}
@@ -552,7 +552,7 @@ export default function Challenges() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 h-8 text-xs border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                        className="flex-1 h-8 text-xs border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
                         onClick={() => handleUpdateProgress(challenge)}
                         disabled={challenge.progress >= challenge.duration}
                       >
@@ -562,7 +562,7 @@ export default function Challenges() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 h-8 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                        className="flex-1 h-8 text-xs border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
                         onClick={() => handleComplete(challenge)}
                         disabled={challenge.status === 'completed'}
                       >
@@ -572,7 +572,7 @@ export default function Challenges() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-green-700"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
                         onClick={() => openEditDialog(challenge)}
                       >
                         <Edit className="h-3.5 w-3.5" />
@@ -611,7 +611,7 @@ export default function Challenges() {
                   className={cn(
                     'group relative overflow-hidden transition-shadow hover:shadow-md',
                     challenge.status === 'completed'
-                      ? 'border-emerald-100'
+                      ? 'border-primary/20'
                       : challenge.status === 'failed'
                         ? 'border-red-100'
                         : 'border-gray-100'
@@ -625,7 +625,7 @@ export default function Challenges() {
                             className={cn(
                               'h-4 w-4 shrink-0',
                               challenge.status === 'completed'
-                                ? 'text-emerald-600'
+                                ? 'text-primary'
                                 : challenge.status === 'failed'
                                   ? 'text-red-400'
                                   : 'text-gray-400'
@@ -659,7 +659,7 @@ export default function Challenges() {
                         className={cn(
                           'h-1.5',
                           challenge.status === 'completed'
-                            ? '[&>div]:bg-emerald-500'
+                            ? '[&>div]:bg-primary'
                             : challenge.status === 'failed'
                               ? '[&>div]:bg-red-400'
                               : '[&>div]:bg-gray-400'
@@ -677,7 +677,7 @@ export default function Challenges() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-green-700"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
                           onClick={() => openEditDialog(challenge)}
                         >
                           <Edit className="h-3 w-3" />
@@ -704,8 +704,8 @@ export default function Challenges() {
       {challenges.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 space-y-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-              <Trophy className="h-7 w-7 text-green-500" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <Trophy className="h-7 w-7 text-primary" />
             </div>
             <div className="text-center space-y-1">
               <p className="font-medium">No challenges yet</p>
@@ -715,7 +715,7 @@ export default function Challenges() {
             </div>
             <Button
               onClick={openNewDialog}
-              className="mt-2 bg-green-600 text-white hover:bg-green-700"
+              className="mt-2 bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Challenge

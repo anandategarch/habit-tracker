@@ -141,12 +141,12 @@ export default function FinanceTransactions({
                       </div>
                       <div className="flex items-center gap-3 text-xs">
                         {group.totalIncome > 0 && (
-                          <span className="text-green-600 font-medium">+{formatRupiah(group.totalIncome)}</span>
+                          <span className="text-primary font-medium">+{formatRupiah(group.totalIncome)}</span>
                         )}
                         {group.totalExpense > 0 && (
                           <span className="text-red-500 font-medium">-{formatRupiah(group.totalExpense)}</span>
                         )}
-                        <span className={cn('font-semibold px-1.5 py-0.5 rounded text-[10px]', group.net >= 0 ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400')}>
+                        <span className={cn('font-semibold px-1.5 py-0.5 rounded text-[10px]', group.net >= 0 ? 'bg-primary/10 text-primary' : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400')}>
                           {group.net >= 0 ? '+' : ''}{formatRupiah(group.net)}
                         </span>
                       </div>
@@ -173,7 +173,7 @@ export default function FinanceTransactions({
                               {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
                             </div>
                           </div>
-                          <span className={cn('text-xs font-semibold shrink-0', tx.type === 'income' ? 'text-green-600' : 'text-red-500')}>
+                          <span className={cn('text-xs font-semibold shrink-0', tx.type === 'income' ? 'text-primary' : 'text-red-500')}>
                             {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
                           </span>
                           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
