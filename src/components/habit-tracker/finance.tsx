@@ -465,7 +465,8 @@ export default function Finance() {
   };
 
   const handleSaveBalance = async (sourceId: string) => {
-    const val = parseFloat(balanceEditValue.replace(/[^\d.-]/g, ''));
+    const raw = parseNominalInput(balanceEditValue);
+    const val = parseFloat(raw);
     if (isNaN(val)) { setBalanceEditId(null); return; }
     try {
       const res = await fetch(`/api/finance/sources/${sourceId}/balance`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
