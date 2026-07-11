@@ -366,7 +366,7 @@ export default function DailyTracker() {
 
   // ---- effects ----
 
-  // initial load & refresh
+  // Consolidated data loading: handles both initial load, date changes, and refresh
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -386,14 +386,7 @@ export default function DailyTracker() {
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
-
-  // date change (skip during initial load)
-  useEffect(() => {
-    if (loading) return;
-    fetchDailyLog(selectedDate);
-    fetchCompletions(habits, selectedDate);
-  }, [selectedDate]);
+  }, [selectedDate, refreshKey]);
 
   // cleanup
   useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);

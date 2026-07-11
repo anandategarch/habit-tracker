@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, CalendarDays, Flame, Droplets } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Flame, Droplets, RefreshCw } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -115,6 +115,7 @@ export default function CalendarView() {
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const [loading, startLoadingTransition] = useTransition();
+  const [fetchError, setFetchError] = useState(false);
 
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
@@ -146,6 +147,7 @@ export default function CalendarView() {
         if (cancelled) return;
         setHabits(habitsData);
         setDailyLogs(dailyData);
+        setFetchError(false);
 
         // Fetch logs for each habit
         if (habitsData.length > 0) {
@@ -164,6 +166,7 @@ export default function CalendarView() {
         }
       } catch {
         // network error
+        if (!cancelled) setFetchError(true);
       }
     });
 
@@ -321,7 +324,17 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {loading ? (
+      {fetchError && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <p className="text-sm text-muted-foreground">Gagal memuat data kalender</p>
+          <Button variant="outline" size="sm" onClick={() => setFetchError(false)}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Coba Lagi
+          </Button>
+        </div>
+      )}
+
+      {!fetchError && (loading ? (
         <Skeleton className="h-[600px] w-full rounded-xl" />
       ) : (
         <>
@@ -518,7 +531,7 @@ export default function CalendarView() {
             </Card>
           </div>
         </>
-      )}
+      ))}
     </div>
   );
 }

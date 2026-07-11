@@ -5,12 +5,23 @@ import {
   subMonths, eachDayOfInterval, differenceInDays,
 } from 'date-fns';
 
+// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function jakartaNow(): Date {
+  return new Date(Date.now() + JAKARTA_OFFSET_MS);
+}
+
+function jakartaToday(): Date {
+  const now = jakartaNow();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30'; // days
-    const now = new Date();
-    const today = startOfDay(now);
+    const today = jakartaToday();
     const daysBack = parseInt(period) || 30;
     const startDate = subDays(today, daysBack);
 

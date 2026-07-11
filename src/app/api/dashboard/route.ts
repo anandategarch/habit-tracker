@@ -363,19 +363,22 @@ export async function GET(request: NextRequest) {
       learningStatus.completedToday = !!learningTodayLog;
       learningStatus.totalDays = learningLogs.length;
 
+      // Build a Set for O(1) lookups
+      const learningDateSet = new Set(learningLogs.map(l => format(l.date, 'yyyy-MM-dd')));
+
       // Current streak
       if (learningTodayLog) {
         learningStatus.streak = 1;
         for (let i = 1; i <= 365; i++) {
           const d = subDays(today, i);
-          if (learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd'))) {
+          if (learningDateSet.has(format(d, 'yyyy-MM-dd'))) {
             learningStatus.streak++;
           } else break;
         }
       } else {
         for (let i = 1; i <= 365; i++) {
           const d = subDays(today, i);
-          if (learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd'))) {
+          if (learningDateSet.has(format(d, 'yyyy-MM-dd'))) {
             learningStatus.streak++;
           } else break;
         }

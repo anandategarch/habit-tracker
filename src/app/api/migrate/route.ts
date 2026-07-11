@@ -24,6 +24,7 @@ export async function GET() {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         emoji TEXT DEFAULT '💵',
+        balance REAL DEFAULT 0,
         "order" INTEGER DEFAULT 0,
         createdAt TEXT DEFAULT (datetime('now')),
         updatedAt TEXT DEFAULT (datetime('now'))
@@ -52,6 +53,19 @@ export async function GET() {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.includes('already exists')) throw e;
       results.push('HabitOption table already exists');
+    }
+
+    // 3b. Ensure FundSource has balance column (for tables created before this fix)
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE [FundSource] ADD COLUMN balance REAL DEFAULT 0');
+      results.push('Column "balance" added to FundSource table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "balance" already exists in FundSource');
+      } else {
+        results.push(`FundSource balance migration skipped: ${msg}`);
+      }
     }
 
     // Create indexes for HabitOption

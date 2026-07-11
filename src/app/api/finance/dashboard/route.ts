@@ -1,11 +1,24 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { format } from 'date-fns';
+
+// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function jakartaNow(): Date {
+  return new Date(Date.now() + JAKARTA_OFFSET_MS);
+}
+
+function jakartaToday(): Date {
+  const now = jakartaNow();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
 
 // GET /api/finance/dashboard?month=2025-01
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month') || new Date().toISOString().slice(0, 7);
+    const month = searchParams.get('month') || format(jakartaToday(), 'yyyy-MM');
 
     const [year, mon] = month.split('-').map(Number);
     const startOfMonth = new Date(year, mon - 1, 1);
@@ -47,7 +60,7 @@ export async function GET(request: NextRequest) {
     transactions
       .filter(t => t.type === 'expense')
       .forEach(t => {
-        const day = t.date.toISOString().split('T')[0];
+        const day = format(new Date(t.date.getTime() + JAKARTA_OFFSET_MS), 'yyyy-MM-dd');
         dailySpending[day] = (dailySpending[day] || 0) + t.amount;
       });
 
@@ -85,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     // Average daily expense
     const daysInMonth = new Date(year, mon, 0).getDate();
-    const today = new Date();
+    const today = jakartaToday();
     const currentDay = (today.getFullYear() === year && today.getMonth() + 1 === mon)
       ? today.getDate()
       : daysInMonth;

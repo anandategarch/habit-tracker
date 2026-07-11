@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { date, mood, energy, sleep, notes } = body;
 
+    if (!date || isNaN(new Date(date).getTime())) {
+      return NextResponse.json({ error: 'Valid date is required' }, { status: 400 });
+    }
+
     const dateObj = startOfDay(new Date(date));
 
     const log = await db.dailyLog.upsert({

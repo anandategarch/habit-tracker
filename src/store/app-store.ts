@@ -1,4 +1,15 @@
 import { create } from 'zustand';
+import { format, addHours } from 'date-fns';
+
+// Jakarta is UTC+7 — use local date components adjusted for WIB
+function jakartaDateString() {
+  const d = addHours(new Date(), 7);
+  return format(d, 'yyyy-MM-dd');
+}
+function jakartaMonthString() {
+  const d = addHours(new Date(), 7);
+  return format(d, 'yyyy-MM');
+}
 
 export type TabId =
   | 'dashboard'
@@ -30,9 +41,9 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  selectedDate: new Date().toISOString().split('T')[0],
+  selectedDate: jakartaDateString(),
   setSelectedDate: (date) => set({ selectedDate: date }),
-  selectedMonth: new Date().toISOString().slice(0, 7),
+  selectedMonth: jakartaMonthString(),
   setSelectedMonth: (month) => set({ selectedMonth: month }),
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,7 +105,10 @@ export default function LearningTab() {
 
   // ── Fetch topics (with auto-migrate) ──────────────────────────────
 
+  const initialTopicSet = useRef(false);
+
   const fetchTopics = useCallback(async () => {
+    setTopicsLoading(true);
     try {
       // Step 1: Try auto-migrate first (creates table if missing)
       try {
@@ -116,6 +119,11 @@ export default function LearningTab() {
       const res = await fetch('/api/learning/topics');
       if (!res.ok) throw new Error();
       const data: LearningTopic[] = await res.json();
+
+      if (!initialTopicSet.current && data.length > 0) {
+        setSelectedTopic(data[0].name);
+        initialTopicSet.current = true;
+      }
 
       // If DB is empty, use fallback topics
       if (data.length === 0) {
@@ -128,12 +136,12 @@ export default function LearningTab() {
           { id: 'fb-6', name: 'Manajemen', emoji: '📊', order: 5 },
         ];
         setTopics(fallback);
-        if (!selectedTopic) setSelectedTopic(fallback[0].name);
+        if (!initialTopicSet.current) {
+          setSelectedTopic(fallback[0].name);
+          initialTopicSet.current = true;
+        }
       } else {
         setTopics(data);
-        if (data.length > 0 && !selectedTopic) {
-          setSelectedTopic(data[0].name);
-        }
       }
     } catch {
       // Final fallback: hardcoded topics
@@ -146,11 +154,15 @@ export default function LearningTab() {
         { id: 'fb-6', name: 'Manajemen', emoji: '📊', order: 5 },
       ];
       setTopics(fallback);
-      if (!selectedTopic) setSelectedTopic(fallback[0].name);
+      if (!initialTopicSet.current) {
+        setSelectedTopic(fallback[0].name);
+        initialTopicSet.current = true;
+      }
+      toast.error('Gagal memuat topik');
     } finally {
       setTopicsLoading(false);
     }
-  }, [selectedTopic]);
+  }, []);
 
   useEffect(() => {
     fetchTopics();

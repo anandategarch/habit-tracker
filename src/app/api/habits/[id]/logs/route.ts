@@ -12,6 +12,10 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
 
+    if (month && !/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json({ error: 'Invalid month format. Use YYYY-MM' }, { status: 400 });
+    }
+
     let startDate: Date;
     let endDate: Date;
 
