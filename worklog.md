@@ -1,39 +1,26 @@
+# Worklog
+
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Debug Dashboard failure and missing habit options in Settings
+Task: Implement flexible timestamp tracking feature for habits
 
 Work Log:
-- Investigated dev logs - found APIs returning 200 successfully
-- Discovered 7 commits were never pushed to GitHub (origin/main was behind local by 7 commits)
-- The unpushed commits contained: infinite loading fix, error handling, seed data, theme system, color replacements
-- This was the ROOT CAUSE - user was running old broken code on Vercel
-- Pushed all 7 commits to GitHub
-- Created batch-logs API endpoint (`/api/habits/batch-logs`) to optimize daily-tracker from N+1 API calls to 1
-- Updated daily-tracker `fetchCompletions` to use the new batch endpoint
-- Fixed `package.json` dev script removing `tee dev.log` that caused SIGPIPE crashes
-- Verified Dashboard loads correctly with real data (19 habits, 17% completion, Level 2, motivational quote)
-- Settings page chunk loading failed in sandbox due to memory limits (not a code bug)
+- Read and analyzed current schema, API routes, and component structure
+- Updated Prisma schema: added `trackTime` (Boolean) and `targetTime` (String?) to Habit model, `completedAt` (DateTime?) to HabitLog model
+- Ran `bun run db:push` to sync local SQLite DB
+- Added auto-migration for Turso in `/api/migrate/route.ts` (ALTER TABLE ADD COLUMN with duplicate column handling)
+- Added auto-migration in `/api/habits/route.ts` GET handler (ensureColumns with module-level cache)
+- Updated `/api/habits/route.ts` POST to accept `trackTime` and `targetTime`
+- Updated `/api/habits/[id]/route.ts` PUT to handle `trackTime` and `targetTime`
+- Updated `/api/habits/[id]/logs/route.ts` POST to accept `completedAt` with validation (no future times, max 7 days back)
+- Created new `/api/habits/[id]/time-analysis/route.ts` - returns time analysis data with filters (thisWeek, lastWeek, thisMonth, lastMonth, last30days), stats (average, best, worst, onTargetRate, vsPrevious), and per-day data
+- Updated `habit-master.tsx`: added Switch toggle for "Track Waktu", time input for target, Clock indicator in table
+- Updated `daily-tracker.tsx`: added time confirmation dialog (Sekarang vs Manual input), completedAt display with color coding (green=on target, red=late, star=exact), clickable time badges
+- Created `time-analysis.tsx`: full bar chart with Recharts, 5 filter options, 5 stat cards (average, best, worst, target score, vs previous), target reference line, color-coded bars
 
 Stage Summary:
-- All 9 commits now pushed to GitHub (including 3 new: batch-logs optimization, dev script fix)
-- Vercel will auto-deploy with all fixes
-- Key fixes deployed: useHabitOptions hook rewrite, error handling in 8 components, dashboard API binary search optimization, seed data for habit options
-
----
-Task ID: 2
-Agent: Main Agent + 3 subagents
-Task: Comprehensive code audit and bug fixes for entire application
-
-Work Log:
-- Ran full audit via 2 parallel opus agents: one for all API routes (48 files), one for all frontend components (20 files)
-- API audit found 19 issues (3 CRITICAL, 6 HIGH, 7 MEDIUM, 3 LOW)
-- Frontend audit found 20 issues (2 CRITICAL, 5 HIGH, 7 MEDIUM, 6 LOW)
-- Fixed all CRITICAL and HIGH issues (16 total), deferred LOW issues
-- Key fixes: UTC date bug, FundSource missing column, useEffect race condition, Jakarta timezone in 3 routes, O(n²) performance, broken useMemo chains, silent error swallowing
-- All changes lint-passing and pushed to GitHub
-
-Stage Summary:
-- 18 files changed, 163 insertions, 61 deletions
-- Commit: c87e1ac pushed to main
-- Remaining known issues (LOW, not urgent): hydration fragility in badges, language mixing, redundant else-if in challenges
+- All code passes ESLint
+- Feature: Flexible timestamp tracking per habit with dialog confirmation and bar chart analysis
+- Auto-migration pattern ensures Turso production DB gets new columns
+- 7 files modified, 2 files created

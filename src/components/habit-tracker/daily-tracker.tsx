@@ -28,7 +28,17 @@ import {
   Calendar,
   Flame,
   Star,
+  Clock,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass, getDotClass } from '@/lib/label-colors';
@@ -64,6 +74,8 @@ interface Habit {
   status: string;
   notes: string | null;
   order: number;
+  trackTime: boolean;
+  targetTime: string | null;
   _count: { logs: number };
 }
 
@@ -73,6 +85,7 @@ interface HabitLog {
   date: string;
   completed: boolean;
   value: number;
+  completedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +125,12 @@ function toDateString(isoLike: string): string {
   return new Date(isoLike).toISOString().split('T')[0];
 }
 
+function timeDiffMinutes(time: string, target: string): number {
+  const [th, tm] = target.split(':').map(Number);
+  const [ah, am] = time.split(':').map(Number);
+  return (ah * 60 + am) - (th * 60 + tm);
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -131,6 +150,18 @@ export default function DailyTracker() {
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [viewFilter, setViewFilter] = useState<'all' | 'incomplete' | 'completed'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  // ---- time dialog state ----
+  const [timeDialogHabit, setTimeDialogHabit] = useState<Habit | null>(null);
+  const [manualDate, setManualDate] = useState('');
+  const [manualTime, setManualTime] = useState('');
+  const [timeSubmitting, setTimeSubmitting] = useState(false);
+
+  // ---- completedAt display map ----
+  const [completedAtMap, setCompletedAtMap] = useState<Record<string, string>>({});
+
+  // ---- time analysis dialog ----
+  const [analysisHabitId, setAnalysisHabitId] = useState<string | null>(null);
 
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
@@ -220,12 +251,18 @@ export default function DailyTracker() {
       if (cachedMonthRef.current === month && monthLogsCacheRef.current[month]) {
         const cache = monthLogsCacheRef.current[month];
         const map: Record<string, boolean> = {};
+        const atMap: Record<string, string> = {};
         habitList.filter((h) => h.status === 'active').forEach((h) => {
           const logs = cache[h.id] || [];
           const dayLog = logs.find((l) => toDateString(l.date) === date);
           map[h.id] = dayLog?.completed ?? false;
+          if (dayLog?.completedAt) {
+            const d = new Date(dayLog.completedAt);
+            atMap[h.id] = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          }
         });
         setCompletionMap(map);
+        setCompletedAtMap(atMap);
         return;
       }
 
@@ -246,17 +283,23 @@ export default function DailyTracker() {
 
       const monthCache: Record<string, HabitLog[]> = {};
       const map: Record<string, boolean> = {};
+      const atMap: Record<string, string> = {};
 
       active.forEach((habit) => {
         const logs = groupedLogs[habit.id] || [];
         monthCache[habit.id] = logs;
         const dayLog = logs.find((l) => toDateString(l.date) === date);
         map[habit.id] = dayLog?.completed ?? false;
+        if (dayLog?.completedAt) {
+          const d = new Date(dayLog.completedAt);
+          atMap[habit.id] = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
       });
 
       monthLogsCacheRef.current[month] = monthCache;
       cachedMonthRef.current = month;
       setCompletionMap(map);
+      setCompletedAtMap(atMap);
     },
     [],
   );
@@ -300,7 +343,46 @@ export default function DailyTracker() {
     debouncedSave({ notes: e.target.value });
   };
 
-  const toggleHabit = async (habitId: string) => {
+  const handleHabitCheck = (habit: Habit) => {
+    const next = !completionMap[habit.id];
+    // If unchecking, just toggle directly
+    if (!next) {
+      toggleHabit(habit.id, null);
+      return;
+    }
+    // If time-tracked habit, show dialog
+    if (habit.trackTime) {
+      const now = new Date();
+      setTimeDialogHabit(habit);
+      setManualDate(selectedDate);
+      setManualTime(
+        `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      );
+    } else {
+      toggleHabit(habit.id, null);
+    }
+  };
+
+  const handleTimeDialogSubmit = async (useNow: boolean) => {
+    if (!timeDialogHabit) return;
+    setTimeSubmitting(true);
+    try {
+      let completedAtISO: string | null = null;
+      if (useNow) {
+        completedAtISO = new Date().toISOString();
+      } else if (manualTime) {
+        completedAtISO = new Date(`${manualDate}T${manualTime}:00`).toISOString();
+      }
+      await toggleHabit(timeDialogHabit.id, completedAtISO);
+      setTimeDialogHabit(null);
+    } catch {
+      toast.error('Failed to save time');
+    } finally {
+      setTimeSubmitting(false);
+    }
+  };
+
+  const toggleHabit = async (habitId: string, completedAt: string | null) => {
     const next = !completionMap[habitId];
 
     // optimistic
@@ -311,7 +393,7 @@ export default function DailyTracker() {
       const res = await fetch(`/api/habits/${habitId}/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate, completed: next }),
+        body: JSON.stringify({ date: selectedDate, completed: next, completedAt: next ? completedAt : undefined }),
       });
       if (!res.ok) throw new Error();
 
@@ -321,17 +403,34 @@ export default function DailyTracker() {
       if (cache) {
         const logs = cache[habitId] || [];
         const idx = logs.findIndex((l) => toDateString(l.date) === selectedDate);
+        const entry = {
+          id: '',
+          habitId,
+          date: new Date(selectedDate + 'T12:00:00').toISOString(),
+          completed: next,
+          value: 1,
+          completedAt: next && completedAt ? completedAt : null,
+        };
         if (idx >= 0) {
-          logs[idx] = { ...logs[idx], completed: next };
+          logs[idx] = { ...logs[idx], ...entry };
         } else {
-          logs.push({
-            id: '',
-            habitId,
-            date: new Date(selectedDate + 'T12:00:00').toISOString(),
-            completed: next,
-            value: 1,
-          });
+          logs.push(entry);
         }
+      }
+
+      // Update completedAt display
+      if (next && completedAt) {
+        const d = new Date(completedAt);
+        setCompletedAtMap((p) => ({
+          ...p,
+          [habitId]: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,
+        }));
+      } else {
+        setCompletedAtMap((p) => {
+          const np = { ...p };
+          delete np[habitId];
+          return np;
+        });
       }
 
       // bump _count locally
@@ -623,6 +722,9 @@ export default function DailyTracker() {
               {filteredHabits.map((habit, idx) => {
                 const done = !!completionMap[habit.id];
                 const isToggling = togglingIds.has(habit.id);
+                const doneTime = done ? completedAtMap[habit.id] : null;
+                const isLate = doneTime && habit.targetTime && doneTime > habit.targetTime;
+                const isOnTarget = doneTime && habit.targetTime && doneTime <= habit.targetTime;
                 return (
                   <div
                     key={habit.id}
@@ -634,7 +736,7 @@ export default function DailyTracker() {
                     {/* Checkbox */}
                     <Checkbox
                       checked={done}
-                      onCheckedChange={() => toggleHabit(habit.id)}
+                      onCheckedChange={() => handleHabitCheck(habit)}
                       disabled={isToggling}
                       className={cn(
                         'shrink-0 transition-colors duration-200',
@@ -657,6 +759,31 @@ export default function DailyTracker() {
                     >
                       {habit.name}
                     </span>
+
+                    {/* Time display */}
+                    {doneTime ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAnalysisHabitId(habit.id); }}
+                        className={cn(
+                          'shrink-0 text-xs font-medium tabular-nums flex items-center gap-0.5 rounded-md px-1.5 py-0.5 hover:bg-accent transition-colors',
+                          isOnTarget && 'text-emerald-600 dark:text-emerald-400',
+                          isLate && 'text-red-500 dark:text-red-400',
+                          !habit.targetTime && 'text-muted-foreground',
+                        )}
+                        title={habit.targetTime ? `Target: ${habit.targetTime}. Klik untuk lihat analisis.` : 'Klik untuk lihat analisis.'}
+                      >
+                        <Clock className="h-3 w-3" />
+                        {doneTime}
+                        {isOnTarget && ' ⭐'}
+                        {isLate && ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
+                      </button>
+                    ) : null}
+
+                    {/* Track time indicator (not done) */}
+                    {!done && habit.trackTime && (
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                    )}
 
                     {/* Category badge (hidden on small screens) */}
                     <Badge
@@ -748,13 +875,92 @@ export default function DailyTracker() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Time Confirmation Dialog ── */}
+      <Dialog open={!!timeDialogHabit} onOpenChange={(open) => !open && setTimeDialogHabit(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>{timeDialogHabit?.icon}</span>
+              {timeDialogHabit?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Kapan kamu melakukannya?
+            </p>
+
+            {/* Option 1: Now */}
+            <button
+              type="button"
+              onClick={() => handleTimeDialogSubmit(true)}
+              disabled={timeSubmitting}
+              className="w-full flex items-center gap-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-left hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              <Clock className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Sekarang</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </button>
+
+            {/* Divider */}
+            <div className="relative flex items-center justify-center">
+              <span className="text-xs text-muted-foreground bg-background px-2 z-10">atau isi manual</span>
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" />
+              </div>
+            </div>
+
+            {/* Manual input */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Tanggal</label>
+                  <Input
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Jam</label>
+                  <Input
+                    type="time"
+                    value={manualTime}
+                    onChange={(e) => setManualTime(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={() => handleTimeDialogSubmit(false)}
+                disabled={timeSubmitting || !manualTime}
+                className="w-full bg-primary hover:bg-primary text-white"
+              >
+                {timeSubmitting ? 'Menyimpan...' : 'Simpan Waktu'}
+              </Button>
+            </div>
+
+            {timeDialogHabit?.targetTime && (
+              <p className="text-xs text-center text-muted-foreground">
+                Target: {timeDialogHabit.targetTime}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* ── Time Analysis Dialog ── */}
+      <TimeAnalysisDialog
+        habitId={analysisHabitId}
+        open={!!analysisHabitId}
+        onOpenChange={(open) => !open && setAnalysisHabitId(null)}
+      />
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Loading Skeleton
-// ---------------------------------------------------------------------------
 
 function LoadingSkeleton() {
   return (

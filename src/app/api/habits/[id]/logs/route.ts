@@ -51,9 +51,27 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { date, completed, value } = body;
+    const { date, completed, value, completedAt } = body;
 
     const dateObj = startOfDay(new Date(date));
+
+    // Build the completedAt value
+    let completedAtDate: Date | null = null;
+    if (completed && completedAt) {
+      completedAtDate = new Date(completedAt);
+      // Prevent future times
+      if (completedAtDate > new Date()) {
+        return NextResponse.json({ error: 'Cannot set completion time in the future' }, { status: 400 });
+      }
+      // Prevent times older than 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      if (completedAtDate < sevenDaysAgo) {
+        return NextResponse.json({ error: 'Cannot set completion time more than 7 days ago' }, { status: 400 });
+      }
+    } else if (completed) {
+      completedAtDate = new Date();
+    }
 
     const log = await db.habitLog.upsert({
       where: {
@@ -67,10 +85,12 @@ export async function POST(
         date: dateObj,
         completed: completed ?? true,
         value: value ?? 1,
+        completedAt: completedAtDate,
       },
       update: {
         completed: completed ?? true,
         value: value ?? 1,
+        completedAt: completed ? completedAtDate : null,
       },
     });
 
