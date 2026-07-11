@@ -394,7 +394,10 @@ export default function DailyTracker() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: selectedDate, completed: next, completedAt: next ? completedAt : undefined }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
 
       // update month cache
       const month = selectedDate.slice(0, 7);
@@ -442,9 +445,9 @@ export default function DailyTracker() {
       );
 
       if (next) toast.success('Habit completed! 🎉');
-    } catch {
+    } catch (e) {
       setCompletionMap((p) => ({ ...p, [habitId]: !next }));
-      toast.error('Failed to update habit');
+      toast.error(e instanceof Error ? e.message : 'Failed to update habit');
     } finally {
       setTogglingIds((p) => {
         const s = new Set(p);
