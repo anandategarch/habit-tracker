@@ -54,7 +54,20 @@ import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 
 // Lazy-loaded sub-components
-import FinanceOverview from './finance-overview';
+const FinanceOverview = dynamic(() => import('./finance-overview'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Skeleton className="h-[300px] rounded-xl" />
+        <Skeleton className="h-[300px] rounded-xl" />
+      </div>
+    </div>
+  ),
+});
 import FinanceTransactions from './finance-transactions';
 import FinanceBudgets from './finance-budgets';
 
@@ -195,13 +208,14 @@ export default function Finance() {
 
   // ── Data Fetching (shared: categories + sources on mount) ──────────────────
 
-  const migrateAttempted = useRef(false);
-
   const fetchCategories = useCallback(async (skipMigration = false) => {
     try {
-      if (!skipMigration && !migrateAttempted.current) {
-        migrateAttempted.current = true;
-        try { await fetch('/api/finance/categories/ensure-table', { method: 'POST' }); } catch { /* silent */ }
+      // Only run migration check once per browser session (not per component mount)
+      if (!skipMigration && typeof window !== 'undefined' && !sessionStorage.getItem('finance_migrated')) {
+        try {
+          await fetch('/api/finance/categories/ensure-table', { method: 'POST' });
+          sessionStorage.setItem('finance_migrated', '1');
+        } catch { /* silent */ }
       }
       const res = await fetch('/api/finance/categories');
       if (res.ok) {
