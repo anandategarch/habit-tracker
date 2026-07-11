@@ -5,8 +5,7 @@ import {
   startOfMonth, endOfMonth, format, differenceInCalendarDays,
 } from 'date-fns';
 
-// XP values by difficulty
-const XP_MAP: Record<string, number> = { Easy: 10, Medium: 20, Hard: 30, Expert: 50 };
+// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
 
 function calcLevel(totalXP: number): number {
   return Math.floor(Math.sqrt(totalXP / 100)) + 1;
@@ -53,6 +52,11 @@ export async function GET(request: NextRequest) {
     const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
     const monthStart = startOfMonth(today);
     const monthEnd = endOfMonth(today);
+
+    // Build XP map from database
+    const diffOptions = await db.habitOption.findMany({ where: { type: 'difficulty' } });
+    const xpMap: Record<string, number> = {};
+    diffOptions.forEach(d => { xpMap[d.name] = d.xp; });
 
     // Fetch all active habits (with createdAt for smart day counting)
     const habits = await db.habit.findMany({
@@ -227,7 +231,7 @@ export async function GET(request: NextRequest) {
 
     // ── XP calculation (within period) ───────────────────────────────
     const totalXP = allLogs.filter(l => l.completed).reduce((sum, l) => {
-      return sum + (XP_MAP[l.habit.difficulty] || 20);
+      return sum + (xpMap[l.habit.difficulty] || 20);
     }, 0);
     const currentLevel = calcLevel(totalXP);
     const nextLevelXP = calcNextLevelXP(currentLevel);

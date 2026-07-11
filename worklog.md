@@ -371,3 +371,40 @@ Stage Summary:
 - When Emerald (default) is selected, resets to clean oklch CSS defaults
 - All hardcoded green references in Settings replaced with `text-primary` / `bg-primary` classes
 - Verified via agent-browser: Ocean preset changes --primary to #0ea5e9, Dark mode toggles .dark class, Emerald resets to oklch defaults
+
+---
+
+## Task: Create Backend for Managing Habit Options (Categories, Priorities, Difficulties)
+
+**Files modified:**
+- `prisma/schema.prisma` — Added `HabitOption` model (id, type, name, color, xp, order, timestamps; unique on [type, name]; index on type)
+
+**Files created:**
+- `prisma/seed-options.ts` — Idempotent seed script for 13 categories, 3 priorities, 4 difficulties (20 total default options)
+- `src/app/api/habit-options/route.ts` — GET (list with optional `?type=` filter, sorted by order/name) + POST (create with validation)
+- `src/app/api/habit-options/[id]/route.ts` — PUT (update name/color/xp/order) + DELETE (remove, returns `{ success: true }`)
+
+**Work Log:**
+- Added HabitOption model to Prisma schema with @@unique([type, name]) and @@index([type])
+- Ran `db:push` — schema applied, Prisma Client regenerated
+- Created seed script that checks existence before inserting (idempotent), seeded 20 default options
+- Created GET endpoint with optional `type` query param filter, sorted by order then name
+- Created POST endpoint with validation (type must be category/priority/difficulty, name required/non-empty), handles P2002 unique constraint
+- Created PUT endpoint with partial update support, handles P2025 not found and P2002 unique constraint
+- Created DELETE endpoint, handles P2025 not found
+- All routes use NextRequest/NextResponse, `@/lib/db` import, try/catch error handling
+- Lint: 0 errors
+
+**API Endpoints Available:**
+- `GET /api/habit-options` — List all options (optional `?type=category|priority|difficulty`)
+- `POST /api/habit-options` — Create new option `{ type, name, color?, xp?, order? }`
+- `PUT /api/habit-options/:id` — Update option `{ name?, color?, xp?, order? }`
+- `DELETE /api/habit-options/:id` — Delete option, returns `{ success: true }`
+
+---
+
+## Task: Create shared label color system and habit options hook
+
+**Files created:**
+- `src/lib/label-colors.ts` — Color palette mapping 19 color keys (gray, slate, red, rose, pink, fuchsia, purple, violet, indigo, blue, sky, cyan, teal, emerald, green, lime, amber, orange, yellow) to Tailwind CSS class sets (`badge`, `dot`, `light`, `text`, `hex`). Includes `getLabelColor()`, `getBadgeClass()`, `getDotClass()` helper functions with gray fallback.
+- `src/hooks/use-habit-options.ts` — Client hook that fetches all habit options from `/api/habit-options` and provides derived sorted arrays (`categories`, `priorities`, `difficulties`), name-to-option maps (`categoryMap`, `priorityMap`, `difficultyMap`), an XP map for difficulties, and a `refetch` helper.
