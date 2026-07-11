@@ -501,7 +501,7 @@ export default function Finance() {
   const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(new Date(y, m - 2, 1).toISOString().slice(0, 7)); };
   const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(new Date(y, m, 1).toISOString().slice(0, 7)); };
   const goToThisMonth = () => { setSelectedMonth(new Date().toISOString().slice(0, 7)); };
-  const monthLabel = format(new Date(selectedMonth + '-01'), 'MMMM yyyy', { locale: idLocale });
+  const monthLabel = useMemo(() => format(new Date(selectedMonth + '-01'), 'MMMM yyyy', { locale: idLocale }), [selectedMonth]);
 
   const monthOptions = useMemo(() => {
     const now = new Date();
@@ -515,21 +515,21 @@ export default function Finance() {
 
   // ── Render Helpers ────────────────────────────────────────────────────────
 
-  const filteredTransactions = transactions.filter(tx => {
+  const filteredTransactions = useMemo(() => transactions.filter(tx => {
     if (txFilter.type !== 'all' && tx.type !== txFilter.type) return false;
     if (txFilter.category !== 'all' && tx.category !== txFilter.category) return false;
     if (txFilter.source !== 'all' && tx.source !== txFilter.source) return false;
     if (txFilter.search && !tx.description?.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.category.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.notes?.toLowerCase().includes(txFilter.search.toLowerCase())) return false;
     return true;
-  });
+  }), [transactions, txFilter]);
 
-  const dailySpendingChartData = dashboardData ? Object.entries(dashboardData.dailySpending)
+  const dailySpendingChartData = useMemo(() => dashboardData ? Object.entries(dashboardData.dailySpending)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, amount]) => ({ date: format(new Date(date), 'd MMM'), amount: Math.round(amount) })) : [];
+    .map(([date, amount]) => ({ date: format(new Date(date), 'd MMM'), amount: Math.round(amount) })) : [], [dashboardData]);
 
-  const categoryPieData = dashboardData ? Object.entries(dashboardData.expenseByCategory)
+  const categoryPieData = useMemo(() => dashboardData ? Object.entries(dashboardData.expenseByCategory)
     .map(([name, value]) => ({ name, value: Math.round(value) }))
-    .sort((a, b) => b.value - a.value) : [];
+    .sort((a, b) => b.value - a.value) : [], [dashboardData]);
 
   const groupedTransactions = useMemo(() => {
     const sorted = [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

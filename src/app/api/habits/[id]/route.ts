@@ -32,7 +32,13 @@ export async function PUT(
     const body = await request.json();
 
     const updateData: Record<string, unknown> = {};
-    if (body.name !== undefined) updateData.name = body.name.trim();
+    if (body.name !== undefined) {
+      const trimmed = String(body.name).trim();
+      if (trimmed.length === 0) {
+        return NextResponse.json({ error: 'name cannot be empty' }, { status: 400 });
+      }
+      updateData.name = trimmed;
+    }
     if (body.icon !== undefined) updateData.icon = body.icon;
     if (body.category !== undefined) updateData.category = body.category;
     if (body.priority !== undefined) updateData.priority = body.priority;

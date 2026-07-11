@@ -2,10 +2,21 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { startOfDay, subDays, format } from 'date-fns';
 
+// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function jakartaNow(): Date {
+  return new Date(Date.now() + JAKARTA_OFFSET_MS);
+}
+
+function jakartaToday(): Date {
+  const now = jakartaNow();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 export async function GET() {
   try {
-    const now = new Date();
-    const today = startOfDay(now);
+    const today = jakartaToday();
 
     const habits = await db.habit.findMany({ where: { status: 'active' } });
     const logs = await db.habitLog.findMany({

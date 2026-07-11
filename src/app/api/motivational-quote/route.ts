@@ -51,7 +51,6 @@ const QUOTES: { quote: string; author: string; translation: string }[] = [
   { quote: 'Whoever is happy will make others happy too.', author: 'Anne Frank', translation: 'Siapa pun yang bahagia akan membuat orang lain juga bahagia.' },
   { quote: 'If you look at what you have in life, you\'ll always have more.', author: 'Oprah Winfrey', translation: 'Jika kamu melihat apa yang kamu punya dalam hidup, kamu akan selalu punya lebih.' },
   { quote: 'Do not dwell in the past, do not dream of the future, concentrate the mind on the present moment.', author: 'Buddha', translation: 'Jangan tinggal di masa lalu, jangan bermimpi tentang masa depan, fokuskan pikiran pada saat ini.' },
-  { quote: 'The only way to do great work is to love what you do.', author: 'Steve Jobs', translation: 'Satu-satunya cara melakukan pekerjaan hebat adalah mencintai apa yang kamu lakukan.' },
   { quote: 'Start where you are. Use what you have. Do what you can.', author: 'Arthur Ashe', translation: 'Mulailah dari mana kamu berada. Gunakan apa yang kamu punya. Lakukan apa yang kamu bisa.' },
   { quote: 'A champion is defined not by their wins but by how they can recover when they fall.', author: 'Serena Williams', translation: 'Juara didefinisikan bukan dari kemenangannya tapi dari bagaimana ia bangkit saat jatuh.' },
   { quote: 'The purpose of our lives is to be happy.', author: 'Dalai Lama', translation: 'Tujuan hidup kita adalah untuk bahagia.' },

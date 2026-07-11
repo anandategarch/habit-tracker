@@ -275,7 +275,7 @@ export default function Dashboard() {
   const [fetchError, setFetchError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const fetchErrorRef = useRef(false);
-  const loading = data === null;
+  const loading = data === null && !fetchError;
 
   // Fetch dashboard data with period
   useEffect(() => {
@@ -407,20 +407,6 @@ export default function Dashboard() {
     }
   }, [period]);
 
-  if (fetchError && !fetching) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="text-center space-y-2">
-          <p className="text-sm text-muted-foreground">Failed to load dashboard data</p>
-          <Button variant="outline" size="sm" onClick={() => { setFetchError(false); setRetryCount((c) => c + 1); }}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -464,6 +450,15 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {fetchError && !fetching && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
+          <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
+          <Button variant="outline" size="sm" onClick={() => { setFetchError(false); setRetryCount((c) => c + 1); }}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       {/* ── Motivational Quote Card ────────────────────────────────── */}
       <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
         <div className="absolute top-3 right-3 opacity-10">

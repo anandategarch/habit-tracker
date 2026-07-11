@@ -65,12 +65,21 @@ export async function GET(request: NextRequest) {
       include: { habit: true },
     })).filter(l => activeHabitIds.has(l.habitId));
 
-    // ── Helper: count habits active on a given date ──────────────
+    // Pre-sort habit creation dates for O(log n) binary search lookups
+    const habitCreatedDates = habits
+      .map(h => startOfDay(h.createdAt).getTime())
+      .sort((a, b) => a - b);
+
+    // ── Helper: count habits active on a given date (O(log n) via binary search) ──
     function habitsActiveOnDate(date: Date): number {
-      return habits.filter(h => {
-        const created = startOfDay(h.createdAt);
-        return created <= date;
-      }).length;
+      const ts = startOfDay(date).getTime();
+      let lo = 0, hi = habitCreatedDates.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (habitCreatedDates[mid] <= ts) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
     }
 
     // ── Helper: count theoretical possible completions for a range ──

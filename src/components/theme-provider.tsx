@@ -53,7 +53,7 @@ export default function ThemeProvider() {
 
     // Fetch latest settings from API
     fetch('/api/settings')
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         // Cache in sessionStorage for next load
         sessionStorage.setItem('rutina_settings', JSON.stringify(data));
@@ -78,7 +78,7 @@ export default function ThemeProvider() {
       } else {
         // No detail — re-fetch from API
         fetch('/api/settings')
-          .then((r) => r.json())
+          .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
           .then((data) => {
             sessionStorage.setItem('rutina_settings', JSON.stringify(data));
             applySettings(data);
