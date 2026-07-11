@@ -38,7 +38,7 @@ model HabitLog {
   date        DateTime
   completed   Boolean   @default(false)
   value       Int       @default(1)
-  completedAt DateTime? // exact time when completed (for time-tracked habits)
+  completedAt String?  // ISO string, exact time when completed (for time-tracked habits)
   createdAt   DateTime  @default(now())
 
   habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)

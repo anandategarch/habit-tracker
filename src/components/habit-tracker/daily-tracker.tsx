@@ -130,6 +130,22 @@ function timeDiffMinutes(time: string, target: string): number {
   return (ah * 60 + am) - (th * 60 + tm);
 }
 
+/** Convert a Date to ISO string WITH timezone offset (preserves local time) */
+function toLocalISO(date: Date): string {
+  const offset = -date.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offset);
+  const oh = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const om = String(absOffset % 60).padStart(2, '0');
+  const y = date.getFullYear();
+  const M = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `${y}-${M}-${d}T${h}:${m}:${s}${sign}${oh}:${om}`;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -368,9 +384,9 @@ export default function DailyTracker() {
     try {
       let completedAtISO: string | null = null;
       if (useNow) {
-        completedAtISO = new Date().toISOString();
+        completedAtISO = toLocalISO(new Date());
       } else if (manualTime) {
-        completedAtISO = new Date(`${manualDate}T${manualTime}:00`).toISOString();
+        completedAtISO = toLocalISO(new Date(`${manualDate}T${manualTime}:00`));
       }
       await toggleHabit(timeDialogHabit.id, completedAtISO);
       setTimeDialogHabit(null);

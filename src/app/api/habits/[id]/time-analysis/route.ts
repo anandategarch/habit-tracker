@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfWeek,
@@ -42,8 +43,14 @@ interface AnalysisResult {
 }
 
 function toMinutes(isoStr: string): number {
+  // Extract local time from ISO string (works with or without timezone offset)
+  // e.g. "2025-01-20T07:00:00+07:00" → 420, "2025-01-20T00:00:00.000Z" → 0
+  const timeMatch = isoStr.match(/T(\d{2}):(\d{2})/);
+  if (timeMatch) {
+    return parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10);
+  }
   const d = new Date(isoStr);
-  return d.getHours() * 60 + d.getMinutes();
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
 
 function minutesToHHmm(mins: number): string {
@@ -64,6 +71,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureTimeTrackingColumns();
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'thisWeek';
@@ -153,7 +161,7 @@ export async function GET(
       const log = logs.find((l) => format(l.date, 'yyyy-MM-dd') === dateStr);
 
       if (log?.completedAt) {
-        const mins = toMinutes(log.completedAt.toISOString());
+        const mins = toMinutes(log.completedAt);
         const timeStr = minutesToHHmm(mins);
         let diff: number | null = null;
         if (targetMinutes !== null) {
@@ -194,7 +202,7 @@ export async function GET(
       : 0;
 
     // Previous period average
-    const prevMins = prevLogs.map((l) => l.completedAt ? toMinutes(l.completedAt.toISOString()) : null).filter((m): m is number => m !== null);
+    const prevMins = prevLogs.map((l) => l.completedAt ? toMinutes(l.completedAt) : null).filter((m): m is number => m !== null);
     const prevAvg = prevMins.length > 0 ? Math.round(prevMins.reduce((a, b) => a + b, 0) / prevMins.length) : null;
     const vsPrevious = avgMinutes !== null && prevAvg !== null ? avgMinutes - prevAvg : null;
 

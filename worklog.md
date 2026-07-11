@@ -23,4 +23,27 @@ Stage Summary:
 - All code passes ESLint
 - Feature: Flexible timestamp tracking per habit with dialog confirmation and bar chart analysis
 - Auto-migration pattern ensures Turso production DB gets new columns
-- 7 files modified, 2 files created
+- 7 files modified, 2 files created---
+Task ID: 1
+Agent: main
+Task: Fix "cannot set completion time in the future" error and type mismatch
+
+Work Log:
+- Identified root cause: server-side future-time validation comparing UTC+7 user time against UTC server `Date.now() + 1hr` — 1hr tolerance insufficient for 7hr timezone difference
+- Identified secondary issue: Prisma schema `completedAt DateTime?` mismatched with DB column `TEXT` (from ALTER TABLE)
+- Changed Prisma schema `completedAt` from `DateTime?` to `String?` to match TEXT column type
+- Removed future-time validation entirely (kept 7-day past check)
+- Updated POST `/api/habits/[id]/logs` to store `completedAt` as ISO string directly (no Date conversion)
+- Added `toLocalISO()` helper in daily-tracker.tsx to preserve browser timezone offset in ISO strings
+- Updated `handleTimeDialogSubmit` to use `toLocalISO()` instead of `.toISOString()`
+- Updated `toMinutes()` in time-analysis to extract local time from offset ISO strings via regex
+- Fixed `.toISOString()` calls in time-analysis route (completedAt is now String, not Date)
+- Added `ensureTimeTrackingColumns()` to time-analysis route
+- Regenerated Prisma client with `bunx prisma generate`
+- Lint passes clean
+
+Stage Summary:
+- Fixed future-time validation error by removing the problematic check
+- Fixed Prisma type mismatch (DateTime? → String?)
+- Fixed timezone display issue by preserving offset in ISO strings
+- All changes ready for GitHub push
