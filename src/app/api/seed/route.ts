@@ -127,6 +127,29 @@ const DEFAULT_LEARNING_TOPICS = [
   { name: 'Manajemen', emoji: '📊', order: 5 },
 ];
 
+const DEFAULT_HABIT_CATEGORIES = [
+  { type: 'category', name: 'General', color: 'slate', xp: 0, order: 0 },
+  { type: 'category', name: 'Health', color: 'emerald', xp: 0, order: 1 },
+  { type: 'category', name: 'Fitness', color: 'orange', xp: 0, order: 2 },
+  { type: 'category', name: 'Learning', color: 'blue', xp: 0, order: 3 },
+  { type: 'category', name: 'Mindfulness', color: 'violet', xp: 0, order: 4 },
+  { type: 'category', name: 'Productivity', color: 'amber', xp: 0, order: 5 },
+  { type: 'category', name: 'Social', color: 'pink', xp: 0, order: 6 },
+  { type: 'category', name: 'Creative', color: 'fuchsia', xp: 0, order: 7 },
+];
+
+const DEFAULT_HABIT_PRIORITIES = [
+  { type: 'priority', name: 'Low', color: 'green', xp: 0, order: 0 },
+  { type: 'priority', name: 'Medium', color: 'amber', xp: 0, order: 1 },
+  { type: 'priority', name: 'High', color: 'red', xp: 0, order: 2 },
+];
+
+const DEFAULT_HABIT_DIFFICULTIES = [
+  { type: 'difficulty', name: 'Easy', color: 'green', xp: 10, order: 0 },
+  { type: 'difficulty', name: 'Medium', color: 'amber', xp: 20, order: 1 },
+  { type: 'difficulty', name: 'Hard', color: 'red', xp: 40, order: 2 },
+];
+
 const DEFAULT_INCOME_CATEGORIES = [
   { type: 'income', name: 'Gaji', emoji: '💰', color: '#22c55e', order: 1 },
   { type: 'income', name: 'Freelance', emoji: '💻', color: '#06b6d4', order: 2 },
@@ -173,12 +196,21 @@ export async function GET() {
       await db.learningTopic.createMany({ data: DEFAULT_LEARNING_TOPICS });
     }
 
+    // Default habit options (categories, priorities, difficulties)
+    const habitOptionCount = await db.habitOption.count();
+    if (habitOptionCount === 0) {
+      await db.habitOption.createMany({
+        data: [...DEFAULT_HABIT_CATEGORIES, ...DEFAULT_HABIT_PRIORITIES, ...DEFAULT_HABIT_DIFFICULTIES],
+      });
+    }
+
     return NextResponse.json({
       badges: badgeCount === 0 ? DEFAULT_BADGES.length : badgeCount,
       rewards: rewardCount === 0 ? DEFAULT_REWARDS.length : rewardCount,
       transactions: txCount === 0 ? SAMPLE_TRANSACTIONS.length : txCount,
       budgets: budgetCount === 0 ? SAMPLE_BUDGETS.length : budgetCount,
       categories: catCount === 0 ? DEFAULT_EXPENSE_CATEGORIES.length + DEFAULT_INCOME_CATEGORIES.length : catCount,
+      habitOptions: habitOptionCount === 0 ? DEFAULT_HABIT_CATEGORIES.length + DEFAULT_HABIT_PRIORITIES.length + DEFAULT_HABIT_DIFFICULTIES.length : habitOptionCount,
       message: 'Seed completed',
     });
   } catch (error) {
