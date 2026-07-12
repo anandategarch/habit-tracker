@@ -538,10 +538,11 @@ export async function GET(request: NextRequest) {
     const timeHabits = habits.filter(h => h.trackTime);
     const timeTrackedSummary: TimeHabitSummary[] = [];
 
+    // Extract local time in minutes from ISO string, converting to Jakarta (UTC+7)
     function toMinutesFromISO(isoStr: string): number {
-      const m = isoStr.match(/T(\d{2}):(\d{2})/);
-      if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-      return 0;
+      const d = new Date(isoStr);
+      const jakarta = new Date(d.getTime() + JAKARTA_OFFSET_MS);
+      return jakarta.getUTCHours() * 60 + jakarta.getUTCMinutes();
     }
     function minutesToHHmm(mins: number): string {
       const h = Math.floor(mins / 60) % 24;
@@ -670,10 +671,18 @@ export async function GET(request: NextRequest) {
       const logDateOnly = new Date(logJakarta.getFullYear(), logJakarta.getMonth(), logJakarta.getDate());
       const daysAgo = differenceInCalendarDays(today, logDateOnly);
 
+      // Extract time in Jakarta timezone (UTC+7)
       let timeStr: string | null = null;
       if (latestLog.completedAt) {
-        const tm = latestLog.completedAt.match(/T(\d{2}:\d{2})/);
-        if (tm) timeStr = tm[1];
+        try {
+          const d = new Date(latestLog.completedAt);
+          const jakarta = new Date(d.getTime() + JAKARTA_OFFSET_MS);
+          timeStr = `${String(jakarta.getUTCHours()).padStart(2, '0')}:${String(jakarta.getUTCMinutes()).padStart(2, '0')}`;
+        } catch {
+          // fallback: raw extract
+          const tm = latestLog.completedAt.match(/T(\d{2}:\d{2})/);
+          if (tm) timeStr = tm[1];
+        }
       }
 
       lastDoneSummary.push({
