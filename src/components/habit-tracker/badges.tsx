@@ -409,7 +409,7 @@ export default function Badges() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                    className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-red-600"
                     onClick={() => handleDelete(badge)}
                   >
                     <Trash2 className="h-3 w-3" />

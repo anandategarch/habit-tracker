@@ -895,7 +895,7 @@ export default function HabitMaster() {
           {/* Desktop: Table */}
           <Card className="hidden md:block">
             <CardContent className="p-0">
-              <div className="max-h-[600px] overflow-y-auto">
+              <div className="max-h-[600px] overflow-x-auto overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">

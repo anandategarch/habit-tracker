@@ -784,7 +784,7 @@ export default function DailyTracker() {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setAnalysisHabitId(habit.id); }}
                         className={cn(
-                          'shrink-0 text-xs font-medium tabular-nums flex items-center gap-0.5 rounded-md px-1.5 py-0.5 hover:bg-accent transition-colors',
+                          'shrink-0 text-xs font-medium tabular-nums flex items-center gap-0.5 rounded-md px-1.5 py-0.5 hover:bg-accent transition-colors max-w-[100px] sm:max-w-none truncate',
                           isOnTarget && 'text-emerald-600 dark:text-emerald-400',
                           isLate && 'text-red-500 dark:text-red-400',
                           !habit.targetTime && 'text-muted-foreground',

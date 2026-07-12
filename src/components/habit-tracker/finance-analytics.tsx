@@ -164,7 +164,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 <BarChart data={data.topCategories} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="category" width={130} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="category" width={100} tick={{ fontSize: 10 }} />
                   <RechartsTooltip
                     formatter={(value: number) => [formatRupiah(value), 'Total']}
                     contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
@@ -345,7 +345,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                   category: c.category,
                   'Bulan Lalu': -c.lastMonth,
                   'Bulan Ini': c.thisMonth,
-                }))} layout="vertical" margin={{ left: 110, right: 20 }}>
+                }))} layout="vertical" margin={{ left: 90, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(Math.abs(v) / 1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="category" width={105} tick={{ fontSize: 10 }} />
@@ -378,7 +378,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
         <CardContent className="px-4 pb-4">
           {data.financialHealth ? (
             <div className="flex flex-col sm:flex-row items-center gap-6">
-              <div className="relative w-[260px] h-[260px] shrink-0">
+              <div className="relative w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={[
                     { dim: 'Tabungan', score: data.financialHealth.rasioTabungan },

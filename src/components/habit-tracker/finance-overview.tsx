@@ -107,9 +107,7 @@ export default function FinanceOverview({
               <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Rata-rata/hari</span>
             </div>
             <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{formatRupiah(dashboardData.avgDailyExpense)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Proyeksi: {formatRupiah(dashboardData.projectedMonthlyExpense)}/bulan
-            </p>
+            <p className="text-[11px] text-muted-foreground mt-1 truncate">Proyeksi: {formatRupiah(dashboardData.projectedMonthlyExpense)}/bulan</p>
           </CardContent>
         </Card>
       </div>
@@ -259,9 +257,9 @@ export default function FinanceOverview({
                   <div key={b.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                     <span className="text-xl">{meta.emoji}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center text-xs mb-1">
+                      <div className="flex justify-between items-center text-xs mb-1 min-w-0 gap-2">
                         <span className="font-medium truncate">{b.category}</span>
-                        <span className={cn('shrink-0 font-semibold', isOver ? 'text-red-500' : 'text-muted-foreground')}>
+                        <span className={cn('shrink-0 font-semibold text-[10px] sm:text-xs', isOver ? 'text-red-500' : 'text-muted-foreground')}>
                           {formatRupiah(b.spent || 0)} / {formatRupiah(b.amount)}
                         </span>
                       </div>
@@ -278,7 +276,7 @@ export default function FinanceOverview({
               })}
             </div>
             {dashboardData.totalBudget > 0 && (
-              <div className="mt-3 pt-3 border-t flex justify-between text-xs text-muted-foreground">
+              <div className="mt-3 pt-3 border-t flex flex-wrap justify-between gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                 <span>Total Budget: {formatRupiah(dashboardData.totalBudget)}</span>
                 <span>Terpakai: {formatRupiah(dashboardData.totalBudgetSpent)} ({Math.round((dashboardData.totalBudgetSpent / dashboardData.totalBudget) * 100)}%)</span>
               </div>

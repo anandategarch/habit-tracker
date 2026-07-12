@@ -185,8 +185,8 @@ export default function SourceBalanceSection() {
               <h4 className="text-xs font-semibold text-muted-foreground">Tren Saldo</h4>
               <div className="flex flex-wrap gap-3 ml-auto">
                 {data.sources.map((src, idx) => (
-                  <span key={src.id} className="flex items-center gap-1 text-[10px]">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }} />
+                  <span key={src.id} className="flex items-center gap-1 text-[10px] max-w-[120px] truncate">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }} />
                     {src.emoji} {src.name}
                   </span>
                 ))}

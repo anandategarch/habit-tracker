@@ -66,15 +66,15 @@ export default function FinanceBudgets({
             return (
               <Card key={b.id} className={cn('transition-colors group', isOver && 'border-red-300 dark:border-red-800')}>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="text-2xl">{meta.emoji}</div>
-                      <div>
-                        <h3 className="text-sm font-semibold">{b.category}</h3>
+                  <div className="flex items-start justify-between mb-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-2xl shrink-0">{meta.emoji}</div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold truncate">{b.category}</h3>
                         <p className="text-[10px] text-muted-foreground capitalize">{b.period === 'monthly' ? 'Per Bulan' : 'Per Minggu'}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -99,9 +99,9 @@ export default function FinanceBudgets({
                       <span className="text-muted-foreground">Budget</span>
                       <span className="font-semibold">{formatRupiah(b.amount)}</span>
                     </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Terpakai</span>
-                      <span className={cn('font-semibold', isOver ? 'text-red-500' : 'text-foreground')}>
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-muted-foreground shrink-0">Terpakai</span>
+                      <span className={cn('font-semibold text-right min-w-0 truncate', isOver ? 'text-red-500' : 'text-foreground')}>
                         {formatRupiah(spent)} ({Math.min(pct, 999)}%)
                       </span>
                     </div>
@@ -109,13 +109,13 @@ export default function FinanceBudgets({
                       value={Math.min(pct, 100)}
                       className={cn('h-2.5', isOver && '[&>div]:bg-red-500', !isOver && pct > 80 && '[&>div]:bg-amber-500')}
                     />
-                    <div className="flex justify-between text-xs">
+                    <div className="flex flex-wrap justify-between gap-x-2 gap-y-0.5 text-xs">
                       <span className={cn(isOver ? 'text-red-500 font-medium' : 'text-primary')}>
                         {isOver ? `Over ${formatRupiah(spent - b.amount)}` : `Sisa ${formatRupiah(remaining)}`}
                       </span>
                       {b.amount > 0 && daysLeft !== null && !isOver && remaining > 0 && (
                         <span className="text-muted-foreground">
-                          ~{formatRupiah(remaining / daysLeft)}/hari ({daysLeft} hari tersisa)
+                          ~{formatRupiah(remaining / daysLeft)}/hari ({daysLeft}h)
                         </span>
                       )}
                     </div>
