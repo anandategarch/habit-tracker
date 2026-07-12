@@ -58,6 +58,7 @@ import {
   Filter,
   ListFilter,
   Clock,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -85,6 +86,8 @@ interface Habit {
   order: number;
   trackTime: boolean;
   targetTime: string | null;
+  trackLastDone: boolean;
+  lastDoneInterval: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -124,6 +127,8 @@ function emptyForm(): HabitFormData {
     order: 0,
     trackTime: false,
     targetTime: '',
+    trackLastDone: false,
+    lastDoneInterval: '',
   };
 }
 
@@ -145,6 +150,8 @@ function habitToForm(h: Habit): HabitFormData {
     order: h.order,
     trackTime: h.trackTime ?? false,
     targetTime: h.targetTime ?? '',
+    trackLastDone: h.trackLastDone ?? false,
+    lastDoneInterval: h.lastDoneInterval ?? '',
   };
 }
 
@@ -243,6 +250,8 @@ export default function HabitMaster() {
         notes: form.notes || null,
         target: Number(form.target) || 1,
         targetTime: form.targetTime || null,
+        trackLastDone: form.trackLastDone,
+        lastDoneInterval: form.lastDoneInterval || null,
       };
 
       if (editingId) {
@@ -666,6 +675,41 @@ export default function HabitMaster() {
                 )}
               </div>
 
+              {/* Track Last Done */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="track-last-done" className="cursor-pointer">Track Terakhir</Label>
+                  </div>
+                  <Switch
+                    id="track-last-done"
+                    checked={form.trackLastDone}
+                    onCheckedChange={(v) => updateForm('trackLastDone', v)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tampilkan di dashboard kapan terakhir kali habit ini dikerjakan.
+                </p>
+                {form.trackLastDone && (
+                  <div className="space-y-2 pt-1">
+                    <Label htmlFor="last-done-interval">
+                      Interval <span className="text-muted-foreground text-xs">(opsional, misal: 3d, 1w)</span>
+                    </Label>
+                    <Input
+                      id="last-done-interval"
+                      placeholder="3d"
+                      value={form.lastDoneInterval || ''}
+                      onChange={(e) => updateForm('lastDoneInterval', e.target.value)}
+                      className="w-40"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Contoh: 3d = setiap 3 hari, 1w = setiap minggu. Akan ditandai overdue jika lewat.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Notes */}
               <div className="space-y-2">
                 <Label>Notes</Label>
@@ -923,6 +967,12 @@ export default function HabitMaster() {
                             <span className="ml-1.5 inline-flex items-center text-xs text-muted-foreground" title="Track Waktu aktif">
                               <Clock className="h-3 w-3 mr-0.5" />
                               {habit.targetTime || 'on'}
+                            </span>
+                          )}
+                          {habit.trackLastDone && (
+                            <span className="ml-1.5 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" title="Track Terakhir aktif">
+                              <History className="h-3 w-3 mr-0.5" />
+                              {habit.lastDoneInterval || 'track'}
                             </span>
                           )}
                         </TableCell>

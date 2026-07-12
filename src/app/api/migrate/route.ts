@@ -119,7 +119,33 @@ export async function GET() {
       }
     }
 
-    // 7. Seed default sources if empty
+    // 7. Ensure Habit table has trackLastDone column
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "trackLastDone" BOOLEAN NOT NULL DEFAULT 0');
+      results.push('Column "trackLastDone" added to Habit table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "trackLastDone" already exists in Habit');
+      } else {
+        results.push(`Habit trackLastDone migration skipped: ${msg}`);
+      }
+    }
+
+    // 8. Ensure Habit table has lastDoneInterval column
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "lastDoneInterval" TEXT');
+      results.push('Column "lastDoneInterval" added to Habit table');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "lastDoneInterval" already exists in Habit');
+      } else {
+        results.push(`Habit lastDoneInterval migration skipped: ${msg}`);
+      }
+    }
+
+    // 9. Seed default sources if empty
     try {
       const count = await db.fundSource.count();
       if (count === 0) {

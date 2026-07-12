@@ -47,3 +47,28 @@ Stage Summary:
 - Fixed Prisma type mismatch (DateTime? → String?)
 - Fixed timezone display issue by preserving offset in ISO strings
 - All changes ready for GitHub push
+---
+Task ID: 3-7
+Agent: main
+Task: Add time analysis to dashboard + last done feature for habits
+
+Work Log:
+- Updated Prisma schema: added `trackLastDone Boolean @default(false)` and `lastDoneInterval String?` to Habit
+- Updated `ensure-columns.ts` with ALTER TABLE for new columns
+- Created `/api/habits/last-done/route.ts` — standalone endpoint for last-done data
+- Extended `/api/dashboard/route.ts` with:
+  - `timeTrackedSummary`: per-habit time analysis (today time, week avg, on-target rate, trend, 7-day times)
+  - `lastDoneSummary`: last done data with daysAgo, overdue detection
+- Added two new sections to `dashboard.tsx`:
+  - "Waktu Habit Minggu Ini" — mini bar chart per time-tracked habit with today status, trend, on-target rate
+  - "Terakhir Dilakukan" — list of track-last-done habits with overdue indicators
+- Added `trackLastDone` + `lastDoneInterval` toggle to habit-master form
+- Added amber badge in habit table for last-done tracked habits
+- Updated POST/PUT habit APIs to accept new fields
+- Updated migrate route with steps 7-8 for new columns
+
+Stage Summary:
+- Dashboard now shows time-tracked habit summary with 7-day mini charts
+- Dashboard shows last-done habits with overdue detection
+- Habit master has toggle for "Track Terakhir" with interval input
+- All lint passes clean

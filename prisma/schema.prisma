@@ -25,9 +25,11 @@ model Habit {
   status      String   @default("active")
   notes       String?
   order       Int      @default(0)
-  trackTime   Boolean  @default(false)
-  targetTime  String?  // format "HH:mm", e.g. "05:30"
-  createdAt   DateTime @default(now())
+  trackTime      Boolean  @default(false)
+  targetTime     String?  // format "HH:mm", e.g. "05:30"
+  trackLastDone  Boolean  @default(false)
+  lastDoneInterval String? // format "Xd" or "Xw", e.g. "3d", "1w"
+  createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
   logs        HabitLog[]
 }
