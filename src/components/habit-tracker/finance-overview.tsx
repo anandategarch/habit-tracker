@@ -11,6 +11,7 @@ import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { formatRupiah, CHART_COLORS } from './finance-types';
 import type { DashboardData, LastDoneItem } from './finance-types';
+import SourceBalanceSection from './source-balance';
 
 function ChartInfo({ text }: { text: string }) {
   return (
@@ -54,6 +55,9 @@ export default function FinanceOverview({
 
   return (
     <div className="space-y-4 mt-4">
+      {/* Saldo per Sumber Dana */}
+      <SourceBalanceSection />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="border-primary/20 bg-primary/10">
           <CardContent className="p-4">
