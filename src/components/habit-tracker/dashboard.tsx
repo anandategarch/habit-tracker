@@ -36,6 +36,9 @@ import {
   BookOpen as BookOpenIcon,
   Wallet,
   Info,
+  Clock,
+  History,
+  Minus,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -126,6 +129,34 @@ interface DashboardData {
     budgetWarning: number;
     budgetExceeded: number;
   };
+  timeTrackedSummary: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    targetTime: string | null;
+    todayTime: string | null;
+    todayDone: boolean;
+    weekAvg: string | null;
+    weekOnTarget: number;
+    weekTotal: number;
+    weekOnTargetRate: number;
+    prevAvg: string | null;
+    trend: number | null;
+    weekTimes: { day: string; time: string | null; minutes: number | null }[];
+  }[];
+  lastDoneSummary: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    interval: string | null;
+    intervalDays: number;
+    lastDate: string | null;
+    daysAgo: number | null;
+    completedAt: string | null;
+    overdue: boolean;
+  }[];
 }
 
 function ProgressRing({
@@ -703,6 +734,167 @@ export default function Dashboard() {
         weeklyPattern={displayData.weeklyPattern}
         chartLabel={chartLabel}
       />
+
+      {/* ── Time-Tracked Habits (Waktu Habit Minggu Ini) ────────────── */}
+      {displayData.timeTrackedSummary.length > 0 && (
+        <section aria-label="Time analysis">
+          <Card className="p-4">
+            <CardContent className="p-0">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  Waktu Habit Minggu Ini
+                  <ChartInfo text="Menampilkan jam penyelesaian habit yang memiliki tracking waktu. Rata-rata, on-target rate, dan tren dibanding minggu lalu." />
+                </h3>
+              </div>
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {displayData.timeTrackedSummary.map((th) => (
+                  <div
+                    key={th.id}
+                    className="rounded-lg border p-3 hover:bg-muted/30 transition-colors"
+                  >
+                    {/* Header row */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base shrink-0">{th.icon}</span>
+                        <span className="text-sm font-medium truncate">{th.name}</span>
+                        {th.targetTime && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                            target {th.targetTime}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {/* Today's time */}
+                        {th.todayDone && th.todayTime && (
+                          <span className={cn(
+                            'text-xs font-mono font-semibold px-2 py-0.5 rounded',
+                            th.targetTime && th.todayTime <= th.targetTime
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                          )}>
+                            {th.todayTime}
+                          </span>
+                        )}
+                        {!th.todayDone && (
+                          <span className="text-[10px] text-muted-foreground">Belum</span>
+                        )}
+                        {/* Trend */}
+                        {th.trend !== null && (
+                          <span className={cn(
+                            'text-[10px] font-medium flex items-center gap-0.5',
+                            th.trend < 0 ? 'text-emerald-600 dark:text-emerald-400' : th.trend > 0 ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
+                          )}>
+                            {th.trend < 0 ? <ArrowDownRight className="h-3 w-3" /> : th.trend > 0 ? <ArrowUpRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                            {th.trend === 0 ? 'sama' : `${Math.abs(th.trend)}mnt`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Mini bar: 7-day times */}
+                    <div className="flex items-end gap-1 h-10">
+                      {th.weekTimes.map((wt, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                          {wt.minutes !== null ? (
+                            <div
+                              className="w-full rounded-sm transition-all"
+                              style={{
+                                height: `${Math.max(4, (wt.minutes / 1440) * 100)}%`,
+                                minHeight: '4px',
+                                backgroundColor: th.targetTime && wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? '#22c55e' : '#ef4444',
+                                opacity: wt.minutes !== null ? 1 : 0.2,
+                              }}
+                              title={`${wt.day}: ${wt.time}`}
+                            />
+                          ) : (
+                            <div className="w-full rounded-sm bg-muted h-1" title={`${wt.day}: -`} />
+                          )}
+                          <span className="text-[8px] text-muted-foreground leading-none">{wt.day.slice(0, 2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Stats row */}
+                    <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
+                      <span>Rata-rata: <strong className="text-foreground">{th.weekAvg || '-'}</strong></span>
+                      {th.targetTime && (
+                        <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
+                      )}
+                      {th.prevAvg && (
+                        <span>Minggu lalu: {th.prevAvg}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* ── Last Done (Terakhir Dilakukan) ─────────────────────────── */}
+      {displayData.lastDoneSummary.length > 0 && (
+        <section aria-label="Last done habits">
+          <Card className="p-4">
+            <CardContent className="p-0">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  Terakhir Dilakukan
+                  <ChartInfo text="Menampilkan habit yang di-track kapan terakhir kali dikerjakan. Diurutkan dari yang paling lama / paling urgent." />
+                </h3>
+                <Badge variant="secondary" className="text-[10px]">
+                  {displayData.lastDoneSummary.filter(l => l.overdue).length} overdue
+                </Badge>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {displayData.lastDoneSummary.map((item) => (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      'flex items-center justify-between rounded-lg border p-3 transition-colors',
+                      item.overdue ? 'border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900' : 'hover:bg-muted/30'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-base shrink-0">{item.icon}</span>
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium truncate block">{item.name}</span>
+                        {item.interval && (
+                          <span className="text-[10px] text-muted-foreground">setiap {item.interval}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      {item.completedAt && (
+                        <span className="text-[10px] text-muted-foreground font-mono">{item.completedAt}</span>
+                      )}
+                      {item.daysAgo !== null ? (
+                        <span className={cn(
+                          'text-xs font-semibold px-2 py-0.5 rounded-full',
+                          item.overdue
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                            : item.daysAgo === 0
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : item.daysAgo <= 2
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                : 'bg-muted text-muted-foreground'
+                        )}>
+                          {item.daysAgo === 0 ? 'Hari ini' : `${item.daysAgo} hari lalu`}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Belum pernah</span>
+                      )}
+                      {item.overdue && (
+                        <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* ── Bottom Row: Leaderboard + Today's Focus ─────────────── */}
       <section aria-label="Details" className="grid grid-cols-1 md:grid-cols-2 gap-4">

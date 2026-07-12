@@ -517,6 +517,189 @@ export async function GET(request: NextRequest) {
       // Finance tables might not exist; silently ignore
     }
 
+    // ── Time-Tracked Habits Summary (this week) ──────────────────────
+    interface TimeHabitSummary {
+      id: string;
+      name: string;
+      icon: string;
+      color: string;
+      targetTime: string | null;
+      todayTime: string | null;       // "HH:mm" if completed today
+      todayDone: boolean;
+      weekAvg: string | null;         // "HH:mm" average this week
+      weekOnTarget: number;           // count on-target this week
+      weekTotal: number;              // count with time this week
+      weekOnTargetRate: number;       // percentage
+      prevAvg: string | null;         // "HH:mm" average last week
+      trend: number | null;           // minutes diff (negative = improving/earlier)
+      weekTimes: { day: string; time: string | null; minutes: number | null }[];
+    }
+
+    const timeHabits = habits.filter(h => h.trackTime);
+    const timeTrackedSummary: TimeHabitSummary[] = [];
+
+    function toMinutesFromISO(isoStr: string): number {
+      const m = isoStr.match(/T(\d{2}):(\d{2})/);
+      if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+      return 0;
+    }
+    function minutesToHHmm(mins: number): string {
+      const h = Math.floor(mins / 60) % 24;
+      const mn = mins % 60;
+      return `${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+    }
+
+    for (const habit of timeHabits) {
+      const targetMins = habit.targetTime
+        ? (() => { const [h, m] = habit.targetTime!.split(':').map(Number); return h * 60 + m; })()
+        : null;
+
+      // Fetch this week's completed logs with time
+      const weekLogs = await db.habitLog.findMany({
+        where: {
+          habitId: habit.id,
+          date: { gte: weekStart, lte: weekEnd },
+          completed: true,
+          completedAt: { not: null },
+        },
+        orderBy: { date: 'asc' },
+      });
+
+      // Fetch last week's logs
+      const prevWeekLogs = await db.habitLog.findMany({
+        where: {
+          habitId: habit.id,
+          date: { gte: subDays(weekStart, 7), lte: subDays(weekStart, 1) },
+          completed: true,
+          completedAt: { not: null },
+        },
+      });
+
+      // Today's time
+      const todayLog = weekLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
+      const todayTime = todayLog?.completedAt ? minutesToHHmm(toMinutesFromISO(todayLog.completedAt)) : null;
+
+      // This week average
+      const weekMins = weekLogs.map(l => l.completedAt ? toMinutesFromISO(l.completedAt) : null).filter((m): m is number => m !== null);
+      const weekAvg = weekMins.length > 0 ? minutesToHHmm(Math.round(weekMins.reduce((a, b) => a + b, 0) / weekMins.length)) : null;
+
+      // On-target count
+      const weekOnTarget = targetMins !== null
+        ? weekMins.filter(m => m <= targetMins).length
+        : 0;
+
+      // Previous week average
+      const prevMins = prevWeekLogs.map(l => l.completedAt ? toMinutesFromISO(l.completedAt) : null).filter((m): m is number => m !== null);
+      const prevAvg = prevMins.length > 0 ? minutesToHHmm(Math.round(prevMins.reduce((a, b) => a + b, 0) / prevMins.length)) : null;
+
+      // Trend (minutes diff)
+      const currentAvgMins = weekMins.length > 0 ? Math.round(weekMins.reduce((a, b) => a + b, 0) / weekMins.length) : null;
+      const prevAvgMins = prevMins.length > 0 ? Math.round(prevMins.reduce((a, b) => a + b, 0) / prevMins.length) : null;
+      const trend = currentAvgMins !== null && prevAvgMins !== null ? currentAvgMins - prevAvgMins : null;
+
+      // Per-day times for mini chart
+      const weekTimes: { day: string; time: string | null; minutes: number | null }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = subDays(today, i);
+        const key = format(d, 'yyyy-MM-dd');
+        const log = weekLogs.find(l => format(l.date, 'yyyy-MM-dd') === key);
+        if (log?.completedAt) {
+          const mins = toMinutesFromISO(log.completedAt);
+          weekTimes.push({ day: format(d, 'EEE'), time: minutesToHHmm(mins), minutes: mins });
+        } else {
+          weekTimes.push({ day: format(d, 'EEE'), time: null, minutes: null });
+        }
+      }
+
+      timeTrackedSummary.push({
+        id: habit.id,
+        name: habit.name,
+        icon: habit.icon,
+        color: habit.color,
+        targetTime: habit.targetTime,
+        todayTime,
+        todayDone: !!todayLog,
+        weekAvg,
+        weekOnTarget,
+        weekTotal: weekMins.length,
+        weekOnTargetRate: weekMins.length > 0 && targetMins !== null
+          ? Math.round((weekOnTarget / weekMins.length) * 100)
+          : 0,
+        prevAvg,
+        trend,
+        weekTimes,
+      });
+    }
+
+    // ── Last Done (habits with trackLastDone) ────────────────────────
+    const lastDoneHabits = habits.filter(h => h.trackLastDone);
+    const lastDoneSummary = [];
+
+    function intervalToDays(interval: string | null): number {
+      if (!interval) return 0;
+      const match = interval.match(/^(\d+)(d|w)$/);
+      if (!match) return 0;
+      const val = parseInt(match[1], 10);
+      return match[2] === 'w' ? val * 7 : val;
+    }
+
+    for (const habit of lastDoneHabits) {
+      const latestLog = await db.habitLog.findFirst({
+        where: { habitId: habit.id, completed: true },
+        orderBy: { date: 'desc' },
+      });
+      const intervalDays = intervalToDays(habit.lastDoneInterval);
+
+      if (!latestLog) {
+        lastDoneSummary.push({
+          id: habit.id,
+          name: habit.name,
+          icon: habit.icon,
+          color: habit.color,
+          interval: habit.lastDoneInterval,
+          intervalDays,
+          lastDate: null,
+          daysAgo: null,
+          completedAt: null,
+          overdue: intervalDays > 0,
+        });
+        continue;
+      }
+
+      const logJakarta = new Date(latestLog.date.getTime() + JAKARTA_OFFSET_MS);
+      const logDateOnly = new Date(logJakarta.getFullYear(), logJakarta.getMonth(), logJakarta.getDate());
+      const daysAgo = differenceInCalendarDays(today, logDateOnly);
+
+      let timeStr: string | null = null;
+      if (latestLog.completedAt) {
+        const tm = latestLog.completedAt.match(/T(\d{2}:\d{2})/);
+        if (tm) timeStr = tm[1];
+      }
+
+      lastDoneSummary.push({
+        id: habit.id,
+        name: habit.name,
+        icon: habit.icon,
+        color: habit.color,
+        interval: habit.lastDoneInterval,
+        intervalDays,
+        lastDate: latestLog.date,
+        daysAgo,
+        completedAt: timeStr,
+        overdue: intervalDays > 0 && daysAgo > intervalDays,
+      });
+    }
+
+    // Sort: overdue first, then by daysAgo desc, then never-done at bottom
+    lastDoneSummary.sort((a, b) => {
+      if (a.daysAgo === null && b.daysAgo === null) return 0;
+      if (a.daysAgo === null) return 1;
+      if (b.daysAgo === null) return -1;
+      if (a.overdue && !b.overdue) return -1;
+      if (!a.overdue && b.overdue) return 1;
+      return (b.daysAgo ?? 0) - (a.daysAgo ?? 0);
+    });
+
     return NextResponse.json({
       totalHabits,
       completionRate,
@@ -551,6 +734,10 @@ export async function GET(request: NextRequest) {
       weeklyPattern,
       // Finance
       financeOverview,
+      // Time-tracked habits
+      timeTrackedSummary,
+      // Last done habits
+      lastDoneSummary,
     });
   } catch (error) {
     console.error('GET /api/dashboard error:', error);
