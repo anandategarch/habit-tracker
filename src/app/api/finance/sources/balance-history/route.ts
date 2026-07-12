@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { format, subDays, differenceInCalendarDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 // Jakarta timezone
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -52,48 +52,31 @@ export async function GET(request: NextRequest) {
     }
 
     // For each source, calculate daily balance by working backwards from current balance
-    // balance_on_day_X = currentBalance - sum(netFlow from day X+1 to today)
+    // Formula: startBalance = currentBalance - sum(all netFlow in period)
+    // Then accumulate forward day by day: balance[i] = balance[i-1] + netFlow[i]
     const sourceResults = sources.map(src => {
-      // Calculate total net flow from startDate to today for this source
-      let futureNetFlow = 0; // net flow AFTER a given day
-      const dailyBalances: { date: string; balance: number; netFlow: number }[] = [];
-
-      // First pass: calculate cumulative net flow from end to start
-      // We'll iterate from today backwards
-      for (let i = days - 1; i >= 0; i--) {
-        const d = subDays(today, i);
-        const dateStr = format(d, 'yyyy-MM-dd');
-        const dayFlow = dailyNetFlow[dateStr]?.[src.name] || 0;
-        // balance on this day = currentBalance - futureNetFlow - dayFlow... 
-        // Actually: balance_on_day = currentBalance - sum_of_netFlow_from_day+1_to_today
-        // We need: balance on start date = currentBalance - all_netFlow_in_period
-        // balance on day X = balance_on_start + sum_of_netFlow_from_start_to_day_X
-      }
-
-      // Simpler approach: calculate period start balance, then accumulate forward
+      // Single pass: calculate periodNetFlow and collect daily data
       let periodNetFlow = 0;
+      const dailyData: { date: string; label: string; balance: number; netFlow: number }[] = [];
+
       for (let i = 0; i < days; i++) {
         const d = subDays(today, days - 1 - i);
         const dateStr = format(d, 'yyyy-MM-dd');
         const dayFlow = dailyNetFlow[dateStr]?.[src.name] || 0;
         periodNetFlow += dayFlow;
+        dailyData.push({
+          date: dateStr,
+          label: format(d, 'd MMM'),
+          balance: 0, // placeholder, set below after startBalance is known
+          netFlow: Math.round(dayFlow),
+        });
       }
 
       const startBalance = (src.balance || 0) - periodNetFlow;
       let runningBalance = startBalance;
-
-      const dailyData: { date: string; label: string; balance: number; netFlow: number }[] = [];
-      for (let i = 0; i < days; i++) {
-        const d = subDays(today, days - 1 - i);
-        const dateStr = format(d, 'yyyy-MM-dd');
-        const dayFlow = dailyNetFlow[dateStr]?.[src.name] || 0;
-        runningBalance += dayFlow;
-        dailyData.push({
-          date: dateStr,
-          label: format(d, 'd MMM'),
-          balance: Math.round(runningBalance),
-          netFlow: Math.round(dayFlow),
-        });
+      for (const point of dailyData) {
+        runningBalance += point.netFlow;
+        point.balance = Math.round(runningBalance);
       }
 
       // Period stats

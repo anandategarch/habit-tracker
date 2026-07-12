@@ -286,17 +286,17 @@ export async function GET(request: NextRequest) {
       budgetDiscipline = 50; // Neutral if no budgets
     }
 
-    // 4. Konsistensi (days with transactions / days in month)
-    const daysInMonth = jakartaNow.getDate();
+    // 4. Konsistensi (days with transactions / days elapsed this month)
+    const daysElapsed = jakartaNow.getDate();
     const daysWithTx = new Set(
       transactions
         .filter(t => {
           const td = new Date(t.date);
           return td >= thisMonthStart && td <= thisMonthEnd;
         })
-        .map(t => new Date(t.date).toISOString().slice(0, 10))
+        .map(t => toJakartaDateStr(new Date(t.date)))
     ).size;
-    const konsistensi = Math.min(100, Math.round((daysWithTx / daysInMonth) * 100));
+    const konsistensi = Math.min(100, Math.round((daysWithTx / daysElapsed) * 100));
 
     // 5. Keseimbangan (multiple income sources indicate diversified income)
     // Gradual scale: 1 source=25%, 2=50%, 3=75%, 4+=100%
