@@ -313,7 +313,7 @@ export default function Finance() {
 
   const openNewTx = (type: 'income' | 'expense') => {
     setEditingTx(null);
-    setTxForm({ type, amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], notes: '', source: 'Kas' });
+    setTxForm({ type, amount: '', category: '', description: '', date: format(new Date(), 'yyyy-MM-dd'), notes: '', source: 'Kas' });
     setTxDialogOpen(true);
   };
 
@@ -498,9 +498,9 @@ export default function Finance() {
 
   // ── Month Navigation ──────────────────────────────────────────────────────
 
-  const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(new Date(y, m - 2, 1).toISOString().slice(0, 7)); };
-  const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(new Date(y, m, 1).toISOString().slice(0, 7)); };
-  const goToThisMonth = () => { setSelectedMonth(new Date().toISOString().slice(0, 7)); };
+  const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m - 2, 1), 'yyyy-MM')); };
+  const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m, 1), 'yyyy-MM')); };
+  const goToThisMonth = () => { setSelectedMonth(format(new Date(), 'yyyy-MM')); };
   const monthLabel = useMemo(() => format(new Date(selectedMonth + '-01'), 'MMMM yyyy', { locale: idLocale }), [selectedMonth]);
 
   const monthOptions = useMemo(() => {
@@ -537,7 +537,7 @@ export default function Finance() {
     let currentGroup: typeof groups[0] | null = null;
     for (const tx of sorted) {
       const d = new Date(tx.date);
-      const dateKey = d.toISOString().split('T')[0];
+      const dateKey = format(d, 'yyyy-MM-dd');
       if (!currentGroup || currentGroup.dateKey !== dateKey) {
         currentGroup = { dateKey, dateLabel: format(d, 'd MMMM', { locale: idLocale }), dayName: format(d, 'EEEE', { locale: idLocale }), txs: [], totalIncome: 0, totalExpense: 0, net: 0 };
         groups.push(currentGroup);
@@ -578,7 +578,7 @@ export default function Finance() {
               {monthOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}><span className="capitalize">{opt.label}</span></SelectItem>))}
             </SelectContent>
           </Select>
-          {selectedMonth !== new Date().toISOString().slice(0, 7) && (
+          {selectedMonth !== format(new Date(), 'yyyy-MM') && (
             <Button variant="ghost" size="sm" className="text-xs h-7" onClick={goToThisMonth}>Hari ini</Button>
           )}
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
