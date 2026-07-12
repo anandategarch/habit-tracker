@@ -72,3 +72,27 @@ Stage Summary:
 - Dashboard shows last-done habits with overdue detection
 - Habit master has toggle for "Track Terakhir" with interval input
 - All lint passes clean
+---
+Task ID: 8
+Agent: main
+Task: Add saldo per sumber dana per periode feature
+
+Work Log:
+- Created /api/finance/sources/balance-history API endpoint
+  - Accepts period param: 7d, 1m, 3m
+  - Calculates daily balance per source by working backwards from current balance
+  - Returns: per-source current/start balance, period income/expense/change, daily data points
+- Created source-balance.tsx component
+  - Period filter tabs (7 Hari, 1 Bulan, 3 Bulan)
+  - Per-source cards: emoji, name, current balance, start balance, period change, % change
+  - Combined LineChart showing all sources overlaid with different colors
+  - Reference line at 0 for negative balance visibility
+  - Custom tooltip with formatted Rupiah
+  - Responsive grid layout
+- Added SourceBalanceSection to finance-overview.tsx (top of overview, before stat cards)
+
+Stage Summary:
+- Finance overview now shows "Saldo per Sumber Dana" section at the top
+- Users can filter by period (7d, 1m, 3m) 
+- Line chart shows balance trend across all fund sources
+- Balance calculated by reverse-engineering from current balance and transactions
