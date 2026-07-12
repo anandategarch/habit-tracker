@@ -143,7 +143,7 @@ export default function DashboardCharts({
                     className="text-muted-foreground"
                     axisLine={false}
                     tickLine={false}
-                    width={80}
+                    width={65}
                   />
                   <RechartsTooltip
                     contentStyle={{

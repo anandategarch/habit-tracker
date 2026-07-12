@@ -133,13 +133,12 @@ export default function FinanceTransactions({
                 {groupedTransactions.map(group => (
                   <div key={group.dateKey}>
                     {/* Date Header with Daily Total */}
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b sticky top-[37px] z-10">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-semibold">{group.dateLabel}</span>
-                        <span className="text-xs text-muted-foreground">, {capitalize(group.dayName)}</span>
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b sticky top-[37px] z-10 min-w-0 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-semibold truncate">{group.dateLabel}, {capitalize(group.dayName)}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs">
+                      <div className="flex items-center gap-1.5 text-xs shrink-0">
                         {group.totalIncome > 0 && (
                           <span className="text-primary font-medium">+{formatRupiah(group.totalIncome)}</span>
                         )}
@@ -164,23 +163,22 @@ export default function FinanceTransactions({
                           />
                           <span className="text-sm shrink-0">{meta.emoji}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-medium truncate">{tx.category}</span>
-                              <span className="text-muted-foreground text-[10px]">·</span>
-                              <span className="text-xs text-muted-foreground truncate">{tx.description || '-'}</span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                              {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
+                            <span className="text-xs font-medium truncate block">{tx.category}</span>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground truncate">{tx.description || ''}</span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
+                              </span>
                             </div>
                           </div>
                           <span className={cn('text-xs font-semibold shrink-0', tx.type === 'income' ? 'text-primary' : 'text-red-500')}>
                             {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
                           </span>
-                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEditTx(tx)}>
+                          <div className="flex gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6" onClick={() => onEditTx(tx)}>
                               <Edit3 className="h-3 w-3" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" onClick={() => onDeleteTx(tx.id)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 text-red-500 hover:text-red-600" onClick={() => onDeleteTx(tx.id)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>

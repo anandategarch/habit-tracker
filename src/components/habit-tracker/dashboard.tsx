@@ -814,13 +814,13 @@ export default function Dashboard() {
                       ))}
                     </div>
                     {/* Stats row */}
-                    <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-2 text-[10px] text-muted-foreground">
                       <span>Rata-rata: <strong className="text-foreground">{th.weekAvg || '-'}</strong></span>
                       {th.targetTime && (
                         <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
                       )}
                       {th.prevAvg && (
-                        <span>Minggu lalu: {th.prevAvg}</span>
+                        <span className="hidden sm:inline">Minggu lalu: {th.prevAvg}</span>
                       )}
                     </div>
                   </div>

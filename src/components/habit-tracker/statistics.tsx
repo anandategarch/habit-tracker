@@ -455,7 +455,7 @@ export default function Statistics() {
                   <YAxis
                     type="category"
                     dataKey="name"
-                    width={80}
+                    width={60}
                     tick={{ fontSize: 13, fill: 'hsl(var(--foreground))', fontWeight: 500 }}
                   />
                   <RechartsTooltip
