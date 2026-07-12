@@ -42,15 +42,14 @@ interface AnalysisResult {
   };
 }
 
+// Jakarta timezone offset
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
 function toMinutes(isoStr: string): number {
-  // Extract local time from ISO string (works with or without timezone offset)
-  // e.g. "2025-01-20T07:00:00+07:00" → 420, "2025-01-20T00:00:00.000Z" → 0
-  const timeMatch = isoStr.match(/T(\d{2}):(\d{2})/);
-  if (timeMatch) {
-    return parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10);
-  }
+  // Convert to Jakarta timezone (UTC+7) then extract hours and minutes
   const d = new Date(isoStr);
-  return d.getUTCHours() * 60 + d.getUTCMinutes();
+  const jakarta = new Date(d.getTime() + JAKARTA_OFFSET_MS);
+  return jakarta.getUTCHours() * 60 + jakarta.getUTCMinutes();
 }
 
 function minutesToHHmm(mins: number): string {
