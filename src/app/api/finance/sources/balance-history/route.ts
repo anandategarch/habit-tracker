@@ -62,13 +62,14 @@ export async function GET(request: NextRequest) {
       for (let i = 0; i < days; i++) {
         const d = subDays(today, days - 1 - i);
         const dateStr = format(d, 'yyyy-MM-dd');
-        const dayFlow = dailyNetFlow[dateStr]?.[src.name] || 0;
+        // Round BEFORE accumulating to ensure periodNetFlow and dailyData use the same values
+        const dayFlow = Math.round(dailyNetFlow[dateStr]?.[src.name] || 0);
         periodNetFlow += dayFlow;
         dailyData.push({
           date: dateStr,
           label: format(d, 'd MMM'),
           balance: 0, // placeholder, set below after startBalance is known
-          netFlow: Math.round(dayFlow),
+          netFlow: dayFlow,
         });
       }
 
@@ -78,14 +79,19 @@ export async function GET(request: NextRequest) {
         runningBalance += point.netFlow;
         point.balance = Math.round(runningBalance);
       }
+      // Safety anchor: force the last data point to exactly match currentBalance
+      // This prevents floating-point drift over many days
+      if (dailyData.length > 0) {
+        dailyData[dailyData.length - 1].balance = Math.round(src.balance || 0);
+      }
 
       // Period stats
-      const periodIncome = allTransactions
+      const periodIncome = Math.round(allTransactions
         .filter(t => t.source === src.name && t.type === 'income')
-        .reduce((s, t) => s + t.amount, 0);
-      const periodExpense = allTransactions
+        .reduce((s, t) => s + t.amount, 0));
+      const periodExpense = Math.round(allTransactions
         .filter(t => t.source === src.name && t.type === 'expense')
-        .reduce((s, t) => s + t.amount, 0);
+        .reduce((s, t) => s + t.amount, 0));
       const periodChange = periodIncome - periodExpense;
 
       return {
