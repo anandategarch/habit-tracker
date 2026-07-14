@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const endDate = new Date(jakartaNow.getFullYear(), jakartaNow.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const transactions = await db.transaction.findMany({
-      where: { date: { gte: startDate } },
+      where: { date: { gte: startDate, lte: endDate } },
       orderBy: { date: 'asc' },
     });
 
@@ -231,7 +231,8 @@ export async function GET(request: NextRequest) {
         category: cat,
         thisMonth: tm,
         lastMonth: lm,
-        change: lm > 0 ? Math.round(((tm - lm) / lm) * 100) : (tm > 0 ? 100 : 0),
+        // If lastMonth was 0 and thisMonth > 0, change is undefined; use 0 as sentinel
+        change: lm > 0 ? Math.round(((tm - lm) / lm) * 100) : 0,
       });
     });
     categoryComparison.sort((a, b) => b.thisMonth - a.thisMonth);
