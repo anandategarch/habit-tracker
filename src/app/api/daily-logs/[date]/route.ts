@@ -1,6 +1,5 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { startOfDay } from 'date-fns';
 
 // PUT /api/daily-logs/[date]
 export async function PUT(
@@ -10,7 +9,8 @@ export async function PUT(
   try {
     const { date: dateStr } = await params;
     const body = await request.json();
-    const dateObj = startOfDay(new Date(dateStr));
+    // Use explicit UTC midnight for consistent date storage
+    const dateObj = new Date(`${dateStr}T00:00:00Z`);
 
     const updateData: Record<string, unknown> = {};
     if (body.mood !== undefined) updateData.mood = body.mood;

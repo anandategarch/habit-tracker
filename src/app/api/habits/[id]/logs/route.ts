@@ -1,7 +1,8 @@
 import { db } from '@/lib/db';
 import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
-import { startOfDay } from 'date-fns';
+
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 // GET /api/habits/[id]/logs?month=2024-01
 export async function GET(
@@ -21,13 +22,19 @@ export async function GET(
     let startDate: Date;
     let endDate: Date;
 
+    // Use Jakarta time for date boundaries
+    const jakartaNow = new Date(Date.now() + JAKARTA_OFFSET_MS);
     if (month) {
-      startDate = new Date(`${month}-01`);
-      endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+      const [y, m] = month.split('-').map(Number);
+      startDate = new Date(Date.UTC(y, m - 1, 1));
+      const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
     } else {
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      endDate = new Date();
+      startDate = new Date(jakartaNow);
+      startDate.setUTCDate(startDate.getUTCDate() - 30);
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(jakartaNow);
+      endDate.setUTCHours(23, 59, 59, 999);
     }
 
     const logs = await db.habitLog.findMany({
@@ -56,7 +63,7 @@ export async function POST(
     const body = await request.json();
     const { date, completed, value, completedAt } = body;
 
-    const dateObj = startOfDay(new Date(date));
+    const dateObj = new Date(`${date}T00:00:00Z`);
 
     // Build the completedAt value (stored as ISO string)
     let completedAtStr: string | null = null;
@@ -69,7 +76,16 @@ export async function POST(
         return NextResponse.json({ error: 'Cannot set completion time more than 7 days ago' }, { status: 400 });
       }
     } else if (completed) {
-      completedAtStr = new Date().toISOString();
+      // Store with Jakarta offset for consistency with time-tracked habits
+      const nowUTC = new Date();
+      const jakartaMs = nowUTC.getTime() + JAKARTA_OFFSET_MS;
+      const jY = new Date(jakartaMs).getUTCFullYear();
+      const jM = new Date(jakartaMs).getUTCMonth();
+      const jD = new Date(jakartaMs).getUTCDate();
+      const jH = new Date(jakartaMs).getUTCHours();
+      const jMi = new Date(jakartaMs).getUTCMinutes();
+      const jS = new Date(jakartaMs).getUTCSeconds();
+      completedAtStr = `${jY}-${String(jM + 1).padStart(2, '0')}-${String(jD).padStart(2, '0')}T${String(jH).padStart(2, '0')}:${String(jMi).padStart(2, '0')}:${String(jS).padStart(2, '0')}+07:00`;
     }
 
     const log = await db.habitLog.upsert({
