@@ -121,7 +121,8 @@ function sleepLabel(hours: number): string {
 }
 
 function toDateString(isoLike: string): string {
-  return new Date(isoLike).toISOString().split('T')[0];
+  // Use date-fns format for reliable UTC date extraction (no timezone drift)
+  return format(new Date(isoLike), 'yyyy-MM-dd');
 }
 
 function timeDiffMinutes(time: string, target: string): number {

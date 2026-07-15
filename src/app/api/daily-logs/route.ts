@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { format, startOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth } from 'date-fns';
+
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 // GET /api/daily-logs?month=2024-01
 export async function GET(request: NextRequest) {
@@ -10,7 +12,8 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date');
 
     if (date) {
-      const dateObj = startOfDay(new Date(date));
+      // Use explicit UTC midnight for consistent date lookup
+      const dateObj = new Date(`${date}T00:00:00Z`);
       const log = await db.dailyLog.findUnique({
         where: { date: dateObj },
       });
@@ -20,13 +23,19 @@ export async function GET(request: NextRequest) {
     let startDate: Date;
     let endDate: Date;
 
+    // Use Jakarta time for date boundaries
+    const jakartaNow = new Date(Date.now() + JAKARTA_OFFSET_MS);
     if (month) {
-      startDate = startOfMonth(new Date(`${month}-01`));
-      endDate = endOfMonth(new Date(`${month}-01`));
+      const [y, m] = month.split('-').map(Number);
+      startDate = new Date(Date.UTC(y, m - 1, 1));
+      const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
     } else {
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      endDate = new Date();
+      startDate = new Date(jakartaNow);
+      startDate.setUTCDate(startDate.getUTCDate() - 30);
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(jakartaNow);
+      endDate.setUTCHours(23, 59, 59, 999);
     }
 
     const logs = await db.dailyLog.findMany({
@@ -51,7 +60,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid date is required' }, { status: 400 });
     }
 
-    const dateObj = startOfDay(new Date(date));
+    // Use explicit UTC midnight for consistent date storage
+    const dateObj = new Date(`${date}T00:00:00Z`);
 
     const log = await db.dailyLog.upsert({
       where: { date: dateObj },

@@ -2,6 +2,8 @@ import { db } from '@/lib/db';
 import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
 // GET /api/habits/batch-logs?month=2024-01&habitIds=id1,id2,id3
 export async function GET(request: NextRequest) {
   try {
@@ -33,20 +35,20 @@ export async function GET(request: NextRequest) {
     let startDate: Date;
     let endDate: Date;
 
+    // Use Jakarta time for date boundaries
+    const jakartaNow = new Date(Date.now() + JAKARTA_OFFSET_MS);
     if (month) {
-      startDate = new Date(`${month}-01`);
-      endDate = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-      );
+      // Date-only strings parse as UTC per spec; build both consistently
+      const [y, m] = month.split('-').map(Number);
+      startDate = new Date(Date.UTC(y, m - 1, 1));
+      const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
     } else {
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      endDate = new Date();
+      startDate = new Date(jakartaNow);
+      startDate.setUTCDate(startDate.getUTCDate() - 30);
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(jakartaNow);
+      endDate.setUTCHours(23, 59, 59, 999);
     }
 
     const logs = await db.habitLog.findMany({
