@@ -294,6 +294,8 @@ const DEFAULT_DATA: DashboardData = {
   stackedBarData: [],
   weeklyPattern: [],
   financeOverview: { totalIncome: 0, totalExpense: 0, netBalance: 0, transactionCount: 0, budgetWarning: 0, budgetExceeded: 0 },
+  timeTrackedSummary: [],
+  lastDoneSummary: [],
 };
 
 export default function Dashboard() {

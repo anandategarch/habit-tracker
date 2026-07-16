@@ -260,31 +260,45 @@ export async function GET(request: NextRequest) {
       : 100;
 
     // ── Badges ───────────────────────────────────────────────────────
-    const unlockedBadges = await db.badge.count({ where: { unlocked: true } });
-    const totalBadges = await db.badge.count();
+    let unlockedBadges = 0;
+    let totalBadges = 0;
+    try {
+      unlockedBadges = await db.badge.count({ where: { unlocked: true } });
+      totalBadges = await db.badge.count();
+    } catch { /* Badge table may not exist */ }
 
     // ── Challenge progress ───────────────────────────────────────────
-    const activeChallenges = await db.challenge.findMany({ where: { status: 'active' } });
-    const challengeProgress = activeChallenges.length > 0
-      ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
-      : 0;
+    let challengeProgress = 0;
+    try {
+      const activeChallenges = await db.challenge.findMany({ where: { status: 'active' } });
+      challengeProgress = activeChallenges.length > 0
+        ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
+        : 0;
+    } catch { /* Challenge table may not exist */ }
 
     // ── Goal progress ────────────────────────────────────────────────
-    const activeGoals = await db.goal.findMany({ where: { status: 'active' } });
-    const goalProgress = activeGoals.length > 0
-      ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
-      : 0;
+    let goalProgress = 0;
+    try {
+      const activeGoals = await db.goal.findMany({ where: { status: 'active' } });
+      goalProgress = activeGoals.length > 0
+        ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
+        : 0;
+    } catch { /* Goal table may not exist */ }
 
     // ── Mood & sleep averages (last 30 days) ─────────────────────────
-    const recentDailyLogs = await db.dailyLog.findMany({
-      where: { date: { gte: subDays(today, 30) } },
-    });
-    const moodAverage = recentDailyLogs.length > 0
-      ? (recentDailyLogs.reduce((s, l) => s + l.mood, 0) / recentDailyLogs.length).toFixed(1)
-      : '3.0';
-    const sleepAverage = recentDailyLogs.length > 0
-      ? (recentDailyLogs.reduce((s, l) => s + l.sleep, 0) / recentDailyLogs.length).toFixed(1)
-      : '7.0';
+    let moodAverage = '3.0';
+    let sleepAverage = '7.0';
+    try {
+      const recentDailyLogs = await db.dailyLog.findMany({
+        where: { date: { gte: subDays(today, 30) } },
+      });
+      moodAverage = recentDailyLogs.length > 0
+        ? (recentDailyLogs.reduce((s, l) => s + l.mood, 0) / recentDailyLogs.length).toFixed(1)
+        : '3.0';
+      sleepAverage = recentDailyLogs.length > 0
+        ? (recentDailyLogs.reduce((s, l) => s + l.sleep, 0) / recentDailyLogs.length).toFixed(1)
+        : '7.0';
+    } catch { /* DailyLog table may not exist */ }
 
     // ── Productivity score ───────────────────────────────────────────
     const productivityScore = Math.round(
