@@ -42,7 +42,7 @@ interface BadgeItem {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function Badges() {
-  const { refreshKey } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
 
   // Data
   const [badges, setBadges] = useState<BadgeItem[] | null>(null);

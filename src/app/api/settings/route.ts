@@ -21,12 +21,12 @@ export async function PUT(request: NextRequest) {
     if (!settings) {
       settings = await db.appSettings.create({
         data: {
-          ...(body.userName && { userName: body.userName }),
-          ...(body.theme && { theme: body.theme }),
-          ...(body.primaryColor && { primaryColor: body.primaryColor }),
-          ...(body.secondaryColor && { secondaryColor: body.secondaryColor }),
-          ...(body.weekStart && { weekStart: body.weekStart }),
-          ...(body.language && { language: body.language }),
+          ...(body.userName !== undefined && { userName: body.userName }),
+          ...(body.theme !== undefined && { theme: body.theme }),
+          ...(body.primaryColor !== undefined && { primaryColor: body.primaryColor }),
+          ...(body.secondaryColor !== undefined && { secondaryColor: body.secondaryColor }),
+          ...(body.weekStart !== undefined && { weekStart: body.weekStart }),
+          ...(body.language !== undefined && { language: body.language }),
           ...(body.targetCompletion !== undefined && { targetCompletion: body.targetCompletion }),
         },
       });

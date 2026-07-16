@@ -63,6 +63,10 @@ export async function POST(
     const body = await request.json();
     const { date, completed, value, completedAt } = body;
 
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
+    }
+
     const dateObj = new Date(`${date}T00:00:00Z`);
 
     // Build the completedAt value (stored as ISO string)

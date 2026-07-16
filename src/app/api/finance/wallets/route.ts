@@ -26,17 +26,16 @@ export async function GET() {
 
     const wallets = sources.map(s => {
       const tx = balanceMap[s.name] || { income: 0, expense: 0 };
-      const currentBalance = s.initialBalance + tx.income - tx.expense;
+      const currentBalance = s.balance + tx.income - tx.expense;
       return {
         id: s.id,
         name: s.name,
         emoji: s.emoji,
-        type: s.type,
-        initialBalance: s.initialBalance,
+        balance: s.balance,
         currentBalance: Math.round(currentBalance * 100) / 100,
         totalIncome: Math.round(tx.income * 100) / 100,
         totalExpense: Math.round(tx.expense * 100) / 100,
-        txCount: (balanceMap[s.name] ? 1 : 0) * 0 + transactions.filter(t => t.source === s.name).length,
+        txCount: transactions.filter(t => t.source === s.name).length,
       };
     });
 
@@ -49,8 +48,7 @@ export async function GET() {
         id: '',
         name: 'Kas',
         emoji: '💵',
-        type: 'tunai',
-        initialBalance: 0,
+        balance: 0,
         currentBalance: Math.round((kasIncome - kasExpense) * 100) / 100,
         totalIncome: Math.round(kasIncome * 100) / 100,
         totalExpense: Math.round(kasExpense * 100) / 100,

@@ -564,31 +564,35 @@ export async function GET(request: NextRequest) {
       return `${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
     }
 
+    // Bulk-fetch all time-tracked logs (this week + last week) in one query
+    const timeHabitIds = timeHabits.map(h => h.id);
+    const allTimeLogs = timeHabitIds.length > 0
+      ? await db.habitLog.findMany({
+          where: {
+            habitId: { in: timeHabitIds },
+            completed: true,
+            completedAt: { not: null },
+            date: { gte: subDays(weekStart, 7), lte: weekEnd },
+          },
+          orderBy: { date: 'asc' },
+        })
+      : [];
+
+    // Group by habitId
+    const timeLogsByHabit = new Map<string, typeof allTimeLogs>();
+    for (const log of allTimeLogs) {
+      if (!timeLogsByHabit.has(log.habitId)) timeLogsByHabit.set(log.habitId, []);
+      timeLogsByHabit.get(log.habitId)!.push(log);
+    }
+
     for (const habit of timeHabits) {
       const targetMins = habit.targetTime
         ? (() => { const [h, m] = habit.targetTime!.split(':').map(Number); return h * 60 + m; })()
         : null;
 
-      // Fetch this week's completed logs with time
-      const weekLogs = await db.habitLog.findMany({
-        where: {
-          habitId: habit.id,
-          date: { gte: weekStart, lte: weekEnd },
-          completed: true,
-          completedAt: { not: null },
-        },
-        orderBy: { date: 'asc' },
-      });
-
-      // Fetch last week's logs
-      const prevWeekLogs = await db.habitLog.findMany({
-        where: {
-          habitId: habit.id,
-          date: { gte: subDays(weekStart, 7), lte: subDays(weekStart, 1) },
-          completed: true,
-          completedAt: { not: null },
-        },
-      });
+      const habitTimeLogs = timeLogsByHabit.get(habit.id) || [];
+      const weekLogs = habitTimeLogs.filter(l => l.date >= weekStart && l.date <= weekEnd);
+      const prevWeekLogs = habitTimeLogs.filter(l => l.date >= subDays(weekStart, 7) && l.date <= subDays(weekStart, 1));
 
       // Today's time
       const todayLog = weekLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
@@ -658,11 +662,19 @@ export async function GET(request: NextRequest) {
       return match[2] === 'w' ? val * 7 : val;
     }
 
+    // Bulk-fetch latest completed log for each last-done habit
+    const lastDoneIds = lastDoneHabits.map(h => h.id);
+    const latestLogs = lastDoneIds.length > 0
+      ? await db.habitLog.findMany({
+          where: { habitId: { in: lastDoneIds }, completed: true },
+          distinct: ['habitId'],
+          orderBy: { date: 'desc' },
+        })
+      : [];
+    const latestLogMap = new Map(latestLogs.map(l => [l.habitId, l]));
+
     for (const habit of lastDoneHabits) {
-      const latestLog = await db.habitLog.findFirst({
-        where: { habitId: habit.id, completed: true },
-        orderBy: { date: 'desc' },
-      });
+      const latestLog = latestLogMap.get(habit.id) || null;
       const intervalDays = intervalToDays(habit.lastDoneInterval);
 
       if (!latestLog) {

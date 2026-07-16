@@ -71,7 +71,7 @@ const STATUS_CONFIG: Record<
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function Rewards() {
-  const { refreshKey } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
 
   // Data
   const [rewards, setRewards] = useState<Reward[] | null>(null);

@@ -119,7 +119,8 @@ const EMPTY_FORM: GoalFormData = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function GoalsTab() {
-  const { refreshKey, triggerRefresh } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const { priorityMap } = useHabitOptions();
 
   const [goals, setGoals] = useState<Goal[] | null>(null);

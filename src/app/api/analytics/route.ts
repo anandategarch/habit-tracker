@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30'; // days
     const today = jakartaToday();
-    const daysBack = parseInt(period) || 30;
+    const daysBack = Math.min(parseInt(period) || 30, 365);
     const startDate = subDays(today, daysBack);
 
     // Get all habits and logs in the period

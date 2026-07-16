@@ -168,7 +168,9 @@ function toLocalISO(date: Date): string {
 // ---------------------------------------------------------------------------
 
 export default function DailyTracker() {
-  const { selectedDate, setSelectedDate, refreshKey } = useAppStore();
+  const selectedDate = useAppStore(s => s.selectedDate);
+  const setSelectedDate = useAppStore(s => s.setSelectedDate);
+  const refreshKey = useAppStore(s => s.refreshKey);
   const { xpMap, priorityMap, categoryMap } = useHabitOptions();
 
   // ---- state ----
@@ -422,8 +424,10 @@ export default function DailyTracker() {
     }
   }, []);
 
-  const fetchCompletions = useCallback(
-    async (habitList: Habit[], date: string) => {
+  // Not wrapped in useCallback — receives habitList and date as params so no
+  // stale-closure risk, and removing the memo avoids accidentally forgetting
+  // to update deps if outer-scope reads are added later.
+  const fetchCompletions = async (habitList: Habit[], date: string) => {
       const month = date.slice(0, 7);
 
       // Re-use cache when month hasn't changed
@@ -479,9 +483,7 @@ export default function DailyTracker() {
       cachedMonthRef.current = month;
       setCompletionMap(map);
       setCompletedAtMap(atMap);
-    },
-    [],
-  );
+  };
 
   // ---- debounced save ----
 

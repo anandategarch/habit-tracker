@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get('months') || '6', 10);
+    const months = Math.min(parseInt(searchParams.get('months') || '6', 10), 24);
 
     const now = new Date();
     // Use Jakarta timezone offset (UTC+7) to get current date in Jakarta

@@ -83,7 +83,8 @@ const EMOJI_OPTIONS = [
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function LearningTab() {
-  const { refreshKey, triggerRefresh } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
 
   const [topics, setTopics] = useState<LearningTopic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>('');

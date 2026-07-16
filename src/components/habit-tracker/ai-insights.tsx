@@ -170,7 +170,7 @@ function EmptyState() {
 }
 
 export default function AIInsights() {
-  const { refreshKey } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
   const [data, setData] = useState<AIInsightsData | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const loading = data === null && !fetchError;

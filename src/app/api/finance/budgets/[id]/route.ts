@@ -11,9 +11,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const budget = await db.budget.update({
       where: { id },
       data: {
-        ...(category && { category: category.trim() }),
-        ...(amount && { amount: parseFloat(amount) }),
-        ...(period && { period }),
+        ...(category !== undefined && { category: category.trim() }),
+        ...(amount !== undefined && { amount: parseFloat(amount) }),
+        ...(period !== undefined && { period }),
       },
     });
 

@@ -195,7 +195,8 @@ function getSleepColor(sleep: number): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function JournalTab() {
-  const { refreshKey, triggerRefresh } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
 
   const [journals, setJournals] = useState<Journal[] | null>(null);
   const [loading, setLoading] = useState(true);

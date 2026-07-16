@@ -45,6 +45,8 @@ model Habit {
   updatedAt   DateTime @updatedAt
   logs        HabitLog[]
   group       HabitGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([status, order])
 }
 
 model HabitLog {
@@ -59,6 +61,7 @@ model HabitLog {
   habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, date])
+  @@index([completed])
 }
 
 model DailyLog {
@@ -174,6 +177,11 @@ model Transaction {
   source      String   @default("Kas")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([type, date])
+  @@index([source, date])
+  @@index([category])
 }
 
 model Budget {

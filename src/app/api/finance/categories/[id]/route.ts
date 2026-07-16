@@ -20,9 +20,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const category = await db.financeCategory.update({
       where: { id },
       data: {
-        ...(name && { name: newName }),
-        ...(emoji && { emoji }),
-        ...(color && { color }),
+        ...(name !== undefined && { name: newName }),
+        ...(emoji !== undefined && { emoji }),
+        ...(color !== undefined && { color }),
         ...(order !== undefined && { order }),
         ...(trackLastDone !== undefined && { trackLastDone: !!trackLastDone }),
       },

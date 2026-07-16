@@ -12,25 +12,55 @@ export async function ensureTimeTrackingColumns(): Promise<void> {
   // trackTime, targetTime on Habit
   try {
     await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "trackTime" BOOLEAN NOT NULL DEFAULT 0');
-  } catch { /* duplicate column → already exists */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('duplicate column') && !msg.includes('already exists')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
   try {
     await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "targetTime" TEXT');
-  } catch { /* duplicate column → already exists */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('duplicate column') && !msg.includes('already exists')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
   // completedAt on HabitLog
   try {
     await db.$executeRawUnsafe('ALTER TABLE "HabitLog" ADD COLUMN "completedAt" TEXT');
-  } catch { /* duplicate column → already exists */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('duplicate column') && !msg.includes('already exists')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
   // trackLastDone, lastDoneInterval on Habit
   try {
     await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "trackLastDone" BOOLEAN NOT NULL DEFAULT 0');
-  } catch { /* duplicate column → already exists */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('duplicate column') && !msg.includes('already exists')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
   try {
     await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "lastDoneInterval" TEXT');
-  } catch { /* duplicate column → already exists */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('duplicate column') && !msg.includes('already exists')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
   // groupId on Habit
   try {
     await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "groupId" TEXT');
-  } catch { /* duplicate column → already exists */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('duplicate column') && !msg.includes('already exists')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
   // HabitGroup table
   try {
     await db.$executeRawUnsafe(`
@@ -44,10 +74,12 @@ export async function ensureTimeTrackingColumns(): Promise<void> {
         "updatedAt" DATETIME NOT NULL
       );
     `);
-  } catch { /* table already exists */ }
-  // Add FK column to HabitGroup for habits relation (reverse FK)
-  try {
-    await db.$executeRawUnsafe(`ALTER TABLE "Habit" ADD CONSTRAINT "Habit_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "HabitGroup"("id") ON DELETE SET NULL`);
-  } catch { /* constraint already exists or column not yet ready */ }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.includes('already exists') && !msg.includes('table')) {
+      console.error('ensure-columns error:', msg);
+    }
+  }
+
   ensured = true;
 }

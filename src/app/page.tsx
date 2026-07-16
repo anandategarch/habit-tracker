@@ -63,7 +63,10 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 };
 
 export default function Home() {
-  const { activeTab, setActiveTab, sidebarOpen, setSidebarOpen } = useAppStore();
+  const activeTab = useAppStore(s => s.activeTab);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const sidebarOpen = useAppStore(s => s.sidebarOpen);
+  const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
   const [dateString, setDateString] = useState(() =>
     typeof window !== 'undefined'
       ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
