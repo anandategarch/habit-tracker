@@ -27,8 +27,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const source = await db.fundSource.update({
       where: { id },
       data: {
-        ...(name && { name: newName }),
-        ...(emoji && { emoji }),
+        ...(name !== undefined && { name: newName }),
+        ...(emoji !== undefined && { emoji }),
       },
     });
 

@@ -127,3 +127,83 @@ Stage Summary:
 - Groups can be created with name, emoji, and color; deleted via X on chips
 - Habit create/edit dialog now has "Grup" dropdown to assign habits to groups
 - Lint passes clean with zero errors
+---
+Task ID: 5b-5d
+Agent: fix-api-critical
+Task: Fix wallets NaN, reset-all atomicity, debug-db credential leak
+
+Work Log:
+- Fixed wallets route to use actual FundSource schema fields
+- Wrapped reset-all deletes in db.$transaction
+- Removed DATABASE_URL and stack traces from debug-db response
+
+Stage Summary:
+- Wallets now return correct balances
+- Reset-all is atomic
+- No credential leakage in debug-db
+---
+Task ID: 6a-6b
+Agent: fix-falsy-indexes
+Task: Fix falsy check bugs and add missing DB indexes
+
+Work Log:
+- Fixed falsy && to !== undefined in transactions, budgets, categories, sources PUT handlers
+- Added indexes to Transaction, Habit, HabitLog in schema
+- Ran db:push
+
+Stage Summary:
+- Can now set amount to 0 in finance APIs
+- Query performance improved with new indexes
+---
+Task ID: 6c-6e
+Agent: fix-performance
+Task: Fix dashboard N+1 queries and calendar view N+1 + broken retry
+
+Work Log:
+- Refactored dashboard time-tracked loop to batch query
+- Refactored dashboard last-done loop to batch query  
+- Fixed calendar-view to use batch-logs endpoint
+- Fixed calendar-view retry button to re-trigger fetch
+
+Stage Summary:
+- Dashboard reduced from ~2N+1 queries to 3 queries
+- Calendar view reduced from N API calls to 1 batch call
+- Retry button now works correctly
+---
+Task ID: 5a
+Agent: fix-daily-tracker
+Task: Fix stale closure in fetchCompletionData + setTimeout cleanup
+
+Work Log:
+- Read daily-tracker.tsx
+- Found fetchCompletions useCallback with [] deps — function already receives habitList/date as params (partially mitigated), but useCallback wrapper with [] deps is still a footgun for future modifications
+- Fixed by removing the useCallback wrapper entirely, making fetchCompletions a plain async function with an explanatory comment
+- Verified saveTimerRef cleanup on unmount — already present at line 674: `useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);`
+- Verified useCallback import still used (fetchGroups, fetchHabits, fetchDailyLog, debouncedSave) — no unused import
+- No TypeScript or lint errors introduced
+
+Stage Summary:
+- fetchCompletions is now a plain async function — no stale closure risk now or in the future
+- debouncedSave timer cleanup on unmount was already correctly implemented
+
+---
+Task ID: 6f-7
+Agent: fix-remaining
+Task: Fix ensure-columns, store selectors, toast typo, date validation, param clamping
+
+Work Log:
+- Removed unsupported FK constraint (ALTER TABLE ADD CONSTRAINT ... FOREIGN KEY) from ensure-columns.ts
+- Added error logging to all 7 catch blocks in ensure-columns.ts — unexpected errors now console.error instead of being silently swallowed
+- Fixed all 15 useAppStore() calls to use individual selectors across component files
+- Fixed TOAST_REMOVE_DELAY from 1000000 to 5000 (17min → 5s)
+- Fixed use-toast useEffect dependency array from [state] to []
+- Added YYYY-MM-DD date format validation to habit log POST endpoint
+- Clamped months param to max 24 in finance analytics route
+- Clamped daysBack param to max 365 in analytics route
+
+Stage Summary:
+- All ensure-columns errors now logged (only duplicate/already-exists are silently ignored)
+- 15 components no longer re-render on unrelated store state changes
+- Toast auto-dismisses in 5s instead of ~17 minutes
+- Habit log POST rejects invalid date formats with clear 400 error
+- API analytics params are clamped to safe ranges preventing excessive queries

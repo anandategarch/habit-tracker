@@ -146,7 +146,7 @@ function previewTheme(primary: string, secondary: string, theme: string) {
 }
 
 export default function Settings() {
-  const { triggerRefresh } = useAppStore();
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

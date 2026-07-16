@@ -299,7 +299,7 @@ const DEFAULT_DATA: DashboardData = {
 };
 
 export default function Dashboard() {
-  const { refreshKey } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
   const [data, setData] = useState<DashboardData | null>(null);
   const [period, setPeriod] = useState<Period>('all');
   const [quote, setQuote] = useState<MotivationalQuote | null>(null);

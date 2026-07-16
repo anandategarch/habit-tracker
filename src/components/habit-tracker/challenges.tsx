@@ -110,7 +110,7 @@ const STATUS_CONFIG: Record<
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function Challenges() {
-  const { refreshKey } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
 
   // Data
   const [challenges, setChallenges] = useState<Challenge[] | null>(null);

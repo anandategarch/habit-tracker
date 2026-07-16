@@ -108,7 +108,10 @@ import {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function Finance() {
-  const { selectedMonth, setSelectedMonth, refreshKey, triggerRefresh } = useAppStore();
+  const selectedMonth = useAppStore(s => s.selectedMonth);
+  const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
+  const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const [activeSubTab, setActiveSubTab] = useState('overview');
 
   // Shared data (fetched on mount)

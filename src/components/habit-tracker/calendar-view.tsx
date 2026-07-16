@@ -110,12 +110,14 @@ function generateMonthOptions(): { value: string; label: string }[] {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function CalendarView() {
-  const { selectedMonth, setSelectedMonth } = useAppStore();
+  const selectedMonth = useAppStore(s => s.selectedMonth);
+  const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const [loading, startLoadingTransition] = useTransition();
   const [fetchError, setFetchError] = useState(false);
+  const [fetchKey, setFetchKey] = useState(0);
 
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
@@ -149,17 +151,21 @@ export default function CalendarView() {
         setDailyLogs(dailyData);
         setFetchError(false);
 
-        // Fetch logs for each habit
+        // Fetch all habit logs in a single batch request
         if (habitsData.length > 0) {
-          const allLogs = await Promise.all(
-            habitsData.map((h: Habit) =>
-              fetch(`/api/habits/${h.id}/logs?month=${monthStr}`)
-                .then((r) => (r.ok ? r.json() : []))
-                .catch(() => [])
-            )
-          );
-          if (!cancelled) {
-            setHabitLogs(allLogs.flat());
+          const ids = habitsData.map((h: Habit) => h.id);
+          try {
+            const batchRes = await fetch(`/api/habits/batch-logs?month=${monthStr}&habitIds=${ids.join(',')}`);
+            if (batchRes.ok) {
+              const groupedLogs: Record<string, HabitLog[]> = await batchRes.json();
+              if (!cancelled) {
+                setHabitLogs(Object.values(groupedLogs).flat());
+              }
+            } else {
+              if (!cancelled) setHabitLogs([]);
+            }
+          } catch {
+            if (!cancelled) setHabitLogs([]);
           }
         } else {
           setHabitLogs([]);
@@ -173,7 +179,7 @@ export default function CalendarView() {
     return () => {
       cancelled = true;
     };
-  }, [selectedMonth]);
+  }, [selectedMonth, fetchKey]);
 
   // ── Build daily log lookup ─────────────────────────────────────────────
   const dailyLogMap = useMemo(() => {
@@ -327,7 +333,7 @@ export default function CalendarView() {
       {fetchError && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-sm text-muted-foreground">Gagal memuat data kalender</p>
-          <Button variant="outline" size="sm" onClick={() => setFetchError(false)}>
+          <Button variant="outline" size="sm" onClick={() => { setFetchError(false); setFetchKey(k => k + 1); }}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Coba Lagi
           </Button>

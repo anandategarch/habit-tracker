@@ -182,7 +182,8 @@ function habitToForm(h: Habit): HabitFormData {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function HabitMaster() {
-  const { refreshKey, triggerRefresh } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const { categories, priorities, difficulties, categoryMap, priorityMap, difficultyMap } = useHabitOptions();
 
   // Data state

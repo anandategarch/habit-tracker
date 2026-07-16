@@ -211,7 +211,7 @@ function LoadingSkeleton() {
 }
 
 export default function Statistics() {
-  const { refreshKey } = useAppStore();
+  const refreshKey = useAppStore(s => s.refreshKey);
   const [data, setData] = useState<StatisticsData | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [period, setPeriod] = useState<Period>('all');

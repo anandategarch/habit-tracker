@@ -26,11 +26,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const transaction = await db.transaction.update({
       where: { id },
       data: {
-        ...(type && { type }),
-        ...(amount && { amount: parseFloat(amount) }),
-        ...(category && { category: category.trim() }),
+        ...(type !== undefined && { type }),
+        ...(amount !== undefined && { amount: parseFloat(amount) }),
+        ...(category !== undefined && { category: category.trim() }),
         ...(description !== undefined && { description: description?.trim() || null }),
-        ...(date && { date: new Date(date) }),
+        ...(date !== undefined && { date: new Date(date) }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
         ...(source !== undefined && { source: source?.trim() || 'Kas' }),
       },
