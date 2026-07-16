@@ -59,7 +59,15 @@ import {
   ListFilter,
   Clock,
   History,
+  X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
@@ -88,8 +96,18 @@ interface Habit {
   targetTime: string | null;
   trackLastDone: boolean;
   lastDoneInterval: string | null;
+  groupId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface HabitGroup {
+  id: string;
+  name: string;
+  emoji: string | null;
+  color: string | null;
+  order: number;
+  _count: { habits: number };
 }
 
 type HabitFormData = Omit<Habit, 'id' | 'createdAt' | 'updatedAt'>;
@@ -100,6 +118,10 @@ const TARGET_TYPES = ['daily', 'weekly', 'monthly'] as const;
 const STATUSES = ['active', 'paused', 'archived'] as const;
 
 const DEFAULT_EMOJIS = ['🎯', '💪', '📚', '🧘', '🏃', '💧', '🍎', '💤', '✍️', '🎨'];
+
+const GROUP_EMOJIS = ['🌅', '🏃‍♂️', '💪', '📖', '🧘', '💤', '🧹', '🍳', '💼', '📱', '🎯', '📝', '🏠', '💧', '💊', '✨', '🌟'];
+
+const GROUP_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
@@ -129,6 +151,7 @@ function emptyForm(): HabitFormData {
     targetTime: '',
     trackLastDone: false,
     lastDoneInterval: '',
+    groupId: null,
   };
 }
 
@@ -152,6 +175,7 @@ function habitToForm(h: Habit): HabitFormData {
     targetTime: h.targetTime ?? '',
     trackLastDone: h.trackLastDone ?? false,
     lastDoneInterval: h.lastDoneInterval ?? '',
+    groupId: h.groupId ?? null,
   };
 }
 
@@ -187,6 +211,16 @@ export default function HabitMaster() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [formEmojiPicker, setFormEmojiPicker] = useState(false);
 
+  // Groups
+  const [groups, setGroups] = useState<HabitGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [groupsOpen, setGroupsOpen] = useState(true);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupEmoji, setNewGroupEmoji] = useState('📌');
+  const [newGroupColor, setNewGroupColor] = useState('#22c55e');
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [showGroupEmojiPicker, setShowGroupEmojiPicker] = useState(false);
+
   // ── Fetch habits ─────────────────────────────────────────────────────────
 
   const fetchHabits = useCallback(async () => {
@@ -207,6 +241,63 @@ export default function HabitMaster() {
   useEffect(() => {
     fetchHabits();
   }, [fetchHabits, refreshKey]);
+
+  // ── Fetch groups ─────────────────────────────────────────────────────────
+
+  const fetchGroups = useCallback(async () => {
+    setGroupsLoading(true);
+    try {
+      const res = await fetch('/api/habit-groups');
+      if (!res.ok) throw new Error('Failed to fetch groups');
+      const data = await res.json();
+      setGroups(data);
+    } catch {
+      // silent fail for groups
+    } finally {
+      setGroupsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  async function handleCreateGroup() {
+    if (!newGroupName.trim()) return;
+    setAddingGroup(true);
+    try {
+      const res = await fetch('/api/habit-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newGroupName.trim(),
+          emoji: newGroupEmoji || null,
+          color: newGroupColor || null,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create group');
+      toast.success('Grup berhasil dibuat');
+      setNewGroupName('');
+      setNewGroupEmoji('📌');
+      setNewGroupColor('#22c55e');
+      fetchGroups();
+    } catch {
+      toast.error('Gagal membuat grup');
+    } finally {
+      setAddingGroup(false);
+    }
+  }
+
+  async function handleDeleteGroup(id: string) {
+    try {
+      const res = await fetch(`/api/habit-groups?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete group');
+      toast.success('Grup berhasil dihapus');
+      fetchGroups();
+    } catch {
+      toast.error('Gagal menghapus grup');
+    }
+  }
 
   // ── Filtered habits ─────────────────────────────────────────────────────
 
@@ -252,6 +343,7 @@ export default function HabitMaster() {
         targetTime: form.targetTime || null,
         trackLastDone: form.trackLastDone,
         lastDoneInterval: form.lastDoneInterval || null,
+        groupId: form.groupId || null,
       };
 
       if (editingId) {
@@ -484,7 +576,7 @@ export default function HabitMaster() {
                 </div>
               </div>
 
-              {/* Row: Category + Priority + Difficulty */}
+              {/* Row: Category + Priority + Grup */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Category</Label>
@@ -523,18 +615,19 @@ export default function HabitMaster() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Difficulty</Label>
+                  <Label>Grup</Label>
                   <Select
-                    value={form.difficulty}
-                    onValueChange={(v) => updateForm('difficulty', v)}
+                    value={form.groupId || '__none__'}
+                    onValueChange={(v) => updateForm('groupId', v === '__none__' ? null : v)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Tanpa Grup" />
                     </SelectTrigger>
                     <SelectContent>
-                      {difficulties.map((d) => (
-                        <SelectItem key={d.name} value={d.name}>
-                          {d.name}
+                      <SelectItem value="__none__">Tanpa Grup</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.emoji || '📌'} {g.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -571,6 +664,28 @@ export default function HabitMaster() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Difficulty</Label>
+                  <Select
+                    value={form.difficulty}
+                    onValueChange={(v) => updateForm('difficulty', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {difficulties.map((d) => (
+                        <SelectItem key={d.name} value={d.name}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Row: Color + Reminder + Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Color</Label>
                   <div className="flex items-center gap-2">
@@ -854,6 +969,135 @@ export default function HabitMaster() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Habit Groups ────────────────────────────────────────────────── */}
+      <Collapsible open={groupsOpen} onOpenChange={setGroupsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-accent/50 transition-colors rounded-t-lg"
+            >
+              <div className="flex items-center gap-2">
+                {groupsOpen ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm font-semibold">Habit Groups</span>
+                {!groupsLoading && groups.length > 0 && (
+                  <Badge variant="secondary" className="text-[11px] px-1.5 py-0 h-5">
+                    {groups.length}
+                  </Badge>
+                )}
+              </div>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0 pb-4 px-4">
+              {/* Inline form */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="h-8 w-8 flex items-center justify-center rounded-md border bg-background text-base hover:bg-accent transition-colors shrink-0"
+                    onClick={() => setShowGroupEmojiPicker(!showGroupEmojiPicker)}
+                  >
+                    {newGroupEmoji}
+                  </button>
+                  {showGroupEmojiPicker && (
+                    <div className="absolute top-full mt-1 z-50 bg-popover border rounded-lg shadow-lg p-2 flex flex-wrap gap-1 w-56">
+                      {GROUP_EMOJIS.map((e) => (
+                        <button
+                          key={e}
+                          type="button"
+                          className="text-xl hover:bg-accent rounded p-1 transition-colors"
+                          onClick={() => {
+                            setNewGroupEmoji(e);
+                            setShowGroupEmojiPicker(false);
+                          }}
+                        >
+                          {e}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground p-1"
+                        onClick={() => setShowGroupEmojiPicker(false)}
+                      >
+                        close
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <Input
+                  placeholder="Nama grup baru..."
+                  className="flex-1 h-8 text-sm"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateGroup();
+                  }}
+                  disabled={addingGroup}
+                />
+                <input
+                  type="color"
+                  value={newGroupColor}
+                  onChange={(e) => setNewGroupColor(e.target.value)}
+                  className="h-8 w-8 rounded-md border cursor-pointer bg-transparent p-0.5 shrink-0"
+                />
+                <Button
+                  onClick={handleCreateGroup}
+                  disabled={addingGroup || !newGroupName.trim()}
+                  className="bg-primary hover:bg-primary text-white h-8 gap-1 shrink-0"
+                  size="sm"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Tambah
+                </Button>
+              </div>
+
+              {/* Group chips */}
+              {groupsLoading ? (
+                <div className="flex gap-2 flex-wrap">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-7 w-24 bg-muted animate-pulse rounded-full" />
+                  ))}
+                </div>
+              ) : groups.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Belum ada grup. Buat grup pertamamu di atas.</p>
+              ) : (
+                <div className="flex gap-2 flex-wrap">
+                  {groups.map((g) => (
+                    <span
+                      key={g.id}
+                      className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium border transition-colors"
+                      style={{
+                        borderColor: g.color ? `${g.color}40` : undefined,
+                        backgroundColor: g.color ? `${g.color}10` : undefined,
+                        color: g.color || undefined,
+                      }}
+                    >
+                      <span>{g.emoji || '📌'}</span>
+                      <span>{g.name}</span>
+                      {g._count.habits > 0 && (
+                        <span className="text-[10px] opacity-60">({g._count.habits})</span>
+                      )}
+                      <button
+                        type="button"
+                        className="ml-0.5 h-4 w-4 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        onClick={() => handleDeleteGroup(g.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* ── Desktop Table ──────────────────────────────────────────────── */}
       {loading ? (

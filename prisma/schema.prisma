@@ -9,6 +9,17 @@ datasource db {
 
 // ==================== HABIT TRACKER PROFESSIONAL V2 ====================
 
+model HabitGroup {
+  id        String  @id @default(cuid())
+  name      String
+  emoji     String  @default("📁")
+  color     String  @default("#22c55e")
+  order     Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  habits    Habit[]
+}
+
 model Habit {
   id          String   @id @default(cuid())
   name        String
@@ -29,9 +40,11 @@ model Habit {
   targetTime     String?  // format "HH:mm", e.g. "05:30"
   trackLastDone  Boolean  @default(false)
   lastDoneInterval String? // format "Xd" or "Xw", e.g. "3d", "1w"
+  groupId        String?
   createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
   logs        HabitLog[]
+  group       HabitGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
 }
 
 model HabitLog {

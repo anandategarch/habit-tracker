@@ -145,6 +145,33 @@ export async function GET() {
       }
     }
 
+    // 10. Create HabitGroup table + add groupId to Habit
+    try {
+      await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "HabitGroup" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "emoji" TEXT NOT NULL DEFAULT '📁',
+        "color" TEXT NOT NULL DEFAULT '#22c55e',
+        "order" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      )`);
+      results.push('HabitGroup table created/verified');
+    } catch (e: unknown) {
+      results.push(`HabitGroup table: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      await db.$executeRawUnsafe('ALTER TABLE "Habit" ADD COLUMN "groupId" TEXT REFERENCES "HabitGroup"("id") ON DELETE SET NULL');
+      results.push('Added groupId column to Habit');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate column name')) {
+        results.push('Column "groupId" already exists in Habit');
+      } else {
+        results.push(`Habit groupId migration skipped: ${msg}`);
+      }
+    }
+
     // 9. Seed default sources if empty
     try {
       const count = await db.fundSource.count();
