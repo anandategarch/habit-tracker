@@ -230,34 +230,6 @@ export default function DailyTracker() {
     return 'night';
   }
 
-  // Group habits by group or time slot
-  const groupedHabits = useMemo(() => {
-    const list = filteredHabits;
-    if (viewMode === 'group') {
-      const map = new Map<string, Habit[]>();
-      for (const h of list) {
-        const key = h.groupId || '__none__';
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(h);
-      }
-      return map;
-    }
-    if (viewMode === 'time') {
-      const map = new Map<string, Habit[]>();
-      for (const h of list) {
-        const key = getTimeSlot(h.targetTime);
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(h);
-      }
-      // Sort within each time slot by targetTime
-      for (const [, arr] of map) {
-        arr.sort((a, b) => (a.targetTime || '99:99').localeCompare(b.targetTime || '99:99'));
-      }
-      return map;
-    }
-    return null;
-  }, [filteredHabits, viewMode]);
-
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
@@ -357,6 +329,34 @@ export default function DailyTracker() {
     if (categoryFilter !== 'all') list = list.filter((h) => h.category === categoryFilter);
     return list;
   }, [activeHabits, completionMap, viewFilter, categoryFilter]);
+
+  // Group habits by group or time slot (must be after filteredHabits)
+  const groupedHabits = useMemo(() => {
+    const list = filteredHabits;
+    if (viewMode === 'group') {
+      const map = new Map<string, Habit[]>();
+      for (const h of list) {
+        const key = h.groupId || '__none__';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(h);
+      }
+      return map;
+    }
+    if (viewMode === 'time') {
+      const map = new Map<string, Habit[]>();
+      for (const h of list) {
+        const key = getTimeSlot(h.targetTime);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(h);
+      }
+      // Sort within each time slot by targetTime
+      for (const [, arr] of map) {
+        arr.sort((a, b) => (a.targetTime || '99:99').localeCompare(b.targetTime || '99:99'));
+      }
+      return map;
+    }
+    return null;
+  }, [filteredHabits, viewMode]);
 
   const completedCount = Object.values(completionMap).filter(Boolean).length;
   const totalCount = activeHabits.length;
