@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/habits/[id]
@@ -7,6 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureTimeTrackingColumns();
     const { id } = await params;
     const habit = await db.habit.findUnique({
       where: { id },
@@ -28,6 +30,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureTimeTrackingColumns();
     const { id } = await params;
     const body = await request.json();
 
