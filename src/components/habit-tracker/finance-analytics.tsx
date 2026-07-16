@@ -367,79 +367,152 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
         </Card>
       </div>
 
-      {/* 5. Radar Chart - Financial Health Score */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          Skor Kesehatan Keuangan
-          <ChartInfo text="5 dimensi keuangan masing-masing dinilai 0-100: (1) Rasio Tabungan: persentase pemasukan yang tersimpan, (2) Diversifikasi: jumlah kategori pengeluaran yang digunakan, (3) Disiplin Budget: persentase anggaran yang tidak terlampaui, (4) Konsistensi: hari dengan transaksi / hari di bulan, (5) Keseimbangan: rasio kategori pemasukan vs pengeluaran. Skor keseluruhan = rata-rata kelima dimensi." />
-        </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {data.financialHealth ? (
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              <div className="relative w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={[
-                    { dim: 'Tabungan', score: data.financialHealth.rasioTabungan },
-                    { dim: 'Diversifikasi', score: data.financialHealth.diversifikasi },
-                    { dim: 'Budget', score: data.financialHealth.disiplinBudget },
-                    { dim: 'Konsistensi', score: data.financialHealth.konsistensi },
-                    { dim: 'Keseimbangan', score: data.financialHealth.keseimbangan },
-                  ]}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="dim" tick={{ fontSize: 10 }} style={{ overflow: 'visible' }} />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
-                    <Radar
-                      name="Skor"
-                      dataKey="score"
-                      stroke="#f97316"
-                      fill="#f97316"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-3xl font-bold" style={{ color: data.financialHealth.overallScore >= 70 ? '#22c55e' : data.financialHealth.overallScore >= 40 ? '#f59e0b' : '#ef4444' }}>
-                    {data.financialHealth.overallScore}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">Skor Total</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-2 w-full max-w-xs">
-                {[
-                  { label: 'Rasio Tabungan', score: data.financialHealth.rasioTabungan, desc: 'Pemasukan vs pengeluaran' },
-                  { label: 'Diversifikasi', score: data.financialHealth.diversifikasi, desc: 'Variasi kategori' },
-                  { label: 'Disiplin Budget', score: data.financialHealth.disiplinBudget, desc: 'Ketaatan budget' },
-                  { label: 'Konsistensi', score: data.financialHealth.konsistensi, desc: 'Frekuensi transaksi' },
-                  { label: 'Keseimbangan', score: data.financialHealth.keseimbangan, desc: 'Kategori masuk vs keluar' },
-                ].map(item => (
-                  <div key={item.label} className="space-y-0.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium">{item.label}</span>
-                      <span className={cn('font-semibold', item.score >= 70 ? 'text-primary' : item.score >= 40 ? 'text-amber-600' : 'text-red-500')}>
-                        {item.score}/100
-                      </span>
+      {/* 5. Financial Health Score - Redesigned */}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-b from-primary/5 to-transparent">
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              Skor Kesehatan Keuangan
+              <ChartInfo text="5 dimensi keuangan masing-masing dinilai 0-100: (1) Rasio Tabungan: persentase pemasukan yang tersimpan, (2) Diversifikasi: jumlah kategori pengeluaran yang digunakan, (3) Disiplin Budget: persentase anggaran yang tidak terlampaui, (4) Konsistensi: hari dengan transaksi / hari di bulan, (5) Keseimbangan: rasio kategori pemasukan vs pengeluaran. Skor keseluruhan = rata-rata kelima dimensi." />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-5">
+            {data.financialHealth ? (() => {
+              const score = data.financialHealth.overallScore;
+              const radius = 65;
+              const circumference = 2 * Math.PI * radius;
+              const offset = circumference - (circumference * score / 100);
+              const ringColor = score >= 80
+                ? ['#22c55e', '#16a34a']
+                : score >= 50
+                  ? ['#f59e0b', '#d97706']
+                  : ['#ef4444', '#dc2626'];
+              const scoreLabel = score >= 80
+                ? { text: 'Excellent! 🎉', cls: 'text-green-600 dark:text-green-400' }
+                : score >= 60
+                  ? { text: 'Bagus! 👍', cls: 'text-green-600 dark:text-green-400' }
+                  : score >= 40
+                    ? { text: 'Cukup, bisa ditingkatkan', cls: 'text-amber-600 dark:text-amber-400' }
+                    : score >= 20
+                      ? { text: 'Perlu perhatian', cls: 'text-amber-600 dark:text-amber-400' }
+                      : { text: 'Sangat Perlu Perbaikan', cls: 'text-red-500' };
+              const metrics = [
+                { emoji: '🏦', label: 'Rasio Tabungan', score: data.financialHealth.rasioTabungan, desc: 'Pemasukan vs pengeluaran' },
+                { emoji: '📊', label: 'Diversifikasi', score: data.financialHealth.diversifikasi, desc: 'Variasi kategori pengeluaran' },
+                { emoji: '📋', label: 'Disiplin Budget', score: data.financialHealth.disiplinBudget, desc: 'Ketaatan terhadap budget' },
+                { emoji: '📅', label: 'Konsistensi', score: data.financialHealth.konsistensi, desc: 'Frekuensi transaksi harian' },
+                { emoji: '⚖️', label: 'Keseimbangan', score: data.financialHealth.keseimbangan, desc: 'Kategori masuk vs keluar' },
+              ];
+              const radarData = [
+                { dim: 'Tabungan', score: data.financialHealth.rasioTabungan },
+                { dim: 'Diversifikasi', score: data.financialHealth.diversifikasi },
+                { dim: 'Budget', score: data.financialHealth.disiplinBudget },
+                { dim: 'Konsistensi', score: data.financialHealth.konsistensi },
+                { dim: 'Keseimbangan', score: data.financialHealth.keseimbangan },
+              ];
+              return (
+                <div className="flex flex-col items-center gap-5">
+                  {/* Circular Score Ring */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="relative w-[140px] h-[140px] md:w-[160px] md:h-[160px]">
+                      <style>{`
+                        @keyframes ring-fill {
+                          from { stroke-dashoffset: ${circumference}; }
+                        }
+                      `}</style>
+                      <svg viewBox="0 0 160 160" className="w-full h-full -rotate-90">
+                        <defs>
+                          <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor={ringColor[0]} />
+                            <stop offset="100%" stopColor={ringColor[1]} />
+                          </linearGradient>
+                          <filter id="ring-glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                            <feFlood floodColor={ringColor[0]} floodOpacity="0.35" result="color" />
+                            <feComposite in="color" in2="blur" operator="in" result="shadow" />
+                            <feMerge>
+                              <feMergeNode in="shadow" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
+                        {/* Track */}
+                        <circle
+                          cx="80" cy="80" r={radius} fill="none"
+                          className="text-muted" stroke="currentColor" strokeWidth={12}
+                        />
+                        {/* Progress arc */}
+                        <circle
+                          cx="80" cy="80" r={radius} fill="none"
+                          stroke="url(#ring-grad)" strokeWidth={12}
+                          strokeLinecap="round"
+                          strokeDasharray={String(circumference)}
+                          style={{
+                            strokeDashoffset: String(offset),
+                            animation: 'ring-fill 1.2s ease-out forwards',
+                          }}
+                          filter="url(#ring-glow)"
+                        />
+                      </svg>
+                      {/* Score overlay */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-4xl font-bold tracking-tight">{score}</span>
+                        <span className="text-[11px] text-muted-foreground">dari 100</span>
+                      </div>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${item.score}%`,
-                          backgroundColor: item.score >= 70 ? '#22c55e' : item.score >= 40 ? '#f59e0b' : '#ef4444',
-                        }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                    <p className={cn('text-sm font-semibold', scoreLabel.cls)}>{scoreLabel.text}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>
-          )}
-        </CardContent>
+
+                  {/* Metric Mini-Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full">
+                    {metrics.map(m => {
+                      const barColor = m.score >= 70 ? 'bg-primary' : m.score >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                      const textColor = m.score >= 70 ? 'text-primary' : m.score >= 40 ? 'text-amber-600' : 'text-red-500';
+                      return (
+                        <div key={m.label} className="bg-card border rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-base">{m.emoji}</span>
+                            <span className="font-medium text-sm flex-1 truncate">{m.label}</span>
+                            <span className={cn('font-bold text-sm', textColor)}>{m.score}/100</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={cn('h-full rounded-full', barColor)}
+                              style={{ width: `${m.score}%`, transition: 'width 1s ease-out' }}
+                            />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1.5">{m.desc}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Radar Chart — smaller, subtle */}
+                  <div className="w-full max-w-xs">
+                    <p className="text-[11px] text-muted-foreground mb-1 text-center">Profil Radar</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
+                        <PolarGrid opacity={0.3} />
+                        <PolarAngleAxis dataKey="dim" tick={{ fontSize: 9 }} opacity={0.5} />
+                        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 8 }} opacity={0.3} />
+                        <Radar
+                          name="Skor"
+                          dataKey="score"
+                          stroke={ringColor[0]}
+                          fill={ringColor[0]}
+                          fillOpacity={0.15}
+                          strokeWidth={2}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              );
+            })() : (
+              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>
+            )}
+          </CardContent>
+        </div>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
