@@ -29,6 +29,12 @@ import {
   Flame,
   Star,
   Clock,
+  Layers,
+  Sun,
+  CloudSun,
+  Sunset,
+  ChevronDown,
+  FolderOpen,
 } from 'lucide-react';
 import {
   Dialog,
@@ -75,7 +81,17 @@ interface Habit {
   order: number;
   trackTime: boolean;
   targetTime: string | null;
+  groupId: string | null;
   _count: { logs: number };
+}
+
+interface HabitGroup {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  order: number;
+  _count: { habits: number };
 }
 
 interface HabitLog {
@@ -179,6 +195,11 @@ export default function DailyTracker() {
   // ---- time analysis dialog ----
   const [analysisHabitId, setAnalysisHabitId] = useState<string | null>(null);
 
+  // ---- grouping state ----
+  const [viewMode, setViewMode] = useState<'flat' | 'group' | 'time'>('flat');
+  const [groups, setGroups] = useState<HabitGroup[]>([]);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
   const cachedMonthRef = useRef('');
@@ -191,6 +212,138 @@ export default function DailyTracker() {
   const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
 
   const activeHabits = useMemo(() => habits.filter((h) => h.status === 'active'), [habits]);
+
+  // Time-based slots
+  const TIME_SLOTS = [
+    { key: 'morning', label: 'Pagi', emoji: '🌅', range: [5, 12] as const },
+    { key: 'afternoon', label: 'Siang', emoji: '☀️', range: [12, 17] as const },
+    { key: 'evening', label: 'Sore', emoji: '🌆', range: [17, 21] as const },
+    { key: 'night', label: 'Malam', emoji: '🌙', range: [21, 29] as const }, // 29 = 05:00 next day
+  ];
+
+  function getTimeSlot(targetTime: string | null): string {
+    if (!targetTime) return 'other';
+    const h = parseInt(targetTime.split(':')[0], 10);
+    if (h >= 5 && h < 12) return 'morning';
+    if (h >= 12 && h < 17) return 'afternoon';
+    if (h >= 17 && h < 21) return 'evening';
+    return 'night';
+  }
+
+  // Group habits by group or time slot
+  const groupedHabits = useMemo(() => {
+    const list = filteredHabits;
+    if (viewMode === 'group') {
+      const map = new Map<string, Habit[]>();
+      for (const h of list) {
+        const key = h.groupId || '__none__';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(h);
+      }
+      return map;
+    }
+    if (viewMode === 'time') {
+      const map = new Map<string, Habit[]>();
+      for (const h of list) {
+        const key = getTimeSlot(h.targetTime);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(h);
+      }
+      // Sort within each time slot by targetTime
+      for (const [, arr] of map) {
+        arr.sort((a, b) => (a.targetTime || '99:99').localeCompare(b.targetTime || '99:99'));
+      }
+      return map;
+    }
+    return null;
+  }, [filteredHabits, viewMode]);
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // Render a single habit row (used in all 3 view modes)
+  const renderHabitRow = (habit: Habit, idx: number, total: number) => {
+    const done = !!completionMap[habit.id];
+    const isToggling = togglingIds.has(habit.id);
+    const doneTime = done ? completedAtMap[habit.id] : null;
+    const isLate = doneTime && habit.targetTime && doneTime > habit.targetTime;
+    const isOnTarget = doneTime && habit.targetTime && doneTime <= habit.targetTime;
+    return (
+      <div
+        key={habit.id}
+        className={cn(
+          'flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-accent/50',
+          idx < total - 1 && 'border-b border-border/50',
+        )}
+      >
+        <Checkbox
+          checked={done}
+          onCheckedChange={() => handleHabitCheck(habit)}
+          disabled={isToggling}
+          className={cn(
+            'shrink-0 transition-colors duration-200',
+            done && 'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
+          )}
+        />
+        <span className="text-lg shrink-0 w-7 text-center leading-none">{habit.icon}</span>
+        <span
+          className={cn(
+            'flex-1 text-sm font-medium min-w-0 truncate transition-all duration-200',
+            done && 'line-through text-muted-foreground',
+          )}
+        >
+          {habit.name}
+        </span>
+        {doneTime ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setAnalysisHabitId(habit.id); }}
+            className={cn(
+              'shrink-0 text-xs font-medium tabular-nums flex items-center gap-0.5 rounded-md px-1.5 py-0.5 hover:bg-accent transition-colors max-w-[100px] sm:max-w-none truncate',
+              isOnTarget && 'text-emerald-600 dark:text-emerald-400',
+              isLate && 'text-red-500 dark:text-red-400',
+              !habit.targetTime && 'text-muted-foreground',
+            )}
+            title={habit.targetTime ? `Target: ${habit.targetTime}` : 'Klik untuk lihat analisis.'}
+          >
+            <Clock className="h-3 w-3" />
+            {doneTime}
+            {isOnTarget && ' ⭐'}
+            {isLate && ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
+          </button>
+        ) : null}
+        {!done && habit.trackTime && (
+          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+        )}
+        <Badge
+          variant="secondary"
+          className={cn(
+            'hidden sm:inline-flex text-[10px] px-1.5 py-0 h-5',
+            getBadgeClass(categoryMap[habit.category]?.color || 'gray'),
+          )}
+        >
+          {habit.category}
+        </Badge>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div
+            className={cn('w-2 h-2 rounded-full', getDotClass(priorityMap[habit.priority]?.color || 'gray'))}
+            title={habit.priority}
+          />
+          <span className="text-[10px] text-muted-foreground hidden lg:inline">{habit.priority}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+          <Flame className="h-3.5 w-3.5 text-orange-400" />
+          <span className="text-xs font-medium tabular-nums">{habit._count.logs}</span>
+        </div>
+      </div>
+    );
+  };
 
   const categories = useMemo(() => {
     const set = new Set(activeHabits.map((h) => h.category));
@@ -220,6 +373,16 @@ export default function DailyTracker() {
   const levelProgress = todayXP % 100;
 
   // ---- data fetching ----
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await fetch('/api/habit-groups');
+      if (res.ok) {
+        const data: HabitGroup[] = await res.json();
+        setGroups(data);
+      }
+    } catch { /* non-critical */ }
+  }, []);
 
   const fetchHabits = useCallback(async () => {
     try {
@@ -495,6 +658,7 @@ export default function DailyTracker() {
         await Promise.all([
           fetchDailyLog(selectedDate),
           fetchCompletions(data, selectedDate),
+          fetchGroups(),
         ]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -681,18 +845,42 @@ export default function DailyTracker() {
               {completedCount}/{totalCount}
             </span>
 
+            {/* View mode toggle */}
+            <div className="flex items-center rounded-lg border border-border overflow-hidden">
+              {([
+                { key: 'flat' as const, label: 'Semua', icon: null },
+                { key: 'group' as const, label: 'Grup', icon: <Layers className="h-3 w-3" /> },
+                { key: 'time' as const, label: 'Waktu', icon: <Clock className="h-3 w-3" /> },
+              ]).map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setViewMode(m.key)}
+                  className={cn(
+                    'flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    viewMode === m.key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-accent/50',
+                  )}
+                >
+                  {m.icon}
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
             <Select value={viewFilter} onValueChange={(v) => setViewFilter(v as typeof viewFilter)}>
-              <SelectTrigger className="w-[120px] h-8 text-xs">
+              <SelectTrigger className="w-[110px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Habits</SelectItem>
-                <SelectItem value="incomplete">Incomplete</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
+                <SelectItem value="incomplete">Belum</SelectItem>
+                <SelectItem value="completed">Selesai</SelectItem>
               </SelectContent>
             </Select>
 
-            {categories.length > 1 && (
+            {viewMode === 'flat' && categories.length > 1 && (
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-[130px] h-8 text-xs">
                   <SelectValue placeholder="Category" />
@@ -735,112 +923,150 @@ export default function DailyTracker() {
               </p>
             </CardContent>
           </Card>
-        ) : (
+        ) : viewMode === 'flat' ? (
+          /* ── Flat list (original) ── */
           <Card className="overflow-hidden">
             <div className="max-h-[480px] overflow-y-auto custom-scrollbar">
-              {filteredHabits.map((habit, idx) => {
-                const done = !!completionMap[habit.id];
-                const isToggling = togglingIds.has(habit.id);
-                const doneTime = done ? completedAtMap[habit.id] : null;
-                const isLate = doneTime && habit.targetTime && doneTime > habit.targetTime;
-                const isOnTarget = doneTime && habit.targetTime && doneTime <= habit.targetTime;
-                return (
-                  <div
-                    key={habit.id}
-                    className={cn(
-                      'flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-accent/50',
-                      idx < filteredHabits.length - 1 && 'border-b border-border/50',
-                    )}
-                  >
-                    {/* Checkbox */}
-                    <Checkbox
-                      checked={done}
-                      onCheckedChange={() => handleHabitCheck(habit)}
-                      disabled={isToggling}
-                      className={cn(
-                        'shrink-0 transition-colors duration-200',
-                        done &&
-                          'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
-                      )}
-                    />
-
-                    {/* Icon */}
-                    <span className="text-lg shrink-0 w-7 text-center leading-none">
-                      {habit.icon}
-                    </span>
-
-                    {/* Name */}
-                    <span
-                      className={cn(
-                        'flex-1 text-sm font-medium min-w-0 truncate transition-all duration-200',
-                        done && 'line-through text-muted-foreground',
-                      )}
-                    >
-                      {habit.name}
-                    </span>
-
-                    {/* Time display */}
-                    {doneTime ? (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setAnalysisHabitId(habit.id); }}
-                        className={cn(
-                          'shrink-0 text-xs font-medium tabular-nums flex items-center gap-0.5 rounded-md px-1.5 py-0.5 hover:bg-accent transition-colors max-w-[100px] sm:max-w-none truncate',
-                          isOnTarget && 'text-emerald-600 dark:text-emerald-400',
-                          isLate && 'text-red-500 dark:text-red-400',
-                          !habit.targetTime && 'text-muted-foreground',
-                        )}
-                        title={habit.targetTime ? `Target: ${habit.targetTime}. Klik untuk lihat analisis.` : 'Klik untuk lihat analisis.'}
-                      >
-                        <Clock className="h-3 w-3" />
-                        {doneTime}
-                        {isOnTarget && ' ⭐'}
-                        {isLate && ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
-                      </button>
-                    ) : null}
-
-                    {/* Track time indicator (not done) */}
-                    {!done && habit.trackTime && (
-                      <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-                    )}
-
-                    {/* Category badge (hidden on small screens) */}
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'hidden sm:inline-flex text-[10px] px-1.5 py-0 h-5',
-                        getBadgeClass(categoryMap[habit.category]?.color || 'gray'),
-                      )}
-                    >
-                      {habit.category}
-                    </Badge>
-
-                    {/* Priority dot */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div
-                        className={cn(
-                          'w-2 h-2 rounded-full',
-                          getDotClass(priorityMap[habit.priority]?.color || 'gray'),
-                        )}
-                        title={habit.priority}
-                      />
-                      <span className="text-[10px] text-muted-foreground hidden lg:inline">
-                        {habit.priority}
-                      </span>
-                    </div>
-
-                    {/* Streak / total completions */}
-                    <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
-                      <Flame className="h-3.5 w-3.5 text-orange-400" />
-                      <span className="text-xs font-medium tabular-nums">
-                        {habit._count.logs}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredHabits.map((habit, idx) => renderHabitRow(habit, idx, filteredHabits.length))}
             </div>
           </Card>
+        ) : viewMode === 'group' ? (
+          /* ── Group view ── */
+          <div className="space-y-2">
+            {groups.map((g) => {
+              const habitsInGroup = groupedHabits?.get(g.id);
+              if (!habitsInGroup?.length) return null;
+              const doneCount = habitsInGroup.filter((h) => completionMap[h.id]).length;
+              const isCollapsed = collapsedSections.has(g.id);
+              return (
+                <Card key={g.id} className="overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(g.id)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
+                  >
+                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
+                    <span className="text-base">{g.emoji}</span>
+                    <span className="text-sm font-semibold flex-1 text-left">{g.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{habitsInGroup.length}</span>
+                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${habitsInGroup.length > 0 ? (doneCount / habitsInGroup.length) * 100 : 0}%`,
+                          backgroundColor: g.color,
+                        }}
+                      />
+                    </div>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="border-t border-border/50">
+                      {habitsInGroup.map((habit, idx) => renderHabitRow(habit, idx, habitsInGroup.length))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+            {/* Ungrouped habits */}
+            {(() => {
+              const ungrouped = groupedHabits?.get('__none__');
+              if (!ungrouped?.length) return null;
+              const doneCount = ungrouped.filter((h) => completionMap[h.id]).length;
+              const isCollapsed = collapsedSections.has('__none__');
+              return (
+                <Card className="overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection('__none__')}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
+                  >
+                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
+                    <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-semibold flex-1 text-left">Tanpa Grup</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{ungrouped.length}</span>
+                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-muted-foreground/50 transition-all duration-300"
+                        style={{ width: `${ungrouped.length > 0 ? (doneCount / ungrouped.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="border-t border-border/50">
+                      {ungrouped.map((habit, idx) => renderHabitRow(habit, idx, ungrouped.length))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })()}
+          </div>
+        ) : (
+          /* ── Time-based view ── */
+          <div className="space-y-2">
+            {TIME_SLOTS.map((slot) => {
+              const habitsInSlot = groupedHabits?.get(slot.key);
+              if (!habitsInSlot?.length) return null;
+              const doneCount = habitsInSlot.filter((h) => completionMap[h.id]).length;
+              const isCollapsed = collapsedSections.has(slot.key);
+              return (
+                <Card key={slot.key} className="overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(slot.key)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
+                  >
+                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
+                    <span className="text-base">{slot.emoji}</span>
+                    <span className="text-sm font-semibold flex-1 text-left">{slot.label}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{habitsInSlot.length}</span>
+                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary/70 transition-all duration-300"
+                        style={{ width: `${habitsInSlot.length > 0 ? (doneCount / habitsInSlot.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="border-t border-border/50">
+                      {habitsInSlot.map((habit, idx) => renderHabitRow(habit, idx, habitsInSlot.length))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+            {/* Habits without targetTime */}
+            {(() => {
+              const noTime = groupedHabits?.get('other');
+              if (!noTime?.length) return null;
+              const doneCount = noTime.filter((h) => completionMap[h.id]).length;
+              const isCollapsed = collapsedSections.has('other');
+              return (
+                <Card className="overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection('other')}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
+                  >
+                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
+                    <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-semibold flex-1 text-left">Tanpa Waktu Target</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{noTime.length}</span>
+                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-muted-foreground/50 transition-all duration-300"
+                        style={{ width: `${noTime.length > 0 ? (doneCount / noTime.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="border-t border-border/50">
+                      {noTime.map((habit, idx) => renderHabitRow(habit, idx, noTime.length))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })()}
+          </div>
         )}
       </section>
 

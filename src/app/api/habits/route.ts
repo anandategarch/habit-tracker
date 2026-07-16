@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, icon, category, priority, difficulty, target, targetType, color, reminder, startDate, endDate, notes, trackTime, targetTime, trackLastDone, lastDoneInterval } = body;
+    const { name, icon, category, priority, difficulty, target, targetType, color, reminder, startDate, endDate, notes, trackTime, targetTime, trackLastDone, lastDoneInterval, groupId } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Habit name is required' }, { status: 400 });
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         targetTime: targetTime || null,
         trackLastDone: trackLastDone === true,
         lastDoneInterval: lastDoneInterval || null,
+        groupId: groupId || null,
         order: (maxOrder?.order || 0) + 1,
       },
     });

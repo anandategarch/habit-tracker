@@ -96,3 +96,34 @@ Stage Summary:
 - Users can filter by period (7d, 1m, 3m) 
 - Line chart shows balance trend across all fund sources
 - Balance calculated by reverse-engineering from current balance and transactions
+---
+Task ID: 5
+Agent: main
+Task: Add Habit Groups management section to habit-master component
+
+Work Log:
+- Read and analyzed existing habit-master.tsx structure (types, state, handlers, JSX)
+- Added imports: `X`, `ChevronDown`, `ChevronRight` from lucide-react; `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from collapsible
+- Added `HabitGroup` interface with id, name, emoji, color, order, _count
+- Added `groupId: string | null` to `Habit` interface
+- Added `GROUP_EMOJIS` constant (17 habit-relevant emojis) and `GROUP_COLORS` constant
+- Updated `emptyForm()` and `habitToForm()` to include `groupId: null`
+- Added group state variables: groups list, loading, collapsible open, new group form fields
+- Added `fetchGroups` callback with GET `/api/habit-groups`
+- Added `handleCreateGroup` with POST `/api/habit-groups` (name, emoji, color) + toast + refetch
+- Added `handleDeleteGroup` with DELETE `/api/habit-groups?id=xxx` + toast + refetch
+- Added collapsible "Habit Groups" card section BEFORE the habit table with:
+  - Inline form: emoji picker button, name input, color picker, "Tambah" button
+  - Group chips with emoji, name, habit count badge, and X delete button
+  - Loading skeleton and empty state
+- Replaced "Difficulty" slot in dialog's first row with "Grup" Select dropdown
+- Moved "Difficulty" to second row alongside Target and Target Type
+- Color field now in its own row with Reminder and Status
+- Added `groupId: form.groupId || null` to habit create/update payload
+- Dialog Grup dropdown uses "__none__" sentinel for "Tanpa Grup" option
+
+Stage Summary:
+- Habit Groups management section added with compact collapsible UI
+- Groups can be created with name, emoji, and color; deleted via X on chips
+- Habit create/edit dialog now has "Grup" dropdown to assign habits to groups
+- Lint passes clean with zero errors
