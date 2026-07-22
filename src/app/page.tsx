@@ -10,7 +10,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   LayoutDashboard,
   CheckSquare,
-  ListChecks,
   CalendarDays,
   Target,
   Trophy,
@@ -27,7 +26,6 @@ import dynamic from 'next/dynamic';
 
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
-const HabitMaster = dynamic(() => import('@/components/habit-tracker/habit-master'), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false });
 const Challenges = dynamic(() => import('@/components/habit-tracker/challenges'), { ssr: false });
@@ -39,7 +37,6 @@ const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'),
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'tracker', label: 'Daily Tracker', icon: CheckSquare },
-  { id: 'habits', label: 'Habit Master', icon: ListChecks },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'challenges', label: 'Challenges', icon: Trophy },
@@ -52,7 +49,6 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   dashboard: Dashboard,
   tracker: DailyTracker,
-  habits: HabitMaster,
   calendar: CalendarView,
   goals: Goals,
   challenges: Challenges,

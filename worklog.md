@@ -262,3 +262,27 @@ Stage Summary:
 - All fixes verified with bun run lint
 - New shared jakarta-date.ts utility for consistent UTC+7 date strings
 
+---
+Task ID: move-habit-master-to-settings
+Agent: Main Agent
+Task: Move Habit Master from sidebar tab into Settings page with sub-tabs
+
+Work Log:
+- Removed 'habits' from TabId union in app-store.ts
+- Removed HabitMaster dynamic import and habits nav item from page.tsx
+- Added sub-tab system to settings.tsx: "Umum" (General), "Habit Master", "Data"
+- Settings now has 3 sub-tabs with smooth tab switcher UI
+- HabitMaster is dynamically imported inside settings.tsx
+- General tab: Profile, Appearance, Preferences, LabelManager, Save
+- Habit Master tab: full HabitMaster component (habit CRUD, groups)
+- Data tab: DB stats, backup/export/import, reset all
+- max-w increased from max-w-2xl to max-w-4xl for HabitMaster table space
+- Settings header updated to Indonesian: "Pengaturan" / "Kelola preferensi, habits, dan data"
+- Removed unused ListChecks import from page.tsx
+
+Stage Summary:
+- Habit Master moved from standalone sidebar tab to Settings sub-tab
+- Navigation now has 9 items instead of 10
+- All settings consolidated under Pengaturan with 3 sections
+- Lint passes clean
+

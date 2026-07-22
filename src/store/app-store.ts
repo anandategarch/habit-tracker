@@ -14,7 +14,6 @@ function jakartaMonthString() {
 export type TabId =
   | 'dashboard'
   | 'tracker'
-  | 'habits'
   | 'calendar'
   | 'goals'
   | 'challenges'
