@@ -23,17 +23,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json();
     const { type, amount, category, description, date, notes, source } = body;
 
+    const updateData: Record<string, unknown> = {};
+    if (type !== undefined) updateData.type = type;
+    if (amount !== undefined) {
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount)) {
+        return NextResponse.json({ error: 'Invalid amount value' }, { status: 400 });
+      }
+      updateData.amount = numAmount;
+    }
+    if (category !== undefined) updateData.category = category.trim();
+    if (description !== undefined) updateData.description = description?.trim() || null;
+    if (date !== undefined) updateData.date = new Date(date);
+    if (notes !== undefined) updateData.notes = notes?.trim() || null;
+    if (source !== undefined) updateData.source = source?.trim() || 'Kas';
+
     const transaction = await db.transaction.update({
       where: { id },
-      data: {
-        ...(type !== undefined && { type }),
-        ...(amount !== undefined && { amount: parseFloat(amount) }),
-        ...(category !== undefined && { category: category.trim() }),
-        ...(description !== undefined && { description: description?.trim() || null }),
-        ...(date !== undefined && { date: new Date(date) }),
-        ...(notes !== undefined && { notes: notes?.trim() || null }),
-        ...(source !== undefined && { source: source?.trim() || 'Kas' }),
-      },
+      data: updateData,
     });
 
     return NextResponse.json(transaction);

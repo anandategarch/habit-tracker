@@ -2,6 +2,13 @@ import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { startOfDay, subDays, format } from 'date-fns';
 
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function jakartaToday(): Date {
+  const now = new Date(Date.now() + JAKARTA_OFFSET_MS);
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 const HABIT_NAME = 'Daily Learning';
 const HABIT_ICON = '📚';
 
@@ -30,7 +37,7 @@ async function ensureLearningHabit() {
 export async function POST() {
   try {
     const habit = await ensureLearningHabit();
-    const today = startOfDay(new Date());
+    const today = jakartaToday();
 
     const log = await db.habitLog.upsert({
       where: {
@@ -66,7 +73,7 @@ export async function GET() {
       return NextResponse.json({ completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 });
     }
 
-    const today = startOfDay(new Date());
+    const today = jakartaToday();
 
     // Check today
     const todayLog = await db.habitLog.findFirst({

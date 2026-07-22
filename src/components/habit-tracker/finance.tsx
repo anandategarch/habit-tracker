@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Card,
@@ -155,9 +155,6 @@ export default function Finance() {
   // Filter states
   const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
 
-  // Track which tabs have been loaded
-  const loadedTabs = useRef<Set<string>>(new Set());
-
   // ── Category helpers ──────────────────────────────────────────────────────
 
   const ALL_KNOWN_EMOJIS = useMemo(() => {
@@ -280,21 +277,18 @@ export default function Finance() {
     } catch { /* silent */ }
   }, []);
 
-  // Fetch on tab change + initial load
+  // Fetch on tab change + initial load + month change
   useEffect(() => {
-    if (!loadedTabs.current.has(activeSubTab) || activeSubTab === 'overview') {
-      loadedTabs.current.add(activeSubTab);
-      if (activeSubTab === 'overview') {
-        fetchDashboard();
-        fetchLastDone();
-      } else if (activeSubTab === 'transactions') {
-        fetchTransactions();
-      } else if (activeSubTab === 'budgets') {
-        fetchBudgets();
-        fetchDashboard(); // needed for budget status
-      }
-      // analytics fetches itself
+    if (activeSubTab === 'overview') {
+      fetchDashboard();
+      fetchLastDone();
+    } else if (activeSubTab === 'transactions') {
+      fetchTransactions();
+    } else if (activeSubTab === 'budgets') {
+      fetchBudgets();
+      fetchDashboard(); // needed for budget status
     }
+    // analytics fetches itself
   }, [activeSubTab, fetchDashboard, fetchTransactions, fetchBudgets, fetchLastDone]);
 
   // Re-fetch on refreshKey change (after mutations)

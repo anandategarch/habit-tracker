@@ -8,6 +8,9 @@ export async function PUT(
 ) {
   try {
     const { date: dateStr } = await params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
+    }
     const body = await request.json();
     // Use explicit UTC midnight for consistent date storage
     const dateObj = new Date(`${dateStr}T00:00:00Z`);

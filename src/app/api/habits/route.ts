@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         category: category || 'General',
         priority: priority || 'Medium',
         difficulty: difficulty || 'Medium',
-        target: target || 1,
+        target: target !== undefined ? target : 1,
         targetType: targetType || 'daily',
         color: color || '#22c55e',
         reminder: reminder || null,

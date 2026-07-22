@@ -73,6 +73,14 @@ export default function Home() {
       : ''
   );
 
+  // Refresh date string every minute so it stays accurate past midnight
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDateString(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const handleNavClick = useCallback((id: TabId) => {
     setActiveTab(id);
     // Auto-close sidebar on mobile after clicking a nav item

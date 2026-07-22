@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date');
 
     if (date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
+      }
       // Use explicit UTC midnight for consistent date lookup
       const dateObj = new Date(`${date}T00:00:00Z`);
       const log = await db.dailyLog.findUnique({

@@ -44,6 +44,7 @@ import {
   Edit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { jakartaDateString } from '@/lib/jakarta-date';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
@@ -105,7 +106,7 @@ const ENERGY_OPTIONS = [
 ];
 
 const EMPTY_FORM: FormData = {
-  date: new Date().toISOString().split('T')[0],
+  date: jakartaDateString(),
   mood: '',
   stress: '',
   energy: '',
@@ -236,7 +237,7 @@ export default function JournalTab() {
   // ── Form handlers ─────────────────────────────────────────────────────────
 
   function openNewForm() {
-    setForm({ ...EMPTY_FORM, date: new Date().toISOString().split('T')[0] });
+    setForm({ ...EMPTY_FORM, date: jakartaDateString() });
     setFormOpen(true);
   }
 
@@ -506,7 +507,7 @@ export default function JournalTab() {
   function renderEntryCard(entry: Journal) {
     const isExpanded = expandedId === entry.id;
     const formattedDate = format(new Date(entry.date + 'T00:00:00'), 'EEEE, MMM d, yyyy');
-    const isToday = entry.date === new Date().toISOString().split('T')[0];
+    const isToday = entry.date === jakartaDateString();
 
     return (
       <Card
