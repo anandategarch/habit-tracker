@@ -47,6 +47,7 @@ import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass, getDotClass } from '@/lib/label-colors';
+import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   format,
   addDays,
@@ -1170,7 +1171,7 @@ export default function DailyTracker() {
                     type="date"
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}
-                    max={new Date().toISOString().split('T')[0]}
+                    max={jakartaDateString()}
                   />
                 </div>
                 <div className="space-y-1.5">

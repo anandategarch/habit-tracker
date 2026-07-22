@@ -26,7 +26,16 @@ export async function PUT(
     const body = await request.json();
     const journal = await db.journal.update({
       where: { id },
-      data: body,
+      data: {
+        ...(body.mood !== undefined && { mood: body.mood }),
+        ...(body.stress !== undefined && { stress: body.stress }),
+        ...(body.energy !== undefined && { energy: body.energy }),
+        ...(body.sleep !== undefined && { sleep: body.sleep }),
+        ...(body.reflection !== undefined && { reflection: body.reflection }),
+        ...(body.winToday !== undefined && { winToday: body.winToday }),
+        ...(body.lessonLearned !== undefined && { lessonLearned: body.lessonLearned }),
+        ...(body.tomorrowPlan !== undefined && { tomorrowPlan: body.tomorrowPlan }),
+      },
     });
     return NextResponse.json(journal);
   } catch (error) {

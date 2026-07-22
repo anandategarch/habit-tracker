@@ -73,6 +73,7 @@ import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass, getDotClass, getLabelColor } from '@/lib/label-colors';
+import { jakartaDateString } from '@/lib/jakarta-date';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ function emptyForm(): HabitFormData {
     targetType: 'daily',
     color: '#22c55e',
     reminder: '',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: jakartaDateString(),
     endDate: '',
     status: 'active',
     notes: '',
@@ -463,7 +464,7 @@ export default function HabitMaster() {
         targetType: 'daily' as const,
         color: '#22c55e',
         reminder: null,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: jakartaDateString(),
         endDate: null,
         status: 'active' as const,
         notes: null,

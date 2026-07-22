@@ -21,7 +21,8 @@ export async function POST(request: Request) {
     if (!category?.trim()) {
       return NextResponse.json({ error: 'Category is required' }, { status: 400 });
     }
-    if (!amount || amount <= 0) {
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount < 0) {
       return NextResponse.json({ error: 'Valid amount is required' }, { status: 400 });
     }
 
@@ -29,11 +30,11 @@ export async function POST(request: Request) {
       where: { category: category.trim() },
       create: {
         category: category.trim(),
-        amount: parseFloat(amount),
+        amount: numAmount,
         period: period || 'monthly',
       },
       update: {
-        amount: parseFloat(amount),
+        amount: numAmount,
         period: period || 'monthly',
       },
     });
