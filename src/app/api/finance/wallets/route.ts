@@ -9,50 +9,53 @@ export async function GET() {
       orderBy: { order: 'asc' },
     });
 
-    const transactions = await db.transaction.findMany({
-      select: { source: true, type: true, amount: true },
+    // Aggregate income/expense per source in ONE query instead of loading all transactions
+    const aggregations = await db.transaction.groupBy({
+      by: ['source', 'type'],
+      _sum: { amount: true },
+      _count: true,
     });
 
-    // Compute balance per source
-    const balanceMap: Record<string, { income: number; expense: number }> = {};
-    transactions.forEach(t => {
-      if (!balanceMap[t.source]) balanceMap[t.source] = { income: 0, expense: 0 };
-      if (t.type === 'income') {
-        balanceMap[t.source].income += t.amount;
+    // Build per-source income/expense/count from aggregation
+    const sourceAgg = new Map<string, { income: number; expense: number; count: number }>();
+    for (const agg of aggregations) {
+      if (!sourceAgg.has(agg.source)) sourceAgg.set(agg.source, { income: 0, expense: 0, count: 0 });
+      const entry = sourceAgg.get(agg.source)!;
+      if (agg.type === 'income') {
+        entry.income += agg._sum.amount || 0;
       } else {
-        balanceMap[t.source].expense += t.amount;
+        entry.expense += agg._sum.amount || 0;
       }
-    });
+      entry.count += agg._count;
+    }
 
     const wallets = sources.map(s => {
-      const tx = balanceMap[s.name] || { income: 0, expense: 0 };
-      const currentBalance = s.balance + tx.income - tx.expense;
+      const agg = sourceAgg.get(s.name) || { income: 0, expense: 0, count: 0 };
+      const currentBalance = s.balance + agg.income - agg.expense;
       return {
         id: s.id,
         name: s.name,
         emoji: s.emoji,
         balance: s.balance,
         currentBalance: Math.round(currentBalance * 100) / 100,
-        totalIncome: Math.round(tx.income * 100) / 100,
-        totalExpense: Math.round(tx.expense * 100) / 100,
-        txCount: transactions.filter(t => t.source === s.name).length,
+        totalIncome: Math.round(agg.income * 100) / 100,
+        totalExpense: Math.round(agg.expense * 100) / 100,
+        txCount: agg.count,
       };
     });
 
     // Also include "Kas" as default if no sources exist
     if (sources.length === 0) {
-      const kasTx = transactions.filter(t => t.source === 'Kas');
-      const kasIncome = kasTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-      const kasExpense = kasTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      const kasAgg = sourceAgg.get('Kas') || { income: 0, expense: 0, count: 0 };
       wallets.push({
         id: '',
         name: 'Kas',
         emoji: '💵',
         balance: 0,
-        currentBalance: Math.round((kasIncome - kasExpense) * 100) / 100,
-        totalIncome: Math.round(kasIncome * 100) / 100,
-        totalExpense: Math.round(kasExpense * 100) / 100,
-        txCount: kasTx.length,
+        currentBalance: Math.round((kasAgg.income - kasAgg.expense) * 100) / 100,
+        totalIncome: Math.round(kasAgg.income * 100) / 100,
+        totalExpense: Math.round(kasAgg.expense * 100) / 100,
+        txCount: kasAgg.count,
       });
     }
 

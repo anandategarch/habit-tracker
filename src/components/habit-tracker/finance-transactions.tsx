@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,21 @@ export default function FinanceTransactions({
   onDeleteTx,
   onBulkDelete,
 }: FinanceTransactionsProps) {
+  const [searchDraft, setSearchDraft] = useState(txFilter.search);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Debounce search: only propagate after 300ms idle
+  const handleSearchChange = (value: string) => {
+    setSearchDraft(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      onFilterChange({ ...txFilter, search: value });
+    }, 300);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); }, []);
+
   return (
     <div className="space-y-4 mt-4">
       {/* Filters */}
@@ -61,8 +78,8 @@ export default function FinanceTransactions({
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Cari transaksi..."
-            value={txFilter.search}
-            onChange={e => onFilterChange({ ...txFilter, search: e.target.value })}
+            value={searchDraft}
+            onChange={e => handleSearchChange(e.target.value)}
             className="pl-8 h-9 text-sm"
           />
         </div>

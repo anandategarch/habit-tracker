@@ -80,23 +80,24 @@ export async function GET() {
       where: { habitId: habit.id, date: today, completed: true },
     });
 
-    // Get all completed logs
+    // Get all completed logs (limit to 400 days for streak calculation)
     const completedLogs = await db.habitLog.findMany({
-      where: { habitId: habit.id, completed: true },
+      where: { habitId: habit.id, completed: true, date: { gte: subDays(today, 400) } },
       orderBy: { date: 'asc' },
     });
 
     const totalDays = completedLogs.length;
 
+    // Build Set of completed date strings for O(1) lookups
+    const completedDates = new Set(completedLogs.map(l => format(l.date, 'yyyy-MM-dd')));
+
     // Calculate current streak
     let currentStreak = 0;
-    if (todayLog) {
+    if (completedDates.has(format(today, 'yyyy-MM-dd'))) {
       currentStreak = 1;
       let checkDate = subDays(today, 1);
       for (let i = 0; i < 365; i++) {
-        const key = format(checkDate, 'yyyy-MM-dd');
-        const found = completedLogs.find(l => format(l.date, 'yyyy-MM-dd') === key);
-        if (found) {
+        if (completedDates.has(format(checkDate, 'yyyy-MM-dd'))) {
           currentStreak++;
           checkDate = subDays(checkDate, 1);
         } else {
@@ -107,9 +108,7 @@ export async function GET() {
       // Check if yesterday was completed (streak might still be alive from yesterday)
       let checkDate = subDays(today, 1);
       for (let i = 0; i < 365; i++) {
-        const key = format(checkDate, 'yyyy-MM-dd');
-        const found = completedLogs.find(l => format(l.date, 'yyyy-MM-dd') === key);
-        if (found) {
+        if (completedDates.has(format(checkDate, 'yyyy-MM-dd'))) {
           currentStreak++;
           checkDate = subDays(checkDate, 1);
         } else {

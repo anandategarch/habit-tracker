@@ -36,11 +36,19 @@ export async function GET(request: NextRequest) {
       where: { date: { gte: startDate, lte: today } },
     });
 
-    // Completion trend (daily)
+    // Pre-group logs by date key for O(1) lookups (instead of O(days × logs))
+    const logsByDate = new Map<string, typeof logs>();
+    for (const log of logs) {
+      const key = format(log.date, 'yyyy-MM-dd');
+      if (!logsByDate.has(key)) logsByDate.set(key, []);
+      logsByDate.get(key)!.push(log);
+    }
+
+    // Completion trend (daily) — O(days) instead of O(days × logs)
     const days = eachDayOfInterval({ start: startDate, end: today });
     const completionTrend = days.map(d => {
       const key = format(d, 'yyyy-MM-dd');
-      const dayLogs = logs.filter(l => format(l.date, 'yyyy-MM-dd') === key);
+      const dayLogs = logsByDate.get(key) || [];
       const completed = dayLogs.filter(l => l.completed).length;
       const total = dayLogs.length;
       return {
@@ -104,9 +112,15 @@ export async function GET(request: NextRequest) {
       rate: stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0,
     }));
 
-    // Habit distribution (pie chart)
+    // Habit distribution (pie chart) — pre-group logs by habitId
+    const logsByHabitId = new Map<string, typeof logs>();
+    for (const log of logs) {
+      if (!logsByHabitId.has(log.habitId)) logsByHabitId.set(log.habitId, []);
+      logsByHabitId.get(log.habitId)!.push(log);
+    }
+
     const habitDistribution = habits.map(h => {
-      const hLogs = logs.filter(l => l.habitId === h.id);
+      const hLogs = logsByHabitId.get(h.id) || [];
       const completed = hLogs.filter(l => l.completed).length;
       return {
         name: h.name,
@@ -118,7 +132,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Mood/energy/sleep correlation
+    // Mood/energy/sleep correlation — use pre-grouped logsByDate
     const moodData = dailyLogs.map(dl => ({
       date: format(dl.date, 'yyyy-MM-dd'),
       mood: dl.mood,
@@ -126,7 +140,7 @@ export async function GET(request: NextRequest) {
       sleep: dl.sleep,
       completionRate: (() => {
         const key = format(dl.date, 'yyyy-MM-dd');
-        const dayLogs = logs.filter(l => format(l.date, 'yyyy-MM-dd') === key);
+        const dayLogs = logsByDate.get(key) || [];
         const completed = dayLogs.filter(l => l.completed).length;
         return dayLogs.length > 0 ? Math.round((completed / dayLogs.length) * 100) : 0;
       })(),

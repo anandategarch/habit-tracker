@@ -259,35 +259,39 @@ export async function GET(request: NextRequest) {
       ? Math.round(((totalXP - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100)
       : 100;
 
-    // ── Badges ───────────────────────────────────────────────────────
+    // ── Badges, Challenges, Goals, DailyLogs — parallel ──────────────
     let unlockedBadges = 0;
     let totalBadges = 0;
-    try {
-      unlockedBadges = await db.badge.count({ where: { unlocked: true } });
-      totalBadges = await db.badge.count();
-    } catch { /* Badge table may not exist */ }
-
-    // ── Challenge progress ───────────────────────────────────────────
     let challengeProgress = 0;
-    try {
-      const activeChallenges = await db.challenge.findMany({ where: { status: 'active' } });
+    let goalProgress = 0;
+    let moodAverage = '3.0';
+    let sleepAverage = '7.0';
+
+    const [badgeUnlockedRes, badgeTotalRes, challengeRes, goalRes] = await Promise.allSettled([
+      db.badge.count({ where: { unlocked: true } }),
+      db.badge.count(),
+      db.challenge.findMany({ where: { status: 'active' } }),
+      db.goal.findMany({ where: { status: 'active' } }),
+    ]);
+
+    if (badgeUnlockedRes.status === 'fulfilled') unlockedBadges = badgeUnlockedRes.value;
+    if (badgeTotalRes.status === 'fulfilled') totalBadges = badgeTotalRes.value;
+
+    if (challengeRes.status === 'fulfilled') {
+      const activeChallenges = challengeRes.value;
       challengeProgress = activeChallenges.length > 0
         ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
         : 0;
-    } catch { /* Challenge table may not exist */ }
+    }
 
-    // ── Goal progress ────────────────────────────────────────────────
-    let goalProgress = 0;
-    try {
-      const activeGoals = await db.goal.findMany({ where: { status: 'active' } });
+    if (goalRes.status === 'fulfilled') {
+      const activeGoals = goalRes.value;
       goalProgress = activeGoals.length > 0
         ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
         : 0;
-    } catch { /* Goal table may not exist */ }
+    }
 
     // ── Mood & sleep averages (last 30 days) ─────────────────────────
-    let moodAverage = '3.0';
-    let sleepAverage = '7.0';
     try {
       const recentDailyLogs = await db.dailyLog.findMany({
         where: { date: { gte: subDays(today, 30) } },
@@ -495,11 +499,12 @@ export async function GET(request: NextRequest) {
     };
 
     try {
-      const monthTransactions = await db.transaction.findMany({
-        where: {
-          date: { gte: monthStart, lte: monthEnd },
-        },
-      });
+      const [monthTransactions, budgets] = await Promise.all([
+        db.transaction.findMany({
+          where: { date: { gte: monthStart, lte: monthEnd } },
+        }),
+        db.budget.findMany(),
+      ]);
 
       financeOverview.totalIncome = monthTransactions
         .filter(t => t.type === 'income')
@@ -511,7 +516,6 @@ export async function GET(request: NextRequest) {
       financeOverview.transactionCount = monthTransactions.length;
 
       // Budget status
-      const budgets = await db.budget.findMany();
       const monthExpensesByCategory = new Map<string, number>();
       for (const t of monthTransactions) {
         if (t.type === 'expense') {
