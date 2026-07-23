@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { updateBudgetSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // PUT /api/finance/budgets/[id]
@@ -6,13 +7,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { category, amount, period } = body;
+    const parsed = parseOr400(updateBudgetSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { category, amount, period } = parsed.data;
 
     const budget = await db.budget.update({
       where: { id },
       data: {
-        ...(category !== undefined && { category: category.trim() }),
-        ...(amount !== undefined && { amount: parseFloat(amount) }),
+        ...(category !== undefined && { category }),
+        ...(amount !== undefined && { amount }),
         ...(period !== undefined && { period }),
       },
     });

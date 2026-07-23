@@ -1,17 +1,17 @@
 import { db } from '@/lib/db';
+import { updateBalanceSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // PATCH /api/finance/sources/[id]/balance
-// Update only the balance of a fund source
+// Update only the balance of a fund source (manual adjustment / reconciliation).
+// Balance must be a whole number (Int).
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { balance } = body;
-
-    if (typeof balance !== 'number') {
-      return NextResponse.json({ error: 'Balance harus berupa angka' }, { status: 400 });
-    }
+    const parsed = parseOr400(updateBalanceSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { balance } = parsed.data;
 
     const existing = await db.fundSource.findUnique({ where: { id } });
     if (!existing) {

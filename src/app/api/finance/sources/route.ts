@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { createFundSourceSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/finance/sources
@@ -18,14 +19,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, emoji } = body;
-
-    if (!name?.trim()) {
-      return NextResponse.json({ error: 'Source name is required' }, { status: 400 });
-    }
+    const parsed = parseOr400(createFundSourceSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { name, emoji, balance, order } = parsed.data;
 
     // Check duplicate name
-    const existing = await db.fundSource.findUnique({ where: { name: name.trim() } });
+    const existing = await db.fundSource.findUnique({ where: { name } });
     if (existing) {
       return NextResponse.json({ error: 'Sumber dana sudah ada' }, { status: 400 });
     }
@@ -37,10 +36,10 @@ export async function POST(request: NextRequest) {
 
     const source = await db.fundSource.create({
       data: {
-        name: name.trim(),
-        emoji: emoji || '💵',
-        balance: typeof body.balance === 'number' ? body.balance : 0,
-        order: (maxOrder?.order || 0) + 1,
+        name,
+        emoji: emoji ?? '💵',
+        balance: balance ?? 0,
+        order: order ?? (maxOrder?.order || 0) + 1,
       },
     });
 

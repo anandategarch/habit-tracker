@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { createCategorySchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/finance/categories?type=expense
@@ -8,7 +9,12 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
 
     const where: Record<string, unknown> = {};
-    if (type) where.type = type;
+    if (type) {
+      if (!['income', 'expense'].includes(type)) {
+        return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+      }
+      where.type = type;
+    }
 
     const categories = await db.financeCategory.findMany({
       where,
@@ -25,14 +31,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, name, emoji, color, trackLastDone } = body;
-
-    if (!type || !['income', 'expense'].includes(type)) {
-      return NextResponse.json({ error: 'Valid type (income/expense) is required' }, { status: 400 });
-    }
-    if (!name?.trim()) {
-      return NextResponse.json({ error: 'Category name is required' }, { status: 400 });
-    }
+    const parsed = parseOr400(createCategorySchema, body);
+    if (!parsed.success) return parsed.response;
+    const { type, name, emoji, color, trackLastDone } = parsed.data;
 
     const maxOrder = await db.financeCategory.findFirst({
       where: { type },
@@ -43,10 +44,10 @@ export async function POST(request: NextRequest) {
     const category = await db.financeCategory.create({
       data: {
         type,
-        name: name.trim(),
-        emoji: emoji || '📦',
-        color: color || '#78716c',
-        trackLastDone: !!trackLastDone,
+        name,
+        emoji: emoji ?? '📦',
+        color: color ?? '#78716c',
+        trackLastDone: trackLastDone ?? false,
         order: (maxOrder?.order || 0) + 1,
       },
     });
