@@ -1,11 +1,14 @@
-const CACHE_NAME = 'habit-tracker-v1';
+const CACHE_NAME = 'habit-tracker-v2';
+
+// Bump cache version (v1 -> v2) to purge any stale /api/ responses that
+// may have been cached by the previous service worker version.
 
 // Install: pre-cache shell
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: clean old caches (including v1)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -27,18 +30,24 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET and cross-origin
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // API calls: network-first (data must be fresh)
+  // ── API calls: network-only (NEVER cache personal data) ───────────────
+  // Privacy + correctness: API responses contain user-specific data that
+  // must not persist in the SW cache across sessions, devices, or after
+  // mutations. Returning stale cached data would also confuse users.
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request).then((r) => r || new Response('{}', { headers: { 'Content-Type': 'application/json' } })))
+      fetch(request).catch(
+        () =>
+          new Response(
+            JSON.stringify({
+              error: 'You are offline. Please check your connection.',
+            }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          )
+      )
     );
     return;
   }
