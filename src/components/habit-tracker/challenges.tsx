@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -111,10 +112,10 @@ const STATUS_CONFIG: Record<
 
 export default function Challenges() {
   const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
 
   // Data
-  const [challenges, setChallenges] = useState<Challenge[] | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -131,22 +132,20 @@ export default function Challenges() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────
 
-  const fetchChallenges = useCallback(async () => {
-    try {
+  const { data: challenges = null, isLoading: loading } = useQuery<Challenge[]>({
+    queryKey: ['challenges', refreshKey],
+    queryFn: async () => {
       const res = await fetch('/api/challenges');
       if (!res.ok) throw new Error('Failed to fetch challenges');
-      const data = await res.json();
-      setChallenges(data);
-    } catch {
-      toast.error('Failed to load challenges');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    fetchChallenges();
-  }, [fetchChallenges, refreshKey]);
+  const invalidateChallenges = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['challenges'] });
+    triggerRefresh();
+  }, [queryClient, triggerRefresh]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -234,7 +233,7 @@ export default function Challenges() {
 
       toast.success(editingChallenge ? 'Challenge updated' : 'Challenge created');
       setDialogOpen(false);
-      fetchChallenges();
+      invalidateChallenges();
     } catch {
       toast.error('Failed to save challenge');
     }
@@ -246,7 +245,7 @@ export default function Challenges() {
       const res = await fetch(`/api/challenges/${deleteTarget.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       toast.success('Challenge deleted');
-      setChallenges((prev) => prev?.filter((c) => c.id !== deleteTarget.id) ?? []);
+      queryClient.setQueryData<Challenge[]>(['challenges', refreshKey], (prev) => prev?.filter((c) => c.id !== deleteTarget.id) ?? []);
       setDeleteTarget(null);
     } catch {
       toast.error('Failed to delete challenge');
@@ -262,7 +261,7 @@ export default function Challenges() {
         body: JSON.stringify({ progress: newProgress }),
       });
       if (!res.ok) throw new Error('Failed to update');
-      setChallenges((prev) =>
+      queryClient.setQueryData<Challenge[]>(['challenges', refreshKey], (prev) =>
         prev?.map((c) => (c.id === challenge.id ? { ...c, progress: newProgress } : c)) ?? []
       );
 
@@ -283,7 +282,7 @@ export default function Challenges() {
       });
       if (!res.ok) throw new Error('Failed to complete');
       toast.success('Challenge completed! 🎉');
-      setChallenges((prev) =>
+      queryClient.setQueryData<Challenge[]>(['challenges', refreshKey], (prev) =>
         prev?.map((c) =>
           c.id === challenge.id
             ? { ...c, status: 'completed', progress: c.duration }

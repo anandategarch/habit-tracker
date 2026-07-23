@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -212,36 +213,21 @@ function LoadingSkeleton() {
 
 export default function Statistics() {
   const refreshKey = useAppStore(s => s.refreshKey);
-  const [data, setData] = useState<StatisticsData | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [period, setPeriod] = useState<Period>('all');
-  const [fetching, setFetching] = useState(false);
-  const loading = data === null && !fetchError;
 
-  useEffect(() => {
-    let cancelled = false;
-    requestAnimationFrame(() => {
-      setFetching(true);
-      setFetchError(false);
-      fetch(`/api/statistics?period=${period}`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (!cancelled && d && typeof d.totalCompletion === 'number') {
-            setData(d);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setFetchError(true);
-            toast.error('Gagal memuat statistik');
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setFetching(false);
-        });
-    });
-    return () => { cancelled = true; };
-  }, [refreshKey, period]);
+  const { data: data, isFetching: fetching } = useQuery<StatisticsData>({
+    queryKey: ['statistics', period, refreshKey],
+    queryFn: async () => {
+      const r = await fetch(`/api/statistics?period=${period}`);
+      if (!r.ok) throw new Error('Failed');
+      const d = await r.json();
+      if (!d || typeof d.totalCompletion !== 'number') throw new Error('Invalid data');
+      return d;
+    },
+    staleTime: 60_000,
+  });
+  const loading = data === undefined && !fetchError;
 
   const handlePeriodChange = (newPeriod: Period) => {
     setPeriod(newPeriod);

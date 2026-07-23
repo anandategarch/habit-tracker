@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AnalyticsData, CHART_COLORS, formatRupiah } from '@/components/habit-tracker/finance-types';
 import {
   BarChart,
@@ -59,17 +60,16 @@ interface FinanceAnalyticsProps {
 // ── Component ───────────────────────────────────────────────────────────
 
 export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsProps) {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/finance/analytics?months=6')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const { data: data = null, isLoading: loading } = useQuery<AnalyticsData>({
+    queryKey: ['finance-analytics'],
+    queryFn: async () => {
+      const r = await fetch('/api/finance/analytics?months=6');
+      if (!r.ok) return null;
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
 
   if (loading) {
     return (

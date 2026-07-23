@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -121,10 +122,9 @@ const EMPTY_FORM: GoalFormData = {
 export default function GoalsTab() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
   const { priorityMap } = useHabitOptions();
 
-  const [goals, setGoals] = useState<Goal[] | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Dialog
@@ -140,22 +140,20 @@ export default function GoalsTab() {
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
-  const fetchGoals = useCallback(async () => {
-    try {
+  const { data: goals = null, isLoading: loading } = useQuery<Goal[]>({
+    queryKey: ['goals', refreshKey],
+    queryFn: async () => {
       const res = await fetch('/api/goals');
       if (!res.ok) throw new Error('Failed to fetch goals');
-      const data = await res.json();
-      setGoals(data);
-    } catch {
-      toast.error('Failed to load goals');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    fetchGoals();
-  }, [fetchGoals, refreshKey]);
+  const invalidateGoals = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['goals'] });
+    triggerRefresh();
+  }, [queryClient, triggerRefresh]);
 
   // ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -248,8 +246,7 @@ export default function GoalsTab() {
 
       toast.success(form.id ? 'Goal updated' : 'Goal created');
       setFormOpen(false);
-      triggerRefresh();
-      await fetchGoals();
+      invalidateGoals();
     } catch {
       toast.error('Failed to save goal');
     } finally {
@@ -268,8 +265,7 @@ export default function GoalsTab() {
 
       toast.success('Goal deleted');
       setDeleteTarget(null);
-      triggerRefresh();
-      await fetchGoals();
+      invalidateGoals();
     } catch {
       toast.error('Failed to delete goal');
     }
@@ -296,7 +292,7 @@ export default function GoalsTab() {
       if (!res.ok) throw new Error('Failed to update');
 
       // Optimistic update
-      setGoals((prev) =>
+      queryClient.setQueryData<Goal[]>(['goals', refreshKey], (prev) =>
         prev
           ? prev.map((g) =>
               g.id === goalId
@@ -318,7 +314,7 @@ export default function GoalsTab() {
       triggerRefresh();
     } catch {
       toast.error('Failed to update milestone');
-      await fetchGoals();
+      invalidateGoals();
     }
   }
 
@@ -342,8 +338,7 @@ export default function GoalsTab() {
       if (!res.ok) throw new Error('Failed to complete');
 
       toast.success('🎉 Goal marked as completed!');
-      triggerRefresh();
-      await fetchGoals();
+      invalidateGoals();
     } catch {
       toast.error('Failed to complete goal');
     }
