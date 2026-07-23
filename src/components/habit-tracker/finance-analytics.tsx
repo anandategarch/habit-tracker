@@ -10,8 +10,6 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
   PieChart as RechartsPieChart,
   Pie,
   Cell,
@@ -28,9 +26,10 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info, LineChart } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import ExpenseHeatmap from '@/components/habit-tracker/expense-heatmap';
 
 // ── ChartInfo Helper ────────────────────────────────────────────────────
 
@@ -123,33 +122,8 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
 
   return (
     <div className="space-y-4 mt-4">
-      {/* Monthly Trend */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <LineChart className="h-4 w-4" />
-            Tren Bulanan (6 Bulan Terakhir)
-            <ChartInfo text="Grafik garis pemasukan (hijau), pengeluaran (merah), dan saldo (biru putus-putus) selama 6 bulan terakhir. Sumbu Y dalam juta (jt). Saldo = pemasukan − pengeluaran." />
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <ResponsiveContainer width="100%" height={280}>
-            <RechartsLineChart data={data.monthlyTrend}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
-              <RechartsTooltip
-                formatter={(value: number, name: string) => [formatRupiah(value), name === 'income' ? 'Pemasukan' : name === 'expense' ? 'Pengeluaran' : 'Saldo']}
-                contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-              />
-              <Legend formatter={(value) => value === 'income' ? 'Pemasukan' : value === 'expense' ? 'Pengeluaran' : 'Saldo'} />
-              <Line type="monotone" dataKey="income" stroke="#22c55e" strokeWidth={2.5} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
-            </RechartsLineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      {/* Expense Heatmap (replaces old Monthly Trend line chart) */}
+      <ExpenseHeatmap />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Top Categories */}
