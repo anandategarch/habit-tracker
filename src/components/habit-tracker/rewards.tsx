@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -72,10 +73,10 @@ const STATUS_CONFIG: Record<
 
 export default function Rewards() {
   const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
 
   // Data
-  const [rewards, setRewards] = useState<Reward[] | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,22 +89,20 @@ export default function Rewards() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────
 
-  const fetchRewards = useCallback(async () => {
-    try {
+  const { data: rewards = null, isLoading: loading } = useQuery<Reward[]>({
+    queryKey: ['rewards', refreshKey],
+    queryFn: async () => {
       const res = await fetch('/api/rewards');
       if (!res.ok) throw new Error('Failed to fetch rewards');
-      const data = await res.json();
-      setRewards(data);
-    } catch {
-      toast.error('Failed to load rewards');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    fetchRewards();
-  }, [fetchRewards, refreshKey]);
+  const invalidateRewards = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['rewards'] });
+    triggerRefresh();
+  }, [queryClient, triggerRefresh]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -146,7 +145,7 @@ export default function Rewards() {
       toast.success('Reward created');
       resetForm();
       setDialogOpen(false);
-      fetchRewards();
+      invalidateRewards();
     } catch {
       toast.error('Failed to create reward');
     }
@@ -162,7 +161,7 @@ export default function Rewards() {
       });
       if (!res.ok) throw new Error('Failed to update');
       toast.success(newStatus === 'unlocked' ? 'Reward unlocked! 🎁' : 'Reward locked');
-      setRewards((prev) =>
+      queryClient.setQueryData<Reward[]>(['rewards', refreshKey], (prev) =>
         prev?.map((r) => (r.id === reward.id ? { ...r, status: newStatus } : r)) ?? []
       );
     } catch {
@@ -179,7 +178,7 @@ export default function Rewards() {
       });
       if (!res.ok) throw new Error('Failed to redeem');
       toast.success('Reward redeemed! 🎉');
-      setRewards((prev) =>
+      queryClient.setQueryData<Reward[]>(['rewards', refreshKey], (prev) =>
         prev?.map((r) => (r.id === reward.id ? { ...r, status: 'redeemed' } : r)) ?? []
       );
     } catch {
@@ -192,7 +191,7 @@ export default function Rewards() {
       const res = await fetch(`/api/rewards/${reward.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       toast.success('Reward deleted');
-      setRewards((prev) => prev?.filter((r) => r.id !== reward.id) ?? []);
+      queryClient.setQueryData<Reward[]>(['rewards', refreshKey], (prev) => prev?.filter((r) => r.id !== reward.id) ?? []);
     } catch {
       toast.error('Failed to delete reward');
     }

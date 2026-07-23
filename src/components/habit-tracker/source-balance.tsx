@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -81,33 +82,25 @@ function BalanceTooltip({ active, payload, label }: { active?: boolean; payload?
 }
 
 export default function SourceBalanceSection() {
-  const [data, setData] = useState<BalanceHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('1m');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/finance/sources/balance-history?period=${period}`);
-        if (!cancelled) {
-          if (res.ok) setData(await res.json());
-          else setData(null);
-        }
-      } catch {
-        if (!cancelled) setData(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [period]);
+  const { data: data, isFetching: fetching } = useQuery<BalanceHistoryData>({
+    queryKey: ['balance-history', period],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/sources/balance-history?period=${period}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
 
   // Reset selected index when data/period changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIdx(0);
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });

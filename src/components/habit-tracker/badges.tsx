@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -43,10 +44,10 @@ interface BadgeItem {
 
 export default function Badges() {
   const refreshKey = useAppStore(s => s.refreshKey);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
 
   // Data
-  const [badges, setBadges] = useState<BadgeItem[] | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -59,22 +60,20 @@ export default function Badges() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────
 
-  const fetchBadges = useCallback(async () => {
-    try {
+  const { data: badges = null, isLoading: loading } = useQuery<BadgeItem[]>({
+    queryKey: ['badges', refreshKey],
+    queryFn: async () => {
       const res = await fetch('/api/badges');
       if (!res.ok) throw new Error('Failed to fetch badges');
-      const data = await res.json();
-      setBadges(data);
-    } catch {
-      toast.error('Failed to load badges');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetchBadges();
-  }, [fetchBadges, refreshKey]);
+  const invalidateBadges = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['badges'] });
+    invalidateBadges();
+  }, [queryClient, triggerRefresh]);
 
   // ── Derived ─────────────────────────────────────────────────────────────
 
@@ -111,7 +110,7 @@ export default function Badges() {
       toast.success('Badge created');
       resetForm();
       setDialogOpen(false);
-      fetchBadges();
+      invalidateBadges();
     } catch {
       toast.error('Failed to create badge');
     }
@@ -127,7 +126,7 @@ export default function Badges() {
       });
       if (!res.ok) throw new Error('Failed to update');
       toast.success(newUnlocked ? 'Badge unlocked! 🎉' : 'Badge locked');
-      setBadges((prev) =>
+      queryClient.setQueryData<BadgeItem[]>(['badges', refreshKey], (prev) =>
         prev?.map((b) =>
           b.id === badge.id
             ? { ...b, unlocked: newUnlocked, unlockedAt: newUnlocked ? new Date().toISOString() : null }
@@ -144,7 +143,7 @@ export default function Badges() {
       const res = await fetch(`/api/badges/${badge.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
       toast.success('Badge deleted');
-      setBadges((prev) => prev?.filter((b) => b.id !== badge.id) ?? []);
+      queryClient.setQueryData<BadgeItem[]>(['badges', refreshKey], (prev) => prev?.filter((b) => b.id !== badge.id) ?? []);
     } catch {
       toast.error('Failed to delete badge');
     }

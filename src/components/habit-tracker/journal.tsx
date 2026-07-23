@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -198,9 +199,8 @@ function getSleepColor(sleep: number): string {
 export default function JournalTab() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
 
-  const [journals, setJournals] = useState<Journal[] | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Dialog states
@@ -215,24 +215,22 @@ export default function JournalTab() {
 
   // ── Fetch journals ────────────────────────────────────────────────────────
 
-  const fetchJournals = useCallback(async () => {
-    try {
+  const { data: journals = null, isLoading: loading } = useQuery<Journal[]>({
+    queryKey: ['journals', refreshKey],
+    queryFn: async () => {
       const res = await fetch('/api/journals');
       if (!res.ok) throw new Error('Failed to fetch journals');
       const data = await res.json();
-      // Sort by date descending
       data.sort((a: Journal, b: Journal) => b.date.localeCompare(a.date));
-      setJournals(data);
-    } catch {
-      toast.error('Failed to load journals');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return data;
+    },
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    fetchJournals();
-  }, [fetchJournals, refreshKey]);
+  const invalidateJournals = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['journals'] });
+    invalidateJournals();
+  }, [queryClient, triggerRefresh]);
 
   // ── Form handlers ─────────────────────────────────────────────────────────
 
@@ -287,8 +285,7 @@ export default function JournalTab() {
 
       toast.success('Journal entry saved');
       setFormOpen(false);
-      triggerRefresh();
-      await fetchJournals();
+      invalidateJournals();
     } catch {
       toast.error('Failed to save journal entry');
     } finally {
@@ -307,8 +304,7 @@ export default function JournalTab() {
 
       toast.success('Journal entry deleted');
       setDeleteTarget(null);
-      triggerRefresh();
-      await fetchJournals();
+      invalidateJournals();
     } catch {
       toast.error('Failed to delete journal entry');
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -172,10 +173,10 @@ export default function DailyTracker() {
   const selectedDate = useAppStore(s => s.selectedDate);
   const setSelectedDate = useAppStore(s => s.setSelectedDate);
   const refreshKey = useAppStore(s => s.refreshKey);
+  const queryClient = useQueryClient();
   const { xpMap, priorityMap, categoryMap } = useHabitOptions();
 
   // ---- state ----
-  const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [completionMap, setCompletionMap] = useState<Record<string, boolean>>({});
   const [mood, setMood] = useState(3);
@@ -200,13 +201,55 @@ export default function DailyTracker() {
 
   // ---- grouping state ----
   const [viewMode, setViewMode] = useState<'flat' | 'group' | 'time'>('flat');
-  const [groups, setGroups] = useState<HabitGroup[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
   const cachedMonthRef = useRef('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---- TanStack Query: habits, groups, daily-log ----
+  const { data: habits = [] } = useQuery<Habit[]>({
+    queryKey: ['habits'],
+    queryFn: async () => {
+      const res = await fetch('/api/habits');
+      if (!res.ok) throw new Error('Failed to load habits');
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: groups = [] } = useQuery<HabitGroup[]>({
+    queryKey: ['habit-groups'],
+    queryFn: async () => {
+      const res = await fetch('/api/habit-groups');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: dailyLogData } = useQuery<{ mood: number; energy: number; sleep: number; notes: string | null } | null>({
+    queryKey: ['daily-logs', selectedDate],
+    queryFn: async () => {
+      const res = await fetch(`/api/daily-logs?date=${selectedDate}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 15_000,
+  });
+
+  // Sync dailyLogData to local state
+  useEffect(() => {
+    if (dailyLogData) {
+      setMood(dailyLogData.mood ?? 3);
+      setEnergy(dailyLogData.energy ?? 3);
+      setSleepHours(dailyLogData.sleep ?? 7);
+      setNotes(dailyLogData.notes || '');
+    } else {
+      setMood(3); setEnergy(3); setSleepHours(7); setNotes('');
+    }
+  }, [dailyLogData]);
 
   // ---- derived ----
   const dateObj = useMemo(() => parseISO(selectedDate), [selectedDate]);
@@ -377,54 +420,8 @@ export default function DailyTracker() {
 
   // ---- data fetching ----
 
-  const fetchGroups = useCallback(async () => {
-    try {
-      const res = await fetch('/api/habit-groups');
-      if (res.ok) {
-        const data: HabitGroup[] = await res.json();
-        setGroups(data);
-      }
-    } catch { /* non-critical */ }
-  }, []);
-
-  const fetchHabits = useCallback(async () => {
-    try {
-      const res = await fetch('/api/habits');
-      if (!res.ok) throw new Error();
-      const data: Habit[] = await res.json();
-      setHabits(data);
-      return data;
-    } catch {
-      toast.error('Failed to load habits');
-      return [];
-    }
-  }, []);
-
-  const fetchDailyLog = useCallback(async (date: string) => {
-    try {
-      const res = await fetch(`/api/daily-logs?date=${date}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data) {
-        setMood(data.mood ?? 3);
-        setEnergy(data.energy ?? 3);
-        setSleepHours(data.sleep ?? 7);
-        setNotes(data.notes || '');
-      } else {
-        setMood(3);
-        setEnergy(3);
-        setSleepHours(7);
-        setNotes('');
-      }
-    } catch {
-      toast.error('Gagal memuat data');
-      setMood(3);
-      setEnergy(3);
-      setSleepHours(7);
-      setNotes('');
-    }
-  }, []);
-
+  // ---- data fetching (habits, groups, daily-log now via useQuery above) ----
+  // fetchCompletions kept as manual function for month-based cache optimization.
   // Not wrapped in useCallback — receives habitList and date as params so no
   // stale-closure risk, and removing the memo avoids accidentally forgetting
   // to update deps if outer-scope reads are added later.
@@ -498,12 +495,13 @@ export default function DailyTracker() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ date: selectedDate, ...patch }),
           });
+          queryClient.invalidateQueries({ queryKey: ['daily-logs', selectedDate] });
         } catch {
           toast.error('Gagal menyimpan data');
         }
       }, 500);
     },
-    [selectedDate],
+    [selectedDate, queryClient],
   );
 
   // ---- handlers ----
@@ -618,14 +616,9 @@ export default function DailyTracker() {
         });
       }
 
-      // bump _count locally
-      setHabits((prev) =>
-        prev.map((h) =>
-          h.id === habitId
-            ? { ...h, _count: { logs: h._count.logs + (next ? 1 : -1) } }
-            : h,
-        ),
-      );
+      // Invalidate queries so dashboard & other components see the update
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
       if (next) toast.success('Habit completed! 🎉');
     } catch (e) {
@@ -650,28 +643,21 @@ export default function DailyTracker() {
 
   // ---- effects ----
 
-  // Consolidated data loading: handles both initial load, date changes, and refresh
+  // Fetch completions when habits or selectedDate change
   useEffect(() => {
+    if (habits.length === 0) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
-        const data = await fetchHabits();
-        if (cancelled) return;
-        await Promise.all([
-          fetchDailyLog(selectedDate),
-          fetchCompletions(data, selectedDate),
-          fetchGroups(),
-        ]);
+        await fetchCompletions(habits, selectedDate);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedDate, refreshKey]);
+    return () => { cancelled = true; };
+  }, [habits, selectedDate, refreshKey]);
 
   // cleanup
   useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);

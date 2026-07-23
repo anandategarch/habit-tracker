@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -171,28 +172,16 @@ function EmptyState() {
 
 export default function AIInsights() {
   const refreshKey = useAppStore(s => s.refreshKey);
-  const [data, setData] = useState<AIInsightsData | null>(null);
-  const [fetchError, setFetchError] = useState(false);
-  const loading = data === null && !fetchError;
-
-  useEffect(() => {
-    let cancelled = false;
-    requestAnimationFrame(() => {
-      setFetchError(false);
-      fetch('/api/ai-insights')
-        .then((r) => r.json())
-        .then((d) => {
-          if (!cancelled) setData(d);
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setFetchError(true);
-            toast.error('Gagal memuat AI insights');
-          }
-        });
-    });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
+  const { data: data, isError: fetchError } = useQuery<AIInsightsData>({
+    queryKey: ['ai-insights', refreshKey],
+    queryFn: async () => {
+      const r = await fetch('/api/ai-insights');
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+  const loading = data === undefined && !fetchError;
 
   const groupedInsights = useMemo(() => {
     if (!data?.insights) return { positive: [], neutral: [], negative: [] };
