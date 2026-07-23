@@ -1,12 +1,16 @@
 import { db } from '@/lib/db';
+import { updateFundSourceSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // PUT /api/finance/sources/[id]
+// Renaming the source also updates all Transaction.source fields atomically.
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, emoji } = body;
+    const parsed = parseOr400(updateFundSourceSchema.partial(), body);
+    if (!parsed.success) return parsed.response;
+    const { name, emoji, order } = parsed.data;
 
     const existing = await db.fundSource.findUnique({ where: { id } });
     if (!existing) {
@@ -14,7 +18,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const oldName = existing.name;
-    const newName = name?.trim() || oldName;
+    const newName = name ?? oldName;
 
     // Check duplicate name if renaming
     if (newName !== oldName) {
@@ -24,21 +28,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    const source = await db.fundSource.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name: newName }),
-        ...(emoji !== undefined && { emoji }),
-      },
-    });
-
-    // If name changed, update all transactions that use the old name
-    if (newName !== oldName) {
-      await db.transaction.updateMany({
-        where: { source: oldName },
-        data: { source: newName },
+    const source = await db.$transaction(async (tx) => {
+      const updated = await tx.fundSource.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name: newName }),
+          ...(emoji !== undefined && { emoji }),
+          ...(order !== undefined && { order }),
+        },
       });
-    }
+
+      // Cascade rename to transactions to keep them consistent.
+      if (newName !== oldName) {
+        await tx.transaction.updateMany({
+          where: { source: oldName },
+          data: { source: newName },
+        });
+      }
+      return updated;
+    });
 
     return NextResponse.json(source);
   } catch (error) {
@@ -48,7 +56,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // DELETE /api/finance/sources/[id]
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const existing = await db.fundSource.findUnique({ where: { id } });
@@ -56,7 +64,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Source not found' }, { status: 404 });
     }
 
-    // Check if source is used in transactions
+    // Block deletion if transactions still reference this source.
     const txCount = await db.transaction.count({
       where: { source: existing.name },
     });
