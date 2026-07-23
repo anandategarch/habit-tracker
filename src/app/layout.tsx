@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import ServiceWorkerRegister from "@/components/sw-register";
 import ThemeProvider from "@/components/theme-provider";
+import { QueryProvider } from "@/components/query-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,7 +53,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider />
-        {children}
+        <QueryProvider>
+          {children}
+        </QueryProvider>
         <ServiceWorkerRegister />
         <Toaster position="top-right" richColors />
       </body>

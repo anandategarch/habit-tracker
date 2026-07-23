@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -300,82 +301,52 @@ const DEFAULT_DATA: DashboardData = {
 
 export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
-  const [data, setData] = useState<DashboardData | null>(null);
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<Period>('all');
-  const [quote, setQuote] = useState<MotivationalQuote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(true);
-  const [fetching, setFetching] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const fetchErrorRef = useRef(false);
-  const loading = data === null && !fetchError;
 
-  // Fetch dashboard data with period
-  useEffect(() => {
-    let cancelled = false;
-    fetchErrorRef.current = false;
-    requestAnimationFrame(() => {
-      setFetching(true);
-      fetch(`/api/dashboard?period=${period}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((json) => {
-          if (!cancelled) {
-            if (json.error) {
-              setFetchError(true);
-            } else {
-              setData(json);
-              setFetchError(false);
-            }
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setFetchError(true);
-        })
-        .finally(() => {
-          if (!cancelled) setFetching(false);
-        });
-    });
-    return () => { cancelled = true; };
-  }, [refreshKey, period, retryCount]);
+  // ── Dashboard data (TanStack Query) ────────────────────────────────────
+  // Replaces manual useEffect + useState + fetch pattern.
+  // Benefits: automatic dedup, background refetch, cache sharing, race-free.
+  const { data: data, isFetching: fetching, isError: fetchError } = useQuery({
+    queryKey: ['dashboard', period, refreshKey, retryCount],
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard?period=${period}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      return json as DashboardData;
+    },
+    retry: 1,
+  });
 
-  // Fetch motivational quote
-  useEffect(() => {
-    let cancelled = false;
-    requestAnimationFrame(() => {
-      fetch('/api/motivational-quote')
-        .then((r) => r.json())
-        .then((d) => {
-          if (!cancelled && d.quote) {
-            setQuote({ quote: d.quote, translation: d.translation || '', author: d.author });
-          }
-        })
-        .catch((err) => {
-          if (!cancelled) console.error('Failed to fetch motivational quote:', err);
-        })
-        .finally(() => {
-          if (!cancelled) setQuoteLoading(false);
-        });
-    });
-    return () => { cancelled = true; };
-  }, []);
+  // ── Motivational quote (TanStack Query) ────────────────────────────────
+  const { data: quoteData, isLoading: quoteLoading } = useQuery<{
+    quote?: string;
+    translation?: string;
+    author?: string;
+  }>({
+    queryKey: ['motivational-quote'],
+    queryFn: async () => {
+      const r = await fetch('/api/motivational-quote');
+      return r.json();
+    },
+    staleTime: Infinity, // quote doesn't change unless user manually refreshes
+  });
+
+  const quote: MotivationalQuote | null = quoteData?.quote
+    ? { quote: quoteData.quote, translation: quoteData.translation || '', author: quoteData.author || '' }
+    : null;
+
+  const loading = data === undefined && !fetchError;
 
   const handlePeriodChange = (newPeriod: Period) => {
     setPeriod(newPeriod);
   };
 
   const handleRefreshQuote = () => {
-    setQuoteLoading(true);
-    setQuote(null);
-    fetch('/api/motivational-quote?refresh=true')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.quote) setQuote({ quote: d.quote, translation: d.translation || '', author: d.author });
-      })
-      .catch((err) => console.error('Failed to refresh quote:', err))
-      .finally(() => setQuoteLoading(false));
+    // Force refetch with a fresh request (bypass cache)
+    queryClient.invalidateQueries({ queryKey: ['motivational-quote'] });
   };
 
   const insights = useMemo(() => {
@@ -486,7 +457,7 @@ export default function Dashboard() {
       {fetchError && !fetching && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
           <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
-          <Button variant="outline" size="sm" onClick={() => { setFetchError(false); setRetryCount((c) => c + 1); }}>
+          <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Retry
           </Button>
