@@ -46,6 +46,16 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
+// Primary tabs shown in the mobile bottom navigation bar.
+// Other tabs (Calendar, Goals, Challenges, Rewards, Badges) remain
+// accessible via the hamburger sidebar drawer on mobile.
+const BOTTOM_NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+  { id: 'tracker', label: 'Track', icon: CheckSquare },
+  { id: 'finance', label: 'Finance', icon: Wallet },
+  { id: 'settings', label: 'Settings', icon: SettingsIcon },
+];
+
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   dashboard: Dashboard,
   tracker: DailyTracker,
@@ -194,13 +204,54 @@ export default function Home() {
             </div>
           </header>
 
-          {/* Content area */}
-          <div className="flex-1 p-4 md:p-6 overflow-auto">
+          {/* Content area — extra bottom padding on mobile so content
+              doesn't get hidden behind the fixed bottom navigation bar. */}
+          <div className="flex-1 p-4 md:p-6 overflow-auto pb-24 md:pb-6">
             <div className="animate-fade-in">
               <ActiveComponent key={activeTab} />
             </div>
           </div>
         </main>
+
+        {/* ── Mobile bottom navigation ─────────────────────────────────────
+            Fixed at the bottom on mobile only (md:hidden). Provides 1-tap
+            access to the 4 most-used tabs. Other tabs remain accessible
+            via the hamburger sidebar drawer. Respects iOS safe-area inset
+            so it doesn't overlap the home indicator on notch devices. */}
+        <nav
+          aria-label="Primary mobile navigation"
+          className={cn(
+            'fixed bottom-0 left-0 right-0 z-30 md:hidden',
+            'bg-background/95 backdrop-blur-md border-t border-border',
+            'flex items-stretch justify-around',
+            // Padding bottom for iOS home indicator / safe-area
+            'pb-[env(safe-area-inset-bottom)]'
+          )}
+        >
+          {BOTTOM_NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-2',
+                  'transition-colors duration-150',
+                  'min-h-[56px]', // ensure 44px+ touch target with icon+label
+                  isActive
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} />
+                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
     </TooltipProvider>
   );
