@@ -191,7 +191,7 @@ export default function AnalyticsTab() {
       ? data.completionTrend[data.completionTrend.length - 1].rate
       : 0;
   const prevRate =
-    data?.completionTrend?.length > 1
+    data?.completionTrend && data.completionTrend.length > 1
       ? data.completionTrend[data.completionTrend.length - 2].rate
       : 0;
   const trendUp = latestRate >= prevRate;
@@ -298,7 +298,6 @@ export default function AnalyticsTab() {
                       />
                       <RechartsTooltip
                         content={<ChartTooltip />}
-                        labelKey="label"
                       />
                       <Legend />
                       <Line
@@ -416,7 +415,6 @@ export default function AnalyticsTab() {
                       />
                       <RechartsTooltip
                         content={<ChartTooltip />}
-                        labelKey="week"
                       />
                       <Bar
                         dataKey="rate"
@@ -449,7 +447,6 @@ export default function AnalyticsTab() {
                       />
                       <RechartsTooltip
                         content={<ChartTooltip />}
-                        labelKey="month"
                       />
                       <Bar
                         dataKey="rate"
@@ -584,7 +581,6 @@ export default function AnalyticsTab() {
                       />
                       <RechartsTooltip
                         content={<ChartTooltip />}
-                        labelKey="day"
                       />
                       <Bar
                         dataKey="rate"

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Weekly trend
-    const weeklyTrend = [];
+    const weeklyTrend: { week: string; completed: number; total: number; rate: number }[] = [];
     for (let i = Math.floor(daysBack / 7); i >= 0; i--) {
       const wStart = subDays(today, (i + 1) * 7);
       const wEnd = subDays(today, i * 7);
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Monthly trend (last 6 months)
-    const monthlyTrend = [];
+    const monthlyTrend: { month: string; completed: number; total: number; rate: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const mStart = startOfMonth(subMonths(today, i));
       const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 0);

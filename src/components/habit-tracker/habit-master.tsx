@@ -713,7 +713,7 @@ export default function HabitMaster() {
                   <Label>Reminder</Label>
                   <Input
                     placeholder="e.g. 8:00 AM"
-                    value={form.reminder}
+                    value={form.reminder ?? ''}
                     onChange={(e) => updateForm('reminder', e.target.value)}
                   />
                 </div>
@@ -751,7 +751,7 @@ export default function HabitMaster() {
                   <Label>End Date <span className="text-muted-foreground text-xs">(optional)</span></Label>
                   <Input
                     type="date"
-                    value={form.endDate}
+                    value={form.endDate ?? ''}
                     onChange={(e) => updateForm('endDate', e.target.value)}
                   />
                 </div>
@@ -832,7 +832,7 @@ export default function HabitMaster() {
                 <Label>Notes</Label>
                 <Textarea
                   placeholder="Additional notes about this habit..."
-                  value={form.notes}
+                  value={form.notes ?? ''}
                   onChange={(e) => updateForm('notes', e.target.value)}
                   rows={3}
                 />

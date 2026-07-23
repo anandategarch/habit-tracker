@@ -36,6 +36,7 @@ interface Habit {
   name: string;
   icon: string;
   color: string;
+  status?: string;
 }
 
 interface HabitLog {

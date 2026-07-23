@@ -118,6 +118,25 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Respect iOS notch / dynamic island when viewport-fit=cover is set */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* ── Touch target minimum: 44x44px (Apple HIG / WCAG 2.5.5) ─────────────
+     Only applied on touch devices (pointer: coarse) to avoid bloating
+     desktop layout. Targets shadcn's size="icon" (h-9 w-9 = 36px),
+     size="sm" (h-8), and similar small interactive elements. */
+  @media (pointer: coarse) {
+    button[class*="size-icon"],
+    button[class*="size-sm"],
+    [role="button"][class*="size-icon"],
+    [role="button"][class*="size-sm"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
 }
 

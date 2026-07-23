@@ -18,9 +18,11 @@ interface ImportPayload {
 
 const FIELDS_TO_STRIP = new Set(['id', 'createdAt', 'updatedAt']);
 
-function stripAutoFields(
-  records: Record<string, unknown>[]
-): Record<string, unknown>[] {
+// Strip auto-generated fields (id, createdAt, updatedAt) from imported records
+// so Prisma can generate fresh values on insert.
+// Returns `any[]` because Prisma's createMany input types are model-specific
+// and we validated the payload structure upstream in isValidPayload().
+function stripAutoFields(records: Record<string, unknown>[]): any[] {
   return records.map((record) => {
     const cleaned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(record)) {
@@ -102,69 +104,71 @@ export async function POST(request: NextRequest) {
       }
 
       // Insert in dependency order: parents first, then children
+      // Note: skipDuplicates is not supported on SQLite, so we delete all rows
+      // before insert (above) and rely on the import being authoritative.
       if (body.habits && body.habits.length > 0) {
         const data = stripAutoFields(body.habits);
-        const res = await tx.habit.createMany({ data, skipDuplicates: true });
+        const res = await tx.habit.createMany({ data });
         counts.habits = res.count;
       }
 
       if (body.habitLogs && body.habitLogs.length > 0) {
         const data = stripAutoFields(body.habitLogs);
-        const res = await tx.habitLog.createMany({ data, skipDuplicates: true });
+        const res = await tx.habitLog.createMany({ data });
         counts.habitLogs = res.count;
       }
 
       if (body.dailyLogs && body.dailyLogs.length > 0) {
         const data = stripAutoFields(body.dailyLogs);
-        const res = await tx.dailyLog.createMany({ data, skipDuplicates: true });
+        const res = await tx.dailyLog.createMany({ data });
         counts.dailyLogs = res.count;
       }
 
       if (body.journals && body.journals.length > 0) {
         const data = stripAutoFields(body.journals);
-        const res = await tx.journal.createMany({ data, skipDuplicates: true });
+        const res = await tx.journal.createMany({ data });
         counts.journals = res.count;
       }
 
       if (body.goals && body.goals.length > 0) {
         const data = stripAutoFields(body.goals);
-        const res = await tx.goal.createMany({ data, skipDuplicates: true });
+        const res = await tx.goal.createMany({ data });
         counts.goals = res.count;
       }
 
       if (body.challenges && body.challenges.length > 0) {
         const data = stripAutoFields(body.challenges);
-        const res = await tx.challenge.createMany({ data, skipDuplicates: true });
+        const res = await tx.challenge.createMany({ data });
         counts.challenges = res.count;
       }
 
       if (body.badges && body.badges.length > 0) {
         const data = stripAutoFields(body.badges);
-        const res = await tx.badge.createMany({ data, skipDuplicates: true });
+        const res = await tx.badge.createMany({ data });
         counts.badges = res.count;
       }
 
       if (body.rewards && body.rewards.length > 0) {
         const data = stripAutoFields(body.rewards);
-        const res = await tx.reward.createMany({ data, skipDuplicates: true });
+        const res = await tx.reward.createMany({ data });
         counts.rewards = res.count;
       }
 
       if (body.financeCategories && body.financeCategories.length > 0) {
         const data = stripAutoFields(body.financeCategories);
-        const res = await tx.financeCategory.createMany({ data, skipDuplicates: true });
+        const res = await tx.financeCategory.createMany({ data });
         counts.financeCategories = res.count;
       }
 
       if (body.transactions && body.transactions.length > 0) {
         const data = stripAutoFields(body.transactions);
-        const res = await tx.transaction.createMany({ data, skipDuplicates: true });
+        const res = await tx.transaction.createMany({ data });
         counts.transactions = res.count;
       }
 
       if (body.budgets && body.budgets.length > 0) {
         const data = stripAutoFields(body.budgets);
-        const res = await tx.budget.createMany({ data, skipDuplicates: true });
+        const res = await tx.budget.createMany({ data });
         counts.budgets = res.count;
       }
 
@@ -173,7 +177,7 @@ export async function POST(request: NextRequest) {
         const existing = await tx.appSettings.findFirst();
         if (!existing) {
           const data = stripAutoFields(body.settings);
-          const res = await tx.appSettings.createMany({ data, skipDuplicates: true });
+          const res = await tx.appSettings.createMany({ data });
           counts.settings = res.count;
         } else {
           // Update existing settings with imported values
