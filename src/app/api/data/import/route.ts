@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Import failed:', error);
     return NextResponse.json(
-      { error: 'Failed to import data', details: String(error) },
+      { error: 'Failed to import data' },
       { status: 500 }
     );
   }
