@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { jakartaDateString } from '@/lib/timezone';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,11 +25,7 @@ const shownTodayTitles = new Map<string, Set<string>>();
 const refreshCounter = new Map<string, number>();
 
 function getTodayKey(): string {
-  const now = new Date();
-  const jakartaOffset = 7 * 60;
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const jakarta = new Date(utc + jakartaOffset * 60000);
-  return jakarta.toISOString().split('T')[0];
+  return jakartaDateString();
 }
 
 function addShownTitle(topic: string, title: string) {

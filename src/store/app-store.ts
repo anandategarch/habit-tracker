@@ -1,15 +1,5 @@
 import { create } from 'zustand';
-import { format, addHours } from 'date-fns';
-
-// Jakarta is UTC+7 — use local date components adjusted for WIB
-function jakartaDateString() {
-  const d = addHours(new Date(), 7);
-  return format(d, 'yyyy-MM-dd');
-}
-function jakartaMonthString() {
-  const d = addHours(new Date(), 7);
-  return format(d, 'yyyy-MM');
-}
+import { jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 
 export type TabId =
   | 'dashboard'

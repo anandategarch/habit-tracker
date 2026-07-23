@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
+import { updateHabitSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/habits/[id]
@@ -8,7 +8,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await ensureTimeTrackingColumns();
     const { id } = await params;
     const habit = await db.habit.findUnique({
       where: { id },
@@ -30,36 +29,32 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await ensureTimeTrackingColumns();
     const { id } = await params;
     const body = await request.json();
+    const parsed = parseOr400(updateHabitSchema, body);
+    if (!parsed.success) return parsed.response;
+    const d = parsed.data;
 
     const updateData: Record<string, unknown> = {};
-    if (body.name !== undefined) {
-      const trimmed = String(body.name).trim();
-      if (trimmed.length === 0) {
-        return NextResponse.json({ error: 'name cannot be empty' }, { status: 400 });
-      }
-      updateData.name = trimmed;
-    }
-    if (body.icon !== undefined) updateData.icon = body.icon;
-    if (body.category !== undefined) updateData.category = body.category;
-    if (body.priority !== undefined) updateData.priority = body.priority;
-    if (body.difficulty !== undefined) updateData.difficulty = body.difficulty;
-    if (body.target !== undefined) updateData.target = body.target;
-    if (body.targetType !== undefined) updateData.targetType = body.targetType;
-    if (body.color !== undefined) updateData.color = body.color;
-    if (body.reminder !== undefined) updateData.reminder = body.reminder;
-    if (body.startDate !== undefined) updateData.startDate = body.startDate ? new Date(body.startDate) : null;
-    if (body.endDate !== undefined) updateData.endDate = body.endDate ? new Date(body.endDate) : null;
-    if (body.status !== undefined) updateData.status = body.status;
-    if (body.notes !== undefined) updateData.notes = body.notes;
-    if (body.order !== undefined) updateData.order = body.order;
-    if (body.trackTime !== undefined) updateData.trackTime = body.trackTime === true;
-    if (body.targetTime !== undefined) updateData.targetTime = body.targetTime || null;
-    if (body.trackLastDone !== undefined) updateData.trackLastDone = body.trackLastDone === true;
-    if (body.lastDoneInterval !== undefined) updateData.lastDoneInterval = body.lastDoneInterval || null;
-    if (body.groupId !== undefined) updateData.groupId = body.groupId || null;
+    if (d.name !== undefined) updateData.name = d.name;
+    if (d.icon !== undefined) updateData.icon = d.icon;
+    if (d.category !== undefined) updateData.category = d.category;
+    if (d.priority !== undefined) updateData.priority = d.priority;
+    if (d.difficulty !== undefined) updateData.difficulty = d.difficulty;
+    if (d.target !== undefined) updateData.target = d.target;
+    if (d.targetType !== undefined) updateData.targetType = d.targetType;
+    if (d.color !== undefined) updateData.color = d.color;
+    if (d.reminder !== undefined) updateData.reminder = d.reminder;
+    if (d.startDate !== undefined) updateData.startDate = d.startDate;
+    if (d.endDate !== undefined) updateData.endDate = d.endDate;
+    if (d.status !== undefined) updateData.status = d.status;
+    if (d.notes !== undefined) updateData.notes = d.notes;
+    if (d.order !== undefined) updateData.order = d.order;
+    if (d.trackTime !== undefined) updateData.trackTime = d.trackTime;
+    if (d.targetTime !== undefined) updateData.targetTime = d.targetTime;
+    if (d.trackLastDone !== undefined) updateData.trackLastDone = d.trackLastDone;
+    if (d.lastDoneInterval !== undefined) updateData.lastDoneInterval = d.lastDoneInterval;
+    if (d.groupId !== undefined) updateData.groupId = d.groupId;
 
     const habit = await db.habit.update({
       where: { id },

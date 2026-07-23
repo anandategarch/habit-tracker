@@ -23,7 +23,7 @@ export async function GET() {
     const topics = await db.learningTopic.findMany({ orderBy: { order: 'asc' } });
     return NextResponse.json({ success: true, message: `${count} topics already exist`, topics });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    console.error('migrate-learning error:', e);
+    return NextResponse.json({ success: false, error: 'Failed to seed learning topics' }, { status: 500 });
   }
 }

@@ -1,44 +1,49 @@
 import { db } from '@/lib/db';
+import { updateCategorySchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // PUT /api/finance/categories/[id]
+// Renaming a category also updates all Transaction.category and Budget.category rows atomically.
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, emoji, color, order, trackLastDone } = body;
+    const parsed = parseOr400(updateCategorySchema, body);
+    if (!parsed.success) return parsed.response;
+    const { name, emoji, color, order, trackLastDone } = parsed.data;
 
-    // If renaming, also update all transactions and budgets that use the old name
     const existing = await db.financeCategory.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
     const oldName = existing.name;
-    const newName = name?.trim() || oldName;
+    const newName = name ?? oldName;
 
-    const category = await db.financeCategory.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name: newName }),
-        ...(emoji !== undefined && { emoji }),
-        ...(color !== undefined && { color }),
-        ...(order !== undefined && { order }),
-        ...(trackLastDone !== undefined && { trackLastDone: !!trackLastDone }),
-      },
+    const category = await db.$transaction(async (tx) => {
+      const updated = await tx.financeCategory.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name: newName }),
+          ...(emoji !== undefined && { emoji }),
+          ...(color !== undefined && { color }),
+          ...(order !== undefined && { order }),
+          ...(trackLastDone !== undefined && { trackLastDone }),
+        },
+      });
+
+      if (newName !== oldName) {
+        await tx.transaction.updateMany({
+          where: { category: oldName, type: existing.type },
+          data: { category: newName },
+        });
+        await tx.budget.updateMany({
+          where: { category: oldName },
+          data: { category: newName },
+        });
+      }
+      return updated;
     });
-
-    // If category name changed, update existing transactions & budgets
-    if (newName !== oldName) {
-      await db.transaction.updateMany({
-        where: { category: oldName, type: existing.type },
-        data: { category: newName },
-      });
-      await db.budget.updateMany({
-        where: { category: oldName },
-        data: { category: newName },
-      });
-    }
 
     return NextResponse.json(category);
   } catch (error) {
@@ -48,7 +53,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // DELETE /api/finance/categories/[id]
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const existing = await db.financeCategory.findUnique({ where: { id } });
@@ -56,7 +61,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    // Check if category is used in transactions
     const txCount = await db.transaction.count({
       where: { category: existing.name, type: existing.type },
     });
@@ -67,9 +71,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       );
     }
 
-    // Also delete budget if exists
-    await db.budget.deleteMany({ where: { category: existing.name } });
-    await db.financeCategory.delete({ where: { id } });
+    await db.$transaction([
+      db.budget.deleteMany({ where: { category: existing.name } }),
+      db.financeCategory.delete({ where: { id } }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

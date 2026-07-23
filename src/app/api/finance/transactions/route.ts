@@ -1,4 +1,6 @@
 import { db } from '@/lib/db';
+import { toMoneyInt, applyDelta } from '@/lib/money';
+import { createTransactionSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/finance/transactions?month=2025-01&type=expense&search=xxx
@@ -29,24 +31,27 @@ export async function GET(request: NextRequest) {
     }
 
     if (startDate && endDate) {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) {
+        return NextResponse.json({ error: 'Invalid startDate or endDate' }, { status: 400 });
+      }
       where.date = {
         ...(where.date as Record<string, unknown> || {}),
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+        gte: s,
+        lte: e,
       };
     }
 
     if (type) {
+      if (!['income', 'expense'].includes(type)) {
+        return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+      }
       where.type = type;
     }
 
-    if (category) {
-      where.category = category;
-    }
-
-    if (source) {
-      where.source = source;
-    }
+    if (category) where.category = category;
+    if (source) where.source = source;
 
     if (search && search.trim()) {
       const term = search.trim();
@@ -73,32 +78,38 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, amount, category, description, date, notes, source } = body;
+    const parsed = parseOr400(createTransactionSchema, body);
+    if (!parsed.success) return parsed.response;
 
-    if (!type || !['income', 'expense'].includes(type)) {
-      return NextResponse.json({ error: 'Valid type (income/expense) is required' }, { status: 400 });
-    }
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      return NextResponse.json({ error: 'Valid amount is required' }, { status: 400 });
-    }
-    if (!category?.trim()) {
-      return NextResponse.json({ error: 'Category is required' }, { status: 400 });
-    }
-    if (!date) {
-      return NextResponse.json({ error: 'Date is required' }, { status: 400 });
-    }
+    const { type, amount, category, description, date, notes, source } = parsed.data;
+    const sourceName = source ?? 'Kas';
 
-    const transaction = await db.transaction.create({
-      data: {
-        type,
-        amount: numAmount,
-        category: category.trim(),
-        description: description?.trim() || null,
-        date: new Date(date),
-        notes: notes?.trim() || null,
-        source: source?.trim() || 'Kas',
-      },
+    // Atomic: create transaction AND update fund source balance in the same DB transaction.
+    // If the fund source doesn't exist, we still create the transaction but skip balance update.
+    const transaction = await db.$transaction(async (tx) => {
+      const tx_record = await tx.transaction.create({
+        data: {
+          type,
+          amount, // already a positive Int from schema transform
+          category,
+          description: description ?? null,
+          date,
+          notes: notes ?? null,
+          source: sourceName,
+        },
+      });
+
+      // Try to update fund source balance if a matching source exists.
+      const fundSource = await tx.fundSource.findUnique({ where: { name: sourceName } });
+      if (fundSource) {
+        const newBalance = applyDelta(fundSource.balance, amount, type);
+        await tx.fundSource.update({
+          where: { id: fundSource.id },
+          data: { balance: newBalance },
+        });
+      }
+
+      return tx_record;
     });
 
     return NextResponse.json(transaction, { status: 201 });
