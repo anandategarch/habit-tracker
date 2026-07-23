@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { createBudgetSchema, parseOr400 } from '@/lib/validation';
 import { NextResponse } from 'next/server';
 
 // GET /api/finance/budgets
@@ -16,26 +17,20 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { category, amount, period } = body;
-
-    if (!category?.trim()) {
-      return NextResponse.json({ error: 'Category is required' }, { status: 400 });
-    }
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount < 0) {
-      return NextResponse.json({ error: 'Valid amount is required' }, { status: 400 });
-    }
+    const parsed = parseOr400(createBudgetSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { category, amount, period } = parsed.data;
 
     const budget = await db.budget.upsert({
-      where: { category: category.trim() },
+      where: { category },
       create: {
-        category: category.trim(),
-        amount: numAmount,
-        period: period || 'monthly',
+        category,
+        amount,
+        period: period ?? 'monthly',
       },
       update: {
-        amount: numAmount,
-        period: period || 'monthly',
+        amount,
+        period: period ?? 'monthly',
       },
     });
 

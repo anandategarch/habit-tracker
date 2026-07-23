@@ -1,8 +1,7 @@
 import { db } from '@/lib/db';
-import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
+import { jakartaNowIso, dateFromYMD } from '@/lib/timezone';
+import { createHabitLogSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
-
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 // GET /api/habits/[id]/logs?month=2024-01
 export async function GET(
@@ -10,7 +9,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await ensureTimeTrackingColumns();
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
@@ -22,18 +20,17 @@ export async function GET(
     let startDate: Date;
     let endDate: Date;
 
-    // Use Jakarta time for date boundaries
-    const jakartaNow = new Date(Date.now() + JAKARTA_OFFSET_MS);
+    const today = new Date();
     if (month) {
       const [y, m] = month.split('-').map(Number);
       startDate = new Date(Date.UTC(y, m - 1, 1));
       const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
       endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
     } else {
-      startDate = new Date(jakartaNow);
+      startDate = new Date(today);
       startDate.setUTCDate(startDate.getUTCDate() - 30);
       startDate.setUTCHours(0, 0, 0, 0);
-      endDate = new Date(jakartaNow);
+      endDate = new Date(today);
       endDate.setUTCHours(23, 59, 59, 999);
     }
 
@@ -58,21 +55,20 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await ensureTimeTrackingColumns();
     const { id } = await params;
     const body = await request.json();
-    const { date, completed, value, completedAt } = body;
+    const parsed = parseOr400(createHabitLogSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { date, completed, value, completedAt } = parsed.data;
 
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD.' }, { status: 400 });
-    }
+    // Normalize date to a YYYY-MM-DD string at UTC midnight for the DB unique key.
+    const ymd = date.toISOString().slice(0, 10);
+    const dateObj = dateFromYMD(ymd);
 
-    const dateObj = new Date(`${date}T00:00:00Z`);
-
-    // Build the completedAt value (stored as ISO string)
+    // Build the completedAt value (stored as ISO string with +07:00 offset).
     let completedAtStr: string | null = null;
     if (completed && completedAt) {
-      completedAtStr = completedAt; // already an ISO string from the client
+      completedAtStr = completedAt;
       // Prevent times older than 7 days
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const completedAtMs = new Date(completedAtStr).getTime();
@@ -80,16 +76,7 @@ export async function POST(
         return NextResponse.json({ error: 'Cannot set completion time more than 7 days ago' }, { status: 400 });
       }
     } else if (completed) {
-      // Store with Jakarta offset for consistency with time-tracked habits
-      const nowUTC = new Date();
-      const jakartaMs = nowUTC.getTime() + JAKARTA_OFFSET_MS;
-      const jY = new Date(jakartaMs).getUTCFullYear();
-      const jM = new Date(jakartaMs).getUTCMonth();
-      const jD = new Date(jakartaMs).getUTCDate();
-      const jH = new Date(jakartaMs).getUTCHours();
-      const jMi = new Date(jakartaMs).getUTCMinutes();
-      const jS = new Date(jakartaMs).getUTCSeconds();
-      completedAtStr = `${jY}-${String(jM + 1).padStart(2, '0')}-${String(jD).padStart(2, '0')}T${String(jH).padStart(2, '0')}:${String(jMi).padStart(2, '0')}:${String(jS).padStart(2, '0')}+07:00`;
+      completedAtStr = jakartaNowIso();
     }
 
     const log = await db.habitLog.upsert({

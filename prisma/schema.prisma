@@ -160,7 +160,8 @@ model FundSource {
   id        String   @id @default(cuid())
   name      String   @unique
   emoji     String   @default("💵")
-  balance   Float    @default(0)
+  // Balance in whole rupiah (Int — never Float for money).
+  balance   Int      @default(0)
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -169,7 +170,8 @@ model FundSource {
 model Transaction {
   id          String   @id @default(cuid())
   type        String   // "income" or "expense"
-  amount      Float
+  // Amount in whole rupiah (Int — never Float for money).
+  amount      Int
   category    String
   description String?
   date        DateTime
@@ -187,7 +189,8 @@ model Transaction {
 model Budget {
   id          String   @id @default(cuid())
   category    String   @unique
-  amount      Float
+  // Budget amount in whole rupiah (Int — never Float for money).
+  amount      Int
   period      String   @default("monthly") // "weekly" or "monthly"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
