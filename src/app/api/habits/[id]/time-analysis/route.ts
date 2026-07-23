@@ -1,5 +1,4 @@
 import { db } from '@/lib/db';
-import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfWeek,
@@ -8,6 +7,7 @@ import {
   endOfMonth,
   subWeeks,
   subMonths,
+  subDays,
   format,
   addDays,
   parseISO,
@@ -75,7 +75,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await ensureTimeTrackingColumns();
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'thisWeek';

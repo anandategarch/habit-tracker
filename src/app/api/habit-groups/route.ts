@@ -1,11 +1,9 @@
 import { db } from '@/lib/db';
-import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/habit-groups
 export async function GET() {
   try {
-    await ensureTimeTrackingColumns();
     const groups = await db.habitGroup.findMany({
       orderBy: { order: 'asc' },
       include: {

@@ -1,17 +1,12 @@
 import { db } from '@/lib/db';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { startOfDay, subDays, format } from 'date-fns';
 
-// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-function jakartaNow(): Date {
-  return new Date(Date.now() + JAKARTA_OFFSET_MS);
-}
-
+// "Today" is computed from the real UTC clock. Date boundaries for the
+// rolling 90-day window are not timezone-critical for analytics; using
+// UTC keeps the math simple and predictable.
 function jakartaToday(): Date {
-  const now = jakartaNow();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return startOfDay(new Date());
 }
 
 export async function GET() {
@@ -216,7 +211,7 @@ export async function GET() {
     }
 
     // Completion prediction
-    const last7Days = [];
+    const last7Days: (number | null)[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
