@@ -5,6 +5,17 @@ import {
   startOfMonth, endOfMonth, format, differenceInCalendarDays,
 } from 'date-fns';
 
+// ── Helper: wrap a promise with a fallback value if it rejects ──────────
+// Used to parallelize queries that may fail (e.g. table doesn't exist yet)
+// without one failure aborting the entire Promise.all batch.
+async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise;
+  } catch {
+    return fallback;
+  }
+}
+
 // ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
 
 function calcLevel(totalXP: number): number {
@@ -257,46 +268,46 @@ export async function GET(request: NextRequest) {
       ? Math.round(((totalXP - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100)
       : 100;
 
+    // ── Parallel fetch: badges, challenges, goals, dailyLogs, learningHabit ──
+    // These 6 queries are independent of each other and of `habits`/`allLogs`.
+    // Running them in parallel via Promise.all cuts wait time from sum() to max().
+    const [
+      unlockedBadgesCount,
+      totalBadgesCount,
+      activeChallenges,
+      activeGoals,
+      recentDailyLogs,
+      learningHabit,
+    ] = await Promise.all([
+      safe(db.badge.count({ where: { unlocked: true } }), 0),
+      safe(db.badge.count(), 0),
+      safe(db.challenge.findMany({ where: { status: 'active' } }), []),
+      safe(db.goal.findMany({ where: { status: 'active' } }), []),
+      safe(db.dailyLog.findMany({ where: { date: { gte: subDays(today, 30) } } }), []),
+      safe(db.habit.findFirst({ where: { name: 'Daily Learning' } }), null),
+    ]);
+
     // ── Badges ───────────────────────────────────────────────────────
-    let unlockedBadges = 0;
-    let totalBadges = 0;
-    try {
-      unlockedBadges = await db.badge.count({ where: { unlocked: true } });
-      totalBadges = await db.badge.count();
-    } catch { /* Badge table may not exist */ }
+    const unlockedBadges = unlockedBadgesCount;
+    const totalBadges = totalBadgesCount;
 
     // ── Challenge progress ───────────────────────────────────────────
-    let challengeProgress = 0;
-    try {
-      const activeChallenges = await db.challenge.findMany({ where: { status: 'active' } });
-      challengeProgress = activeChallenges.length > 0
-        ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
-        : 0;
-    } catch { /* Challenge table may not exist */ }
+    const challengeProgress = activeChallenges.length > 0
+      ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
+      : 0;
 
     // ── Goal progress ────────────────────────────────────────────────
-    let goalProgress = 0;
-    try {
-      const activeGoals = await db.goal.findMany({ where: { status: 'active' } });
-      goalProgress = activeGoals.length > 0
-        ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
-        : 0;
-    } catch { /* Goal table may not exist */ }
+    const goalProgress = activeGoals.length > 0
+      ? Math.round(activeGoals.reduce((s, g) => s + g.progress, 0) / activeGoals.length)
+      : 0;
 
     // ── Mood & sleep averages (last 30 days) ─────────────────────────
-    let moodAverage = '3.0';
-    let sleepAverage = '7.0';
-    try {
-      const recentDailyLogs = await db.dailyLog.findMany({
-        where: { date: { gte: subDays(today, 30) } },
-      });
-      moodAverage = recentDailyLogs.length > 0
-        ? (recentDailyLogs.reduce((s, l) => s + l.mood, 0) / recentDailyLogs.length).toFixed(1)
-        : '3.0';
-      sleepAverage = recentDailyLogs.length > 0
-        ? (recentDailyLogs.reduce((s, l) => s + l.sleep, 0) / recentDailyLogs.length).toFixed(1)
-        : '7.0';
-    } catch { /* DailyLog table may not exist */ }
+    const moodAverage = recentDailyLogs.length > 0
+      ? (recentDailyLogs.reduce((s, l) => s + l.mood, 0) / recentDailyLogs.length).toFixed(1)
+      : '3.0';
+    const sleepAverage = recentDailyLogs.length > 0
+      ? (recentDailyLogs.reduce((s, l) => s + l.sleep, 0) / recentDailyLogs.length).toFixed(1)
+      : '7.0';
 
     // ── Productivity score ───────────────────────────────────────────
     const productivityScore = Math.round(
@@ -366,7 +377,7 @@ export async function GET(request: NextRequest) {
       .map(h => ({ id: h.id, name: h.name, icon: h.icon, priority: h.priority }));
 
     // ── Daily Learning Status ────────────────────────────────────────
-    const learningHabit = await db.habit.findFirst({ where: { name: 'Daily Learning' } });
+    // (learningHabit already fetched in the parallel batch above)
     let learningStatus = { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 };
     if (learningHabit) {
       const learningLogs = await db.habitLog.findMany({
@@ -493,11 +504,13 @@ export async function GET(request: NextRequest) {
     };
 
     try {
-      const monthTransactions = await db.transaction.findMany({
-        where: {
-          date: { gte: monthStart, lte: monthEnd },
-        },
-      });
+      // Parallel fetch: monthTransactions + budgets (independent queries)
+      const [monthTransactions, budgets] = await Promise.all([
+        db.transaction.findMany({
+          where: { date: { gte: monthStart, lte: monthEnd } },
+        }),
+        db.budget.findMany(),
+      ]);
 
       financeOverview.totalIncome = monthTransactions
         .filter(t => t.type === 'income')
@@ -509,7 +522,6 @@ export async function GET(request: NextRequest) {
       financeOverview.transactionCount = monthTransactions.length;
 
       // Budget status
-      const budgets = await db.budget.findMany();
       const monthExpensesByCategory = new Map<string, number>();
       for (const t of monthTransactions) {
         if (t.type === 'expense') {
@@ -771,6 +783,13 @@ export async function GET(request: NextRequest) {
       timeTrackedSummary,
       // Last done habits
       lastDoneSummary,
+    }, {
+      headers: {
+        // Cache for 30s, then allow serving stale while revalidating for 60s.
+        // Dashboard data changes infrequently (user marks habits, adds transactions),
+        // so brief caching is safe and significantly reduces DB load on rapid nav.
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+      },
     });
   } catch (error) {
     console.error('GET /api/dashboard error:', error);

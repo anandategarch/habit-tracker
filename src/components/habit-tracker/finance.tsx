@@ -244,66 +244,86 @@ export default function Finance() {
 
   // ── Tab-specific fetch on demand ──────────────────────────────────────────
 
-  const fetchDashboard = useCallback(async () => {
+  const fetchDashboard = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
+      const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`, { signal });
       if (res.ok) setDashboardData(await res.json());
-    } catch { /* silent */ }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return; // expected on deps change
+      /* silent */
+    }
   }, [selectedMonth]);
 
-  const fetchTransactions = useCallback(async () => {
+  const fetchTransactions = useCallback(async (signal?: AbortSignal) => {
     try {
       const params = new URLSearchParams({ month: selectedMonth });
       if (txFilter.type !== 'all') params.set('type', txFilter.type);
       if (txFilter.category !== 'all') params.set('category', txFilter.category);
       if (txFilter.source !== 'all') params.set('source', txFilter.source);
       if (txFilter.search.trim()) params.set('search', txFilter.search.trim());
-      const res = await fetch(`/api/finance/transactions?${params}`);
+      const res = await fetch(`/api/finance/transactions?${params}`, { signal });
       if (res.ok) setTransactions(await res.json());
-    } catch { /* silent */ }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      /* silent */
+    }
   }, [selectedMonth, txFilter.type, txFilter.category, txFilter.source, txFilter.search]);
 
-  const fetchBudgets = useCallback(async () => {
+  const fetchBudgets = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/finance/budgets');
+      const res = await fetch('/api/finance/budgets', { signal });
       if (res.ok) setBudgets(await res.json());
-    } catch { /* silent */ }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      /* silent */
+    }
   }, []);
 
-  const fetchLastDone = useCallback(async () => {
+  const fetchLastDone = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/finance/last-done');
+      const res = await fetch('/api/finance/last-done', { signal });
       if (res.ok) setLastDoneData(await res.json());
-    } catch { /* silent */ }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      /* silent */
+    }
   }, []);
 
-  // Fetch on tab change + initial load + month change
+  // Fetch on tab change + initial load + month change.
+  // AbortController ensures that when deps change (e.g. user switches month),
+  // any in-flight request is cancelled before the new one starts — preventing
+  // stale data from overwriting fresh data (race condition fix).
   useEffect(() => {
+    const controller = new AbortController();
     if (activeSubTab === 'overview') {
-      fetchDashboard();
-      fetchLastDone();
+      fetchDashboard(controller.signal);
+      fetchLastDone(controller.signal);
     } else if (activeSubTab === 'transactions') {
-      fetchTransactions();
+      fetchTransactions(controller.signal);
     } else if (activeSubTab === 'budgets') {
-      fetchBudgets();
-      fetchDashboard(); // needed for budget status
+      fetchBudgets(controller.signal);
+      fetchDashboard(controller.signal); // needed for budget status
     }
     // analytics fetches itself
+    return () => controller.abort();
   }, [activeSubTab, fetchDashboard, fetchTransactions, fetchBudgets, fetchLastDone]);
 
-  // Re-fetch on refreshKey change (after mutations)
+  // Re-fetch on refreshKey change (after mutations).
+  // Same AbortController pattern to prevent race conditions.
   useEffect(() => {
     if (refreshKey === 0) return;
+    const controller = new AbortController();
     // Re-fetch only the active tab's data
     if (activeSubTab === 'overview') {
-      fetchDashboard();
-      fetchLastDone();
+      fetchDashboard(controller.signal);
+      fetchLastDone(controller.signal);
     } else if (activeSubTab === 'transactions') {
-      fetchTransactions();
+      fetchTransactions(controller.signal);
     } else if (activeSubTab === 'budgets') {
-      fetchBudgets();
-      fetchDashboard();
+      fetchBudgets(controller.signal);
+      fetchDashboard(controller.signal);
     }
+    return () => controller.abort();
   }, [refreshKey, activeSubTab, fetchDashboard, fetchTransactions, fetchBudgets, fetchLastDone]);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
