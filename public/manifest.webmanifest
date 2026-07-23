@@ -1,0 +1,19 @@
+{
+  "name": "Rutina — Habit & Finance Tracker",
+  "short_name": "Rutina",
+  "description": "Build daily routines, track your growth",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#22c55e",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "lifestyle", "finance"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
