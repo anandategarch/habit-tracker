@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import {
   Card,
@@ -110,20 +111,103 @@ import {
 export default function Finance() {
   const selectedMonth = useAppStore(s => s.selectedMonth);
   const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
-  const refreshKey = useAppStore(s => s.refreshKey);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState('overview');
 
-  // Shared data (fetched on mount)
-  const [categories, setCategories] = useState<FinanceCategory[]>([]);
-  const [sources, setSources] = useState<FundSource[]>([]);
+  // Filter states (declared early because useQuery depends on txFilter)
+  const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
 
-  // Tab-specific data (fetched on demand)
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
-  const [lastDoneData, setLastDoneData] = useState<LastDoneItem[]>([]);
-  const [sharedLoading, setSharedLoading] = useState(true);
+  // ── Data Fetching (TanStack Query) ─────────────────────────────────────
+  // All fetch calls migrated from manual useEffect + useState to useQuery.
+  // Benefits: automatic dedup, caching, background refetch, race-free.
+
+  // Shared data (categories + sources) — fetched on mount, cached for all sub-components
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
+    queryKey: ['finance-categories'],
+    queryFn: async () => {
+      // One-time migration check (sessionStorage flag prevents repeat)
+      if (typeof window !== 'undefined' && !sessionStorage.getItem('finance_migrated')) {
+        try {
+          await fetch('/api/finance/categories/ensure-table', { method: 'POST' });
+          sessionStorage.setItem('finance_migrated', '1');
+        } catch { /* silent */ }
+      }
+      const res = await fetch('/api/finance/categories');
+      if (!res.ok) return [];
+      const cats = await res.json() as FinanceCategory[];
+      // Auto-migrate legacy emoji if needed (fire-and-forget, invalidate on success)
+      if (cats.some((c: FinanceCategory) => c.emoji === '📦')) {
+        fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
+          .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance-categories'] }); })
+          .catch(() => { /* silent */ });
+      }
+      return cats;
+    },
+    staleTime: 60_000, // categories rarely change
+  });
+
+  const { data: sources = [], isLoading: sourcesLoading } = useQuery<FundSource[]>({
+    queryKey: ['finance-sources'],
+    queryFn: async () => {
+      const res = await fetch('/api/finance/sources');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  // Tab-specific data — fetched on demand based on activeSubTab + selectedMonth
+  const { data: dashboardData } = useQuery<DashboardData>({
+    queryKey: ['finance-dashboard', selectedMonth],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: activeSubTab === 'overview' || activeSubTab === 'budgets',
+    staleTime: 30_000,
+  });
+
+  const { data: transactions = [] } = useQuery<Transaction[]>({
+    queryKey: ['finance-transactions', selectedMonth, txFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ month: selectedMonth });
+      if (txFilter.type !== 'all') params.set('type', txFilter.type);
+      if (txFilter.category !== 'all') params.set('category', txFilter.category);
+      if (txFilter.source !== 'all') params.set('source', txFilter.source);
+      if (txFilter.search.trim()) params.set('search', txFilter.search.trim());
+      const res = await fetch(`/api/finance/transactions?${params}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: activeSubTab === 'transactions',
+    staleTime: 15_000,
+  });
+
+  const { data: budgets = [] } = useQuery<BudgetItem[]>({
+    queryKey: ['finance-budgets'],
+    queryFn: async () => {
+      const res = await fetch('/api/finance/budgets');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: activeSubTab === 'budgets',
+    staleTime: 30_000,
+  });
+
+  const { data: lastDoneData = [] } = useQuery<LastDoneItem[]>({
+    queryKey: ['finance-last-done'],
+    queryFn: async () => {
+      const res = await fetch('/api/finance/last-done');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: activeSubTab === 'overview',
+    staleTime: 60_000,
+  });
+
+  const sharedLoading = categoriesLoading || sourcesLoading;
 
   // Dialog states
   const [txDialogOpen, setTxDialogOpen] = useState(false);
@@ -151,9 +235,6 @@ export default function Finance() {
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
-
-  // Filter states
-  const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
 
   // ── Category helpers ──────────────────────────────────────────────────────
 
@@ -206,125 +287,18 @@ export default function Finance() {
     return FALLBACK_SOURCES.find(s => s.value === name)?.emoji || '💵';
   }, [sources]);
 
-  // ── Data Fetching (shared: categories + sources on mount) ──────────────────
+  // ── Note: All fetch logic now handled by useQuery hooks above ─────────────
+  // (Previously: 4 fetch functions + 2 useEffects with AbortController)
+  // TanStack Query handles: dedup, caching, background refetch, race conditions.
 
-  const fetchCategories = useCallback(async (skipMigration = false) => {
-    try {
-      // Only run migration check once per browser session (not per component mount)
-      if (!skipMigration && typeof window !== 'undefined' && !sessionStorage.getItem('finance_migrated')) {
-        try {
-          await fetch('/api/finance/categories/ensure-table', { method: 'POST' });
-          sessionStorage.setItem('finance_migrated', '1');
-        } catch { /* silent */ }
-      }
-      const res = await fetch('/api/finance/categories');
-      if (res.ok) {
-        const cats = await res.json();
-        setCategories(cats);
-        if (!skipMigration && cats.some((c: FinanceCategory) => c.emoji === '📦')) {
-          fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
-            .then(r => { if (r.ok) fetchCategories(true); })
-            .catch((err) => { console.error('Failed to migrate emojis:', err); });
-        }
-      }
-    } catch { /* silent */ }
-  }, []);
-
-  const fetchSources = useCallback(async () => {
-    try {
-      const res = await fetch('/api/finance/sources');
-      if (res.ok) setSources(await res.json());
-    } catch { /* silent */ }
-  }, []);
-
-  // Fetch shared data on mount
-  useEffect(() => {
-    Promise.all([fetchCategories(), fetchSources()]).finally(() => setSharedLoading(false));
-  }, [fetchCategories, fetchSources]);
-
-  // ── Tab-specific fetch on demand ──────────────────────────────────────────
-
-  const fetchDashboard = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`, { signal });
-      if (res.ok) setDashboardData(await res.json());
-    } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') return; // expected on deps change
-      /* silent */
-    }
-  }, [selectedMonth]);
-
-  const fetchTransactions = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const params = new URLSearchParams({ month: selectedMonth });
-      if (txFilter.type !== 'all') params.set('type', txFilter.type);
-      if (txFilter.category !== 'all') params.set('category', txFilter.category);
-      if (txFilter.source !== 'all') params.set('source', txFilter.source);
-      if (txFilter.search.trim()) params.set('search', txFilter.search.trim());
-      const res = await fetch(`/api/finance/transactions?${params}`, { signal });
-      if (res.ok) setTransactions(await res.json());
-    } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') return;
-      /* silent */
-    }
-  }, [selectedMonth, txFilter.type, txFilter.category, txFilter.source, txFilter.search]);
-
-  const fetchBudgets = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await fetch('/api/finance/budgets', { signal });
-      if (res.ok) setBudgets(await res.json());
-    } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') return;
-      /* silent */
-    }
-  }, []);
-
-  const fetchLastDone = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await fetch('/api/finance/last-done', { signal });
-      if (res.ok) setLastDoneData(await res.json());
-    } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') return;
-      /* silent */
-    }
-  }, []);
-
-  // Fetch on tab change + initial load + month change.
-  // AbortController ensures that when deps change (e.g. user switches month),
-  // any in-flight request is cancelled before the new one starts — preventing
-  // stale data from overwriting fresh data (race condition fix).
-  useEffect(() => {
-    const controller = new AbortController();
-    if (activeSubTab === 'overview') {
-      fetchDashboard(controller.signal);
-      fetchLastDone(controller.signal);
-    } else if (activeSubTab === 'transactions') {
-      fetchTransactions(controller.signal);
-    } else if (activeSubTab === 'budgets') {
-      fetchBudgets(controller.signal);
-      fetchDashboard(controller.signal); // needed for budget status
-    }
-    // analytics fetches itself
-    return () => controller.abort();
-  }, [activeSubTab, fetchDashboard, fetchTransactions, fetchBudgets, fetchLastDone]);
-
-  // Re-fetch on refreshKey change (after mutations).
-  // Same AbortController pattern to prevent race conditions.
-  useEffect(() => {
-    if (refreshKey === 0) return;
-    const controller = new AbortController();
-    // Re-fetch only the active tab's data
-    if (activeSubTab === 'overview') {
-      fetchDashboard(controller.signal);
-      fetchLastDone(controller.signal);
-    } else if (activeSubTab === 'transactions') {
-      fetchTransactions(controller.signal);
-    } else if (activeSubTab === 'budgets') {
-      fetchBudgets(controller.signal);
-      fetchDashboard(controller.signal);
-    }
-    return () => controller.abort();
-  }, [refreshKey, activeSubTab, fetchDashboard, fetchTransactions, fetchBudgets, fetchLastDone]);
+  // ── Helper: invalidate all finance queries after a mutation ─────────────
+  // Replaces the old triggerRefresh() + fetchCategories() + fetchSources() pattern.
+  // Invalidation causes TanStack Query to refetch active queries in the background.
+  const invalidateFinance = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['finance-'] });
+    // Also notify other components (e.g. dashboard) that data changed
+    triggerRefresh();
+  }, [queryClient, triggerRefresh]);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
 
@@ -359,7 +333,7 @@ export default function Finance() {
         if (res.ok) toast.success('Transaksi berhasil ditambahkan'); else { toast.error('Gagal menambahkan transaksi'); return; }
       }
       setTxDialogOpen(false);
-      triggerRefresh();
+      invalidateFinance();
     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
   };
 
@@ -367,7 +341,7 @@ export default function Finance() {
     if (!deletingId) return;
     try {
       const res = await fetch(`/api/finance/transactions/${deletingId}`, { method: 'DELETE' });
-      if (res.ok) { toast.success('Transaksi berhasil dihapus'); setDeleteDialogOpen(false); setDeletingId(null); triggerRefresh(); }
+      if (res.ok) { toast.success('Transaksi berhasil dihapus'); setDeleteDialogOpen(false); setDeletingId(null); invalidateFinance(); }
       else toast.error('Gagal menghapus transaksi');
     } catch { toast.error('Terjadi kesalahan'); }
   };
@@ -382,7 +356,7 @@ export default function Finance() {
     setSubmitting(true);
     try {
       const res = await fetch('/api/finance/budgets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(budgetPayload) });
-      if (res.ok) { toast.success('Budget berhasil disimpan'); setBudgetDialogOpen(false); triggerRefresh(); }
+      if (res.ok) { toast.success('Budget berhasil disimpan'); setBudgetDialogOpen(false); invalidateFinance(); }
       else toast.error('Gagal menyimpan budget');
     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
   };
@@ -390,7 +364,7 @@ export default function Finance() {
   const handleDeleteBudget = async (id: string) => {
     try {
       const res = await fetch(`/api/finance/budgets/${id}`, { method: 'DELETE' });
-      if (res.ok) { toast.success('Budget berhasil dihapus'); triggerRefresh(); }
+      if (res.ok) { toast.success('Budget berhasil dihapus'); invalidateFinance(); }
     } catch { toast.error('Gagal menghapus budget'); }
   };
 
@@ -409,7 +383,7 @@ export default function Finance() {
     setSubmitting(true);
     try {
       const res = await fetch(`/api/finance/budgets/${editingBudget.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(budgetPayload) });
-      if (res.ok) { toast.success('Budget berhasil diupdate'); setBudgetEditOpen(false); setEditingBudget(null); triggerRefresh(); }
+      if (res.ok) { toast.success('Budget berhasil diupdate'); setBudgetEditOpen(false); setEditingBudget(null); invalidateFinance(); }
       else toast.error('Gagal mengupdate budget');
     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
   };
@@ -440,15 +414,14 @@ export default function Finance() {
         if (res.ok) toast.success('Kategori berhasil ditambahkan'); else { toast.error('Gagal menambahkan kategori'); return; }
       }
       setCatFormOpen(false);
-      await fetchCategories();
-      triggerRefresh();
+      invalidateFinance();
     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
   };
 
   const handleDeleteCat = async (cat: FinanceCategory) => {
     try {
       const res = await fetch(`/api/finance/categories/${cat.id}`, { method: 'DELETE' });
-      if (res.ok) { toast.success('Kategori berhasil dihapus'); fetchCategories(); triggerRefresh(); }
+      if (res.ok) { toast.success('Kategori berhasil dihapus'); invalidateFinance(); }
       else { const err = await res.json(); toast.error(err.error || 'Gagal menghapus kategori'); }
     } catch { toast.error('Terjadi kesalahan'); }
   };
@@ -469,14 +442,14 @@ export default function Finance() {
         const res = await fetch('/api/finance/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sourceForm) });
         if (res.ok) toast.success('Sumber dana berhasil ditambahkan'); else { const err = await res.json(); toast.error(err.error || 'Gagal menambahkan'); return; }
       }
-      setSourceFormOpen(false); fetchSources(); triggerRefresh();
+      setSourceFormOpen(false); invalidateFinance();
     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
   };
 
   const handleDeleteSource = async (src: FundSource) => {
     try {
       const res = await fetch(`/api/finance/sources/${src.id}`, { method: 'DELETE' });
-      if (res.ok) { toast.success('Sumber dana berhasil dihapus'); fetchSources(); triggerRefresh(); }
+      if (res.ok) { toast.success('Sumber dana berhasil dihapus'); invalidateFinance(); }
       else { const err = await res.json(); toast.error(err.error || 'Gagal menghapus'); }
     } catch { toast.error('Terjadi kesalahan'); }
   };
@@ -487,7 +460,7 @@ export default function Finance() {
     if (isNaN(val)) { setBalanceEditId(null); return; }
     try {
       const res = await fetch(`/api/finance/sources/${sourceId}/balance`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
-      if (res.ok) { toast.success('Saldo berhasil diupdate'); fetchSources(); }
+      if (res.ok) { toast.success('Saldo berhasil diupdate'); queryClient.invalidateQueries({ queryKey: ['finance-sources'] }); }
     } catch { toast.error('Gagal update saldo'); }
     setBalanceEditId(null); setBalanceEditValue('');
   };
@@ -508,7 +481,7 @@ export default function Finance() {
     setSubmitting(true);
     try {
       const res = await fetch('/api/finance/transactions/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: Array.from(selectedTxIds) }) });
-      if (res.ok) { const data = await res.json(); toast.success(`${data.deleted} transaksi berhasil dihapus`); setSelectedTxIds(new Set()); setBulkDeleteOpen(false); triggerRefresh(); }
+      if (res.ok) { const data = await res.json(); toast.success(`${data.deleted} transaksi berhasil dihapus`); setSelectedTxIds(new Set()); setBulkDeleteOpen(false); invalidateFinance(); }
       else toast.error('Gagal menghapus transaksi');
     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
   };
@@ -653,7 +626,7 @@ export default function Finance() {
         <TabsContent value="budgets" className="mt-4">
           <FinanceBudgets
             budgets={budgets}
-            dashboardData={dashboardData}
+            dashboardData={dashboardData ?? null}
             selectedMonth={selectedMonth}
             getCategoryMeta={getCategoryMeta}
             onAddBudget={() => { setBudgetForm({ category: '', amount: '', period: 'monthly' }); setBudgetDialogOpen(true); }}
