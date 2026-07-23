@@ -77,6 +77,14 @@ export default function Home() {
     return () => clearInterval(id);
   }, []);
 
+  // Auto-open sidebar on desktop (≥768px) on first mount.
+  // Default is closed to avoid jarring overlay on mobile first load.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setSidebarOpen(true);
+    }
+  }, [setSidebarOpen]);
+
   const handleNavClick = useCallback((id: TabId) => {
     setActiveTab(id);
     // Auto-close sidebar on mobile after clicking a nav item
@@ -93,7 +101,7 @@ export default function Home() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="min-h-screen flex bg-background">
+      <div className="min-h-dvh flex bg-background">
         {/* Mobile dark overlay */}
         {sidebarOpen && (
           <div
@@ -105,7 +113,7 @@ export default function Home() {
         {/* Sidebar - fixed position, slides in/out */}
         <aside
           className={cn(
-            'fixed top-0 left-0 z-50 h-screen w-64 bg-card border-r border-border flex flex-col',
+            'fixed top-0 left-0 z-50 h-dvh w-64 bg-card border-r border-border flex flex-col',
             'transition-transform duration-300 ease-in-out',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}

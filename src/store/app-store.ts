@@ -28,7 +28,9 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   activeTab: 'dashboard',
   setActiveTab: (tab) => set({ activeTab: tab }),
-  sidebarOpen: true,
+  // Default to closed — safer for mobile (no jarring overlay on first load).
+  // Desktop auto-opens on first mount via useEffect in page.tsx.
+  sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   selectedDate: jakartaDateString(),
   setSelectedDate: (date) => set({ selectedDate: date }),
