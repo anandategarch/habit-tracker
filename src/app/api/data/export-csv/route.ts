@@ -157,7 +157,11 @@ export async function GET() {
 
     const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + challenges.length + badges.length + rewards.length + transactions.length + budgets.length + financeCategories.length;
 
-    return new NextResponse(zipBuffer, {
+    // Convert Uint8Array to a Blob for Response BodyInit compatibility.
+    // Some TS lib versions reject Uint8Array<ArrayBufferLike> directly.
+    const blob = new Blob([zipBuffer as BlobPart], { type: 'application/zip' });
+
+    return new NextResponse(blob, {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',

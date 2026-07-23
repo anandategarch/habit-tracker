@@ -315,7 +315,7 @@ export async function GET(request: NextRequest) {
     );
 
     // ── Weekly chart data (last 7 days) ──────────────────────────────
-    const weeklyChartData = [];
+    const weeklyChartData: { day: string; date: string; completed: number; total: number; rate: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
@@ -332,7 +332,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Monthly/period chart data ────────────────────────────────────
-    const monthlyChartData = [];
+    const monthlyChartData: { day: string; completed: number; total: number; rate: number }[] = [];
     for (let i = chartDays - 1; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
@@ -446,7 +446,7 @@ export async function GET(request: NextRequest) {
     }).sort((a, b) => b.rate - a.rate);
 
     // ── Stacked Bar Data: completed vs missed per day ────────────────
-    const stackedBarData = [];
+    const stackedBarData: { day: string; completed: number; missed: number; total: number; rate: number }[] = [];
     for (let i = chartDays - 1; i >= 0; i--) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
@@ -662,7 +662,18 @@ export async function GET(request: NextRequest) {
 
     // ── Last Done (habits with trackLastDone) ────────────────────────
     const lastDoneHabits = habits.filter(h => h.trackLastDone);
-    const lastDoneSummary = [];
+    const lastDoneSummary: {
+      id: string;
+      name: string;
+      icon: string;
+      color: string;
+      interval: string | null;
+      intervalDays: number;
+      lastDate: Date | null;
+      daysAgo: number | null;
+      completedAt: string | null;
+      overdue: boolean;
+    }[] = [];
 
     function intervalToDays(interval: string | null): number {
       if (!interval) return 0;
