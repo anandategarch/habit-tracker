@@ -11,6 +11,18 @@ function createPrismaClient(): PrismaClientInstance {
   const databaseUrl = process.env.DATABASE_URL || 'file:./db/dev.db';
 
   if (databaseUrl.startsWith('libsql://')) {
+    // Parse authToken from URL query param: libsql://host?authToken=TOKEN
+    // This allows using a single DATABASE_URL env var on Vercel/Turso deployments.
+    const urlObj = new URL(databaseUrl);
+    const authToken =
+      urlObj.searchParams.get('authToken') ||
+      process.env.DATABASE_AUTH_TOKEN ||
+      '';
+
+    // Build a clean URL without the authToken query param for the adapter
+    urlObj.searchParams.delete('authToken');
+    const cleanUrl = urlObj.toString();
+
     // Override DATABASE_URL to a valid SQLite path before constructing PrismaClient.
     // The adapter handles the actual connection, but PrismaClient still validates
     // the datasource URL against the "sqlite" provider at construction time.
@@ -19,8 +31,8 @@ function createPrismaClient(): PrismaClientInstance {
 
     const client = new PrismaClient({
       adapter: new PrismaLibSQL({
-        url: originalUrl,
-        authToken: process.env.DATABASE_AUTH_TOKEN || '',
+        url: cleanUrl,
+        authToken,
       }),
     } as never);
 
