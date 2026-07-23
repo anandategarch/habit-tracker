@@ -30,13 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (NEVER commit secrets — use .env.local or your host's dashboard)
+.env
+.env.*
 !.env.example
 
 # vercel
 .vercel
-
 
 # typescript
 *.tsbuildinfo
@@ -47,14 +47,41 @@ local-*
 *.log
 dev.log
 dev.out.log
-test
-prompt
-
 server.log
 
 # Database files
 /db/*.db
 /db/*.db-journal
+*.sqlite
+*.sqlite3
+
+# Lockfiles — keep only bun.lock (we use bun as primary package manager)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# AI assistant working artifacts
+agent-ctx/
+worklog.md
+.cache/
+.zscripts/*.pid
+
+# Screenshots & dev notes (should not be in version control)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+!public/**
+dashboard-check.txt
+final-check.txt
+github-*.txt
+migrate-*.txt
+sources-check.txt
+tx-check.txt
+vercel-check.txt
+panduan-deploy*.html
+panduan-deploy*.pdf
 
 # Skills directory
 /skills/
