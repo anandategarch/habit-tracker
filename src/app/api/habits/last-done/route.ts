@@ -1,5 +1,4 @@
 import { db } from '@/lib/db';
-import { ensureTimeTrackingColumns } from '@/lib/ensure-columns';
 import { NextResponse } from 'next/server';
 import { format, differenceInCalendarDays, subDays } from 'date-fns';
 
@@ -14,7 +13,6 @@ function jakartaToday(): Date {
 // Returns last completion date for each habit with trackLastDone = true
 export async function GET() {
   try {
-    await ensureTimeTrackingColumns();
 
     const trackedHabits = await db.habit.findMany({
       where: { trackLastDone: true, status: 'active' },
