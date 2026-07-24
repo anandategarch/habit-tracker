@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tracker-v2';
+const CACHE_NAME = 'habit-tracker-v3';
 
 // Bump cache version (v1 -> v2) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
