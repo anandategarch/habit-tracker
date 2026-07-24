@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   startOfMonth,
   endOfMonth,
@@ -113,12 +114,7 @@ function generateMonthOptions(): { value: string; label: string }[] {
 export default function CalendarView() {
   const selectedMonth = useAppStore(s => s.selectedMonth);
   const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
-  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
-  const [loading, startLoadingTransition] = useTransition();
-  const [fetchError, setFetchError] = useState(false);
-  const [fetchKey, setFetchKey] = useState(0);
+  const queryClient = useQueryClient();
 
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
@@ -133,54 +129,42 @@ export default function CalendarView() {
     [monthDate]
   );
 
-  // ── Fetch data ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    const monthStr = selectedMonth; // yyyy-MM
+  // ── Fetch data (TanStack Query) ───────────────────────────────────────
+  const { data: habits = [], isLoading: habitsLoading } = useQuery<Habit[]>({
+    queryKey: ['habits'],
+    queryFn: async () => {
+      const res = await fetch('/api/habits');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
 
-    startLoadingTransition(async () => {
-      try {
-        const [habitsRes, dailyRes] = await Promise.all([
-          fetch('/api/habits'),
-          fetch(`/api/daily-logs?month=${monthStr}`),
-        ]);
-        const habitsData = habitsRes.ok ? await habitsRes.json() : [];
-        const dailyData = dailyRes.ok ? await dailyRes.json() : [];
+  const { data: dailyLogs = [] } = useQuery<DailyLog[]>({
+    queryKey: ['daily-logs-month', selectedMonth],
+    queryFn: async () => {
+      const res = await fetch(`/api/daily-logs?month=${selectedMonth}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
 
-        if (cancelled) return;
-        setHabits(habitsData);
-        setDailyLogs(dailyData);
-        setFetchError(false);
+  const habitIds = habits.map(h => h.id).join(',');
+  const { data: habitLogs = [], isError: fetchError } = useQuery<HabitLog[]>({
+    queryKey: ['habit-logs-batch', selectedMonth, habitIds],
+    queryFn: async () => {
+      if (!habitIds) return [];
+      const res = await fetch(`/api/habits/batch-logs?month=${selectedMonth}&habitIds=${habitIds}`);
+      if (!res.ok) return [];
+      const groupedLogs: Record<string, HabitLog[]> = await res.json();
+      return Object.values(groupedLogs).flat();
+    },
+    enabled: habits.length > 0,
+    staleTime: 30_000,
+  });
 
-        // Fetch all habit logs in a single batch request
-        if (habitsData.length > 0) {
-          const ids = habitsData.map((h: Habit) => h.id);
-          try {
-            const batchRes = await fetch(`/api/habits/batch-logs?month=${monthStr}&habitIds=${ids.join(',')}`);
-            if (batchRes.ok) {
-              const groupedLogs: Record<string, HabitLog[]> = await batchRes.json();
-              if (!cancelled) {
-                setHabitLogs(Object.values(groupedLogs).flat());
-              }
-            } else {
-              if (!cancelled) setHabitLogs([]);
-            }
-          } catch {
-            if (!cancelled) setHabitLogs([]);
-          }
-        } else {
-          setHabitLogs([]);
-        }
-      } catch {
-        // network error
-        if (!cancelled) setFetchError(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedMonth, fetchKey]);
+  const loading = habitsLoading;
 
   // ── Build daily log lookup ─────────────────────────────────────────────
   const dailyLogMap = useMemo(() => {
@@ -334,7 +318,7 @@ export default function CalendarView() {
       {fetchError && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-sm text-muted-foreground">Gagal memuat data kalender</p>
-          <Button variant="outline" size="sm" onClick={() => { setFetchError(false); setFetchKey(k => k + 1); }}>
+          <Button variant="outline" size="sm" onClick={() => { queryClient.invalidateQueries({ queryKey: ['habits'] }); queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] }); queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] }); }}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Coba Lagi
           </Button>

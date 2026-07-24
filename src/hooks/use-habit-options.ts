@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface HabitOption {
   id: string;
@@ -11,92 +12,27 @@ export interface HabitOption {
   order: number;
 }
 
-const EMPTY: HabitOption[] = [];
-
-// ── Shared in-memory cache (module-level, shared across hook instances) ──
-let cachedOptions: HabitOption[] = EMPTY;
-let cachedLoading = true;
-let cachedError = false;
-const listeners = new Set<() => void>();
-let fetchInProgress: Promise<void> | null = null;
-
-function notifyAll() {
-  listeners.forEach(l => l());
-}
-
-function fetchAndSet(): Promise<void> {
-  // Deduplicate concurrent fetches
-  if (fetchInProgress) return fetchInProgress;
-
-  cachedLoading = true;
-  cachedError = false;
-  notifyAll();
-
-  fetchInProgress = fetch('/api/habit-options')
-    .then((res) => {
-      if (res.ok) {
-        return res.json().then((data: HabitOption[]) => {
-          cachedOptions = data;
-          cachedError = false;
-        });
-      }
-      cachedError = true;
-    })
-    .catch(() => {
-      cachedError = true;
-    })
-    .finally(() => {
-      cachedLoading = false;
-      fetchInProgress = null;
-      notifyAll();
-    });
-
-  return fetchInProgress;
-}
-
-// ── Hook ──────────────────────────────────────────────────────────────────
+// ── Hook (TanStack Query powered) ─────────────────────────────────────────
+// Previously used a manual in-memory cache + listener pattern (reimplemented
+// TanStack Query by hand). Now delegates to useQuery for automatic dedup,
+// background refetch, and cache sharing across components.
 
 export function useHabitOptions() {
-  // A tick counter forces re-render when the external store notifies
-  const [, setTick] = useState(0);
-  const subscribedRef = useRef(false);
+  const queryClient = useQueryClient();
 
-  // Subscribe to external store changes on mount
-  useEffect(() => {
-    if (subscribedRef.current) return;
-    subscribedRef.current = true;
-
-    const sub = () => setTick(t => t + 1);
-    listeners.add(sub);
-
-    // Trigger initial fetch if needed
-    if (cachedLoading || cachedError || cachedOptions === EMPTY) {
-      fetchAndSet();
-    }
-
-    return () => {
-      listeners.delete(sub);
-      subscribedRef.current = false;
-    };
-  }, []);
-
-  // Re-fetch when tab becomes visible again (e.g., switching back to app)
-  useEffect(() => {
-    const onVisible = () => {
-      if (cachedError) fetchAndSet();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
-
-  const options = cachedOptions;
-  const loading = cachedLoading;
-  const error = cachedError;
+  const { data: options = [], isLoading: loading, isError: error } = useQuery<HabitOption[]>({
+    queryKey: ['habit-options'],
+    queryFn: async () => {
+      const res = await fetch('/api/habit-options');
+      if (!res.ok) throw new Error('Failed to fetch habit options');
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+  });
 
   const refetch = useCallback(() => {
-    fetchInProgress = null;
-    return fetchAndSet();
-  }, []);
+    return queryClient.invalidateQueries({ queryKey: ['habit-options'] });
+  }, [queryClient]);
 
   const categories = useMemo(() =>
     options.filter(o => o.type === 'category').sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)),

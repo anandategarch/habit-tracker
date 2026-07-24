@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -161,29 +162,16 @@ function pctTick(v: number) {
 // ── Component ──────────────────────────────────────────────────────────────
 export default function AnalyticsTab() {
   const [period, setPeriod] = useState('30');
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, startLoadingTransition] = useTransition();
 
-  // Trigger fetch when period changes
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-    startLoadingTransition(async () => {
-      try {
-        const r = await fetch(`/api/analytics?period=${period}`, {
-          signal: controller.signal,
-        });
-        const json = r.ok ? await r.json() : null;
-        if (!cancelled && json) setData(json);
-      } catch {
-        // aborted or network error
-      }
-    });
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [period]);
+  const { data: data, isLoading: loading } = useQuery<AnalyticsData>({
+    queryKey: ['analytics', period],
+    queryFn: async () => {
+      const r = await fetch(`/api/analytics?period=${period}`);
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
 
   // ── Derived ────────────────────────────────────────────────────────────
   const latestRate =

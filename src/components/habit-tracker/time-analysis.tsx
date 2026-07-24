@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -119,36 +120,21 @@ export default function TimeAnalysisDialog({
   onOpenChange,
 }: TimeAnalysisDialogProps) {
   const [filter, setFilter] = useState<FilterType>('thisWeek');
-  const [data, setData] = useState<AnalysisData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchAnalysis = useCallback(async () => {
-    if (!habitId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/habits/${habitId}/time-analysis?filter=${filter}`,
-      );
+  const { data: data, isLoading: loading, error: queryError, refetch } = useQuery<AnalysisData>({
+    queryKey: ['time-analysis', habitId, filter],
+    queryFn: async () => {
+      const res = await fetch(`/api/habits/${habitId}/time-analysis?filter=${filter}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to load analysis');
       }
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, [habitId, filter]);
-
-  useEffect(() => {
-    if (open && habitId) {
-      fetchAnalysis();
-    }
-  }, [open, habitId, fetchAnalysis]);
+      return res.json();
+    },
+    enabled: open && !!habitId,
+    staleTime: 30_000,
+  });
+  const error = queryError instanceof Error ? queryError.message : null;
 
   // Prepare chart data — only days with time data
   const chartData = (data?.data || [])
@@ -195,7 +181,7 @@ export default function TimeAnalysisDialog({
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchAnalysis}
+            onClick={() => refetch()}
             disabled={loading}
             className="h-8"
           >
