@@ -24,10 +24,13 @@ export async function GET(request: NextRequest) {
     const startOfMonth = new Date(year, mon - 1, 1);
     const endOfMonth = new Date(year, mon, 0, 23, 59, 59, 999);
 
-    // All transactions for the month
-    const transactions = await db.transaction.findMany({
-      where: { date: { gte: startOfMonth, lte: endOfMonth } },
-    });
+    // All transactions for the month (resilient — won't crash on schema mismatch)
+    let transactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];
+    try {
+      transactions = await db.transaction.findMany({
+        where: { date: { gte: startOfMonth, lte: endOfMonth } },
+      });
+    } catch (e) { console.error('Finance dashboard: transactions query failed:', e); }
 
     const totalIncome = transactions
       .filter(t => t.type === 'income')
@@ -64,8 +67,11 @@ export async function GET(request: NextRequest) {
         dailySpending[day] = (dailySpending[day] || 0) + t.amount;
       });
 
-    // Budgets with spent amounts
-    const budgets = await db.budget.findMany();
+    // Budgets with spent amounts (resilient)
+    let budgets: Awaited<ReturnType<typeof db.budget.findMany>> = [];
+    try {
+      budgets = await db.budget.findMany();
+    } catch (e) { console.error('Finance dashboard: budgets query failed:', e); }
     const budgetStatus = budgets.map(b => {
       const spent = expenseByCategory[b.category] || 0;
       return {
@@ -86,9 +92,13 @@ export async function GET(request: NextRequest) {
     const prevStart = new Date(prevYear, prevMon - 1, 1);
     const prevEnd = new Date(prevYear, prevMon, 0, 23, 59, 59, 999);
 
-    const prevTransactions = await db.transaction.findMany({
-      where: { date: { gte: prevStart, lte: prevEnd } },
-    });
+    // Previous month transactions (resilient)
+    let prevTransactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];
+    try {
+      prevTransactions = await db.transaction.findMany({
+        where: { date: { gte: prevStart, lte: prevEnd } },
+      });
+    } catch (e) { console.error('Finance dashboard: prevTransactions query failed:', e); }
 
     const prevIncome = prevTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const prevExpense = prevTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

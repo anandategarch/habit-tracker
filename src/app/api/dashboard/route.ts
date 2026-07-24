@@ -76,10 +76,11 @@ export async function GET(request: NextRequest) {
       xpMap['Hard'] = 40;
     }
 
-    // Fetch all active habits (with createdAt for smart day counting)
-    const habits = await db.habit.findMany({
-      where: { status: 'active' },
-    });
+    // Fetch all active habits (resilient — won't crash on schema mismatch)
+    let habits: Awaited<ReturnType<typeof db.habit.findMany>> = [];
+    try {
+      habits = await db.habit.findMany({ where: { status: 'active' } });
+    } catch (e) { console.error('Dashboard: habits query failed:', e); }
 
     const totalHabits = habits.length;
 
@@ -114,10 +115,13 @@ export async function GET(request: NextRequest) {
 
     // ── Fetch all logs in the period (only for active habits) ────────
     const activeHabitIds = new Set(habits.map(h => h.id));
-    const allLogs = (await db.habitLog.findMany({
-      where: { date: { gte: periodStart, lte: today } },
-      include: { habit: true },
-    })).filter(l => activeHabitIds.has(l.habitId));
+    let allLogs: Awaited<ReturnType<typeof db.habitLog.findMany<{ include: { habit: true } }>>> = [];
+    try {
+      allLogs = (await db.habitLog.findMany({
+        where: { date: { gte: periodStart, lte: today } },
+        include: { habit: true },
+      })).filter(l => activeHabitIds.has(l.habitId));
+    } catch (e) { console.error('Dashboard: habitLogs query failed:', e); }
 
     // Build a map: "habitId|dateStr" -> log
     const logMap = new Map<string, { completed: boolean; habitId: string }>();
@@ -391,10 +395,13 @@ export async function GET(request: NextRequest) {
     // (learningHabit already fetched in the parallel batch above)
     let learningStatus = { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 };
     if (learningHabit) {
-      const learningLogs = await db.habitLog.findMany({
-        where: { habitId: learningHabit.id, completed: true },
-        orderBy: { date: 'asc' },
-      });
+      let learningLogs: Awaited<ReturnType<typeof db.habitLog.findMany>> = [];
+      try {
+        learningLogs = await db.habitLog.findMany({
+          where: { habitId: learningHabit.id, completed: true },
+          orderBy: { date: 'asc' },
+        });
+      } catch (e) { console.error('Dashboard: learningLogs query failed:', e); }
       const learningTodayLog = learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
       learningStatus.completedToday = !!learningTodayLog;
       learningStatus.totalDays = learningLogs.length;
@@ -515,12 +522,12 @@ export async function GET(request: NextRequest) {
     };
 
     try {
-      // Parallel fetch: monthTransactions + budgets (independent queries)
+      // Parallel fetch: monthTransactions + budgets (wrapped in safe for resilience)
       const [monthTransactions, budgets] = await Promise.all([
-        db.transaction.findMany({
+        safe(db.transaction.findMany({
           where: { date: { gte: monthStart, lte: monthEnd } },
-        }),
-        db.budget.findMany(),
+        }), []),
+        safe(db.budget.findMany(), []),
       ]);
 
       financeOverview.totalIncome = monthTransactions
@@ -587,17 +594,20 @@ export async function GET(request: NextRequest) {
 
     // Bulk-fetch all time-tracked logs (this week + last week) in one query
     const timeHabitIds = timeHabits.map(h => h.id);
-    const allTimeLogs = timeHabitIds.length > 0
-      ? await db.habitLog.findMany({
-          where: {
-            habitId: { in: timeHabitIds },
-            completed: true,
-            completedAt: { not: null },
-            date: { gte: subDays(weekStart, 7), lte: weekEnd },
-          },
-          orderBy: { date: 'asc' },
-        })
-      : [];
+    let allTimeLogs: Awaited<ReturnType<typeof db.habitLog.findMany>> = [];
+    try {
+      allTimeLogs = timeHabitIds.length > 0
+        ? await db.habitLog.findMany({
+            where: {
+              habitId: { in: timeHabitIds },
+              completed: true,
+              completedAt: { not: null },
+              date: { gte: subDays(weekStart, 7), lte: weekEnd },
+            },
+            orderBy: { date: 'asc' },
+          })
+        : [];
+    } catch (e) { console.error('Dashboard: timeLogs query failed:', e); }
 
     // Group by habitId
     const timeLogsByHabit = new Map<string, typeof allTimeLogs>();
@@ -696,13 +706,16 @@ export async function GET(request: NextRequest) {
 
     // Bulk-fetch latest completed log for each last-done habit
     const lastDoneIds = lastDoneHabits.map(h => h.id);
-    const latestLogs = lastDoneIds.length > 0
-      ? await db.habitLog.findMany({
-          where: { habitId: { in: lastDoneIds }, completed: true },
-          distinct: ['habitId'],
-          orderBy: { date: 'desc' },
-        })
-      : [];
+    let latestLogs: Awaited<ReturnType<typeof db.habitLog.findMany>> = [];
+    try {
+      latestLogs = lastDoneIds.length > 0
+        ? await db.habitLog.findMany({
+            where: { habitId: { in: lastDoneIds }, completed: true },
+            distinct: ['habitId'],
+            orderBy: { date: 'desc' },
+          })
+        : [];
+    } catch (e) { console.error('Dashboard: latestLogs query failed:', e); }
     const latestLogMap = new Map(latestLogs.map(l => [l.habitId, l]));
 
     for (const habit of lastDoneHabits) {
