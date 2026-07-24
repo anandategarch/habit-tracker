@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import {
   Card,
@@ -135,17 +135,23 @@ export default function Finance() {
       }
       const res = await fetch('/api/finance/categories');
       if (!res.ok) return [];
-      const cats = await res.json() as FinanceCategory[];
-      // Auto-migrate legacy emoji if needed (fire-and-forget, invalidate on success)
-      if (cats.some((c: FinanceCategory) => c.emoji === '📦')) {
-        fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
-          .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance', 'categories'] }); })
-          .catch(() => { /* silent */ });
-      }
-      return cats;
+      return res.json() as Promise<FinanceCategory[]>;
     },
     staleTime: 60_000, // categories rarely change
   });
+
+  // Auto-migrate legacy emoji (separate effect — NOT inside queryFn to avoid infinite loop)
+  useEffect(() => {
+    if (categories.length > 0 && categories.some((c: FinanceCategory) => c.emoji === '📦')) {
+      // Set flag to prevent re-trigger
+      if (!sessionStorage.getItem('emoji_migrated')) {
+        sessionStorage.setItem('emoji_migrated', '1');
+        fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
+          .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance', 'categories'] }); })
+          .catch(() => { sessionStorage.removeItem('emoji_migrated'); /* retry next time */ });
+      }
+    }
+  }, [categories, queryClient]);
 
   const { data: sources = [], isLoading: sourcesLoading } = useQuery<FundSource[]>({
     queryKey: ['finance', 'sources'],
