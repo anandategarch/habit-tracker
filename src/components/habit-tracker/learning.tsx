@@ -109,7 +109,7 @@ export default function LearningTab() {
   const { data: topics = [], isLoading: topicsLoading } = useQuery<LearningTopic[]>({
     queryKey: ['learning-topics', refreshKey],
     queryFn: async () => {
-      try { await fetch('/api/migrate-learning'); } catch { /* ignore */ }
+      try { await fetch('/api/migrate-learning', { method: 'POST' }); } catch { /* ignore */ }
       const res = await fetch('/api/learning/topics');
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();

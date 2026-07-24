@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { updateSettingsSchema, parseOr400 } from '@/lib/validation';
 
 export async function GET() {
   try {
@@ -15,7 +16,9 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsed = parseOr400(updateSettingsSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const body = parsed.data;
     let settings = await db.appSettings.findFirst();
 
     if (!settings) {

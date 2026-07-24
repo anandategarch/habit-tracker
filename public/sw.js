@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tracker-v3';
+const CACHE_NAME = 'habit-tracker-v4';
 
 // Bump cache version (v1 -> v2) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
@@ -76,16 +76,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML / navigation: network-first with cache fallback
+  // HTML / navigation: network-only (never cache HTML to prevent stale content)
+  // Previously cached HTML responses, which meant users could get old JS
+  // bundles after a deploy. Now: always fetch fresh, only fall back to
+  // cache when truly offline.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => caches.match(request).then((r) => r || new Response('Offline', { status: 503 })))
+      fetch(request).catch(() =>
+        caches.match(request).then((r) => r || new Response('Offline', { status: 503 }))
+      )
     );
     return;
   }

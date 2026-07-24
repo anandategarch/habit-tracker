@@ -158,7 +158,7 @@ const DEFAULT_INCOME_CATEGORIES = [
   { type: 'income', name: 'Lainnya', emoji: '💸', color: '#78716c', order: 5 },
 ];
 
-export async function GET() {
+export async function POST() {
   try {
     const badgeCount = await db.badge.count();
     const rewardCount = await db.reward.count();

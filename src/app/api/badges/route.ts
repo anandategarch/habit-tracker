@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { createBadgeSchema, parseOr400 } from '@/lib/validation';
 
 export async function GET() {
   try {
@@ -12,9 +13,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { name, description, icon, requirement } = body;
-    if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+    const parsed = parseOr400(createBadgeSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const { name, description, icon, requirement } = parsed.data;
 
     const badge = await db.badge.create({
       data: {

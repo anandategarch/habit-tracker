@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 // One-time migration: seed default learning topics
 // Call GET /api/migrate-learning to run
-export async function GET() {
+export async function POST() {
   try {
     const count = await db.learningTopic.count();
     if (count === 0) {
