@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.json(journals);
   } catch (error) {
     console.error('GET /api/journals error:', error);
-    return NextResponse.json({ error: 'Failed to fetch journals' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

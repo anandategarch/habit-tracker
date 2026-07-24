@@ -68,6 +68,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('GET /api/finance/wallets error:', error);
-    return NextResponse.json({ error: 'Failed to fetch wallets' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }

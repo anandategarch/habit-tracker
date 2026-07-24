@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json(budgets);
   } catch (error) {
     console.error('GET /api/finance/budgets error:', error);
-    return NextResponse.json({ error: 'Failed to fetch budgets' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

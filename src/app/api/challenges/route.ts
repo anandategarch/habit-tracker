@@ -6,7 +6,7 @@ export async function GET() {
     const challenges = await db.challenge.findMany({ orderBy: { createdAt: 'desc' } });
     return NextResponse.json(challenges);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch challenges' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json(sources);
   } catch (error) {
     console.error('GET /api/finance/sources error:', error);
-    return NextResponse.json({ error: 'Failed to fetch sources' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

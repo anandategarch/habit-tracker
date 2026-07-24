@@ -7,7 +7,7 @@ export async function GET() {
     const badges = await db.badge.findMany({ orderBy: { createdAt: 'desc' } });
     return NextResponse.json(badges);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch badges' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 
