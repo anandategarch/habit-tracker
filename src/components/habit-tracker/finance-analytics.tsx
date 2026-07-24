@@ -62,7 +62,7 @@ interface FinanceAnalyticsProps {
 export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsProps) {
 
   const { data: data = null, isLoading: loading } = useQuery<AnalyticsData>({
-    queryKey: ['finance-analytics'],
+    queryKey: ['finance', 'analytics'],
     queryFn: async () => {
       const r = await fetch('/api/finance/analytics?months=6');
       if (!r.ok) return null;

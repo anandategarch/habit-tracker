@@ -89,7 +89,7 @@ export default function SourceBalanceSection() {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const { data: data, isFetching: fetching } = useQuery<BalanceHistoryData>({
-    queryKey: ['balance-history', period],
+    queryKey: ['finance', 'balance-history', period],
     queryFn: async () => {
       const res = await fetch(`/api/finance/sources/balance-history?period=${period}`);
       if (!res.ok) return null;

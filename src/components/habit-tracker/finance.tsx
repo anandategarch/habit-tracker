@@ -124,7 +124,7 @@ export default function Finance() {
 
   // Shared data (categories + sources) — fetched on mount, cached for all sub-components
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
-    queryKey: ['finance-categories'],
+    queryKey: ['finance', 'categories'],
     queryFn: async () => {
       // One-time migration check (sessionStorage flag prevents repeat)
       if (typeof window !== 'undefined' && !sessionStorage.getItem('finance_migrated')) {
@@ -139,7 +139,7 @@ export default function Finance() {
       // Auto-migrate legacy emoji if needed (fire-and-forget, invalidate on success)
       if (cats.some((c: FinanceCategory) => c.emoji === '📦')) {
         fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
-          .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance-categories'] }); })
+          .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance', 'categories'] }); })
           .catch(() => { /* silent */ });
       }
       return cats;
@@ -148,7 +148,7 @@ export default function Finance() {
   });
 
   const { data: sources = [], isLoading: sourcesLoading } = useQuery<FundSource[]>({
-    queryKey: ['finance-sources'],
+    queryKey: ['finance', 'sources'],
     queryFn: async () => {
       const res = await fetch('/api/finance/sources');
       if (!res.ok) return [];
@@ -159,7 +159,7 @@ export default function Finance() {
 
   // Tab-specific data — fetched on demand based on activeSubTab + selectedMonth
   const { data: dashboardData } = useQuery<DashboardData>({
-    queryKey: ['finance-dashboard', selectedMonth],
+    queryKey: ['finance', 'dashboard', selectedMonth],
     queryFn: async () => {
       const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
       if (!res.ok) return null;
@@ -170,7 +170,7 @@ export default function Finance() {
   });
 
   const { data: transactions = [] } = useQuery<Transaction[]>({
-    queryKey: ['finance-transactions', selectedMonth, txFilter],
+    queryKey: ['finance', 'transactions', selectedMonth, txFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ month: selectedMonth });
       if (txFilter.type !== 'all') params.set('type', txFilter.type);
@@ -186,7 +186,7 @@ export default function Finance() {
   });
 
   const { data: budgets = [] } = useQuery<BudgetItem[]>({
-    queryKey: ['finance-budgets'],
+    queryKey: ['finance', 'budgets'],
     queryFn: async () => {
       const res = await fetch('/api/finance/budgets');
       if (!res.ok) return [];
@@ -197,7 +197,7 @@ export default function Finance() {
   });
 
   const { data: lastDoneData = [] } = useQuery<LastDoneItem[]>({
-    queryKey: ['finance-last-done'],
+    queryKey: ['finance', 'last-done'],
     queryFn: async () => {
       const res = await fetch('/api/finance/last-done');
       if (!res.ok) return [];
@@ -295,7 +295,7 @@ export default function Finance() {
   // Replaces the old triggerRefresh() + fetchCategories() + fetchSources() pattern.
   // Invalidation causes TanStack Query to refetch active queries in the background.
   const invalidateFinance = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['finance-'] });
+    queryClient.invalidateQueries({ queryKey: ['finance'] });
     // Also notify other components (e.g. dashboard) that data changed
     triggerRefresh();
   }, [queryClient, triggerRefresh]);
@@ -460,7 +460,7 @@ export default function Finance() {
     if (isNaN(val)) { setBalanceEditId(null); return; }
     try {
       const res = await fetch(`/api/finance/sources/${sourceId}/balance`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
-      if (res.ok) { toast.success('Saldo berhasil diupdate'); queryClient.invalidateQueries({ queryKey: ['finance-sources'] }); }
+      if (res.ok) { toast.success('Saldo berhasil diupdate'); queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] }); }
     } catch { toast.error('Gagal update saldo'); }
     setBalanceEditId(null); setBalanceEditValue('');
   };
@@ -544,7 +544,7 @@ export default function Finance() {
 
   // ── Loading State ─────────────────────────────────────────────────────────
 
-  if (sharedLoading && !dashboardData) {
+  if (sharedLoading) {
     return (
       <div className="space-y-4">
         <div className="flex gap-2"><Skeleton className="h-10 w-48" /><Skeleton className="h-10 w-32" /></div>
