@@ -140,9 +140,10 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 <BarChart data={data.topCategories} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
+                  <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
                     const meta = getCategoryMeta(value);
-                    return `${meta.emoji} ${value.length > 12 ? value.slice(0, 11) + '…' : value}`;
+                    const name = value.length > 14 ? value.slice(0, 13) + '…' : value;
+                    return `${meta.emoji} ${name}`;
                   }} />
                   <RechartsTooltip
                     formatter={(value: number, name: string) => [formatRupiah(value), 'Total']}
@@ -331,9 +332,10 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 }))} layout="vertical" margin={{ left: 90, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(Math.abs(v) / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
+                  <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
                     const meta = getCategoryMeta(value);
-                    return `${meta.emoji} ${value.length > 10 ? value.slice(0, 9) + '…' : value}`;
+                    const name = value.length > 12 ? value.slice(0, 11) + '…' : value;
+                    return `${meta.emoji} ${name}`;
                   }} />
                   <RechartsTooltip
                     formatter={(value: number, name: string) => [formatRupiah(Math.abs(value)), name]}
