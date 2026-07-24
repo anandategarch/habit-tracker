@@ -59,7 +59,7 @@ export function ExpenseHeatmap() {
   // Fetch expense transactions for the selected month via TanStack Query.
   // Auto-cached, auto-refetched on month change, race-free.
   const { data: transactions = [], isLoading: loading } = useQuery<Transaction[]>({
-    queryKey: ['finance-heatmap', selectedMonth],
+    queryKey: ['finance', 'heatmap', selectedMonth],
     queryFn: async () => {
       const r = await fetch(`/api/finance/transactions?month=${selectedMonth}&type=expense`);
       if (!r.ok) return [];
