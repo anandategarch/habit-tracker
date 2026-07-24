@@ -126,13 +126,6 @@ export default function Finance() {
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
     queryKey: ['finance', 'categories'],
     queryFn: async () => {
-      // One-time migration check (sessionStorage flag prevents repeat)
-      if (typeof window !== 'undefined' && !sessionStorage.getItem('finance_migrated')) {
-        try {
-          await fetch('/api/finance/categories/ensure-table', { method: 'POST' });
-          sessionStorage.setItem('finance_migrated', '1');
-        } catch { /* silent */ }
-      }
       const res = await fetch('/api/finance/categories');
       if (!res.ok) return [];
       return res.json() as Promise<FinanceCategory[]>;

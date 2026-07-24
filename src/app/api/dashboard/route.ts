@@ -104,8 +104,13 @@ export async function GET(request: NextRequest) {
 
     const periodDays = differenceInCalendarDays(today, periodStart) + 1; // inclusive
 
-    // Determine chart days for display
-    const chartDays = period === '7d' ? 7 : period === '1m' ? 30 : period === '3m' ? 90 : period === '6m' ? 180 : period === '1y' ? 365 : periodDays;
+    // Determine chart days for display.
+    // Cap at 365 to prevent unbounded loops when period='all' and user has
+    // years of data (could otherwise loop thousands of times).
+    const chartDays = Math.min(
+      period === '7d' ? 7 : period === '1m' ? 30 : period === '3m' ? 90 : period === '6m' ? 180 : period === '1y' ? 365 : periodDays,
+      365
+    );
 
     // ── Fetch all logs in the period (only for active habits) ────────
     const activeHabitIds = new Set(habits.map(h => h.id));
