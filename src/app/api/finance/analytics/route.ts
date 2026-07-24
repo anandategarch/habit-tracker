@@ -368,6 +368,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('GET /api/finance/analytics error:', error);
-    return NextResponse.json({ error: 'Failed to fetch finance analytics' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }

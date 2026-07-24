@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(options);
   } catch (error) {
     console.error('GET /api/habit-options error:', error);
-    return NextResponse.json({ error: 'Failed to fetch habit options' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

@@ -7,7 +7,7 @@ export async function GET() {
     const rewards = await db.reward.findMany({ orderBy: { createdAt: 'desc' } });
     return NextResponse.json(rewards);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch rewards' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

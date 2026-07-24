@@ -110,6 +110,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sources: sourceResults, period, days });
   } catch (error) {
     console.error('GET /api/finance/sources/balance-history error:', error);
-    return NextResponse.json({ error: 'Failed to fetch balance history' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }

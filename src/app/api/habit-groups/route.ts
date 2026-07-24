@@ -18,7 +18,7 @@ export async function GET() {
     return NextResponse.json(groups);
   } catch (error) {
     console.error('GET /api/habit-groups error:', error);
-    return NextResponse.json({ error: 'Failed to fetch groups' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

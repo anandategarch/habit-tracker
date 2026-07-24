@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(categories);
   } catch (error) {
     console.error('GET /api/finance/categories error:', error);
-    return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 
