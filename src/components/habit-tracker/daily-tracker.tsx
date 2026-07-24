@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
+import { jakartaDateKey } from '@/lib/timezone';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -139,8 +140,10 @@ function sleepLabel(hours: number): string {
 }
 
 function toDateString(isoLike: string): string {
-  // Use date-fns format for reliable UTC date extraction (no timezone drift)
-  return format(new Date(isoLike), 'yyyy-MM-dd');
+  // Use Jakarta timezone for reliable date extraction (no server-TZ drift).
+  // Previously used format(new Date(isoLike), 'yyyy-MM-dd') which depends
+  // on server local timezone — fragile if Vercel changes UTC settings.
+  return jakartaDateKey(new Date(isoLike));
 }
 
 function timeDiffMinutes(time: string, target: string): number {

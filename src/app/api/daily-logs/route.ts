@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { createDailyLogSchema, parseOr400 } from '@/lib/validation';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -56,7 +57,9 @@ export async function GET(request: NextRequest) {
 // POST /api/daily-logs - create or update a daily log
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsed = parseOr400(createDailyLogSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const body = parsed.data;
     const { date, mood, energy, sleep, notes } = body;
 
     if (!date || isNaN(new Date(date).getTime())) {

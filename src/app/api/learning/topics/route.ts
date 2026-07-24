@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { createLearningTopicSchema, parseOr400 } from '@/lib/validation';
 
 const DEFAULT_TOPICS = [
   { name: 'Akuntansi', emoji: '📒', order: 0 },
@@ -37,7 +38,9 @@ export async function GET() {
 // POST /api/learning/topics
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsed = parseOr400(createLearningTopicSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const body = parsed.data;
     const { name, emoji } = body;
 
     if (!name || !name.trim()) {

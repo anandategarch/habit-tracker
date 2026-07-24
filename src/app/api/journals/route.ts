@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { createJournalSchema, parseOr400 } from '@/lib/validation';
 
 // GET /api/journals
 export async function GET() {
@@ -18,7 +19,9 @@ export async function GET() {
 // POST /api/journals
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const parsed = parseOr400(createJournalSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const body = parsed.data;
     const { date, mood, stress, energy, sleep, reflection, winToday, lessonLearned, tomorrowPlan } = body;
 
     const dateObj = new Date(date);

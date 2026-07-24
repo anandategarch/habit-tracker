@@ -63,7 +63,7 @@ bun run db:generate
 bun run db:push
 
 # 5. (Optional) Seed default badges, rewards, sample transactions
-curl http://localhost:3000/api/seed
+curl -X POST http://localhost:3000/api/seed
 
 # 6. Start dev server
 bun run dev
@@ -168,7 +168,7 @@ bun run db:reset
    - `APP_API_KEY` (generate with `openssl rand -hex 32`)
    - `NEXT_PUBLIC_APP_API_KEY` (same value as `APP_API_KEY`)
 4. Deploy.
-5. After first deploy, visit `/api/seed` once to populate default badges/rewards/categories.
+5. After first deploy, send a POST to `/api/seed` once to populate default badges/rewards/categories.
 
 ---
 
