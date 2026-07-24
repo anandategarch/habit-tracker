@@ -140,9 +140,16 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 <BarChart data={data.topCategories} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="category" width={100} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
+                    const meta = getCategoryMeta(value);
+                    return `${meta.emoji} ${value.length > 12 ? value.slice(0, 11) + '…' : value}`;
+                  }} />
                   <RechartsTooltip
-                    formatter={(value: number) => [formatRupiah(value), 'Total']}
+                    formatter={(value: number, name: string) => [formatRupiah(value), 'Total']}
+                    labelFormatter={(label: string) => {
+                      const meta = getCategoryMeta(label);
+                      return `${meta.emoji} ${label}`;
+                    }}
                     contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
                   />
                   <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
@@ -324,9 +331,16 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 }))} layout="vertical" margin={{ left: 90, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(Math.abs(v) / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="category" width={105} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
+                    const meta = getCategoryMeta(value);
+                    return `${meta.emoji} ${value.length > 10 ? value.slice(0, 9) + '…' : value}`;
+                  }} />
                   <RechartsTooltip
                     formatter={(value: number, name: string) => [formatRupiah(Math.abs(value)), name]}
+                    labelFormatter={(label: string) => {
+                      const meta = getCategoryMeta(label);
+                      return `${meta.emoji} ${label}`;
+                    }}
                     contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
                   />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
