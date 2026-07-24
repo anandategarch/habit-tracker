@@ -6,33 +6,50 @@ export async function GET() {
   const isTurso = dbUrl.startsWith('libsql://');
   const hasAuthTokenInUrl = dbUrl.includes('?authToken=');
 
-  // Mask sensitive parts
-  let maskedUrl = dbUrl;
-  if (maskedUrl.includes('?authToken=')) {
-    maskedUrl = maskedUrl.split('?authToken=')[0] + '?authToken=***';
-  }
-  if (maskedUrl.length > 80) {
-    maskedUrl = maskedUrl.substring(0, 80) + '...';
+  // Parse like db.ts does
+  let cleanUrl = dbUrl;
+  let authToken = process.env.DATABASE_AUTH_TOKEN || '';
+  if (dbUrl.includes('?authToken=')) {
+    const parts = dbUrl.split('?authToken=');
+    cleanUrl = parts[0];
+    authToken = parts[1] || authToken;
   }
 
-  // Test actual DB connection
+  // Debug info (masked)
+  const debug = {
+    rawUrlLength: dbUrl.length,
+    rawUrlStarts: dbUrl.substring(0, 60),
+    rawUrlEnds: dbUrl.substring(dbUrl.length - 20),
+    cleanUrl: cleanUrl.substring(0, 60),
+    cleanUrlLength: cleanUrl.length,
+    authTokenLength: authToken.length,
+    authTokenStarts: authToken ? authToken.substring(0, 20) + '...' : '(empty)',
+    hasWhitespace: dbUrl !== dbUrl.trim(),
+    hasNewline: dbUrl.includes('\n') || dbUrl.includes('\r'),
+    hasQuotes: dbUrl.startsWith('"') || dbUrl.startsWith("'"),
+  };
+
+  // Test DB connection with detailed error
   let dbStatus = 'unknown';
   let dbCount = -1;
+  let dbError = '';
   try {
     const { db } = await import('@/lib/db');
     dbCount = await db.transaction.count();
     dbStatus = 'connected';
   } catch (e) {
-    dbStatus = 'error: ' + (e instanceof Error ? e.message.substring(0, 200) : String(e));
+    dbStatus = 'error';
+    dbError = e instanceof Error ? e.message.substring(0, 500) : String(e).substring(0, 500);
   }
 
   return NextResponse.json({
-    databaseUrl: maskedUrl,
     isTurso,
     hasAuthTokenInUrl,
     hasSeparateAuthToken: hasToken,
+    debug,
     dbStatus,
-    transactionCount: dbCount,
+    dbCount,
+    dbError,
     timestamp: new Date().toISOString(),
   });
 }
