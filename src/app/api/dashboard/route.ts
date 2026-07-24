@@ -199,36 +199,42 @@ export async function GET(request: NextRequest) {
 
     // ── Streak calculation ───────────────────────────────────────────
     // A "perfect day" = all habits that existed on that day were completed
+    // Pre-compute date keys & active counts for all days in the streak range
+    // to avoid redundant subDays() + format() + habitsActiveOnDate() calls
+    // (previously called 2x per day in two separate loops = 730+ calls for 365 days).
     let currentStreak = 0;
     const maxStreakCheck = Math.min(periodDays, 365);
 
+    // Pre-compute once: [{ key, activeOnDay, completedOnDay }] for each day
+    const dayData: { key: string; activeOnDay: number; completedOnDay: number }[] = [];
     for (let i = 0; i < maxStreakCheck; i++) {
       const d = subDays(today, i);
       const key = format(d, 'yyyy-MM-dd');
       const activeOnDay = habitsActiveOnDate(d);
-      if (activeOnDay === 0) continue; // no habits existed yet, skip
       const completedOnDay = dailyCompletionMap.get(key)?.size || 0;
-      if (completedOnDay >= activeOnDay) {
+      dayData.push({ key, activeOnDay, completedOnDay });
+    }
+
+    // Current streak (consecutive perfect days from today backwards)
+    for (const day of dayData) {
+      if (day.activeOnDay === 0) continue; // no habits existed yet, skip
+      if (day.completedOnDay >= day.activeOnDay) {
         currentStreak++;
       } else {
         break;
       }
     }
 
-    // Longest streak
+    // Longest streak (scan all days, find longest run of perfect days)
     let longestStreak = 0;
     let tempStreak = 0;
-    for (let i = 0; i < maxStreakCheck; i++) {
-      const d = subDays(today, i);
-      const key = format(d, 'yyyy-MM-dd');
-      const activeOnDay = habitsActiveOnDate(d);
-      if (activeOnDay === 0) {
+    for (const day of dayData) {
+      if (day.activeOnDay === 0) {
         longestStreak = Math.max(longestStreak, tempStreak);
         tempStreak = 0;
         continue;
       }
-      const completedOnDay = dailyCompletionMap.get(key)?.size || 0;
-      if (completedOnDay >= activeOnDay) {
+      if (day.completedOnDay >= day.activeOnDay) {
         tempStreak++;
         longestStreak = Math.max(longestStreak, tempStreak);
       } else {

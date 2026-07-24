@@ -290,7 +290,7 @@ export default function DailyTracker() {
 
   // Render a single habit row (used in all 3 view modes)
   const renderHabitRow = (habit: Habit, idx: number, total: number) => {
-    const done = !!completionMap[habit.id];
+    const done = !!((completionMap[habit.id] ?? false) ?? false);
     const isToggling = togglingIds.has(habit.id);
     const doneTime = done ? completedAtMap[habit.id] : null;
     const isLate = doneTime && habit.targetTime && doneTime > habit.targetTime;
@@ -373,8 +373,8 @@ export default function DailyTracker() {
 
   const filteredHabits = useMemo(() => {
     let list = activeHabits;
-    if (viewFilter === 'completed') list = list.filter((h) => completionMap[h.id]);
-    if (viewFilter === 'incomplete') list = list.filter((h) => !completionMap[h.id]);
+    if (viewFilter === 'completed') list = list.filter((h) => (completionMap[h.id] ?? false));
+    if (viewFilter === 'incomplete') list = list.filter((h) => !(completionMap[h.id] ?? false));
     if (categoryFilter !== 'all') list = list.filter((h) => h.category === categoryFilter);
     return list;
   }, [activeHabits, completionMap, viewFilter, categoryFilter]);
@@ -413,7 +413,7 @@ export default function DailyTracker() {
 
   const todayXP = useMemo(() => {
     return activeHabits.reduce((sum, h) => {
-      if (completionMap[h.id]) return sum + (xpMap[h.difficulty] || 20);
+      if ((completionMap[h.id] ?? false)) return sum + (xpMap[h.difficulty] || 20);
       return sum;
     }, 0);
   }, [activeHabits, completionMap]);
@@ -527,7 +527,7 @@ export default function DailyTracker() {
   };
 
   const handleHabitCheck = (habit: Habit) => {
-    const next = !completionMap[habit.id];
+    const next = !(completionMap[habit.id] ?? false);
     // If unchecking, just toggle directly
     if (!next) {
       toggleHabit(habit.id, null);
@@ -566,7 +566,7 @@ export default function DailyTracker() {
   };
 
   const toggleHabit = async (habitId: string, completedAt: string | null) => {
-    const next = !completionMap[habitId];
+    const next = !(completionMap[habitId] ?? false);
 
     // optimistic
     setCompletionMap((p) => ({ ...p, [habitId]: next }));
@@ -928,7 +928,7 @@ export default function DailyTracker() {
             {groups.map((g) => {
               const habitsInGroup = groupedHabits?.get(g.id);
               if (!habitsInGroup?.length) return null;
-              const doneCount = habitsInGroup.filter((h) => completionMap[h.id]).length;
+              const doneCount = habitsInGroup.filter((h) => (completionMap[h.id] ?? false)).length;
               const isCollapsed = collapsedSections.has(g.id);
               return (
                 <Card key={g.id} className="overflow-hidden">
@@ -963,7 +963,7 @@ export default function DailyTracker() {
             {(() => {
               const ungrouped = groupedHabits?.get('__none__');
               if (!ungrouped?.length) return null;
-              const doneCount = ungrouped.filter((h) => completionMap[h.id]).length;
+              const doneCount = ungrouped.filter((h) => (completionMap[h.id] ?? false)).length;
               const isCollapsed = collapsedSections.has('__none__');
               return (
                 <Card className="overflow-hidden">
@@ -998,7 +998,7 @@ export default function DailyTracker() {
             {TIME_SLOTS.map((slot) => {
               const habitsInSlot = groupedHabits?.get(slot.key);
               if (!habitsInSlot?.length) return null;
-              const doneCount = habitsInSlot.filter((h) => completionMap[h.id]).length;
+              const doneCount = habitsInSlot.filter((h) => (completionMap[h.id] ?? false)).length;
               const isCollapsed = collapsedSections.has(slot.key);
               return (
                 <Card key={slot.key} className="overflow-hidden">
@@ -1030,7 +1030,7 @@ export default function DailyTracker() {
             {(() => {
               const noTime = groupedHabits?.get('other');
               if (!noTime?.length) return null;
-              const doneCount = noTime.filter((h) => completionMap[h.id]).length;
+              const doneCount = noTime.filter((h) => (completionMap[h.id] ?? false)).length;
               const isCollapsed = collapsedSections.has('other');
               return (
                 <Card className="overflow-hidden">

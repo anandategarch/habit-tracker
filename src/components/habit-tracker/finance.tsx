@@ -134,14 +134,15 @@ export default function Finance() {
   });
 
   // Auto-migrate legacy emoji (separate effect — NOT inside queryFn to avoid infinite loop)
+  // Uses localStorage (shared across tabs) instead of sessionStorage (per-tab) to
+  // prevent multi-tab race condition where two tabs both trigger migration POST.
   useEffect(() => {
     if (categories.length > 0 && categories.some((c: FinanceCategory) => c.emoji === '📦')) {
-      // Set flag to prevent re-trigger
-      if (!sessionStorage.getItem('emoji_migrated')) {
-        sessionStorage.setItem('emoji_migrated', '1');
+      if (!localStorage.getItem('emoji_migrated')) {
+        localStorage.setItem('emoji_migrated', '1');
         fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
           .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance', 'categories'] }); })
-          .catch(() => { sessionStorage.removeItem('emoji_migrated'); /* retry next time */ });
+          .catch(() => { localStorage.removeItem('emoji_migrated'); /* retry next time */ });
       }
     }
   }, [categories, queryClient]);
