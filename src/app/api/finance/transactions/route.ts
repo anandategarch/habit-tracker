@@ -62,10 +62,16 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const transactions = await db.transaction.findMany({
-      where,
-      orderBy: { date: 'desc' },
-    });
+    // Resilient query — return empty array on DB error instead of 500
+    let transactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];
+    try {
+      transactions = await db.transaction.findMany({
+        where,
+        orderBy: { date: 'desc' },
+      });
+    } catch (e) {
+      console.error('GET /api/finance/transactions query failed:', e);
+    }
 
     return NextResponse.json(transactions);
   } catch (error) {
