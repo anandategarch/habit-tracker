@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,15 +86,11 @@ const EMOJI_OPTIONS = [
 export default function LearningTab() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
 
-  const [topics, setTopics] = useState<LearningTopic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
-  const [article, setArticle] = useState<Article | null>(null);
-  const [status, setStatus] = useState<LearningStatus>({ completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 });
 
-  const [articleLoading, setArticleLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
-  const [topicsLoading, setTopicsLoading] = useState(true);
 
   // Dialog states
   const [manageOpen, setManageOpen] = useState(false);
@@ -108,27 +105,16 @@ export default function LearningTab() {
 
   const initialTopicSet = useRef(false);
 
-  const fetchTopics = useCallback(async () => {
-    setTopicsLoading(true);
-    try {
-      // Step 1: Try auto-migrate first (creates table if missing)
-      try {
-        await fetch('/api/migrate-learning');
-      } catch { /* ignore */ }
-
-      // Step 2: Fetch topics
+  // ── Fetch topics (TanStack Query) ──────────────────────────────────────
+  const { data: topics = [], isLoading: topicsLoading } = useQuery<LearningTopic[]>({
+    queryKey: ['learning-topics', refreshKey],
+    queryFn: async () => {
+      try { await fetch('/api/migrate-learning'); } catch { /* ignore */ }
       const res = await fetch('/api/learning/topics');
-      if (!res.ok) throw new Error();
-      const data: LearningTopic[] = await res.json();
-
-      if (!initialTopicSet.current && data.length > 0) {
-        setSelectedTopic(data[0].name);
-        initialTopicSet.current = true;
-      }
-
-      // If DB is empty, use fallback topics
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
       if (data.length === 0) {
-        const fallback: LearningTopic[] = [
+        return [
           { id: 'fb-1', name: 'Akuntansi', emoji: '📒', order: 0 },
           { id: 'fb-2', name: 'Keuangan', emoji: '💰', order: 1 },
           { id: 'fb-3', name: 'Ekonomi', emoji: '📈', order: 2 },
@@ -136,94 +122,61 @@ export default function LearningTab() {
           { id: 'fb-5', name: 'Investasi', emoji: '🏦', order: 4 },
           { id: 'fb-6', name: 'Manajemen', emoji: '📊', order: 5 },
         ];
-        setTopics(fallback);
-        if (!initialTopicSet.current) {
-          setSelectedTopic(fallback[0].name);
-          initialTopicSet.current = true;
-        }
-      } else {
-        setTopics(data);
       }
-    } catch {
-      // Final fallback: hardcoded topics
-      const fallback: LearningTopic[] = [
-        { id: 'fb-1', name: 'Akuntansi', emoji: '📒', order: 0 },
-        { id: 'fb-2', name: 'Keuangan', emoji: '💰', order: 1 },
-        { id: 'fb-3', name: 'Ekonomi', emoji: '📈', order: 2 },
-        { id: 'fb-4', name: 'Pajak', emoji: '🧾', order: 3 },
-        { id: 'fb-5', name: 'Investasi', emoji: '🏦', order: 4 },
-        { id: 'fb-6', name: 'Manajemen', emoji: '📊', order: 5 },
-      ];
-      setTopics(fallback);
-      if (!initialTopicSet.current) {
-        setSelectedTopic(fallback[0].name);
-        initialTopicSet.current = true;
-      }
-      toast.error('Gagal memuat topik');
-    } finally {
-      setTopicsLoading(false);
-    }
-  }, []);
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  });
 
+  // Set initial selected topic
   useEffect(() => {
-    fetchTopics();
-  }, [fetchTopics, refreshKey]);
+    if (!initialTopicSet.current && topics.length > 0) {
+      setSelectedTopic(topics[0].name);
+      initialTopicSet.current = true;
+    }
+  }, [topics]);
+
+  const invalidateLearning = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['learning-topics'] });
+    queryClient.invalidateQueries({ queryKey: ['learning-status'] });
+    queryClient.invalidateQueries({ queryKey: ['learning-article'] });
+    triggerRefresh();
+  }, [queryClient, triggerRefresh]);
 
   // ── Fetch article when topic changes ────────────────────────────────────
 
-  useEffect(() => {
-    if (!selectedTopic) return;
-    let cancelled = false;
-    setArticleLoading(true);
-    setArticle(null);
+  const { data: articleData, isLoading: articleLoading } = useQuery<{ title?: string; content?: string; funFact?: string; topic?: string; source?: string }>({
+    queryKey: ['learning-article', selectedTopic],
+    queryFn: async () => {
+      const r = await fetch(`/api/learning/article?topic=${encodeURIComponent(selectedTopic)}`);
+      if (!r.ok) return {};
+      return r.json();
+    },
+    enabled: !!selectedTopic,
+    staleTime: 5 * 60_000,
+  });
 
-    requestAnimationFrame(() => {
-      fetch(`/api/learning/article?topic=${encodeURIComponent(selectedTopic)}`)
-        .then(r => r.json())
-        .then(d => {
-          if (!cancelled && d.title) {
-            setArticle({ title: d.title, content: d.content, funFact: d.funFact, topic: d.topic, source: d.source });
-          }
-        })
-        .catch(() => { if (!cancelled) toast.error('Gagal memuat artikel'); })
-        .finally(() => {
-          if (!cancelled) setArticleLoading(false);
-        });
-    });
-
-    return () => { cancelled = true; };
-  }, [selectedTopic]);
+  const article: Article | null = articleData?.title
+    ? { title: articleData.title, content: articleData.content || '', funFact: articleData.funFact || '', topic: articleData.topic || '', source: articleData.source || '' }
+    : null;
 
   // ── Fetch learning status ───────────────────────────────────────────────
 
-  useEffect(() => {
-    let cancelled = false;
-    requestAnimationFrame(() => {
-      fetch('/api/learning/complete')
-        .then(r => r.json())
-        .then(d => {
-          if (!cancelled) setStatus(d);
-        })
-        .catch((err) => { console.error('Failed to fetch learning status:', err); });
-    });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
+  const { data: status = { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 } } = useQuery<LearningStatus>({
+    queryKey: ['learning-status', refreshKey],
+    queryFn: async () => {
+      const r = await fetch('/api/learning/complete');
+      if (!r.ok) return { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 };
+      return r.json();
+    },
+    staleTime: 30_000,
+  });
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
   const handleRefresh = () => {
     if (!selectedTopic) return;
-    setArticleLoading(true);
-    setArticle(null);
-    fetch(`/api/learning/article?topic=${encodeURIComponent(selectedTopic)}&refresh=true`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.title) {
-          setArticle({ title: d.title, content: d.content, funFact: d.funFact, topic: d.topic, source: d.source });
-        }
-      })
-      .catch(() => { toast.error('Gagal memuat artikel'); })
-      .finally(() => setArticleLoading(false));
+    queryClient.invalidateQueries({ queryKey: ['learning-article', selectedTopic] });
   };
 
   const handleComplete = async () => {
@@ -232,8 +185,7 @@ export default function LearningTab() {
       const res = await fetch('/api/learning/complete', { method: 'POST' });
       if (!res.ok) throw new Error();
       toast.success('Daily Learning selesai! 🎉');
-      triggerRefresh();
-      setStatus(s => ({ ...s, completedToday: true, streak: s.streak + 1, totalDays: s.totalDays + 1 }));
+      invalidateLearning();
     } catch {
       toast.error('Gagal menyimpan');
     } finally {
@@ -257,7 +209,7 @@ export default function LearningTab() {
       setTopicName('');
       setTopicEmoji('📚');
       setAddTopicOpen(false);
-      await fetchTopics();
+      invalidateLearning();
     } catch (e: unknown) {
       if (e && typeof e === 'object' && 'message' in e && (e as { message: string }).message.includes('409')) {
         toast.error('Topik sudah ada');
@@ -280,7 +232,7 @@ export default function LearningTab() {
       setEditTopic(null);
       setTopicName('');
       setTopicEmoji('📚');
-      await fetchTopics();
+      invalidateLearning();
     } catch {
       toast.error('Gagal memperbarui topik');
     }
@@ -296,7 +248,7 @@ export default function LearningTab() {
         setSelectedTopic(topics.filter(t => t.id !== deleteTarget.id)[0]?.name || '');
       }
       setDeleteTarget(null);
-      await fetchTopics();
+      invalidateLearning();
     } catch {
       toast.error('Gagal menghapus topik');
     }

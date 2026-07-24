@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -151,9 +152,8 @@ function previewTheme(primary: string, secondary: string, theme: string) {
 
 export default function Settings() {
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<'umum' | 'habits' | 'data'>('umum');
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -161,7 +161,6 @@ export default function Settings() {
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dbStats, setDbStats] = useState<{ habits: number; logs: number; days: number } | null>(null);
 
   // Local form state
   const [form, setForm] = useState({
@@ -199,44 +198,58 @@ export default function Settings() {
     });
   };
 
+  // ── Fetch settings (TanStack Query) ────────────────────────────────────
+  const { data: settings = null, isLoading: loading } = useQuery<AppSettings>({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings');
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  // Sync settings → form state
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-
-    fetch('/api/settings')
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) {
-          setSettings(d);
-          setForm({
-            userName: d.userName || '',
-            theme: d.theme || 'light',
-            primaryColor: d.primaryColor || '#22c55e',
-            secondaryColor: d.secondaryColor || '#10b981',
-            weekStart: d.weekStart || 'monday',
-            language: d.language || 'en',
-            targetCompletion: d.targetCompletion ?? 80,
-          });
-        }
-      })
-      .catch(() => { toast.error('Gagal memuat pengaturan'); })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+    if (settings) {
+      setForm({
+        userName: settings.userName || '',
+        theme: settings.theme || 'light',
+        primaryColor: settings.primaryColor || '#22c55e',
+        secondaryColor: settings.secondaryColor || '#10b981',
+        weekStart: settings.weekStart || 'monday',
+        language: settings.language || 'en',
+        targetCompletion: settings.targetCompletion ?? 80,
       });
+    }
+  }, [settings]);
 
-    // Fetch DB stats
-    Promise.allSettled([
-      fetch('/api/habits').then((r) => r.json()),
-      fetch('/api/daily-logs').then((r) => r.json()),
-    ]).then(([habitsRes, logsRes]) => {
-      if (cancelled) return;
-      const habitsCount = habitsRes.status === 'fulfilled' ? (Array.isArray(habitsRes.value) ? habitsRes.value.length : habitsRes.value?.habits?.length ?? 0) : 0;
-      const logsCount = logsRes.status === 'fulfilled' ? (Array.isArray(logsRes.value) ? logsRes.value.length : logsRes.value?.logs?.length ?? 0) : 0;
-      setDbStats({ habits: habitsCount, logs: logsCount, days: 0 });
-    });
+  // ── Fetch DB stats (shares cache with other components) ──
+  const { data: habitsData = [] } = useQuery<unknown[]>({
+    queryKey: ['habits'],
+    queryFn: async () => {
+      const r = await fetch('/api/habits');
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
 
-    return () => { cancelled = true; };
-  }, []);
+  const { data: logsData = [] } = useQuery<unknown[]>({
+    queryKey: ['daily-logs-all'],
+    queryFn: async () => {
+      const r = await fetch('/api/daily-logs');
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const dbStats: { habits: number; logs: number; days: number } | null = settings ? {
+    habits: Array.isArray(habitsData) ? habitsData.length : 0,
+    logs: Array.isArray(logsData) ? logsData.length : 0,
+    days: 0,
+  } : null;
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -251,7 +264,7 @@ export default function Settings() {
         // Notify ThemeProvider to persist the current theme
         const savedSettings = await res.json();
         sessionStorage.setItem('rutina_settings', JSON.stringify(savedSettings));
-        // Theme is already applied via live preview, no need to re-apply
+        queryClient.invalidateQueries({ queryKey: ['settings'] });
       } else {
         toast.error('Failed to save settings');
       }
@@ -260,7 +273,7 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
-  }, [form]);
+  }, [form, queryClient]);
 
   const handleExportJSON = useCallback(async () => {
     setExporting(true);
@@ -322,13 +335,14 @@ export default function Settings() {
       toast.success(`Data berhasil diimport! ${result.total ?? 0} record dipulihkan 🎉`);
       setImportDialogOpen(false);
       triggerRefresh();
+      queryClient.invalidateQueries();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal import data. Pastikan file backup valid.');
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [triggerRefresh]);
+  }, [triggerRefresh, queryClient]);
 
   const handleResetAll = useCallback(async () => {
     setResetting(true);
@@ -337,8 +351,8 @@ export default function Settings() {
       if (res.ok) {
         toast.success('Semua data berhasil dihapus! Mulai dari awal ya 🎉');
         setResetDialogOpen(false);
-        setDbStats({ habits: 0, logs: 0, days: 0 });
         triggerRefresh();
+        queryClient.invalidateQueries();
       } else {
         toast.error('Gagal menghapus data. Coba lagi.');
       }
@@ -347,7 +361,7 @@ export default function Settings() {
     } finally {
       setResetting(false);
     }
-  }, [triggerRefresh]);
+  }, [triggerRefresh, queryClient]);
 
   if (loading) return <LoadingSkeleton />;
 
