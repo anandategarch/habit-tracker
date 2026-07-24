@@ -82,13 +82,12 @@ function BalanceTooltip({ active, payload, label }: { active?: boolean; payload?
 }
 
 export default function SourceBalanceSection() {
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('1m');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const { data: data, isFetching: fetching } = useQuery<BalanceHistoryData>({
+  const { data: data, isLoading: loading, isFetching: fetching } = useQuery<BalanceHistoryData>({
     queryKey: ['finance', 'balance-history', period],
     queryFn: async () => {
       const res = await fetch(`/api/finance/sources/balance-history?period=${period}`);
