@@ -49,6 +49,29 @@ function getNextRefreshId(topic: string): number {
   return next;
 }
 
+// ── Cache cleanup: purge entries from previous days to prevent memory leak ──
+// Module-level Maps persist across requests in serverless instances.
+// Without cleanup, shownTodayTitles & articleCache grow unbounded over time.
+function purgeStaleCacheEntries() {
+  const today = getTodayKey();
+
+  // Purge shownTodayTitles: keep only today's entries
+  for (const key of shownTodayTitles.keys()) {
+    const date = key.split('|')[0];
+    if (date !== today) {
+      shownTodayTitles.delete(key);
+    }
+  }
+
+  // Purge articleCache: keep only today's entries (key format: "date|topic|refreshId")
+  for (const key of articleCache.keys()) {
+    const date = key.split('|')[0];
+    if (date !== today) {
+      articleCache.delete(key);
+    }
+  }
+}
+
 // ── Search queries: 15+ per default topic, 5+ generic ───────────────────────
 
 const TOPIC_QUERIES: Record<string, string[]> = {
@@ -437,6 +460,9 @@ Konten: ${pageText.substring(0, 12000)}`,
 
 export async function GET(request: NextRequest) {
   try {
+    // Purge stale cache entries from previous days to prevent memory leak
+    purgeStaleCacheEntries();
+
     const { searchParams } = new URL(request.url);
     const topic = searchParams.get('topic') || '';
     const forceRefresh = searchParams.get('refresh') === 'true';
