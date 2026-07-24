@@ -257,16 +257,30 @@ export default function Finance() {
   }, [ALL_KNOWN_EMOJIS]);
 
   const getCategoryMeta = useCallback((cat: string) => {
-    const found = categories.find(c => c.name === cat);
+    if (!cat) return { emoji: '📦', color: '#78716c' };
+    const trimmed = cat.trim();
+    // Exact match first (fast path)
+    const found = categories.find(c => c.name === trimmed);
     if (found) {
       if (found.emoji === '📦') {
-        const known = ALL_KNOWN_EMOJIS.get(cat);
+        const known = ALL_KNOWN_EMOJIS.get(trimmed);
         if (known) return { emoji: known.emoji, color: known.color || found.color };
       }
       return { emoji: found.emoji, color: found.color };
     }
-    const known = ALL_KNOWN_EMOJIS.get(cat);
+    // Case-insensitive fallback
+    const foundCI = categories.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (foundCI) {
+      if (foundCI.emoji === '📦') {
+        const known = ALL_KNOWN_EMOJIS.get(trimmed);
+        if (known) return { emoji: known.emoji, color: known.color || foundCI.color };
+      }
+      return { emoji: foundCI.emoji, color: foundCI.color };
+    }
+    // Fallback to known emoji map
+    const known = ALL_KNOWN_EMOJIS.get(trimmed) || ALL_KNOWN_EMOJIS.get(trimmed.toLowerCase());
     if (known) return known;
+    // First letter as emoji for custom categories without emoji
     return { emoji: '📦', color: '#78716c' };
   }, [categories, ALL_KNOWN_EMOJIS]);
 
