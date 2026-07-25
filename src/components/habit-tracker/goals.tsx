@@ -388,18 +388,18 @@ export default function GoalsTab() {
                 </h3>
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px] px-1.5 py-0', getBadgeClass(priorityMap[goal.priority]?.color || 'gray'))}
+                  className={cn('text-xs px-1.5 py-0', getBadgeClass(priorityMap[goal.priority]?.color || 'gray'))}
                 >
                   {goal.priority}
                 </Badge>
                 <Badge
                   variant="secondary"
-                  className={cn('text-[10px] px-1.5 py-0', STATUS_STYLES[goal.status] ?? '')}
+                  className={cn('text-xs px-1.5 py-0', STATUS_STYLES[goal.status] ?? '')}
                 >
                   {goal.status}
                 </Badge>
                 {isOverdue && (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  <Badge variant="destructive" className="text-xs px-1.5 py-0">
                     Overdue
                   </Badge>
                 )}
@@ -537,7 +537,7 @@ export default function GoalsTab() {
             New Goal
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />

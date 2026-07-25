@@ -110,7 +110,7 @@ export default function FinanceTransactions({
             {filteredTransactions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground text-sm">
                 <Wallet className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                Belum ada transaksi
+                💸 Belum ada transaksi
               </div>
             ) : (
               <div>
@@ -145,7 +145,7 @@ export default function FinanceTransactions({
                         {group.totalExpense > 0 && (
                           <span className="text-red-500 font-medium">-{formatRupiah(group.totalExpense)}</span>
                         )}
-                        <span className={cn('font-semibold px-1.5 py-0.5 rounded text-[10px]', group.net >= 0 ? 'bg-primary/10 text-primary' : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400')}>
+                        <span className={cn('font-semibold px-1.5 py-0.5 rounded text-xs', group.net >= 0 ? 'bg-primary/10 text-primary' : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400')}>
                           {group.net >= 0 ? '+' : ''}{formatRupiah(group.net)}
                         </span>
                       </div>
@@ -165,8 +165,8 @@ export default function FinanceTransactions({
                           <div className="flex-1 min-w-0">
                             <span className="text-xs font-medium truncate block">{tx.category}</span>
                             <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-[10px] text-muted-foreground truncate">{tx.description || ''}</span>
-                              <span className="text-[10px] text-muted-foreground shrink-0">
+                              <span className="text-xs text-muted-foreground truncate">{tx.description || ''}</span>
+                              <span className="text-xs text-muted-foreground shrink-0">
                                 {getSourceEmoji(tx.source || 'Kas')} {tx.source || 'Kas'}
                               </span>
                             </div>

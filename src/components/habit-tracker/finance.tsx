@@ -587,7 +587,7 @@ export default function Finance() {
           )}
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <Button size="sm" onClick={() => openNewTx('expense')} className="bg-red-500 hover:bg-red-600 text-white"><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
           <Button size="sm" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
           <Button size="sm" variant="outline" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
@@ -656,7 +656,7 @@ export default function Finance() {
 
       {/* ─── ADD/EDIT TRANSACTION DIALOG ─── */}
       <Dialog open={txDialogOpen} onOpenChange={setTxDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader><DialogTitle>{editingTx ? 'Edit Transaksi' : 'Tambah Transaksi'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
@@ -676,7 +676,7 @@ export default function Finance() {
 
       {/* ─── ADD BUDGET DIALOG ─── */}
       <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader><DialogTitle>Tambah Budget</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label className="text-xs">Kategori Pengeluaran</Label><Select value={budgetForm.category} onValueChange={v => setBudgetForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList('expense').map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
@@ -689,7 +689,7 @@ export default function Finance() {
 
       {/* ─── EDIT BUDGET DIALOG ─── */}
       <Dialog open={budgetEditOpen} onOpenChange={setBudgetEditOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader><DialogTitle>Edit Budget</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label className="text-xs">Kategori Pengeluaran</Label><Select value={budgetForm.category} onValueChange={v => setBudgetForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList('expense').map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
@@ -781,7 +781,7 @@ export default function Finance() {
 
       {/* ─── SOURCE MANAGEMENT DIALOG ─── */}
       <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Kelola Sumber Dana</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="rounded-xl bg-gradient-to-br from-primary/10 to-teal-50 dark:to-teal-950/30 border border-primary/20 p-4">

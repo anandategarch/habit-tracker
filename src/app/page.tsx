@@ -75,14 +75,14 @@ export default function Home() {
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
   const [dateString, setDateString] = useState(() =>
     typeof window !== 'undefined'
-      ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+      ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       : ''
   );
 
   // Refresh date string every minute so it stays accurate past midnight
   useEffect(() => {
     const id = setInterval(() => {
-      setDateString(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
+      setDateString(new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
     }, 60_000);
     return () => clearInterval(id);
   }, []);
@@ -199,7 +199,7 @@ export default function Home() {
             <h1 className="text-lg font-semibold">
               {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}
             </h1>
-            <div className="ml-auto text-xs text-muted-foreground" suppressHydrationWarning>
+            <div className="ml-auto text-xs text-muted-foreground hidden xs:block sm:block" suppressHydrationWarning>
               {dateString}
             </div>
           </header>
@@ -207,7 +207,7 @@ export default function Home() {
           {/* Content area — extra bottom padding on mobile so content
               doesn't get hidden behind the fixed bottom navigation bar. */}
           <div className="flex-1 p-4 md:p-6 overflow-auto pb-24 md:pb-6">
-            <div className="animate-fade-in">
+            <div className="animate-slide-up">
               <ActiveComponent key={activeTab} />
             </div>
           </div>
@@ -238,16 +238,23 @@ export default function Home() {
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-2',
-                  'transition-colors duration-150',
-                  'min-h-[56px]', // ensure 44px+ touch target with icon+label
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-2 relative',
+                  'transition-all duration-150 active:scale-90',
+                  'min-h-[56px]',
                   isActive
                     ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} />
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                {/* Active indicator: top border + pill background */}
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
+                )}
+                {isActive && (
+                  <span className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/10" />
+                )}
+                <Icon className={cn('h-5 w-5 shrink-0 relative z-10', isActive && 'text-primary')} />
+                <span className="text-xs font-medium leading-none relative z-10">{item.label}</span>
               </button>
             );
           })}

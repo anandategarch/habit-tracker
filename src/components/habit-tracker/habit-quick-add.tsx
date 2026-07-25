@@ -23,7 +23,7 @@ export function QuickAddBar({
 }: QuickAddBarProps) {
   return (
     <Card className="border-dashed border-primary/20 bg-primary/10">
-      <CardContent className="p-3">
+      <CardContent className="p-4">
         <div className="flex items-center gap-2">
           <div className="relative">
             <button

@@ -517,7 +517,7 @@ export default function Dashboard() {
         <span className="text-sm font-medium text-muted-foreground">Periode:</span>
         <PeriodFilter period={period} onPeriodChange={handlePeriodChange} />
         {period !== 'all' && (
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-xs">
             Data {PERIOD_OPTIONS.find(p => p.value === period)?.label}
           </Badge>
         )}
@@ -612,7 +612,7 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">{displayData.currentLevel}</div>
             <div className="flex items-center gap-1 mt-1">
               <Progress value={displayData.levelProgress} className="h-1.5 flex-1" />
-              <span className="text-[10px] text-muted-foreground">{displayData.levelProgress}%</span>
+              <span className="text-xs text-muted-foreground">{displayData.levelProgress}%</span>
             </div>
           </Card>
 
@@ -732,7 +732,7 @@ export default function Dashboard() {
                         <span className="text-base shrink-0">{th.icon}</span>
                         <span className="text-sm font-medium truncate">{th.name}</span>
                         {th.targetTime && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
                             target {th.targetTime}
                           </span>
                         )}
@@ -750,12 +750,12 @@ export default function Dashboard() {
                           </span>
                         )}
                         {!th.todayDone && (
-                          <span className="text-[10px] text-muted-foreground">Belum</span>
+                          <span className="text-xs text-muted-foreground">Belum</span>
                         )}
                         {/* Trend */}
                         {th.trend !== null && (
                           <span className={cn(
-                            'text-[10px] font-medium flex items-center gap-0.5',
+                            'text-xs font-medium flex items-center gap-0.5',
                             th.trend < 0 ? 'text-emerald-600 dark:text-emerald-400' : th.trend > 0 ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
                           )}>
                             {th.trend < 0 ? <ArrowDownRight className="h-3 w-3" /> : th.trend > 0 ? <ArrowUpRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
@@ -787,7 +787,7 @@ export default function Dashboard() {
                       ))}
                     </div>
                     {/* Stats row */}
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-2 text-[10px] text-muted-foreground">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-2 text-xs text-muted-foreground">
                       <span>Rata-rata: <strong className="text-foreground">{th.weekAvg || '-'}</strong></span>
                       {th.targetTime && (
                         <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
@@ -815,7 +815,7 @@ export default function Dashboard() {
                   Terakhir Dilakukan
                   <ChartInfo text="Menampilkan habit yang di-track kapan terakhir kali dikerjakan. Diurutkan dari yang paling lama / paling urgent." />
                 </h3>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-xs">
                   {displayData.lastDoneSummary.filter(l => l.overdue).length} overdue
                 </Badge>
               </div>
@@ -833,13 +833,13 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <span className="text-sm font-medium truncate block">{item.name}</span>
                         {item.interval && (
-                          <span className="text-[10px] text-muted-foreground">setiap {item.interval}</span>
+                          <span className="text-xs text-muted-foreground">setiap {item.interval}</span>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
                       {item.completedAt && (
-                        <span className="text-[10px] text-muted-foreground font-mono">{item.completedAt}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{item.completedAt}</span>
                       )}
                       {item.daysAgo !== null ? (
                         <span className={cn(
@@ -929,7 +929,7 @@ export default function Dashboard() {
                       <span className="text-lg shrink-0">{habit.icon}</span>
                       <span className="text-sm font-medium truncate">{habit.name}</span>
                     </div>
-                    <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-[10px]">
+                    <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-xs">
                       {habit.priority}
                     </Badge>
                   </div>
@@ -952,7 +952,7 @@ export default function Dashboard() {
                   <ChartInfo text="Pemasukan dan pengeluaran dari semua transaksi bulan ini. Saldo = pemasukan − pengeluaran. Status anggaran menunjukkan jumlah kategori yang terlampaui 80% atau 100%." />
                 </h3>
               </div>
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-xs">
                 {displayData.financeOverview.transactionCount} transaksi
               </Badge>
             </div>
@@ -1044,7 +1044,7 @@ export default function Dashboard() {
                           <span className="text-sm font-medium truncate">{habit.name}</span>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
                             {habit.streak > 0 && (
-                              <span className="flex items-center gap-0.5 text-[10px] text-orange-500">
+                              <span className="flex items-center gap-0.5 text-xs text-orange-500">
                                 <Flame className="h-3 w-3" />{habit.streak}
                               </span>
                             )}
@@ -1053,7 +1053,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Progress value={habit.rate} className="h-1.5 flex-1" />
-                          <span className="text-[10px] text-muted-foreground shrink-0">
+                          <span className="text-xs text-muted-foreground shrink-0">
                             {habit.completed}/{habit.total}
                           </span>
                         </div>

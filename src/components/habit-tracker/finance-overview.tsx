@@ -66,7 +66,7 @@ export default function FinanceOverview({
             </div>
             <p className="text-xl font-bold text-primary">{formatRupiah(dashboardData.totalIncome)}</p>
             {dashboardData.previousMonth.income > 0 && (
-              <p className={cn('text-[11px] mt-1', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
+              <p className={cn('text-xs mt-1', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
                 {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs bulan lalu
               </p>
             )}
@@ -80,7 +80,7 @@ export default function FinanceOverview({
             </div>
             <p className="text-xl font-bold text-red-700 dark:text-red-400">{formatRupiah(dashboardData.totalExpense)}</p>
             {dashboardData.previousMonth.expense > 0 && (
-              <p className={cn('text-[11px] mt-1', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
+              <p className={cn('text-xs mt-1', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
                 {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs bulan lalu
               </p>
             )}
@@ -95,7 +95,7 @@ export default function FinanceOverview({
             <p className={cn('text-xl font-bold', dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600')}>
               {formatRupiah(dashboardData.balance)}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {dashboardData.transactionCount} transaksi
             </p>
           </CardContent>
@@ -107,7 +107,7 @@ export default function FinanceOverview({
               <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Rata-rata/hari</span>
             </div>
             <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{formatRupiah(dashboardData.avgDailyExpense)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1 truncate">Proyeksi: {formatRupiah(dashboardData.projectedMonthlyExpense)}/bulan</p>
+            <p className="text-xs text-muted-foreground mt-1 truncate">Proyeksi: {formatRupiah(dashboardData.projectedMonthlyExpense)}/bulan</p>
           </CardContent>
         </Card>
       </div>
@@ -131,21 +131,21 @@ export default function FinanceOverview({
                     <p className="text-xs font-medium truncate">{item.category}</p>
                     {item.daysAgo !== null ? (
                       <>
-                        <p className={cn('text-[11px]', item.daysAgo <= 3 ? 'text-primary' : item.daysAgo <= 7 ? 'text-amber-600' : 'text-red-500')}>
+                        <p className={cn('text-xs', item.daysAgo <= 3 ? 'text-primary' : item.daysAgo <= 7 ? 'text-amber-600' : 'text-red-500')}>
                           {item.daysAgo === 0 ? 'Hari ini' : item.daysAgo === 1 ? 'Kemarin' : `${item.daysAgo} hari lalu`}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {item.lastDate ? format(new Date(item.lastDate), 'EEE, d MMM', { locale: idLocale }) : ''}
                           {item.lastAmount !== null ? ` · ${formatRupiah(item.lastAmount)}` : ''}
                         </p>
                       </>
                     ) : (
-                      <p className="text-[11px] text-muted-foreground italic">Belum ada transaksi</p>
+                      <p className="text-xs text-muted-foreground italic">Belum ada transaksi</p>
                     )}
                   </div>
                   {item.daysAgo !== null && item.daysAgo > 7 && (
                     <div className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
+                      'text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0',
                       item.daysAgo > 14 ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
                     )}>
                       {item.daysAgo > 14 ? '⚠️' : '🕐'} {item.daysAgo}d
@@ -259,7 +259,7 @@ export default function FinanceOverview({
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center text-xs mb-1 min-w-0 gap-2">
                         <span className="font-medium truncate">{b.category}</span>
-                        <span className={cn('shrink-0 font-semibold text-[10px] sm:text-xs', isOver ? 'text-red-500' : 'text-muted-foreground')}>
+                        <span className={cn('shrink-0 font-semibold text-xs sm:text-xs', isOver ? 'text-red-500' : 'text-muted-foreground')}>
                           {formatRupiah(b.spent || 0)} / {formatRupiah(b.amount)}
                         </span>
                       </div>
@@ -268,7 +268,7 @@ export default function FinanceOverview({
                         className={cn('h-2', isOver && '[&>div]:bg-red-500')}
                       />
                       {isOver && (
-                        <p className="text-[10px] text-red-500 mt-0.5">Over budget {formatRupiah((b.spent || 0) - b.amount)}</p>
+                        <p className="text-xs text-red-500 mt-0.5">Over budget {formatRupiah((b.spent || 0) - b.amount)}</p>
                       )}
                     </div>
                   </div>

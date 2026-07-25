@@ -295,7 +295,7 @@ export default function LearningTab() {
                 Kelola Topik
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-[95vw] sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
@@ -414,7 +414,7 @@ export default function LearningTab() {
                 <span className="text-xs font-medium uppercase tracking-wider">Pembelajaran Hari Ini</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-white/20 text-white border-0 text-[10px]">
+                <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
                   {article.topic}
                 </Badge>
                 <Button

@@ -48,7 +48,7 @@ export function HabitGroupsSection({
               )}
               <span className="text-sm font-semibold">Habit Groups</span>
               {!groupsLoading && groups.length > 0 && (
-                <Badge variant="secondary" className="text-[11px] px-1.5 py-0 h-5">
+                <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
                   {groups.length}
                 </Badge>
               )}
@@ -143,7 +143,7 @@ export function HabitGroupsSection({
                     <span>{g.emoji || '📌'}</span>
                     <span>{g.name}</span>
                     {g._count.habits > 0 && (
-                      <span className="text-[10px] opacity-60">({g._count.habits})</span>
+                      <span className="text-xs opacity-60">({g._count.habits})</span>
                     )}
                     <button
                       type="button"

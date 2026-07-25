@@ -68,7 +68,7 @@ function InsightCard({ insight }: { insight: Insight }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <h4 className="text-sm font-semibold text-foreground leading-tight">{insight.title}</h4>
-              <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 shrink-0', config.badgeClass)}>
+              <Badge variant="outline" className={cn('text-xs px-1.5 py-0 shrink-0', config.badgeClass)}>
                 {config.label}
               </Badge>
             </div>
@@ -107,7 +107,7 @@ function SeveritySection({
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           {title}
         </h3>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
           {insights.length}
         </Badge>
       </div>

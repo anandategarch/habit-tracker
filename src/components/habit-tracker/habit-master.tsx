@@ -418,7 +418,7 @@ export default function HabitMaster() {
           </DialogTrigger>
 
           {/* ── Add / Edit Dialog ─────────────────────────────────────── */}
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingId ? 'Edit Habit' : 'Create New Habit'}
@@ -818,7 +818,7 @@ export default function HabitMaster() {
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-3">🌱</div>
-            <p className="text-muted-foreground font-medium">No habits found</p>
+            <p className="text-muted-foreground font-medium">🌱 No habits found</p>
             <p className="text-sm text-muted-foreground mt-1">
               {habits.length === 0
                 ? 'Create your first habit to get started!'

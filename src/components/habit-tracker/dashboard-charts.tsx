@@ -235,7 +235,7 @@ export default function DashboardCharts({
               {chartLabel} Detail
               <ChartInfo text="Setiap bar menunjukkan jumlah habit completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit yang aktif pada tanggal tersebut, bukan jumlah log." />
             </h3>
-            <p className="text-[10px] text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
+            <p className="text-xs text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stackedBarData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
@@ -277,7 +277,7 @@ export default function DashboardCharts({
               Pola Mingguan
               <ChartInfo text="Rata-rata tingkat penyelesaian per hari dalam seminggu selama 30 hari terakhir. Misal Senin = rata-rata completion rate semua hari Senin dalam 30 hari." />
             </h3>
-            <p className="text-[10px] text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
+            <p className="text-xs text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeklyPattern} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>

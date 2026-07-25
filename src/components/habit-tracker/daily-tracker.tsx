@@ -345,7 +345,7 @@ export default function DailyTracker() {
         <Badge
           variant="secondary"
           className={cn(
-            'hidden sm:inline-flex text-[10px] px-1.5 py-0 h-5',
+            'hidden sm:inline-flex text-xs px-1.5 py-0 h-5',
             getBadgeClass(categoryMap[habit.category]?.color || 'gray'),
           )}
         >
@@ -356,7 +356,7 @@ export default function DailyTracker() {
             className={cn('w-2 h-2 rounded-full', getDotClass(priorityMap[habit.priority]?.color || 'gray'))}
             title={habit.priority}
           />
-          <span className="text-[10px] text-muted-foreground hidden lg:inline">{habit.priority}</span>
+          <span className="text-xs text-muted-foreground hidden lg:inline">{habit.priority}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
           <Flame className="h-3.5 w-3.5 text-orange-400" />
@@ -1115,7 +1115,7 @@ export default function DailyTracker() {
 
       {/* ── Time Confirmation Dialog ── */}
       <Dialog open={!!timeDialogHabit} onOpenChange={(open) => !open && setTimeDialogHabit(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span>{timeDialogHabit?.icon}</span>

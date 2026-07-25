@@ -48,37 +48,37 @@ export function HabitMobileCards({
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     <Badge
                       variant="secondary"
-                      className={cn('text-[10px] border-0', getBadgeClass(categoryMap[habit.category]?.color || 'gray'))}
+                      className={cn('text-xs border-0', getBadgeClass(categoryMap[habit.category]?.color || 'gray'))}
                     >
                       {habit.category}
                     </Badge>
                     <Badge
                       variant="secondary"
-                      className={cn('text-[10px] border-0', getBadgeClass(difficultyMap[habit.difficulty]?.color || 'gray'))}
+                      className={cn('text-xs border-0', getBadgeClass(difficultyMap[habit.difficulty]?.color || 'gray'))}
                     >
                       {habit.difficulty}
                     </Badge>
                     {habit.trackTime && (
-                      <span className="inline-flex items-center text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center text-xs text-muted-foreground">
                         <Clock className="h-3 w-3 mr-0.5" />
                         {habit.targetTime || 'on'}
                       </span>
                     )}
                     {habit.trackLastDone && (
-                      <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                      <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
                         <History className="h-3 w-3 mr-0.5" />
                         {habit.lastDoneInterval || 'track'}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-xs">
                       {habit.target} / {habit.targetType}
                     </Badge>
-                    <span className={cn('text-[10px] font-medium', getLabelColor(priorityMap[habit.priority]?.color || 'gray').text)}>
+                    <span className={cn('text-xs font-medium', getLabelColor(priorityMap[habit.priority]?.color || 'gray').text)}>
                       {habit.priority}
                     </span>
-                    <Badge variant="secondary" className={cn('text-[10px] border-0 capitalize', STATUS_STYLES[habit.status])}>
+                    <Badge variant="secondary" className={cn('text-xs border-0 capitalize', STATUS_STYLES[habit.status])}>
                       {habit.status}
                     </Badge>
                   </div>

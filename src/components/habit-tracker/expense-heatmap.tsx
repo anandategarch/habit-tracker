@@ -150,7 +150,7 @@ export function ExpenseHeatmap() {
         {/* Weekday header */}
         <div className="grid grid-cols-7 gap-1 mb-1">
           {WEEKDAY_LABELS.map((day) => (
-            <div key={day} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+            <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1">
               {day}
             </div>
           ))}
@@ -174,7 +174,7 @@ export function ExpenseHeatmap() {
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
-                        'aspect-square rounded-md flex flex-col items-center justify-center text-[10px] font-medium cursor-default transition-transform hover:scale-110 hover:z-10 relative',
+                        'aspect-square rounded-md flex flex-col items-center justify-center text-xs font-medium cursor-default transition-transform hover:scale-110 hover:z-10 relative',
                         hasSpend ? 'text-foreground' : 'text-muted-foreground/50',
                         today && 'ring-2 ring-primary ring-offset-1 ring-offset-background'
                       )}
@@ -203,7 +203,7 @@ export function ExpenseHeatmap() {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-end gap-1.5 mt-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-end gap-1.5 mt-3 text-xs text-muted-foreground">
           <span>Sedikit</span>
           <div className="flex gap-0.5">
             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'oklch(0.95 0.05 142)' }} />
