@@ -22,7 +22,7 @@ export function FiltersBar({
 }: FiltersBarProps) {
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           {/* Search */}
           <div className="relative flex-1">

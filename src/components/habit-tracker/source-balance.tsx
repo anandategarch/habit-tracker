@@ -104,11 +104,11 @@ export default function SourceBalanceSection() {
       <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 space-y-2.5 sm:space-y-3">
         {/* ── Total Balance Hero ── */}
         <div className="rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/15 px-3 py-2.5 sm:px-4 sm:py-3">
-          <p className="text-[10px] sm:text-xs text-muted-foreground">Total Saldo Semua Sumber</p>
+          <p className="text-xs sm:text-xs text-muted-foreground">Total Saldo Semua Sumber</p>
           <p className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight leading-tight">
             {formatRupiah(totalBalance)}
           </p>
-          <div className="flex items-center gap-2 mt-0.5 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-2 mt-0.5 text-xs sm:text-xs">
             <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
               <ArrowUpRight className="h-3 w-3" />
               {formatRupiah(todayTotalIncome)}
@@ -174,7 +174,7 @@ export default function SourceBalanceSection() {
                 </p>
 
                 {/* Today's flow */}
-                <div className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
                     <ArrowUpRight className="h-2.5 w-2.5" />
                     {flow.income >= 1000000

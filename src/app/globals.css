@@ -177,3 +177,41 @@
   transform: scale(1.3);
   z-index: 10;
 }
+/* ── Additional animations for mobile polish ─────────────────────────── */
+
+/* Slide up for tab content transitions */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.25s ease-out forwards;
+}
+
+/* Scale-in for cards */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, oklch(0.96 0.005 120) 25%, oklch(0.91 0.005 120) 50%, oklch(0.96 0.005 120) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Smooth bottom nav transition */
+@media (pointer: coarse) {
+  button:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+  }
+}

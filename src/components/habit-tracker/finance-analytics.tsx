@@ -162,7 +162,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
               </ResponsiveContainer>
             ) : (
               <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
-                Belum ada data
+                📊 Belum ada data
               </div>
             )}
           </CardContent>
@@ -213,7 +213,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
               </div>
             ) : (
               <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                Belum ada data pemasukan
+                📊 💰 Belum ada data pemasukan
               </div>
             )}
           </CardContent>
@@ -233,7 +233,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
         <CardContent className="px-4 pb-4">
           {(() => {
             const comp = data.monthlyComposition;
-            if (!comp || comp.length === 0) return <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>;
+            if (!comp || comp.length === 0) return <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">📊 Belum ada data</div>;
             // Get all categories across all months, find top 5
             const allCatsMap: Record<string, number> = {};
             comp.forEach(m => Object.entries(m.categories).forEach(([c, v]) => { allCatsMap[c] = (allCatsMap[c] || 0) + v; }));
@@ -309,7 +309,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>
+              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">📊 Belum ada data</div>
             )}
           </CardContent>
         </Card>
@@ -449,7 +449,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                       {/* Score overlay */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-4xl font-bold tracking-tight">{score}</span>
-                        <span className="text-[11px] text-muted-foreground">dari 100</span>
+                        <span className="text-xs text-muted-foreground">dari 100</span>
                       </div>
                     </div>
                     <p className={cn('text-sm font-semibold', scoreLabel.cls)}>{scoreLabel.text}</p>
@@ -473,7 +473,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                               style={{ width: `${m.score}%`, transition: 'width 1s ease-out' }}
                             />
                           </div>
-                          <p className="text-[11px] text-muted-foreground mt-1.5">{m.desc}</p>
+                          <p className="text-xs text-muted-foreground mt-1.5">{m.desc}</p>
                         </div>
                       );
                     })}
@@ -481,7 +481,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
 
                   {/* Radar Chart — smaller, subtle */}
                   <div className="w-full max-w-xs">
-                    <p className="text-[11px] text-muted-foreground mb-1 text-center">Profil Radar</p>
+                    <p className="text-xs text-muted-foreground mb-1 text-center">Profil Radar</p>
                     <ResponsiveContainer width="100%" height={180}>
                       <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
                         <PolarGrid opacity={0.3} />
@@ -501,7 +501,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                 </div>
               );
             })() : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>
+              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">📊 Belum ada data</div>
             )}
           </CardContent>
         </div>
@@ -544,15 +544,15 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
           <CardContent className="px-4 pb-4 space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center p-3 rounded-lg bg-primary/10">
-                <p className="text-[10px] text-muted-foreground mb-1">Total Masuk</p>
+                <p className="text-xs text-muted-foreground mb-1">Total Masuk</p>
                 <p className="text-sm font-bold text-primary">{formatRupiah(data.totalIncomeInRange)}</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/20">
-                <p className="text-[10px] text-muted-foreground mb-1">Total Keluar</p>
+                <p className="text-xs text-muted-foreground mb-1">Total Keluar</p>
                 <p className="text-sm font-bold text-red-500">{formatRupiah(data.totalExpenseInRange)}</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-primary/10">
-                <p className="text-[10px] text-muted-foreground mb-1">Rasio Tabungan</p>
+                <p className="text-xs text-muted-foreground mb-1">Rasio Tabungan</p>
                 <p className={cn('text-sm font-bold', data.savingsRate >= 0 ? 'text-primary' : 'text-red-500')}>
                   {data.savingsRate}%
                 </p>
@@ -568,14 +568,14 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                   const meta = getCategoryMeta(tx.category);
                   return (
                     <div key={tx.id} className="flex items-center gap-2 text-xs">
-                      <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
+                      <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
                       <span>{meta.emoji}</span>
                       <span className="flex-1 truncate">{tx.description || tx.category}</span>
                       <span className="font-semibold text-red-500 shrink-0">{formatRupiah(tx.amount)}</span>
                     </div>
                   );
                 }) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">Belum ada data</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">📊 Belum ada data</p>
                 )}
               </div>
             </div>

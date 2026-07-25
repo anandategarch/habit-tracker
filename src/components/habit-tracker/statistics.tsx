@@ -278,7 +278,7 @@ export default function Statistics() {
             ))}
           </div>
           {period !== 'all' && (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               {PERIOD_OPTIONS.find(p => p.value === period)?.label}
             </Badge>
           )}
@@ -422,7 +422,7 @@ export default function Statistics() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Completion vs Misses</CardTitle>
               {period !== 'all' && (
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-xs">
                   {PERIOD_OPTIONS.find(p => p.value === period)?.label}
                 </Badge>
               )}

@@ -328,7 +328,7 @@ export default function JournalTab() {
             New Entry
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-primary" />
@@ -528,14 +528,14 @@ export default function JournalTab() {
                   {isToday && (
                     <Badge
                       variant="secondary"
-                      className="bg-primary/10 text-primary text-[10px] px-1.5 py-0"
+                      className="bg-primary/10 text-primary text-xs px-1.5 py-0"
                     >
                       Today
                     </Badge>
                   )}
                   <Badge
                     variant="secondary"
-                    className={cn('text-[10px] px-1.5 py-0', getMoodColor(entry.mood))}
+                    className={cn('text-xs px-1.5 py-0', getMoodColor(entry.mood))}
                   >
                     {getMoodLabel(entry.mood)}
                   </Badge>

@@ -156,7 +156,7 @@ export default function TimeAnalysisDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>{data?.habit.icon || '⏱️'}</span>
@@ -221,7 +221,7 @@ export default function TimeAnalysisDialog({
                     <p className="text-lg font-bold tabular-nums text-foreground">
                       {data.stats.average || '—'}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Rata-rata</p>
+                    <p className="text-xs text-muted-foreground">Rata-rata</p>
                   </div>
                 </CardContent>
               </Card>
@@ -236,7 +236,7 @@ export default function TimeAnalysisDialog({
                     <p className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                       {data.stats.best || '—'}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Terbaik</p>
+                    <p className="text-xs text-muted-foreground">Terbaik</p>
                   </div>
                 </CardContent>
               </Card>
@@ -251,7 +251,7 @@ export default function TimeAnalysisDialog({
                     <p className="text-lg font-bold tabular-nums text-red-500">
                       {data.stats.worst || '—'}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Terlambat</p>
+                    <p className="text-xs text-muted-foreground">Terlambat</p>
                   </div>
                 </CardContent>
               </Card>
@@ -273,7 +273,7 @@ export default function TimeAnalysisDialog({
                             ({data.stats.onTargetRate}%)
                           </span>
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Tepat target ({data.habit.targetTime})
                         </p>
                       </>
@@ -282,7 +282,7 @@ export default function TimeAnalysisDialog({
                         <p className="text-lg font-bold tabular-nums">
                           {data.stats.totalCount}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Total tercatat
                         </p>
                       </>
@@ -320,14 +320,14 @@ export default function TimeAnalysisDialog({
                           {data.stats.vsPrevious > 0 ? '+' : ''}
                           {data.stats.vsPrevious} menit
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           vs periode sebelumnya
                         </p>
                       </>
                     ) : (
                       <>
                         <p className="text-lg font-bold tabular-nums text-muted-foreground">—</p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Belum ada perbandingan
                         </p>
                       </>
@@ -414,7 +414,7 @@ export default function TimeAnalysisDialog({
                   </div>
 
                   {/* Legend */}
-                  <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
+                  <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
                     {targetMinutes !== null && (
                       <>
                         <span className="flex items-center gap-1">

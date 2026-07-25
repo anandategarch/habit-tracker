@@ -380,7 +380,7 @@ export default function CalendarView() {
                     {day.isCurrentMonth && day.completionRate !== null && (
                       <div className="mt-1 flex flex-col items-center gap-0.5">
                         <span
-                          className={`text-[10px] sm:text-xs font-bold ${getHeatmapTextColor(
+                          className={`text-xs sm:text-xs font-bold ${getHeatmapTextColor(
                             day.completionRate
                           )}`}
                         >
@@ -399,7 +399,7 @@ export default function CalendarView() {
 
                     {day.isCurrentMonth && day.completionRate === null && !isBefore(new Date(), startOfDay(day.date)) && (
                       <div className="mt-1 text-center">
-                        <span className="text-[10px] text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       </div>
                     )}
                   </div>
