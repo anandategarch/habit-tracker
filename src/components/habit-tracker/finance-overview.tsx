@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart as RechartsLineChart, Line, AreaChart, A
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Target, Clock, Info } from 'lucide-react';
+import { Target, Clock, Info, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -58,63 +58,75 @@ export default function FinanceOverview({
       {/* Saldo per Sumber Dana */}
       <SourceBalanceSection />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-primary/20 bg-primary/10">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-1">
+      {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
+      <Card className="overflow-hidden">
+        {/* Top section: big balance number */}
+        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-4 sm:px-6 sm:py-5">
+          <p className="text-xs text-muted-foreground font-medium">Saldo Bulan Ini</p>
+          <p className={cn(
+            'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
+            dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600'
+          )}>
+            {formatRupiah(dashboardData.balance)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {dashboardData.transactionCount} transaksi
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-border" />
+
+        {/* Middle section: income vs expense (2 columns) */}
+        <div className="grid grid-cols-2 divide-x divide-border">
+          {/* Income */}
+          <div className="px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-1 mb-0.5">
+              <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
               <span className="text-xs font-medium text-primary">Pemasukan</span>
             </div>
-            <p className="text-xl font-bold text-primary">{formatRupiah(dashboardData.totalIncome)}</p>
+            <p className="text-lg sm:text-xl font-bold text-primary">{formatRupiah(dashboardData.totalIncome)}</p>
             {dashboardData.previousMonth.income > 0 && (
-              <p className={cn('text-xs mt-1', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
-                {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs bulan lalu
+              <p className={cn('text-xs mt-0.5', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
+                {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs lalu
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-900">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-red-700 dark:text-red-400">Pengeluaran</span>
+          {/* Expense */}
+          <div className="px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-1 mb-0.5">
+              <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />
+              <span className="text-xs font-medium text-red-500">Pengeluaran</span>
             </div>
-            <p className="text-xl font-bold text-red-700 dark:text-red-400">{formatRupiah(dashboardData.totalExpense)}</p>
+            <p className="text-lg sm:text-xl font-bold text-red-500">{formatRupiah(dashboardData.totalExpense)}</p>
             {dashboardData.previousMonth.expense > 0 && (
-              <p className={cn('text-xs mt-1', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
-                {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs bulan lalu
+              <p className={cn('text-xs mt-0.5', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
+                {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs lalu
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="border-primary/20 bg-primary/10">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-primary">Saldo</span>
-            </div>
-            <p className={cn('text-xl font-bold', dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600')}>
-              {formatRupiah(dashboardData.balance)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {dashboardData.transactionCount} transaksi
-            </p>
-          </CardContent>
-        </Card>
+        {/* Divider */}
+        <div className="border-t border-border" />
 
-        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Rata-rata/hari</span>
-            </div>
-            <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{formatRupiah(dashboardData.avgDailyExpense)}</p>
-            <p className="text-xs text-muted-foreground mt-1 truncate">Proyeksi: {formatRupiah(dashboardData.projectedMonthlyExpense)}/bulan</p>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Bottom section: avg/day + projection (inline) */}
+        <div className="px-4 py-3 sm:px-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Rata-rata:</span>
+            <span className="text-xs font-semibold">{formatRupiah(dashboardData.avgDailyExpense)}/hari</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Proyeksi:</span>
+            <span className="text-xs font-semibold">{formatRupiah(dashboardData.projectedMonthlyExpense)}/bln</span>
+          </div>
+        </div>
+      </Card>
 
-      {/* Last Done Tracking Card */}
+      {/* ── Last Done Tracking (compact list, no grid of cards) ── */}
       {lastDoneData.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
+        <Card>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-600" />
@@ -123,22 +135,17 @@ export default function FinanceOverview({
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="space-y-1.5">
               {lastDoneData.map(item => (
-                <div key={item.category} className="flex items-center gap-3 p-2.5 rounded-lg border bg-card">
-                  <span className="text-lg">{item.emoji}</span>
+                <div key={item.category} className="flex items-center gap-3 py-1.5 border-b border-border/50 last:border-b-0">
+                  <span className="text-base shrink-0">{item.emoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{item.category}</p>
                     {item.daysAgo !== null ? (
-                      <>
-                        <p className={cn('text-xs', item.daysAgo <= 3 ? 'text-primary' : item.daysAgo <= 7 ? 'text-amber-600' : 'text-red-500')}>
-                          {item.daysAgo === 0 ? 'Hari ini' : item.daysAgo === 1 ? 'Kemarin' : `${item.daysAgo} hari lalu`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.lastDate ? format(new Date(item.lastDate), 'EEE, d MMM', { locale: idLocale }) : ''}
-                          {item.lastAmount !== null ? ` · ${formatRupiah(item.lastAmount)}` : ''}
-                        </p>
-                      </>
+                      <p className="text-xs text-muted-foreground">
+                        {item.daysAgo === 0 ? 'Hari ini' : item.daysAgo === 1 ? 'Kemarin' : `${item.daysAgo} hari lalu`}
+                        {item.lastAmount !== null ? ` · ${formatRupiah(item.lastAmount)}` : ''}
+                      </p>
                     ) : (
                       <p className="text-xs text-muted-foreground italic">Belum ada transaksi</p>
                     )}
@@ -148,7 +155,7 @@ export default function FinanceOverview({
                       'text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0',
                       item.daysAgo > 14 ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
                     )}>
-                      {item.daysAgo > 14 ? '⚠️' : '🕐'} {item.daysAgo}d
+                      {item.daysAgo}d
                     </div>
                   )}
                 </div>
@@ -158,13 +165,14 @@ export default function FinanceOverview({
         </Card>
       )}
 
+      {/* ── Charts section (2 cols on desktop, stack on mobile) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Daily Spending Chart */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               Tren Pengeluaran Harian
-              <ChartInfo text="Total pengeluaran per hari dalam bulan yang dipilih. Area merah menunjukkan intensitas pengeluaran. Tanggal tanpa transaksi tidak ditampilkan." />
+              <ChartInfo text="Total pengeluaran per hari dalam bulan yang dipilih. Area merah menunjukkan intensitas pengeluaran." />
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
@@ -200,7 +208,7 @@ export default function FinanceOverview({
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               Pengeluaran per Kategori
-              <ChartInfo text="Persentase setiap kategori dari total pengeluaran bulan ini. Hanya 6 kategori teratas yang ditampilkan. Persentase = (jumlah kategori) / (total pengeluaran) × 100%." />
+              <ChartInfo text="Persentase setiap kategori dari total pengeluaran bulan ini." />
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
@@ -231,46 +239,43 @@ export default function FinanceOverview({
               </div>
             ) : (
               <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                Belum ada data
+                📊 Belum ada data
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Budget Overview */}
+      {/* ── Budget Overview (compact list, no grid of cards) ── */}
       {dashboardData.budgetStatus.length > 0 && (
         <Card>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Target className="h-4 w-4" />
               Status Budget Bulan Ini
-              <ChartInfo text="Membandingkan total pengeluaran per kategori dengan batas anggaran. Progress bar kuning jika >80%, merah jika melebihi anggaran. Sisa/hari = (sisa anggaran) / (sisa hari di bulan ini)." />
+              <ChartInfo text="Membandingkan total pengeluaran per kategori dengan batas anggaran." />
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-3">
               {dashboardData.budgetStatus.map(b => {
                 const meta = getCategoryMeta(b.category);
                 const isOver = (b.percentage || 0) > 100;
                 return (
-                  <div key={b.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                    <span className="text-xl">{meta.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center text-xs mb-1 min-w-0 gap-2">
-                        <span className="font-medium truncate">{b.category}</span>
-                        <span className={cn('shrink-0 font-semibold text-xs sm:text-xs', isOver ? 'text-red-500' : 'text-muted-foreground')}>
-                          {formatRupiah(b.spent || 0)} / {formatRupiah(b.amount)}
-                        </span>
-                      </div>
-                      <Progress
-                        value={Math.min((b.percentage || 0), 100)}
-                        className={cn('h-2', isOver && '[&>div]:bg-red-500')}
-                      />
-                      {isOver && (
-                        <p className="text-xs text-red-500 mt-0.5">Over budget {formatRupiah((b.spent || 0) - b.amount)}</p>
-                      )}
+                  <div key={b.id} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium truncate">{meta.emoji} {b.category}</span>
+                      <span className={cn('text-xs shrink-0', isOver ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
+                        {formatRupiah(b.spent || 0)} / {formatRupiah(b.amount)}
+                      </span>
                     </div>
+                    <Progress
+                      value={Math.min((b.percentage || 0), 100)}
+                      className={cn('h-2', isOver && '[&>div]:bg-red-500')}
+                    />
+                    {isOver && (
+                      <p className="text-xs text-red-500">Over budget {formatRupiah((b.spent || 0) - b.amount)}</p>
+                    )}
                   </div>
                 );
               })}
