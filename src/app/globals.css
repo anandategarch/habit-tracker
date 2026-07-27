@@ -339,3 +339,162 @@
   background: oklch(0.205 0 0);
   border-top-color: oklch(1 0 0 / 8%);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PREMIUM HABIT CARD GRID — Linear / Apple Fitness / Habitify / Stripe
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Keyframe: ring / check pop on completion */
+@keyframes ringPop {
+  0%   { transform: scale(0.6); opacity: 0.4; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Habit grid — 1 col mobile · 2 col tablet · 3 col desktop */
+.habit-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .habit-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .habit-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+/* Habit card — clean surface, soft shadow, 20px radius */
+.habit-card {
+  background: oklch(1 0 0);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  position: relative;
+  transition: transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              box-shadow 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              border-color 0.28s ease;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 3px oklch(0 0 0 / 0.03);
+  border: 1px solid oklch(0.92 0.004 120);
+}
+.dark .habit-card {
+  background: oklch(0.21 0.004 120);
+  border-color: oklch(1 0 0 / 6%);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.14), 0 1px 3px oklch(0 0 0 / 0.10);
+}
+.habit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px oklch(0 0 0 / 0.08), 0 4px 10px oklch(0 0 0 / 0.04);
+  border-color: oklch(0.85 0.01 120);
+}
+.dark .habit-card:hover {
+  box-shadow: 0 12px 28px oklch(0 0 0 / 0.28), 0 4px 10px oklch(0 0 0 / 0.16);
+  border-color: oklch(1 0 0 / 12%);
+}
+.habit-card:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+/* Completed state — soft green glow ring + tint */
+.habit-card-completed {
+  border-color: oklch(0.522 0.154 142 / 0.22);
+  box-shadow: 0 0 0 1px oklch(0.522 0.154 142 / 0.18),
+              0 6px 16px oklch(0.522 0.154 142 / 0.08);
+}
+.dark .habit-card-completed {
+  border-color: oklch(0.622 0.174 142 / 0.22);
+  box-shadow: 0 0 0 1px oklch(0.622 0.174 142 / 0.20),
+              0 6px 16px oklch(0.622 0.174 142 / 0.12);
+}
+.habit-card-completed:hover {
+  box-shadow: 0 0 0 1px oklch(0.522 0.154 142 / 0.25),
+              0 12px 28px oklch(0.522 0.154 142 / 0.12);
+}
+
+/* Pop animation right after completing */
+.habit-card-pop {
+  animation: habitPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes habitPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+
+/* ── Category pastel tints (icon container backgrounds) ── */
+.cat-emerald    { background-color: oklch(0.522 0.154 142 / 0.12); }
+.cat-indigo     { background-color: oklch(0.5   0.2   270 / 0.12); }
+.cat-orange     { background-color: oklch(0.65  0.18  35  / 0.12); }
+.cat-teal       { background-color: oklch(0.52  0.12  180 / 0.12); }
+.cat-sky        { background-color: oklch(0.6   0.15  230 / 0.12); }
+.cat-rose       { background-color: oklch(0.6   0.2   350 / 0.12); }
+.cat-fuchsia    { background-color: oklch(0.62  0.2   300 / 0.12); }
+.cat-violet     { background-color: oklch(0.58  0.18  280 / 0.12); }
+.cat-red        { background-color: oklch(0.6   0.2   25  / 0.12); }
+.cat-slate      { background-color: oklch(0.6   0.01  250 / 0.12); }
+
+/* Legacy aliases (kept for any references) */
+.habit-cat-Productivity { background-color: oklch(0.522 0.154 142 / 0.12); }
+.habit-cat-Learning     { background-color: oklch(0.5   0.2   270 / 0.12); }
+.habit-cat-Fitness      { background-color: oklch(0.65  0.18  35  / 0.12); }
+.habit-cat-Health       { background-color: oklch(0.52  0.12  180 / 0.12); }
+.habit-cat-Reading      { background-color: oklch(0.6   0.15  230 / 0.12); }
+.habit-cat-Personal     { background-color: oklch(0.6   0.2   350 / 0.12); }
+.habit-cat-Creative     { background-color: oklch(0.62  0.2   300 / 0.12); }
+.habit-cat-Mindfulness  { background-color: oklch(0.58  0.18  280 / 0.12); }
+.habit-cat-Social       { background-color: oklch(0.6   0.2   25  / 0.12); }
+.habit-cat-General      { background-color: oklch(0.6   0.01  250 / 0.12); }
+
+/* ── KPI cards — soft gradient surfaces ── */
+.kpi-card {
+  border-radius: 1.25rem;
+  padding: 1rem 1.25rem;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid oklch(0.92 0.004 120);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.dark .kpi-card {
+  border-color: oklch(1 0 0 / 6%);
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px oklch(0 0 0 / 0.06);
+}
+.dark .kpi-card:hover {
+  box-shadow: 0 8px 18px oklch(0 0 0 / 0.22);
+}
+.kpi-card-green  { background: linear-gradient(135deg, oklch(0.522 0.154 142 / 0.10), oklch(0.522 0.154 142 / 0.02)); }
+.kpi-card-orange { background: linear-gradient(135deg, oklch(0.65  0.18  35  / 0.10), oklch(0.65  0.18  35  / 0.02)); }
+.kpi-card-rose   { background: linear-gradient(135deg, oklch(0.6   0.2   350 / 0.10), oklch(0.6   0.2   350 / 0.02)); }
+.kpi-card-amber  { background: linear-gradient(135deg, oklch(0.7   0.15  75  / 0.10), oklch(0.7   0.15  75  / 0.02)); }
+.kpi-card-purple { background: linear-gradient(135deg, oklch(0.5   0.2   270 / 0.10), oklch(0.5   0.2   270 / 0.02)); }
+.kpi-card-blue   { background: linear-gradient(135deg, oklch(0.5   0.2   250 / 0.10), oklch(0.5   0.2   250 / 0.02)); }
+
+/* ── Daily notes card ── */
+.daily-notes-card {
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.92 0.004 120);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.dark .daily-notes-card {
+  background: oklch(0.21 0.004 120);
+  border-color: oklch(1 0 0 / 6%);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.14);
+}
+.daily-notes-card:focus-within {
+  border-color: oklch(0.82 0.02 250);
+  box-shadow: 0 0 0 3px oklch(0.6 0.15 250 / 0.10);
+}
+.dark .daily-notes-card:focus-within {
+  border-color: oklch(0.7 0.05 250);
+  box-shadow: 0 0 0 3px oklch(0.6 0.15 250 / 0.18);
+}
