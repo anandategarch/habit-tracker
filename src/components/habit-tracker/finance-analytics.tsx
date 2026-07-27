@@ -140,7 +140,8 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
           <CardContent className="px-4 pb-4">
             {data.topCategories.length > 0 ? (() => {
               const totalSpending = data.topCategories.reduce((s, c) => s + c.amount, 0);
-              const avgSpending = totalSpending / data.topCategories.length;
+              const globalAvg = totalSpending / data.topCategories.length;
+              const MONTHS = 6; // data covers 6 months
               const maxAmount = Math.max(...data.topCategories.map(c => c.amount));
               const largest = data.topCategories[0];
               const smallest = data.topCategories[data.topCategories.length - 1];
@@ -164,8 +165,8 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                       <p className="text-sm font-bold mt-0.5">{formatRupiah(totalSpending)}</p>
                     </div>
                     <div className="rounded-2xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 p-3">
-                      <p className="text-xs text-muted-foreground">📊 Rata-rata</p>
-                      <p className="text-sm font-bold mt-0.5">{formatRupiah(avgSpending)}</p>
+                      <p className="text-xs text-muted-foreground">📊 Rata-rata Global</p>
+                      <p className="text-sm font-bold mt-0.5">{formatRupiah(globalAvg)}</p>
                     </div>
                     <div className="rounded-2xl bg-gradient-to-br from-amber-500/5 to-amber-500/10 p-3">
                       <p className="text-xs text-muted-foreground">🏆 Terbesar</p>
@@ -183,10 +184,12 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                       const meta = getCategoryMeta(item.category);
                       const color = rankColors[i % rankColors.length];
                       const pct = maxAmount > 0 ? Math.round((item.amount / maxAmount) * 100) : 0;
-                      const avgPct = maxAmount > 0 ? Math.round((avgSpending / maxAmount) * 100) : 0;
-                      const diffPct = avgSpending > 0 ? Math.round(((item.amount - avgSpending) / avgSpending) * 100) : 0;
-                      const isAboveAvg = item.amount > avgSpending;
-                      const isBelowAvg = item.amount < avgSpending;
+                      // Per-category monthly average (differs per category)
+                      const catMonthlyAvg = item.amount / MONTHS;
+                      const avgPct = maxAmount > 0 ? Math.round((globalAvg / maxAmount) * 100) : 0;
+                      const diffPct = globalAvg > 0 ? Math.round(((item.amount - globalAvg) / globalAvg) * 100) : 0;
+                      const isAboveAvg = item.amount > globalAvg;
+                      const isBelowAvg = item.amount < globalAvg;
 
                       return (
                         <div
@@ -221,14 +224,14 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                               <div
                                 className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-foreground/40 rounded-full transition-transform duration-200 group-hover:scale-y-110 z-10"
                                 style={{ left: `${avgPct}%` }}
-                                title={`Rata-rata: ${formatRupiah(avgSpending)}`}
+                                title={`Rata-rata global: ${formatRupiah(globalAvg)}`}
                               />
                             )}
                           </div>
 
                           {/* Average label */}
                           <div className="flex justify-between mt-1">
-                            <span className="text-xs text-muted-foreground">Avg: {formatRupiah(avgSpending)}</span>
+                            <span className="text-xs text-muted-foreground">Avg/bulan: {formatRupiah(catMonthlyAvg)}</span>
                             <span className="text-xs text-muted-foreground">{pct}% dari max</span>
                           </div>
                         </div>
@@ -245,56 +248,6 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
           </CardContent>
         </Card>
 
-        {/* Income Sources Pie */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            Sumber Pemasukan
-            <ChartInfo text="Distribusi pemasukan berdasarkan kategori dalam 6 bulan terakhir. Persentase dihitung dari total pemasukan." />
-          </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {data.incomeSources.length > 0 ? (
-              <div className="flex items-center gap-4">
-                <ResponsiveContainer width="50%" height={200}>
-                  <RechartsPieChart>
-                    <Pie
-                      data={data.incomeSources}
-                      dataKey="amount"
-                      nameKey="source"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={3}
-                    >
-                      {data.incomeSources.map((_, i) => (
-                        <Cell key={i} fill={['#22c55e', '#06b6d4', '#f59e0b', '#8b5cf6', '#78716c'][i % 5]} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number) => formatRupiah(value)}
-                      contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                    />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-                <div className="flex-1 space-y-2">
-                  {data.incomeSources.map((s, i) => (
-                    <div key={s.source} className="flex items-center gap-2 text-xs">
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: ['#22c55e', '#06b6d4', '#f59e0b', '#8b5cf6', '#78716c'][i % 5] }} />
-                      <span className="flex-1 truncate">{s.source}</span>
-                      <span className="font-semibold">{s.percentage}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                📊 💰 Belum ada data pemasukan
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* ─── NEW CHARTS ─── */}
