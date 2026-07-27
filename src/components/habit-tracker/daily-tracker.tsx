@@ -4,39 +4,19 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { jakartaDateKey } from '@/lib/timezone';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import {
   ChevronLeft,
   ChevronRight,
   Check,
-  Moon,
-  Zap,
-  BedDouble,
   Calendar,
   Flame,
   Star,
   Clock,
-  Layers,
-  Sun,
-  CloudSun,
-  Sunset,
-  ChevronDown,
-  FolderOpen,
+  Target,
+  Zap,
 } from 'lucide-react';
 import {
   Dialog,
@@ -48,17 +28,17 @@ import { Input } from '@/components/ui/input';
 import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
-import { getBadgeClass, getDotClass } from '@/lib/label-colors';
+import { getBadgeClass } from '@/lib/label-colors';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   format,
   addDays,
   subDays,
   startOfDay,
-  isToday,
   parseISO,
   getDaysInMonth,
   getDate,
+  differenceInCalendarDays,
 } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -88,15 +68,6 @@ interface Habit {
   _count: { logs: number };
 }
 
-interface HabitGroup {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-  order: number;
-  _count: { habits: number };
-}
-
 interface HabitLog {
   id: string;
   habitId: string;
@@ -107,42 +78,10 @@ interface HabitLog {
 }
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const MOOD_LABELS = [
-  '😫 Terrible',
-  '😕 Bad',
-  '😐 Okay',
-  '🙂 Good',
-  '🤩 Amazing',
-];
-
-const ENERGY_LABELS = ['Exhausted', 'Low', 'Medium', 'High', 'Supercharged'];
-
-
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getSleepColorClass(hours: number): string {
-  if (hours < 6) return 'text-red-500';
-  if (hours < 7) return 'text-amber-500';
-  return 'text-emerald-500';
-}
-
-function sleepLabel(hours: number): string {
-  if (hours < 6) return 'Needs improvement';
-  if (hours < 7) return 'Fair';
-  if (hours < 9) return 'Well rested';
-  return 'Excellent';
-}
-
 function toDateString(isoLike: string): string {
-  // Use Jakarta timezone for reliable date extraction (no server-TZ drift).
-  // Previously used format(new Date(isoLike), 'yyyy-MM-dd') which depends
-  // on server local timezone — fragile if Vercel changes UTC settings.
   return jakartaDateKey(new Date(isoLike));
 }
 
@@ -168,27 +107,188 @@ function toLocalISO(date: Date): string {
   return `${y}-${M}-${d}T${h}:${m}:${s}${sign}${oh}:${om}`;
 }
 
+/**
+ * Compute the current streak (consecutive completed days ending at `date`)
+ * for a single habit, using its month-cached logs.
+ */
+function computeStreak(logs: HabitLog[], dateStr: string): number {
+  if (!logs || logs.length === 0) return 0;
+  const completedDays = new Set(
+    logs.filter((l) => l.completed).map((l) => toDateString(l.date)),
+  );
+  if (completedDays.size === 0) return 0;
+
+  let streak = 0;
+  const cursor = parseISO(dateStr);
+  // If today isn't completed yet, streak can still count up to yesterday.
+  if (!completedDays.has(dateStr)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  // Walk backwards counting consecutive completed days (cap at 365 for safety).
+  for (let i = 0; i < 365; i++) {
+    const key = format(cursor, 'yyyy-MM-dd');
+    if (completedDays.has(key)) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// ---------------------------------------------------------------------------
+// Category colour system — premium pastel tints per category
+// ---------------------------------------------------------------------------
+
+const CATEGORY_STYLES: Record<
+  string,
+  { tint: string; ring: string; glow: string; text: string; hex: string }
+> = {
+  Productivity: { tint: 'cat-emerald', ring: '#10b981', glow: 'rgba(16,185,129,0.25)', text: 'text-emerald-600 dark:text-emerald-400', hex: '#10b981' },
+  Learning: { tint: 'cat-indigo', ring: '#6366f1', glow: 'rgba(99,102,241,0.25)', text: 'text-indigo-600 dark:text-indigo-400', hex: '#6366f1' },
+  Fitness: { tint: 'cat-orange', ring: '#f97316', glow: 'rgba(249,115,22,0.25)', text: 'text-orange-600 dark:text-orange-400', hex: '#f97316' },
+  Health: { tint: 'cat-teal', ring: '#14b8a6', glow: 'rgba(20,184,166,0.25)', text: 'text-teal-600 dark:text-teal-400', hex: '#14b8a6' },
+  Reading: { tint: 'cat-sky', ring: '#0ea5e9', glow: 'rgba(14,165,233,0.25)', text: 'text-sky-600 dark:text-sky-400', hex: '#0ea5e9' },
+  Personal: { tint: 'cat-rose', ring: '#ec4899', glow: 'rgba(236,72,153,0.25)', text: 'text-rose-600 dark:text-rose-400', hex: '#ec4899' },
+  Creative: { tint: 'cat-fuchsia', ring: '#d946ef', glow: 'rgba(217,70,239,0.25)', text: 'text-fuchsia-600 dark:text-fuchsia-400', hex: '#d946ef' },
+  Mindfulness: { tint: 'cat-violet', ring: '#8b5cf6', glow: 'rgba(139,92,246,0.25)', text: 'text-violet-600 dark:text-violet-400', hex: '#8b5cf6' },
+  Social: { tint: 'cat-red', ring: '#ef4444', glow: 'rgba(239,68,68,0.25)', text: 'text-red-600 dark:text-red-400', hex: '#ef4444' },
+  General: { tint: 'cat-slate', ring: '#64748b', glow: 'rgba(100,116,139,0.25)', text: 'text-slate-600 dark:text-slate-400', hex: '#64748b' },
+};
+
+function getCategoryStyle(category: string) {
+  return CATEGORY_STYLES[category] || CATEGORY_STYLES.General;
+}
+
+// ---------------------------------------------------------------------------
+// Circular progress ring — animated SVG
+// ---------------------------------------------------------------------------
+
+function ProgressRing({
+  progress,
+  color,
+  done,
+  size = 52,
+}: {
+  progress: number;
+  color: string;
+  done: boolean;
+  size?: number;
+}) {
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, progress));
+  const offset = c * (1 - pct / 100);
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="oklch(0.91 0.004 120)"
+          strokeWidth={stroke}
+          className="dark:stroke-white/10"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={done ? '#22c55e' : color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          className="transition-all duration-700 ease-out"
+          style={{
+            filter: done ? 'drop-shadow(0 0 4px rgba(34,197,94,0.5))' : 'none',
+          }}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center">
+        {done ? (
+          <Check className="h-5 w-5 text-green-500 animate-[ringPop_0.4s_ease]" strokeWidth={3} />
+        ) : (
+          <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
+            {Math.round(pct)}%
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// KPI Card
+// ---------------------------------------------------------------------------
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  sub: React.ReactNode;
+  accent: 'green' | 'orange' | 'rose' | 'amber';
+}) {
+  const accents: Record<string, string> = {
+    green: 'kpi-card-green',
+    orange: 'kpi-card-orange',
+    rose: 'kpi-card-rose',
+    amber: 'kpi-card-amber',
+  };
+  const iconColors: Record<string, string> = {
+    green: 'text-emerald-500',
+    orange: 'text-orange-500',
+    rose: 'text-rose-500',
+    amber: 'text-amber-500',
+  };
+  return (
+    <div className={cn('kpi-card group', accents[accent])}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Icon className={cn('h-3.5 w-3.5', iconColors[accent])} />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+      <p className="text-[11px] mt-0.5 text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function DailyTracker() {
-  const selectedDate = useAppStore(s => s.selectedDate);
-  const setSelectedDate = useAppStore(s => s.setSelectedDate);
-  const refreshKey = useAppStore(s => s.refreshKey);
+  const selectedDate = useAppStore((s) => s.selectedDate);
+  const setSelectedDate = useAppStore((s) => s.setSelectedDate);
+  const refreshKey = useAppStore((s) => s.refreshKey);
   const queryClient = useQueryClient();
-  const { xpMap, priorityMap, categoryMap } = useHabitOptions();
+  const { xpMap, categoryMap } = useHabitOptions();
 
   // ---- state ----
   const [loading, setLoading] = useState(true);
   const [completionMap, setCompletionMap] = useState<Record<string, boolean>>({});
-  const [mood, setMood] = useState(3);
-  const [energy, setEnergy] = useState(3);
-  const [sleepHours, setSleepHours] = useState(7);
   const [notes, setNotes] = useState('');
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [viewFilter, setViewFilter] = useState<'all' | 'incomplete' | 'completed'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set());
 
   // ---- time dialog state ----
   const [timeDialogHabit, setTimeDialogHabit] = useState<Habit | null>(null);
@@ -202,16 +302,12 @@ export default function DailyTracker() {
   // ---- time analysis dialog ----
   const [analysisHabitId, setAnalysisHabitId] = useState<string | null>(null);
 
-  // ---- grouping state ----
-  const [viewMode, setViewMode] = useState<'flat' | 'group' | 'time'>('flat');
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
   const cachedMonthRef = useRef('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ---- TanStack Query: habits, groups, daily-log ----
+  // ---- TanStack Query: habits, daily-log ----
   const { data: habits = [] } = useQuery<Habit[]>({
     queryKey: ['habits'],
     queryFn: async () => {
@@ -222,17 +318,7 @@ export default function DailyTracker() {
     staleTime: 30_000,
   });
 
-  const { data: groups = [] } = useQuery<HabitGroup[]>({
-    queryKey: ['habit-groups'],
-    queryFn: async () => {
-      const res = await fetch('/api/habit-groups');
-      if (!res.ok) return [];
-      return res.json();
-    },
-    staleTime: 60_000,
-  });
-
-  const { data: dailyLogData } = useQuery<{ mood: number; energy: number; sleep: number; notes: string | null } | null>({
+  const { data: dailyLogData } = useQuery<{ notes: string | null } | null>({
     queryKey: ['daily-logs', selectedDate],
     queryFn: async () => {
       const res = await fetch(`/api/daily-logs?date=${selectedDate}`);
@@ -242,16 +328,8 @@ export default function DailyTracker() {
     staleTime: 15_000,
   });
 
-  // Sync dailyLogData to local state
   useEffect(() => {
-    if (dailyLogData) {
-      setMood(dailyLogData.mood ?? 3);
-      setEnergy(dailyLogData.energy ?? 3);
-      setSleepHours(dailyLogData.sleep ?? 7);
-      setNotes(dailyLogData.notes || '');
-    } else {
-      setMood(3); setEnergy(3); setSleepHours(7); setNotes('');
-    }
+    setNotes(dailyLogData?.notes || '');
   }, [dailyLogData]);
 
   // ---- derived ----
@@ -260,236 +338,109 @@ export default function DailyTracker() {
   const daysInMonth = getDaysInMonth(dateObj);
   const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
 
-  const activeHabits = useMemo(() => habits.filter((h) => h.status === 'active'), [habits]);
-
-  // Time-based slots
-  const TIME_SLOTS = [
-    { key: 'morning', label: 'Pagi', emoji: '🌅', range: [5, 12] as const },
-    { key: 'afternoon', label: 'Siang', emoji: '☀️', range: [12, 17] as const },
-    { key: 'evening', label: 'Sore', emoji: '🌆', range: [17, 21] as const },
-    { key: 'night', label: 'Malam', emoji: '🌙', range: [21, 29] as const }, // 29 = 05:00 next day
-  ];
-
-  function getTimeSlot(targetTime: string | null): string {
-    if (!targetTime) return 'other';
-    const h = parseInt(targetTime.split(':')[0], 10);
-    if (h >= 5 && h < 12) return 'morning';
-    if (h >= 12 && h < 17) return 'afternoon';
-    if (h >= 17 && h < 21) return 'evening';
-    return 'night';
-  }
-
-  const toggleSection = (key: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  // Render a single habit row (used in all 3 view modes)
-  const renderHabitRow = (habit: Habit, idx: number, total: number) => {
-    const done = !!((completionMap[habit.id] ?? false) ?? false);
-    const isToggling = togglingIds.has(habit.id);
-    const doneTime = done ? completedAtMap[habit.id] : null;
-    const isLate = doneTime && habit.targetTime && doneTime > habit.targetTime;
-    const isOnTarget = doneTime && habit.targetTime && doneTime <= habit.targetTime;
-    return (
-      <div
-        key={habit.id}
-        className={cn(
-          'flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-accent/50',
-          idx < total - 1 && 'border-b border-border/50',
-        )}
-      >
-        <Checkbox
-          checked={done}
-          onCheckedChange={() => handleHabitCheck(habit)}
-          disabled={isToggling}
-          className={cn(
-            'shrink-0 transition-colors duration-200',
-            done && 'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
-          )}
-        />
-        <span className="text-lg shrink-0 w-7 text-center leading-none">{habit.icon}</span>
-        <span
-          className={cn(
-            'flex-1 text-sm font-medium min-w-0 truncate transition-all duration-200',
-            done && 'line-through text-muted-foreground',
-          )}
-        >
-          {habit.name}
-        </span>
-        {doneTime ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setAnalysisHabitId(habit.id); }}
-            className={cn(
-              'shrink-0 text-xs font-medium tabular-nums flex items-center gap-0.5 rounded-md px-1.5 py-0.5 hover:bg-accent transition-colors max-w-[100px] sm:max-w-none truncate',
-              isOnTarget && 'text-emerald-600 dark:text-emerald-400',
-              isLate && 'text-red-500 dark:text-red-400',
-              !habit.targetTime && 'text-muted-foreground',
-            )}
-            title={habit.targetTime ? `Target: ${habit.targetTime}` : 'Klik untuk lihat analisis.'}
-          >
-            <Clock className="h-3 w-3" />
-            {doneTime}
-            {isOnTarget && ' ⭐'}
-            {isLate && ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
-          </button>
-        ) : null}
-        {!done && habit.trackTime && (
-          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-        )}
-        <Badge
-          variant="secondary"
-          className={cn(
-            'hidden sm:inline-flex text-xs px-1.5 py-0 h-5',
-            getBadgeClass(categoryMap[habit.category]?.color || 'gray'),
-          )}
-        >
-          {habit.category}
-        </Badge>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div
-            className={cn('w-2 h-2 rounded-full', getDotClass(priorityMap[habit.priority]?.color || 'gray'))}
-            title={habit.priority}
-          />
-          <span className="text-xs text-muted-foreground hidden lg:inline">{habit.priority}</span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
-          <Flame className="h-3.5 w-3.5 text-orange-400" />
-          <span className="text-xs font-medium tabular-nums">{habit._count.logs}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const categories = useMemo(() => {
-    const set = new Set(activeHabits.map((h) => h.category));
-    return Array.from(set).sort();
-  }, [activeHabits]);
+  const activeHabits = useMemo(
+    () => habits.filter((h) => h.status === 'active'),
+    [habits],
+  );
 
   const filteredHabits = useMemo(() => {
     let list = activeHabits;
-    if (viewFilter === 'completed') list = list.filter((h) => (completionMap[h.id] ?? false));
-    if (viewFilter === 'incomplete') list = list.filter((h) => !(completionMap[h.id] ?? false));
-    if (categoryFilter !== 'all') list = list.filter((h) => h.category === categoryFilter);
+    if (viewFilter === 'completed')
+      list = list.filter((h) => completionMap[h.id] ?? false);
+    if (viewFilter === 'incomplete')
+      list = list.filter((h) => !(completionMap[h.id] ?? false));
     return list;
-  }, [activeHabits, completionMap, viewFilter, categoryFilter]);
-
-  // Group habits by group or time slot (must be after filteredHabits)
-  const groupedHabits = useMemo(() => {
-    const list = filteredHabits;
-    if (viewMode === 'group') {
-      const map = new Map<string, Habit[]>();
-      for (const h of list) {
-        const key = h.groupId || '__none__';
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(h);
-      }
-      return map;
-    }
-    if (viewMode === 'time') {
-      const map = new Map<string, Habit[]>();
-      for (const h of list) {
-        const key = getTimeSlot(h.targetTime);
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(h);
-      }
-      // Sort within each time slot by targetTime
-      for (const [, arr] of map) {
-        arr.sort((a, b) => (a.targetTime || '99:99').localeCompare(b.targetTime || '99:99'));
-      }
-      return map;
-    }
-    return null;
-  }, [filteredHabits, viewMode]);
+  }, [activeHabits, completionMap, viewFilter]);
 
   const completedCount = Object.values(completionMap).filter(Boolean).length;
   const totalCount = activeHabits.length;
-  const completionPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const completionPct =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const todayXP = useMemo(() => {
     return activeHabits.reduce((sum, h) => {
-      if ((completionMap[h.id] ?? false)) return sum + (xpMap[h.difficulty] || 20);
+      if (completionMap[h.id] ?? false) return sum + (xpMap[h.difficulty] || 20);
       return sum;
     }, 0);
-  }, [activeHabits, completionMap]);
+  }, [activeHabits, completionMap, xpMap]);
 
-  const level = Math.floor(todayXP / 100) + 1;
-  const levelProgress = todayXP % 100;
+  // Best current streak across all active habits
+  const bestStreak = useMemo(() => {
+    const month = selectedDate.slice(0, 7);
+    const cache = monthLogsCacheRef.current[month];
+    if (!cache) return 0;
+    let best = 0;
+    for (const h of activeHabits) {
+      const logs = cache[h.id] || [];
+      const s = computeStreak(logs, selectedDate);
+      if (s > best) best = s;
+    }
+    return best;
+  }, [activeHabits, selectedDate, completionMap]);
 
-  // ---- data fetching ----
-
-  // ---- data fetching (habits, groups, daily-log now via useQuery above) ----
-  // fetchCompletions kept as manual function for month-based cache optimization.
-  // Not wrapped in useCallback — receives habitList and date as params so no
-  // stale-closure risk, and removing the memo avoids accidentally forgetting
-  // to update deps if outer-scope reads are added later.
+  // ---- fetch completions (month-cached) ----
   const fetchCompletions = async (habitList: Habit[], date: string) => {
-      const month = date.slice(0, 7);
+    const month = date.slice(0, 7);
 
-      // Re-use cache when month hasn't changed
-      if (cachedMonthRef.current === month && monthLogsCacheRef.current[month]) {
-        const cache = monthLogsCacheRef.current[month];
-        const map: Record<string, boolean> = {};
-        const atMap: Record<string, string> = {};
-        habitList.filter((h) => h.status === 'active').forEach((h) => {
+    if (cachedMonthRef.current === month && monthLogsCacheRef.current[month]) {
+      const cache = monthLogsCacheRef.current[month];
+      const map: Record<string, boolean> = {};
+      const atMap: Record<string, string> = {};
+      habitList
+        .filter((h) => h.status === 'active')
+        .forEach((h) => {
           const logs = cache[h.id] || [];
           const dayLog = logs.find((l) => toDateString(l.date) === date);
           map[h.id] = dayLog?.completed ?? false;
           if (dayLog?.completedAt) {
             const d = new Date(dayLog.completedAt);
-            atMap[h.id] = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            atMap[h.id] = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
           }
         });
-        setCompletionMap(map);
-        setCompletedAtMap(atMap);
-        return;
-      }
-
-      const active = habitList.filter((h) => h.status === 'active');
-      const ids = active.map((h) => h.id);
-
-      let groupedLogs: Record<string, HabitLog[]> = {};
-      try {
-        const res = await fetch(
-          `/api/habits/batch-logs?month=${month}&habitIds=${ids.join(',')}`,
-        );
-        if (res.ok) {
-          groupedLogs = await res.json();
-        }
-      } catch {
-        // fall through to empty defaults
-      }
-
-      const monthCache: Record<string, HabitLog[]> = {};
-      const map: Record<string, boolean> = {};
-      const atMap: Record<string, string> = {};
-
-      active.forEach((habit) => {
-        const logs = groupedLogs[habit.id] || [];
-        monthCache[habit.id] = logs;
-        const dayLog = logs.find((l) => toDateString(l.date) === date);
-        map[habit.id] = dayLog?.completed ?? false;
-        if (dayLog?.completedAt) {
-          const d = new Date(dayLog.completedAt);
-          atMap[habit.id] = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-        }
-      });
-
-      monthLogsCacheRef.current[month] = monthCache;
-      cachedMonthRef.current = month;
       setCompletionMap(map);
       setCompletedAtMap(atMap);
+      return;
+    }
+
+    const active = habitList.filter((h) => h.status === 'active');
+    const ids = active.map((h) => h.id);
+
+    let groupedLogs: Record<string, HabitLog[]> = {};
+    try {
+      const res = await fetch(
+        `/api/habits/batch-logs?month=${month}&habitIds=${ids.join(',')}`,
+      );
+      if (res.ok) {
+        groupedLogs = await res.json();
+      }
+    } catch {
+      // fall through to empty defaults
+    }
+
+    const monthCache: Record<string, HabitLog[]> = {};
+    const map: Record<string, boolean> = {};
+    const atMap: Record<string, string> = {};
+
+    active.forEach((habit) => {
+      const logs = groupedLogs[habit.id] || [];
+      monthCache[habit.id] = logs;
+      const dayLog = logs.find((l) => toDateString(l.date) === date);
+      map[habit.id] = dayLog?.completed ?? false;
+      if (dayLog?.completedAt) {
+        const d = new Date(dayLog.completedAt);
+        atMap[habit.id] = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      }
+    });
+
+    monthLogsCacheRef.current[month] = monthCache;
+    cachedMonthRef.current = month;
+    setCompletionMap(map);
+    setCompletedAtMap(atMap);
   };
 
-  // ---- debounced save ----
-
+  // ---- debounced save (notes only) ----
   const debouncedSave = useCallback(
-    (patch: { mood?: number; energy?: number; sleep?: number; notes?: string }) => {
+    (patch: { notes?: string }) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
         try {
@@ -500,40 +451,25 @@ export default function DailyTracker() {
           });
           queryClient.invalidateQueries({ queryKey: ['daily-logs', selectedDate] });
         } catch {
-          toast.error('Gagal menyimpan data');
+          toast.error('Gagal menyimpan catatan');
         }
-      }, 500);
+      }, 600);
     },
     [selectedDate, queryClient],
   );
 
-  // ---- handlers ----
-
-  const handleMoodChange = (v: number[]) => {
-    setMood(v[0]);
-    debouncedSave({ mood: v[0] });
-  };
-  const handleEnergyChange = (v: number[]) => {
-    setEnergy(v[0]);
-    debouncedSave({ energy: v[0] });
-  };
-  const handleSleepChange = (v: number[]) => {
-    setSleepHours(v[0]);
-    debouncedSave({ sleep: v[0] });
-  };
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNotes(e.target.value);
     debouncedSave({ notes: e.target.value });
   };
 
+  // ---- handlers ----
   const handleHabitCheck = (habit: Habit) => {
     const next = !(completionMap[habit.id] ?? false);
-    // If unchecking, just toggle directly
     if (!next) {
       toggleHabit(habit.id, null);
       return;
     }
-    // If time-tracked habit, show dialog
     if (habit.trackTime) {
       const now = new Date();
       setTimeDialogHabit(habit);
@@ -568,15 +504,29 @@ export default function DailyTracker() {
   const toggleHabit = async (habitId: string, completedAt: string | null) => {
     const next = !(completionMap[habitId] ?? false);
 
-    // optimistic
     setCompletionMap((p) => ({ ...p, [habitId]: next }));
     setTogglingIds((p) => new Set(p).add(habitId));
+
+    if (next) {
+      setRecentlyCompleted((p) => new Set(p).add(habitId));
+      setTimeout(() => {
+        setRecentlyCompleted((p) => {
+          const s = new Set(p);
+          s.delete(habitId);
+          return s;
+        });
+      }, 700);
+    }
 
     try {
       const res = await fetch(`/api/habits/${habitId}/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate, completed: next, completedAt: next ? completedAt : undefined }),
+        body: JSON.stringify({
+          date: selectedDate,
+          completed: next,
+          completedAt: next ? completedAt : undefined,
+        }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -604,12 +554,11 @@ export default function DailyTracker() {
         }
       }
 
-      // Update completedAt display
       if (next && completedAt) {
         const d = new Date(completedAt);
         setCompletedAtMap((p) => ({
           ...p,
-          [habitId]: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,
+          [habitId]: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
         }));
       } else {
         setCompletedAtMap((p) => {
@@ -619,7 +568,6 @@ export default function DailyTracker() {
         });
       }
 
-      // Invalidate queries so dashboard & other components see the update
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
@@ -637,7 +585,6 @@ export default function DailyTracker() {
   };
 
   // ---- date navigation ----
-
   const goToPrevDay = () =>
     setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd'));
   const goToNextDay = () =>
@@ -645,8 +592,6 @@ export default function DailyTracker() {
   const goToToday = () => setSelectedDate(todayStr);
 
   // ---- effects ----
-
-  // Fetch completions when habits or selectedDate change
   useEffect(() => {
     if (habits.length === 0) return;
     let cancelled = false;
@@ -659,57 +604,61 @@ export default function DailyTracker() {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [habits, selectedDate, refreshKey]);
 
-  // cleanup
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    },
+    [],
+  );
 
-  // ---- render: loading skeleton ----
   if (loading) return <LoadingSkeleton />;
+
+  const isToday = selectedDate === todayStr;
 
   // ---- render ----
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* ────────────────────────── Date Navigation ────────────────────────── */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <div className="space-y-5 max-w-6xl mx-auto">
+      {/* ─────────────────── Date Navigation ─────────────────── */}
+      <section className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             onClick={goToPrevDay}
-            className="shrink-0"
+            className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
             aria-label="Previous day"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-
-          <div className="text-center sm:text-left min-w-0">
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate">
-              {format(dateObj, 'EEEE, MMMM d, yyyy')}
+          <div className="text-center min-w-0 px-1">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight truncate">
+              {isToday ? 'Today' : format(dateObj, 'EEEE')}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Day {dayOfMonth} of {daysInMonth}
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {format(dateObj, 'MMM d, yyyy')} · Day {dayOfMonth}/{daysInMonth}
             </p>
           </div>
-
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             onClick={goToNextDay}
-            className="shrink-0"
+            className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
             aria-label="Next day"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-
-        {selectedDate !== todayStr && (
+        {!isToday && (
           <Button
             variant="outline"
             size="sm"
             onClick={goToToday}
-            className="shrink-0 gap-1.5"
+            className="shrink-0 gap-1.5 rounded-xl h-9"
           >
             <Calendar className="h-3.5 w-3.5" />
             Today
@@ -717,404 +666,313 @@ export default function DailyTracker() {
         )}
       </section>
 
-      {/* ────────────────────────── Daily Metrics ────────────────────────── */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Mood */}
-        <Card className="py-4 gap-3">
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <Moon className="h-4 w-4 text-muted-foreground" />
-                Mood
+      {/* ─────────────────── Daily Summary (4 KPI cards) ─────── */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard
+          icon={Check}
+          label="Completed"
+          accent="green"
+          value={
+            <span>
+              {completedCount}
+              <span className="text-sm font-medium text-muted-foreground">
+                /{totalCount}
               </span>
-              <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                {mood}/5
+            </span>
+          }
+          sub={
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-1 flex-1 rounded-full bg-muted overflow-hidden">
+                <span
+                  className="block h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  style={{ width: `${completionPct}%` }}
+                />
               </span>
-            </div>
-            <Slider
-              value={[mood]}
-              onValueChange={handleMoodChange}
-              min={1}
-              max={5}
-              step={1}
-            />
-            <p className="text-sm font-semibold text-center">{MOOD_LABELS[mood - 1]}</p>
-          </CardContent>
-        </Card>
-
-        {/* Energy */}
-        <Card className="py-4 gap-3">
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <Zap className="h-4 w-4 text-muted-foreground" />
-                Energy
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                {completionPct}%
               </span>
-              <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                {energy}/5
+            </span>
+          }
+        />
+        <KpiCard
+          icon={Zap}
+          label="Focus Time"
+          accent="orange"
+          value={
+            <span>
+              {Math.floor(todayXP / 60)}
+              <span className="text-sm font-medium text-muted-foreground">h </span>
+              {todayXP % 60}
+              <span className="text-sm font-medium text-muted-foreground">m</span>
+            </span>
+          }
+          sub={<span className="text-orange-600 dark:text-orange-400">+{todayXP} XP today</span>}
+        />
+        <KpiCard
+          icon={Flame}
+          label="Streak"
+          accent="rose"
+          value={
+            <span>
+              {bestStreak}
+              <span className="text-sm font-medium text-muted-foreground ml-1">
+                {bestStreak === 1 ? 'day' : 'days'}
               </span>
-            </div>
-            <Slider
-              value={[energy]}
-              onValueChange={handleEnergyChange}
-              min={1}
-              max={5}
-              step={1}
-            />
-            <p className="text-sm font-semibold text-center">
-              {ENERGY_LABELS[energy - 1]}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Sleep */}
-        <Card className="py-4 gap-3">
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <BedDouble className="h-4 w-4 text-muted-foreground" />
-                Sleep
-              </span>
-              <span
-                className={cn(
-                  'text-xs font-bold tabular-nums',
-                  getSleepColorClass(sleepHours),
-                )}
-              >
-                {sleepHours}h
-              </span>
-            </div>
-            <Slider
-              value={[sleepHours]}
-              onValueChange={handleSleepChange}
-              min={0}
-              max={12}
-              step={0.5}
-            />
-            <p
-              className={cn(
-                'text-sm font-semibold text-center',
-                getSleepColorClass(sleepHours),
-              )}
-            >
-              {sleepLabel(sleepHours)}
-            </p>
-          </CardContent>
-        </Card>
+            </span>
+          }
+          sub={
+            <span className="text-rose-600 dark:text-rose-400">
+              {bestStreak >= 7 ? 'On fire! 🔥' : bestStreak > 0 ? 'Keep going!' : 'Start today'}
+            </span>
+          }
+        />
+        <KpiCard
+          icon={Star}
+          label="XP"
+          accent="amber"
+          value={
+            <span>
+              {todayXP}
+              <span className="text-sm font-medium text-muted-foreground ml-1">XP</span>
+            </span>
+          }
+          sub={<span className="text-amber-600 dark:text-amber-400">Lv {Math.floor(todayXP / 100) + 1} · {todayXP % 100}/100</span>}
+        />
       </section>
 
-      {/* Notes */}
-      <Card className="py-4 gap-3">
-        <CardContent className="space-y-2">
-          <label
-            htmlFor="daily-notes"
-            className="text-sm font-medium text-muted-foreground"
-          >
-            Daily Notes
-          </label>
-          <Textarea
-            id="daily-notes"
-            value={notes}
-            onChange={handleNotesChange}
-            placeholder="How was your day? Any reflections..."
-            className="min-h-[80px] resize-none"
-          />
-        </CardContent>
-      </Card>
+      {/* ─────────────────── Daily Notes (full-width) ────────── */}
+      <section className="daily-notes-card">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-base">📝</span>
+          <h3 className="text-sm font-semibold">Daily Notes</h3>
+          <span className="ml-auto text-[11px] text-muted-foreground/70">
+            {notes.length > 0 ? `${notes.length} chars` : 'Auto-saved'}
+          </span>
+        </div>
+        <Textarea
+          id="daily-notes"
+          value={notes}
+          onChange={handleNotesChange}
+          placeholder="How was your day? Write your reflection here…"
+          className="min-h-[80px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 text-sm leading-relaxed placeholder:text-muted-foreground/50"
+        />
+      </section>
 
-      <Separator />
-
-      {/* ────────────────────────── Habit Checklist ────────────────────────── */}
+      {/* ─────────────────── Habit Grid ─────────────────────── */}
       <section>
-        {/* Header + filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Habit Checklist
+            Habits
           </h3>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground mr-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">
               {completedCount}/{totalCount}
             </span>
-
-            {/* View mode toggle */}
-            <div className="flex items-center rounded-lg border border-border overflow-hidden">
-              {([
-                { key: 'flat' as const, label: 'Semua', icon: null },
-                { key: 'group' as const, label: 'Grup', icon: <Layers className="h-3 w-3" /> },
-                { key: 'time' as const, label: 'Waktu', icon: <Clock className="h-3 w-3" /> },
-              ]).map((m) => (
+            <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
+              {(
+                [
+                  ['all', 'All'],
+                  ['incomplete', 'Todo'],
+                  ['completed', 'Done'],
+                ] as const
+              ).map(([key, label]) => (
                 <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => setViewMode(m.key)}
+                  key={key}
+                  onClick={() => setViewFilter(key)}
                   className={cn(
-                    'flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    viewMode === m.key
+                    'px-3 py-1.5 text-xs font-medium transition-colors',
+                    viewFilter === key
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-background text-muted-foreground hover:bg-accent/50',
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                   )}
                 >
-                  {m.icon}
-                  {m.label}
+                  {label}
                 </button>
               ))}
             </div>
-
-            <Select value={viewFilter} onValueChange={(v) => setViewFilter(v as typeof viewFilter)}>
-              <SelectTrigger className="w-[110px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua</SelectItem>
-                <SelectItem value="incomplete">Belum</SelectItem>
-                <SelectItem value="completed">Selesai</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {viewMode === 'flat' && categories.length > 1 && (
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
         </div>
 
-        {/* List */}
         {activeHabits.length === 0 ? (
-          <Card className="py-10">
-            <CardContent className="flex flex-col items-center gap-2">
-              <span className="text-3xl">📋</span>
-              <p className="text-sm text-muted-foreground">
-                No active habits yet. Go to Habit Master to create some!
-              </p>
-            </CardContent>
-          </Card>
+          <div className="text-center py-20 rounded-2xl border border-dashed border-border">
+            <div className="text-4xl mb-3">📋</div>
+            <p className="text-sm font-medium text-muted-foreground">
+              No active habits yet
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Go to Habit Master to create some!
+            </p>
+          </div>
         ) : filteredHabits.length === 0 ? (
-          <Card className="py-10">
-            <CardContent className="flex flex-col items-center gap-2">
-              <span className="text-3xl">
-                {viewFilter === 'completed' ? '🏁' : '✅'}
-              </span>
-              <p className="text-sm text-muted-foreground">
-                {viewFilter === 'completed'
-                  ? 'No completed habits yet.'
-                  : viewFilter === 'incomplete'
-                    ? 'All habits completed — great job!'
-                    : 'No habits match this filter.'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : viewMode === 'flat' ? (
-          /* ── Flat list (original) ── */
-          <Card className="overflow-hidden">
-            <div className="max-h-[480px] overflow-y-auto custom-scrollbar">
-              {filteredHabits.map((habit, idx) => renderHabitRow(habit, idx, filteredHabits.length))}
+          <div className="text-center py-20 rounded-2xl border border-dashed border-border">
+            <div className="text-4xl mb-3">
+              {viewFilter === 'completed' ? '🏁' : '✅'}
             </div>
-          </Card>
-        ) : viewMode === 'group' ? (
-          /* ── Group view ── */
-          <div className="space-y-2">
-            {groups.map((g) => {
-              const habitsInGroup = groupedHabits?.get(g.id);
-              if (!habitsInGroup?.length) return null;
-              const doneCount = habitsInGroup.filter((h) => (completionMap[h.id] ?? false)).length;
-              const isCollapsed = collapsedSections.has(g.id);
-              return (
-                <Card key={g.id} className="overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(g.id)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
-                  >
-                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
-                    <span className="text-base">{g.emoji}</span>
-                    <span className="text-sm font-semibold flex-1 text-left">{g.name}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{habitsInGroup.length}</span>
-                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{
-                          width: `${habitsInGroup.length > 0 ? (doneCount / habitsInGroup.length) * 100 : 0}%`,
-                          backgroundColor: g.color,
-                        }}
-                      />
-                    </div>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="border-t border-border/50">
-                      {habitsInGroup.map((habit, idx) => renderHabitRow(habit, idx, habitsInGroup.length))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-            {/* Ungrouped habits */}
-            {(() => {
-              const ungrouped = groupedHabits?.get('__none__');
-              if (!ungrouped?.length) return null;
-              const doneCount = ungrouped.filter((h) => (completionMap[h.id] ?? false)).length;
-              const isCollapsed = collapsedSections.has('__none__');
-              return (
-                <Card className="overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection('__none__')}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
-                  >
-                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
-                    <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-semibold flex-1 text-left">Tanpa Grup</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{ungrouped.length}</span>
-                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-muted-foreground/50 transition-all duration-300"
-                        style={{ width: `${ungrouped.length > 0 ? (doneCount / ungrouped.length) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="border-t border-border/50">
-                      {ungrouped.map((habit, idx) => renderHabitRow(habit, idx, ungrouped.length))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })()}
+            <p className="text-sm text-muted-foreground">
+              {viewFilter === 'completed'
+                ? 'No completed habits yet.'
+                : viewFilter === 'incomplete'
+                  ? 'All habits completed — great job!'
+                  : 'No habits match this filter.'}
+            </p>
           </div>
         ) : (
-          /* ── Time-based view ── */
-          <div className="space-y-2">
-            {TIME_SLOTS.map((slot) => {
-              const habitsInSlot = groupedHabits?.get(slot.key);
-              if (!habitsInSlot?.length) return null;
-              const doneCount = habitsInSlot.filter((h) => (completionMap[h.id] ?? false)).length;
-              const isCollapsed = collapsedSections.has(slot.key);
+          <div className="habit-grid">
+            {filteredHabits.map((habit) => {
+              const isDone = !!(completionMap[habit.id] ?? false);
+              const isToggling = togglingIds.has(habit.id);
+              const justCompleted = recentlyCompleted.has(habit.id);
+              const doneTime = isDone ? completedAtMap[habit.id] : null;
+              const catStyle = getCategoryStyle(habit.category);
+              const pct = isDone ? 100 : 0;
+              const streak = (() => {
+                const month = selectedDate.slice(0, 7);
+                const cache = monthLogsCacheRef.current[month];
+                if (!cache) return habit._count?.logs || 0;
+                return computeStreak(cache[habit.id] || [], selectedDate);
+              })();
+              const isLate =
+                doneTime && habit.targetTime && doneTime > habit.targetTime;
+
               return (
-                <Card key={slot.key} className="overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(slot.key)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
-                  >
-                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
-                    <span className="text-base">{slot.emoji}</span>
-                    <span className="text-sm font-semibold flex-1 text-left">{slot.label}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{habitsInSlot.length}</span>
-                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary/70 transition-all duration-300"
-                        style={{ width: `${habitsInSlot.length > 0 ? (doneCount / habitsInSlot.length) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="border-t border-border/50">
-                      {habitsInSlot.map((habit, idx) => renderHabitRow(habit, idx, habitsInSlot.length))}
-                    </div>
+                <div
+                  key={habit.id}
+                  className={cn(
+                    'habit-card group cursor-pointer select-none',
+                    isDone && 'habit-card-completed',
+                    justCompleted && 'habit-card-pop',
                   )}
-                </Card>
+                  onClick={() => handleHabitCheck(habit)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleHabitCheck(habit);
+                    }
+                  }}
+                >
+                  {/* Checkbox top-right */}
+                  <div className="absolute top-4 right-4 z-10">
+                    <Checkbox
+                      checked={isDone}
+                      onCheckedChange={() => handleHabitCheck(habit)}
+                      disabled={isToggling}
+                      onClick={(e) => e.stopPropagation()}
+                      className={cn(
+                        'h-5 w-5 rounded-md transition-all duration-200',
+                        isDone &&
+                          'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500',
+                        justCompleted && 'animate-[ringPop_0.4s_ease]',
+                      )}
+                    />
+                  </div>
+
+                  {/* Icon + Category tint */}
+                  <div
+                    className={cn(
+                      'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-3 transition-transform duration-300 group-hover:scale-110',
+                      catStyle.tint,
+                    )}
+                  >
+                    {habit.icon}
+                  </div>
+
+                  {/* Title */}
+                  <h4
+                    className={cn(
+                      'text-sm font-bold truncate pr-8 transition-all duration-200',
+                      isDone && 'line-through text-muted-foreground',
+                    )}
+                  >
+                    {habit.name}
+                  </h4>
+
+                  {/* Time + Category badge */}
+                  <div className="flex items-center gap-1.5 mt-1.5 mb-4 flex-wrap">
+                    {habit.targetTime && (
+                      <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums">
+                        <Clock className="h-3 w-3" />
+                        {habit.targetTime}
+                      </span>
+                    )}
+                    {doneTime && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAnalysisHabitId(habit.id);
+                        }}
+                        className={cn(
+                          'inline-flex items-center gap-0.5 text-[11px] tabular-nums rounded px-1 py-0.5 hover:bg-accent transition-colors',
+                          isLate
+                            ? 'text-red-500 dark:text-red-400'
+                            : 'text-emerald-600 dark:text-emerald-400',
+                        )}
+                        title={
+                          habit.targetTime
+                            ? `Target: ${habit.targetTime}`
+                            : 'Click for time analysis'
+                        }
+                      >
+                        <Check className="h-3 w-3" />
+                        {doneTime}
+                        {isLate &&
+                          ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
+                      </button>
+                    )}
+                    <span
+                      className={cn(
+                        'inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full',
+                        getBadgeClass(
+                          categoryMap[habit.category]?.color || 'slate',
+                        ),
+                      )}
+                    >
+                      {habit.category}
+                    </span>
+                  </div>
+
+                  {/* Circular Progress + Streak */}
+                  <div className="flex items-center justify-between">
+                    <ProgressRing
+                      progress={pct}
+                      color={catStyle.hex}
+                      done={isDone}
+                    />
+                    <div className="text-right">
+                      {isDone ? (
+                        <span className="text-[11px] font-semibold text-green-500 flex items-center gap-1 justify-end">
+                          <Check className="h-3 w-3" /> Done
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                          Not started
+                        </span>
+                      )}
+                      <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
+                        <Flame
+                          className={cn(
+                            'h-3 w-3',
+                            streak > 0 ? 'text-orange-500' : 'text-muted-foreground/40',
+                          )}
+                        />
+                        {streak} {streak === 1 ? 'day' : 'days'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               );
             })}
-            {/* Habits without targetTime */}
-            {(() => {
-              const noTime = groupedHabits?.get('other');
-              if (!noTime?.length) return null;
-              const doneCount = noTime.filter((h) => (completionMap[h.id] ?? false)).length;
-              const isCollapsed = collapsedSections.has('other');
-              return (
-                <Card className="overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection('other')}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
-                  >
-                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
-                    <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-semibold flex-1 text-left">Tanpa Waktu Target</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{doneCount}/{noTime.length}</span>
-                    <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-muted-foreground/50 transition-all duration-300"
-                        style={{ width: `${noTime.length > 0 ? (doneCount / noTime.length) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="border-t border-border/50">
-                      {noTime.map((habit, idx) => renderHabitRow(habit, idx, noTime.length))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })()}
           </div>
         )}
       </section>
 
-      {/* ────────────────────────── Summary Footer ────────────────────────── */}
-      {totalCount > 0 && (
-        <Card className="bg-gradient-to-r from-primary/5 to-primary/5 border-primary/20 py-4">
-          <CardContent>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              {/* Completion */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
-                  <Check className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold tabular-nums text-primary">
-                    {completionPct}%
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {completedCount} of {totalCount} habits
-                  </p>
-                </div>
-              </div>
-
-              {/* XP */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40">
-                  <Star className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">
-                    +{todayXP} XP
-                  </p>
-                  <p className="text-xs text-muted-foreground">Earned today</p>
-                </div>
-              </div>
-
-              {/* Level */}
-              <div className="flex-1 min-w-[140px]">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm font-semibold">Lv. {level}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {levelProgress}/100 XP
-                  </span>
-                </div>
-                <Progress value={levelProgress} className="h-2" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* ── Time Confirmation Dialog ── */}
-      <Dialog open={!!timeDialogHabit} onOpenChange={(open) => !open && setTimeDialogHabit(null)}>
+      <Dialog
+        open={!!timeDialogHabit}
+        onOpenChange={(open) => !open && setTimeDialogHabit(null)}
+      >
         <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1127,35 +985,39 @@ export default function DailyTracker() {
               Kapan kamu melakukannya?
             </p>
 
-            {/* Option 1: Now */}
             <button
               type="button"
               onClick={() => handleTimeDialogSubmit(true)}
               disabled={timeSubmitting}
-              className="w-full flex items-center gap-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-left hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-3 text-left hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
             >
               <Clock className="h-5 w-5 text-primary shrink-0" />
               <div>
                 <p className="text-sm font-medium">Sekarang</p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date().toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </p>
               </div>
             </button>
 
-            {/* Divider */}
             <div className="relative flex items-center justify-center">
-              <span className="text-xs text-muted-foreground bg-background px-2 z-10">atau isi manual</span>
+              <span className="text-xs text-muted-foreground bg-background px-2 z-10">
+                atau isi manual
+              </span>
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t" />
               </div>
             </div>
 
-            {/* Manual input */}
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Tanggal</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Tanggal
+                  </label>
                   <Input
                     type="date"
                     value={manualDate}
@@ -1164,7 +1026,9 @@ export default function DailyTracker() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Jam</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Jam
+                  </label>
                   <Input
                     type="time"
                     value={manualTime}
@@ -1175,7 +1039,7 @@ export default function DailyTracker() {
               <Button
                 onClick={() => handleTimeDialogSubmit(false)}
                 disabled={timeSubmitting || !manualTime}
-                className="w-full bg-primary hover:bg-primary text-white"
+                className="w-full"
               >
                 {timeSubmitting ? 'Menyimpan...' : 'Simpan Waktu'}
               </Button>
@@ -1189,6 +1053,7 @@ export default function DailyTracker() {
           </div>
         </DialogContent>
       </Dialog>
+
       {/* ── Time Analysis Dialog ── */}
       <TimeAnalysisDialog
         habitId={analysisHabitId}
@@ -1199,94 +1064,60 @@ export default function DailyTracker() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Loading skeleton
+// ---------------------------------------------------------------------------
+
 function LoadingSkeleton() {
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Date nav */}
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-9 w-9 rounded-md" />
-        <div className="space-y-1.5 flex-1">
-          <Skeleton className="h-6 w-64" />
-          <Skeleton className="h-4 w-24" />
+    <div className="space-y-5 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-muted animate-pulse" />
+          <div className="space-y-1.5">
+            <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-32 bg-muted rounded animate-pulse" />
+          </div>
+          <div className="h-9 w-9 rounded-xl bg-muted animate-pulse" />
         </div>
-        <Skeleton className="h-9 w-9 rounded-md" />
       </div>
 
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="py-4 gap-3">
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-3 w-8" />
-              </div>
-              <Skeleton className="h-1.5 w-full rounded-full" />
-              <Skeleton className="h-4 w-24 mx-auto" />
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="kpi-card">
+            <div className="h-3 w-16 bg-muted rounded animate-pulse mb-2" />
+            <div className="h-7 w-20 bg-muted rounded animate-pulse mb-1" />
+            <div className="h-2 w-full bg-muted rounded animate-pulse" />
+          </div>
         ))}
       </div>
 
-      {/* Notes */}
-      <Card className="py-4 gap-3">
-        <CardContent className="space-y-2">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-16 w-full rounded-md" />
-        </CardContent>
-      </Card>
+      <div className="daily-notes-card">
+        <div className="h-4 w-24 bg-muted rounded animate-pulse mb-3" />
+        <div className="h-16 w-full bg-muted rounded animate-pulse" />
+      </div>
 
-      {/* Habit list header */}
       <div className="flex items-center justify-between mb-4">
-        <Skeleton className="h-4 w-32" />
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-[120px] rounded-md" />
-          <Skeleton className="h-8 w-[130px] rounded-md" />
-        </div>
+        <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+        <div className="h-8 w-28 bg-muted rounded-xl animate-pulse" />
       </div>
 
-      {/* Habit rows */}
-      <Card className="overflow-hidden">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-0"
-          >
-            <Skeleton className="h-4 w-4 rounded" />
-            <Skeleton className="h-5 w-5 rounded" />
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-5 w-16 rounded-full ml-auto" />
-            <Skeleton className="h-2 w-2 rounded-full" />
-            <Skeleton className="h-3 w-6" />
+      <div className="habit-grid">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="habit-card">
+            <div className="h-12 w-12 rounded-2xl bg-muted animate-pulse mb-3" />
+            <div className="h-4 w-28 bg-muted rounded animate-pulse mb-2" />
+            <div className="h-3 w-20 bg-muted rounded animate-pulse mb-4" />
+            <div className="flex items-center justify-between">
+              <div className="h-12 w-12 rounded-full bg-muted animate-pulse" />
+              <div className="space-y-1.5">
+                <div className="h-3 w-14 bg-muted rounded animate-pulse ml-auto" />
+                <div className="h-3 w-10 bg-muted rounded animate-pulse ml-auto" />
+              </div>
+            </div>
           </div>
         ))}
-      </Card>
-
-      {/* Summary */}
-      <Card className="py-4">
-        <CardContent>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="space-y-1">
-                <Skeleton className="h-6 w-12" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="space-y-1">
-                <Skeleton className="h-6 w-16" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            </div>
-            <div className="flex-1 space-y-2 ml-auto">
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="h-2 w-full rounded-full" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }
