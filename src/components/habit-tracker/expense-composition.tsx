@@ -13,9 +13,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { MoreHorizontal, TrendingUp, TrendingDown } from 'lucide-react';
+import { MoreHorizontal, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, type AnalyticsData } from '@/components/habit-tracker/finance-types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // ── Category colour palette ──────────────────────────────────────────────
 // Kopi→Red, Dating→Orange, Tak Terduga→Amber, Makanan Berat→Purple,
@@ -261,8 +268,12 @@ export default function ExpenseComposition({
 }: ExpenseCompositionProps) {
   const [activeSlice, setActiveSlice] = useState<number | null>(null);
   const [activeMonth, setActiveMonth] = useState<string | null>(null);
+  const [monthRange, setMonthRange] = useState<1 | 3 | 6>(6);
 
-  const comp = data.monthlyComposition || [];
+  // Filter to the last N months based on the selected range.
+  // The API returns 6 months — we slice client-side for instant switching.
+  const allComp = data.monthlyComposition || [];
+  const comp = useMemo(() => allComp.slice(-monthRange), [allComp, monthRange]);
   const hasData = comp.length > 0;
 
   // ── Compute top-5 categories + Lainnya ──
@@ -413,13 +424,18 @@ export default function ExpenseComposition({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            className="ec-pill"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            Last 6 Months
-          </button>
+          <Select value={String(monthRange)} onValueChange={(v) => setMonthRange(Number(v) as 1 | 3 | 6)}>
+            <SelectTrigger className="ec-range-select">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              <SelectValue />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="1">1 Bulan Terakhir</SelectItem>
+              <SelectItem value="3">3 Bulan Terakhir</SelectItem>
+              <SelectItem value="6">6 Bulan Terakhir</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             type="button"
             aria-label="More options"
@@ -439,20 +455,24 @@ export default function ExpenseComposition({
           value={formatRupiah(kpi.total)}
           spark={totalSpark}
           sub={
-            <span
-              className={cn(
-                'ec-trend-pill',
-                kpi.growthPct >= 0 ? 'ec-trend-up' : 'ec-trend-down',
-              )}
-            >
-              {kpi.growthPct >= 0 ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : (
-                <TrendingDown className="h-3 w-3" />
-              )}
-              {Math.abs(kpi.growthPct).toFixed(1)}%
-              <span className="text-muted-foreground font-normal ml-1 hidden sm:inline">vs bln lalu</span>
-            </span>
+            totals.length > 1 ? (
+              <span
+                className={cn(
+                  'ec-trend-pill',
+                  kpi.growthPct >= 0 ? 'ec-trend-up' : 'ec-trend-down',
+                )}
+              >
+                {kpi.growthPct >= 0 ? (
+                  <TrendingUp className="h-3 w-3" />
+                ) : (
+                  <TrendingDown className="h-3 w-3" />
+                )}
+                {Math.abs(kpi.growthPct).toFixed(1)}%
+                <span className="text-muted-foreground font-normal ml-1 hidden sm:inline">vs bln lalu</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">bulan terpilih</span>
+            )
           }
         />
         <KpiCard
@@ -491,11 +511,12 @@ export default function ExpenseComposition({
 
       {/* ───────────────── Main grid: Area chart + Donut panel ───────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* ── Stacked Area Chart ── */}
+        {/* ── Stacked Area Chart (hidden for 1-month range — single point is meaningless) ── */}
+        {monthRange > 1 && (
         <div className="ec-card lg:col-span-2 ec-chart-card">
           <div className="flex items-start justify-between mb-4 gap-3">
             <div>
-              <h3 className="text-sm font-semibold tracking-tight">Tren 6 Bulan</h3>
+              <h3 className="text-sm font-semibold tracking-tight">Tren {monthRange} Bulan</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">Komposisi kategori dari waktu ke waktu</p>
             </div>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap justify-end">
@@ -624,9 +645,10 @@ export default function ExpenseComposition({
             </AreaChart>
           </ResponsiveContainer>
         </div>
+        )}
 
-        {/* ── Donut panel ── */}
-        <div className="ec-card lg:col-span-1 ec-chart-card">
+        {/* ── Donut panel (full-width when 1-month range hides the area chart) ── */}
+        <div className={cn('ec-card ec-chart-card', monthRange === 1 ? 'lg:col-span-3' : 'lg:col-span-1')}>
           <div className="mb-4">
             <h3 className="text-sm font-semibold tracking-tight">Komposisi Bulan Terakhir</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
