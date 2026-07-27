@@ -231,7 +231,7 @@ export default function Finance() {
   const [deletingSource, setDeletingSource] = useState<FundSource | null>(null);
 
   // Form states
-  const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', notes: '', source: 'Kas' });
+  const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: 'Kas' });
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
@@ -318,15 +318,19 @@ export default function Finance() {
 
   const openNewTx = (type: 'income' | 'expense') => {
     setEditingTx(null);
-    setTxForm({ type, amount: '', category: '', description: '', date: format(new Date(), 'yyyy-MM-dd'), notes: '', source: 'Kas' });
+    const now = new Date();
+    setTxForm({ type, amount: '', category: '', description: '', date: format(now, 'yyyy-MM-dd'), time: format(now, 'HH:mm'), notes: '', source: 'Kas' });
     setTxDialogOpen(true);
   };
 
   const openEditTx = (tx: Transaction) => {
     setEditingTx(tx);
+    const txDate = new Date(tx.date);
     setTxForm({
       type: tx.type, amount: formatNominalInput(String(tx.amount)), category: tx.category,
-      description: tx.description || '', date: tx.date.split('T')[0], notes: tx.notes || '', source: tx.source || 'Kas',
+      description: tx.description || '', date: format(txDate, 'yyyy-MM-dd'),
+      time: txDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      notes: tx.notes || '', source: tx.source || 'Kas',
     });
     setTxDialogOpen(true);
   };
@@ -336,7 +340,11 @@ export default function Finance() {
     if (!rawAmount || parseFloat(rawAmount) <= 0) { toast.error('Masukkan jumlah yang valid'); return; }
     if (!txForm.category) { toast.error('Pilih kategori'); return; }
     if (!txForm.date) { toast.error('Pilih tanggal'); return; }
-    const payload = { ...txForm, amount: rawAmount };
+    // Combine date + time into full datetime string for accurate time storage
+    const fullDate = txForm.time
+      ? new Date(`${txForm.date}T${txForm.time}:00`)
+      : new Date(txForm.date);
+    const payload = { ...txForm, amount: rawAmount, date: fullDate.toISOString() };
     setSubmitting(true);
     try {
       if (editingTx) {
@@ -666,7 +674,7 @@ export default function Finance() {
             <div><Label className="text-xs">Jumlah (Rp)</Label><Input type="text" inputMode="numeric" placeholder="0" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="mt-1" /></div>
             <div><Label className="text-xs">Kategori</Label><Select value={txForm.category} onValueChange={v => setTxForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList(txForm.type).map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
             <div><Label className="text-xs">Sumber Dana</Label><Select value={txForm.source} onValueChange={v => setTxForm(f => ({ ...f, source: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih sumber" /></SelectTrigger><SelectContent>{getActiveSources().map(s => (<SelectItem key={s.id || s.name} value={s.name}>{s.emoji} {s.name}</SelectItem>))}</SelectContent></Select></div>
-            <div><Label className="text-xs">Tanggal</Label><Input type="date" value={txForm.date} onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))} className="mt-1" /></div>
+            <div className="grid grid-cols-2 gap-2"><div><Label className="text-xs">Tanggal</Label><Input type="date" value={txForm.date} onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))} className="mt-1" /></div><div><Label className="text-xs">Jam</Label><Input type="time" value={txForm.time} onChange={e => setTxForm(f => ({ ...f, time: e.target.value }))} className="mt-1" /></div></div>
             <div><Label className="text-xs">Deskripsi</Label><Input placeholder="Contoh: Makan siang di kantin" value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))} className="mt-1" /></div>
             <div><Label className="text-xs">Catatan (opsional)</Label><Input placeholder="Catatan tambahan..." value={txForm.notes} onChange={e => setTxForm(f => ({ ...f, notes: e.target.value }))} className="mt-1" /></div>
             <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => setTxDialogOpen(false)}>Batal</Button><Button className="flex-1" onClick={handleSubmitTx} disabled={submitting}>{submitting ? 'Menyimpan...' : editingTx ? 'Update' : 'Simpan'}</Button></div>
