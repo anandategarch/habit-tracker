@@ -215,3 +215,127 @@
     transition: transform 0.1s ease;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PREMIUM TRANSACTION TIMELINE — Apple HIG inspired
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Timeline container */
+.tx-timeline {
+  position: relative;
+  padding-left: 2rem;
+}
+
+/* Vertical timeline line */
+.tx-timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.625rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: oklch(0.91 0.005 120);
+}
+.dark .tx-timeline::before {
+  background: oklch(1 0 0 / 8%);
+}
+
+/* Timeline node (small circle beside each card) */
+.tx-node {
+  position: absolute;
+  left: 0;
+  top: 1.25rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  border: 2px solid oklch(1 0 0);
+  z-index: 2;
+  box-shadow: 0 0 0 2px oklch(0.91 0.005 120);
+}
+.dark .tx-node {
+  border-color: oklch(0.205 0 0);
+  box-shadow: 0 0 0 2px oklch(1 0 0 / 8%);
+}
+
+/* Transaction card — premium soft shadow */
+.tx-card {
+  background: oklch(1 0 0);
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+.dark .tx-card {
+  background: oklch(0.205 0 0);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
+}
+.tx-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.1);
+}
+
+/* Date pill — sticky rounded badge */
+.tx-date-pill {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background: oklch(0.96 0.005 120);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: oklch(0.50 0 0);
+  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
+  backdrop-filter: blur(8px);
+}
+.dark .tx-date-pill {
+  background: oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+}
+
+/* Filter chips */
+.tx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.tx-chip-active {
+  background: oklch(0.522 0.154 142);
+  color: oklch(0.985 0 0);
+}
+.tx-chip-inactive {
+  background: oklch(0.96 0.005 120);
+  color: oklch(0.50 0 0);
+}
+.dark .tx-chip-inactive {
+  background: oklch(0.269 0 0);
+  color: oklch(0.708 0 0);
+}
+
+/* Total expense footer */
+.tx-total-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding: 0.75rem 1rem;
+  background: oklch(1 0 0);
+  border-top: 1px solid oklch(0.91 0.005 120);
+  backdrop-filter: blur(8px);
+}
+.dark .tx-total-footer {
+  background: oklch(0.205 0 0);
+  border-top-color: oklch(1 0 0 / 8%);
+}
