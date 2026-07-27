@@ -498,3 +498,263 @@
   border-color: oklch(0.7 0.05 250);
   box-shadow: 0 0 0 3px oklch(0.6 0.15 250 / 0.18);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   EXPENSE COMPOSITION — Premium analytics workspace
+   Stripe Dashboard / Linear / Revolut Business / Apple Finance / Copilot Money
+   ══════════════════════════════════════════════════════════════════════ */
+
+.ec-section {
+  /* The whole analytical workspace; inherits page background (#F8FAFC feel
+     via the finance tab's own surface). */
+}
+
+/* Headings — Apple-style tight tracking */
+.ec-heading {
+  letter-spacing: -0.02em;
+}
+.ec-subheading {
+  letter-spacing: -0.005em;
+}
+
+/* ── Rounded control pills (month selector + icon button) ── */
+.ec-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.25rem;
+  padding: 0 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid oklch(0.9 0.004 120);
+  background: oklch(1 0 0);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: oklch(0.3 0.01 120);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.03);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.ec-pill:hover {
+  border-color: oklch(0.82 0.01 120);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.06);
+  transform: translateY(-1px);
+}
+.dark .ec-pill {
+  background: oklch(0.21 0.004 120);
+  border-color: oklch(1 0 0 / 8%);
+  color: oklch(0.85 0.005 120);
+}
+.dark .ec-pill:hover {
+  border-color: oklch(1 0 0 / 16%);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.24);
+}
+
+.ec-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  border: 1px solid oklch(0.9 0.004 120);
+  background: oklch(1 0 0);
+  color: oklch(0.45 0.01 120);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.03);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.ec-icon-btn:hover {
+  border-color: oklch(0.82 0.01 120);
+  background: oklch(0.97 0.004 120);
+  color: oklch(0.25 0.01 120);
+  transform: translateY(-1px);
+}
+.dark .ec-icon-btn {
+  background: oklch(0.21 0.004 120);
+  border-color: oklch(1 0 0 / 8%);
+  color: oklch(0.7 0.005 120);
+}
+.dark .ec-icon-btn:hover {
+  background: oklch(0.26 0.004 120);
+  border-color: oklch(1 0 0 / 16%);
+  color: oklch(0.9 0.005 120);
+}
+
+/* Chart surface cards — clean white, rounded 20px, soft shadow */
+.ec-card {
+  background: oklch(1 0 0);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid oklch(0.93 0.004 120);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 3px oklch(0 0 0 / 0.03);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.dark .ec-card {
+  background: oklch(0.21 0.004 120);
+  border-color: oklch(1 0 0 / 6%);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.14), 0 1px 3px oklch(0 0 0 / 0.10);
+}
+.ec-chart-card:hover {
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.06);
+  border-color: oklch(0.88 0.006 120);
+}
+.dark .ec-chart-card:hover {
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.26);
+  border-color: oklch(1 0 0 / 12%);
+}
+
+/* KPI cards — pastel gradients, hover lift, decorative orb */
+.ec-kpi {
+  border-radius: 1.25rem;
+  padding: 1.1rem 1.2rem;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid oklch(0.92 0.004 120);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dark .ec-kpi {
+  border-color: oklch(1 0 0 / 6%);
+}
+.ec-kpi:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px oklch(0 0 0 / 0.08);
+}
+.dark .ec-kpi:hover {
+  box-shadow: 0 10px 24px oklch(0 0 0 / 0.28);
+}
+
+/* Decorative gradient orb in KPI card background */
+.ec-kpi-orb {
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.ec-kpi:hover .ec-kpi-orb {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.ec-kpi-red    { background: linear-gradient(135deg, oklch(0.62 0.22  25 / 0.10),  oklch(0.62 0.22  25 / 0.02)); }
+.ec-kpi-orange { background: linear-gradient(135deg, oklch(0.70 0.19  55 / 0.10),  oklch(0.70 0.19  55 / 0.02)); }
+.ec-kpi-amber  { background: linear-gradient(135deg, oklch(0.78 0.16  85 / 0.10),  oklch(0.78 0.16  85 / 0.02)); }
+.ec-kpi-purple { background: linear-gradient(135deg, oklch(0.58 0.20 300 / 0.10),  oklch(0.58 0.20 300 / 0.02)); }
+.ec-kpi-pink   { background: linear-gradient(135deg, oklch(0.65 0.22 350 / 0.10),  oklch(0.65 0.22 350 / 0.02)); }
+.ec-kpi-blue   { background: linear-gradient(135deg, oklch(0.58 0.19 250 / 0.10),  oklch(0.58 0.19 250 / 0.02)); }
+
+/* KPI sparkline — subtle fade-in */
+.ec-spark {
+  opacity: 0.85;
+  transition: opacity 0.25s ease;
+}
+.ec-kpi:hover .ec-spark {
+  opacity: 1;
+}
+
+/* Trend pill inside KPI */
+.ec-trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.ec-trend-up {
+  background: oklch(0.62 0.22 25 / 0.12);
+  color: oklch(0.52 0.22 25);
+}
+.ec-trend-down {
+  background: oklch(0.522 0.154 142 / 0.12);
+  color: oklch(0.422 0.164 142);
+}
+.dark .ec-trend-up {
+  background: oklch(0.62 0.22 25 / 0.18);
+  color: oklch(0.72 0.2 25);
+}
+.dark .ec-trend-down {
+  background: oklch(0.522 0.154 142 / 0.18);
+  color: oklch(0.622 0.174 142);
+}
+
+/* Totals row above the area chart */
+.ec-totals-row {
+  gap: 0.25rem;
+}
+.ec-total-label {
+  transition: transform 0.2s ease;
+  cursor: default;
+}
+.ec-total-label:hover {
+  transform: translateY(-1px);
+}
+
+/* Legend dots — subtle glow on hover */
+.ec-legend-dot {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ec-legend-row:hover .ec-legend-dot {
+  transform: scale(1.3);
+}
+
+/* Donut center label */
+.ec-donut-center {
+  transition: opacity 0.2s ease;
+}
+
+/* Legend rows in donut panel */
+.ec-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  padding: 0.4rem 0.5rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+  cursor: default;
+}
+.ec-legend-row-active {
+  background: oklch(0.96 0.004 120);
+  transform: translateX(2px);
+}
+.dark .ec-legend-row-active {
+  background: oklch(1 0 0 / 6%);
+}
+
+/* Donut total summary row */
+.ec-donut-total {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid oklch(0.92 0.004 120);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.dark .ec-donut-total {
+  border-top-color: oklch(1 0 0 / 8%);
+}
+
+/* Tooltip — Apple/Stripe style floating card */
+.ec-tooltip {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.9 0.004 120);
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  box-shadow: 0 12px 28px oklch(0 0 0 / 0.14), 0 4px 8px oklch(0 0 0 / 0.06);
+  min-width: 200px;
+  max-width: 280px;
+}
+.dark .ec-tooltip {
+  background: oklch(0.25 0.004 120);
+  border-color: oklch(1 0 0 / 12%);
+  box-shadow: 0 12px 28px oklch(0 0 0 / 0.34), 0 4px 8px oklch(0 0 0 / 0.18);
+}
