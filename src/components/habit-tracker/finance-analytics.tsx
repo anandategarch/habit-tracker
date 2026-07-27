@@ -126,41 +126,118 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
       <ExpenseHeatmap />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Top Categories */}
+        {/* ── Top Categories: Ranked Progress Comparison ─────────────── */}
         <Card>
           <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            Kategori Pengeluaran Teratas
-            <ChartInfo text="5 kategori dengan total pengeluaran terbesar dalam 6 bulan terakhir." />
-          </CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold">Kategori Pengeluaran Teratas</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Perbandingan terhadap rata-rata seluruh kategori</p>
+              </div>
+              <ChartInfo text="5 kategori dengan total pengeluaran terbesar dalam 6 bulan terakhir. Bar menunjukkan persentase terhadap kategori terbesar. Marker vertikal menunjukkan rata-rata pengeluaran." />
+            </div>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {data.topCategories.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={data.topCategories} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 10 }} tickFormatter={(value: string) => {
-                    const meta = getCategoryMeta(value);
-                    const name = value.length > 14 ? value.slice(0, 13) + '…' : value;
-                    return `${meta.emoji} ${name}`;
-                  }} />
-                  <RechartsTooltip
-                    formatter={(value: number, name: string) => [formatRupiah(value), 'Total']}
-                    labelFormatter={(label: string) => {
-                      const meta = getCategoryMeta(label);
-                      return `${meta.emoji} ${label}`;
-                    }}
-                    contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                  />
-                  <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
-                    {data.topCategories.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
+            {data.topCategories.length > 0 ? (() => {
+              const totalSpending = data.topCategories.reduce((s, c) => s + c.amount, 0);
+              const avgSpending = totalSpending / data.topCategories.length;
+              const maxAmount = Math.max(...data.topCategories.map(c => c.amount));
+              const largest = data.topCategories[0];
+              const smallest = data.topCategories[data.topCategories.length - 1];
+
+              const rankColors = [
+                { bg: 'from-red-500 to-rose-500', tint: 'bg-red-500/5', text: 'text-red-600', badge: 'bg-red-500/10 text-red-600', icon: 'bg-red-500/10' },
+                { bg: 'from-orange-500 to-amber-500', tint: 'bg-orange-500/5', text: 'text-orange-600', badge: 'bg-orange-500/10 text-orange-600', icon: 'bg-orange-500/10' },
+                { bg: 'from-yellow-500 to-amber-400', tint: 'bg-yellow-500/5', text: 'text-yellow-600', badge: 'bg-yellow-500/10 text-yellow-700', icon: 'bg-yellow-500/10' },
+                { bg: 'from-violet-500 to-purple-500', tint: 'bg-violet-500/5', text: 'text-violet-600', badge: 'bg-violet-500/10 text-violet-600', icon: 'bg-violet-500/10' },
+                { bg: 'from-green-500 to-emerald-500', tint: 'bg-green-500/5', text: 'text-green-600', badge: 'bg-green-500/10 text-green-600', icon: 'bg-green-500/10' },
+                { bg: 'from-blue-500 to-cyan-500', tint: 'bg-blue-500/5', text: 'text-blue-600', badge: 'bg-blue-500/10 text-blue-600', icon: 'bg-blue-500/10' },
+                { bg: 'from-cyan-500 to-teal-500', tint: 'bg-cyan-500/5', text: 'text-cyan-600', badge: 'bg-cyan-500/10 text-cyan-600', icon: 'bg-cyan-500/10' },
+              ];
+
+              return (
+                <div className="space-y-4">
+                  {/* ── Summary Cards (4 compact) ── */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 p-3">
+                      <p className="text-xs text-muted-foreground">💰 Total</p>
+                      <p className="text-sm font-bold mt-0.5">{formatRupiah(totalSpending)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 p-3">
+                      <p className="text-xs text-muted-foreground">📊 Rata-rata</p>
+                      <p className="text-sm font-bold mt-0.5">{formatRupiah(avgSpending)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gradient-to-br from-amber-500/5 to-amber-500/10 p-3">
+                      <p className="text-xs text-muted-foreground">🏆 Terbesar</p>
+                      <p className="text-sm font-bold mt-0.5 truncate">{largest.category}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gradient-to-br from-cyan-500/5 to-cyan-500/10 p-3">
+                      <p className="text-xs text-muted-foreground">🎯 Terkecil</p>
+                      <p className="text-sm font-bold mt-0.5 truncate">{smallest.category}</p>
+                    </div>
+                  </div>
+
+                  {/* ── Ranked Progress List ── */}
+                  <div className="space-y-2.5">
+                    {data.topCategories.slice(0, 7).map((item, i) => {
+                      const meta = getCategoryMeta(item.category);
+                      const color = rankColors[i % rankColors.length];
+                      const pct = maxAmount > 0 ? Math.round((item.amount / maxAmount) * 100) : 0;
+                      const avgPct = maxAmount > 0 ? Math.round((avgSpending / maxAmount) * 100) : 0;
+                      const diffPct = avgSpending > 0 ? Math.round(((item.amount - avgSpending) / avgSpending) * 100) : 0;
+                      const isAboveAvg = item.amount > avgSpending;
+                      const isBelowAvg = item.amount < avgSpending;
+
+                      return (
+                        <div
+                          key={item.category}
+                          className={`group rounded-2xl ${color.tint} p-2.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5`}
+                        >
+                          {/* Top row: icon + name + amount + badge */}
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${color.icon}`}>
+                                {meta.emoji}
+                              </div>
+                              <span className="text-xs font-semibold truncate">{item.category}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs font-bold">{formatRupiah(item.amount)}</span>
+                              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${isAboveAvg ? 'bg-red-500/10 text-red-600' : isBelowAvg ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                                {isAboveAvg ? '▲' : isBelowAvg ? '▼' : '='} {Math.abs(diffPct)}%
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Progress bar with average marker */}
+                          <div className="relative h-2.5 rounded-full bg-muted/50 overflow-visible">
+                            {/* Filled portion */}
+                            <div
+                              className={`h-full rounded-full bg-gradient-to-r ${color.bg} transition-all duration-500`}
+                              style={{ width: `${pct}%` }}
+                            />
+                            {/* Average marker (vertical line) */}
+                            {avgPct > 0 && avgPct <= 100 && (
+                              <div
+                                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-foreground/40 rounded-full transition-transform duration-200 group-hover:scale-y-110 z-10"
+                                style={{ left: `${avgPct}%` }}
+                                title={`Rata-rata: ${formatRupiah(avgSpending)}`}
+                              />
+                            )}
+                          </div>
+
+                          {/* Average label */}
+                          <div className="flex justify-between mt-1">
+                            <span className="text-xs text-muted-foreground">Avg: {formatRupiah(avgSpending)}</span>
+                            <span className="text-xs text-muted-foreground">{pct}% dari max</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })() : (
               <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
                 📊 Belum ada data
               </div>
