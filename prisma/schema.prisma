@@ -196,6 +196,27 @@ model Budget {
   updatedAt   DateTime @updatedAt
 }
 
+// Budget history per month — auto-saved at end of each month or on demand.
+// Tracks: how much was budgeted, how much was spent, and the rollover.
+model BudgetSnapshot {
+  id           String   @id @default(cuid())
+  category     String
+  month        String   // "yyyy-MM" format
+  budgetAmount Int      // original budget for that month
+  spentAmount  Int      // actual spending for that month
+  rolloverIn   Int      @default(0) // carried from previous month
+  rolloverOut  Int      @default(0) // carried to next month (if positive)
+  effectiveBudget Int  @default(0) // budgetAmount + rolloverIn
+  percentage   Int      @default(0) // spentAmount / effectiveBudget * 100
+  status       String   @default("active") // "active", "closed"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([category, month])
+  @@index([month])
+  @@index([category])
+}
+
 model AppSettings {
   id               String   @id @default(cuid())
   userName         String   @default("User")
