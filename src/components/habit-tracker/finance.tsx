@@ -312,7 +312,38 @@ export default function Finance() {
     queryClient.invalidateQueries({ queryKey: ['finance'] });
     // Also notify other components (e.g. dashboard) that data changed
     triggerRefresh();
+    // Auto-trigger budget snapshot check (creates/updates current month snapshot)
+    fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
   }, [queryClient, triggerRefresh]);
+
+  // ── Budget Alerts ──────────────────────────────────────────────────────
+  // Check budget status after dashboard data loads and show toast alerts.
+  useEffect(() => {
+    if (!dashboardData || dashboardData.budgetStatus.length === 0) return;
+
+    for (const b of dashboardData.budgetStatus) {
+      const pct = b.percentage || 0;
+      const isOver = pct > 100;
+      const isWarning = pct >= 80 && pct <= 100;
+
+      if (isOver) {
+        toast.error(`⚠️ Budget ${b.category} over!`, {
+          description: `Terpakai ${formatRupiah(b.spent || 0)} dari ${formatRupiah(b.amount)} (${pct}%)`,
+          duration: 5000,
+        });
+      } else if (isWarning) {
+        toast.warning(`Budget ${b.category} ${pct}% terpakai`, {
+          description: `Sisa ${formatRupiah(Math.max(0, b.amount - (b.spent || 0)))}`,
+          duration: 4000,
+        });
+      }
+    }
+  }, [dashboardData]);
+
+  // ── Auto-create budget snapshot on mount (ensures current month exists) ──
+  useEffect(() => {
+    fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
+  }, []);
 
   // ── Transaction CRUD ──────────────────────────────────────────────────────
 
