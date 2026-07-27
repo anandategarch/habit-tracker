@@ -31,6 +31,7 @@ import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import ExpenseHeatmap from '@/components/habit-tracker/expense-heatmap';
+import ExpenseComposition from '@/components/habit-tracker/expense-composition';
 
 // ── ChartInfo Helper ────────────────────────────────────────────────────
 
@@ -252,56 +253,8 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
 
       {/* ─── NEW CHARTS ─── */}
 
-      {/* 1. Stacked Bar Chart - Monthly Composition by Category */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          Komposisi Pengeluaran Bulanan
-          <ChartInfo text="Komposisi pengeluaran per bulan, ditumpuk berdasarkan kategori. 5 kategori teratas ditampilkan terpisah, sisanya digabungkan menjadi 'Lainnya'. Memudahkan melihat perubahan proporsi tiap bulan." />
-        </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {(() => {
-            const comp = data.monthlyComposition;
-            if (!comp || comp.length === 0) return <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">📊 Belum ada data</div>;
-            // Get all categories across all months, find top 5
-            const allCatsMap: Record<string, number> = {};
-            comp.forEach(m => Object.entries(m.categories).forEach(([c, v]) => { allCatsMap[c] = (allCatsMap[c] || 0) + v; }));
-            const sortedCats = Object.entries(allCatsMap).sort(([, a], [, b]) => b - a);
-            const topCats = sortedCats.slice(0, 5).map(([c]) => c);
-            const otherCats = sortedCats.slice(5).map(([c]) => c);
-
-            const stackedData = comp.map(m => {
-              const row: Record<string, string | number> = { month: m.monthLabel };
-              let otherTotal = 0;
-              topCats.forEach(c => { row[c] = Math.round(m.categories[c] || 0); });
-              otherCats.forEach(c => { otherTotal += (m.categories[c] || 0); });
-              row['Lainnya'] = Math.round(otherTotal);
-              return row;
-            });
-
-            const allKeys = [...topCats, 'Lainnya'];
-
-            return (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={stackedData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
-                  <RechartsTooltip
-                    formatter={(value: number) => formatRupiah(value)}
-                    contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} iconSize={8} />
-                  {allKeys.map((key, i) => (
-                    <Bar key={key} dataKey={key} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            );
-          })()}
-        </CardContent>
-      </Card>
+      {/* 1. Komposisi Pengeluaran Bulanan — premium analytics workspace */}
+      <ExpenseComposition data={data} getCategoryMeta={getCategoryMeta} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 3. Savings Trend */}
