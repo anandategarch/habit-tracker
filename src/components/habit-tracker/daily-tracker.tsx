@@ -30,6 +30,7 @@ import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass } from '@/lib/label-colors';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { FlashNumber } from '@/components/habit-tracker/flash-number';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   format,
@@ -205,7 +206,7 @@ function ProgressRing({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={done ? '#22c55e' : color}
+          stroke={done ? primaryColor : color}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
@@ -218,7 +219,7 @@ function ProgressRing({
       </svg>
       <span className="absolute inset-0 flex items-center justify-center">
         {done ? (
-          <Check className="h-5 w-5 text-green-500 animate-[ringPop_0.4s_ease]" strokeWidth={3} />
+          <Check className="h-5 w-5 text-primary animate-[ringPop_0.4s_ease]" strokeWidth={3} />
         ) : (
           <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
             {Math.round(pct)}%
@@ -287,6 +288,7 @@ export default function DailyTracker() {
   const refreshKey = useAppStore((s) => s.refreshKey);
   const queryClient = useQueryClient();
   const { xpMap, categoryMap } = useHabitOptions();
+  const primaryColor = useThemeColor('primary');
 
   // ---- state ----
   const [loading, setLoading] = useState(true);
@@ -691,11 +693,11 @@ export default function DailyTracker() {
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-1 flex-1 rounded-full bg-muted overflow-hidden">
                 <span
-                  className="block h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  className="block h-full rounded-full bg-primary transition-all duration-500"
                   style={{ width: `${completionPct}%` }}
                 />
               </span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              <span className="text-primary font-medium">
                 {completionPct}%
               </span>
             </span>
@@ -873,7 +875,7 @@ export default function DailyTracker() {
                       className={cn(
                         'h-5 w-5 rounded-md transition-all duration-200',
                         isDone &&
-                          'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500',
+                          'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
                         justCompleted && 'animate-[ringPop_0.4s_ease]',
                       )}
                     />
@@ -918,7 +920,7 @@ export default function DailyTracker() {
                           'inline-flex items-center gap-0.5 text-[11px] tabular-nums rounded px-1 py-0.5 hover:bg-accent transition-colors',
                           isLate
                             ? 'text-red-500 dark:text-red-400'
-                            : 'text-emerald-600 dark:text-emerald-400',
+                            : 'text-primary',
                         )}
                         title={
                           habit.targetTime
@@ -953,7 +955,7 @@ export default function DailyTracker() {
                     />
                     <div className="text-right">
                       {isDone ? (
-                        <span className="text-[11px] font-semibold text-green-500 flex items-center gap-1 justify-end">
+                        <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
                           <Check className="h-3 w-3" /> Done
                         </span>
                       ) : (
