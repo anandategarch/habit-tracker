@@ -850,7 +850,7 @@ export default function DailyTracker() {
                   className={cn(
                     'habit-card group cursor-pointer select-none anim-stagger anim-lift',
                     isDone && 'habit-card-completed',
-                    justCompleted && 'habit-card-pop',
+                    justCompleted && 'habit-card-pop anim-check-pop',
                   )}
                   style={{ animationDelay: `${idx * 40}ms` }}
                   onClick={() => handleHabitCheck(habit)}

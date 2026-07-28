@@ -463,60 +463,63 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
               <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', allExpanded && 'rotate-180')} />
             </button>
 
-            {allExpanded && (
-              <div className="cb-timeline">
-                {groups.map((g) => (
-                  <div key={g.key} className="cb-timeline-group">
-                    {/* Day header — clean, single theme gradient tint */}
-                    <div
-                      className="cb-timeline-date cb-timeline-date-colorful"
-                      style={{ background: `linear-gradient(90deg, ${THEME.fromSoft}, ${THEME.toSoft})` }}
-                    >
-                      <span
-                        className="cb-timeline-pill"
-                        style={{ background: `linear-gradient(135deg, ${THEME.from}, ${THEME.to})` }}
-                      />
-                      <span className="cb-timeline-day-label">{g.label}</span>
-                      <span
-                        className="cb-timeline-count cb-timeline-count-color"
-                        style={{ color: THEME.from }}
+            {/* Expandable timeline — uses grid-template-rows for smooth height animation */}
+            <div className={cn('anim-expand', !allExpanded && 'anim-expand-collapsed')}>
+              <div>
+                <div className="cb-timeline">
+                  {groups.map((g) => (
+                    <div key={g.key} className="cb-timeline-group">
+                      {/* Day header — clean, single theme gradient tint */}
+                      <div
+                        className="cb-timeline-date cb-timeline-date-colorful"
+                        style={{ background: `linear-gradient(90deg, ${THEME.fromSoft}, ${THEME.toSoft})` }}
                       >
-                        {g.txs.length} trx · {formatRupiah(g.total)}
-                      </span>
-                    </div>
-                    <div className="cb-timeline-items">
-                      {g.txs.map((t) => {
-                        const m = getCategoryMeta(t.category);
-                        return (
-                          <div
-                            key={t.id}
-                            className="cb-tx-row-theme"
-                          >
-                            <span
-                              className="cb-tx-dot-theme"
-                              style={{ background: `linear-gradient(135deg, ${THEME.from}, ${THEME.to})` }}
-                            />
-                            <div className="cb-tx-logo-theme">
-                              {merchantEmoji(t.description || '', m.emoji)}
+                        <span
+                          className="cb-timeline-pill"
+                          style={{ background: `linear-gradient(135deg, ${THEME.from}, ${THEME.to})` }}
+                        />
+                        <span className="cb-timeline-day-label">{g.label}</span>
+                        <span
+                          className="cb-timeline-count cb-timeline-count-color"
+                          style={{ color: THEME.from }}
+                        >
+                          {g.txs.length} trx · {formatRupiah(g.total)}
+                        </span>
+                      </div>
+                      <div className="cb-timeline-items">
+                        {g.txs.map((t) => {
+                          const m = getCategoryMeta(t.category);
+                          return (
+                            <div
+                              key={t.id}
+                              className="cb-tx-row-theme"
+                            >
+                              <span
+                                className="cb-tx-dot-theme"
+                                style={{ background: `linear-gradient(135deg, ${THEME.from}, ${THEME.to})` }}
+                              />
+                              <div className="cb-tx-logo-theme">
+                                {merchantEmoji(t.description || '', m.emoji)}
+                              </div>
+                              <div className="cb-tx-info">
+                                <p className="cb-tx-name">{t.description || t.category}</p>
+                                <p className="cb-tx-time">
+                                  <Clock className="h-2.5 w-2.5 inline mr-0.5" />
+                                  {formatTime(t.date)}
+                                </p>
+                              </div>
+                              <span className="cb-tx-amount-theme">
+                                {formatRupiah(t.amount)}
+                              </span>
                             </div>
-                            <div className="cb-tx-info">
-                              <p className="cb-tx-name">{t.description || t.category}</p>
-                              <p className="cb-tx-time">
-                                <Clock className="h-2.5 w-2.5 inline mr-0.5" />
-                                {formatTime(t.date)}
-                              </p>
-                            </div>
-                            <span className="cb-tx-amount-theme">
-                              {formatRupiah(t.amount)}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            )}
+            </div>
             {!allExpanded && (
               <button
                 type="button"
