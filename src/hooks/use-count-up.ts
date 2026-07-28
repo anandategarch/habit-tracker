@@ -23,9 +23,9 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  // If reduced motion, skip all animation state — just return target.
   const [display, setDisplay] = useState(0);
   const fromRef = useRef(0);
+  const displayRef = useRef(0); // tracks latest display without re-triggering effect
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -46,10 +46,13 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
       const current = from + delta * eased;
       // Round to specified decimals to avoid float jitter.
       const factor = Math.pow(10, decimals);
-      setDisplay(Math.round(current * factor) / factor);
+      const rounded = Math.round(current * factor) / factor;
+      displayRef.current = rounded;
+      setDisplay(rounded);
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
+        displayRef.current = target;
         setDisplay(target); // ensure exact final value
         fromRef.current = target;
       }
@@ -60,9 +63,14 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       // Store current display as the next "from" so re-animations are smooth.
-      fromRef.current = display;
+      // Use displayRef (not the state variable) to avoid adding it to deps —
+      // otherwise the effect would re-run every frame (infinite loop).
+      fromRef.current = displayRef.current;
     };
-  }, [target, duration, decimals, reducedMotion, display]);
+    // NOTE: display is intentionally NOT in the dependency array.
+    // It changes every animation frame; including it would cause an
+    // infinite re-render loop. displayRef tracks it without triggering re-runs.
+  }, [target, duration, decimals, reducedMotion]);
 
   return reducedMotion ? target : display;
 }
