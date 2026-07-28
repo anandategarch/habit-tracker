@@ -15,9 +15,12 @@ import {
 } from 'recharts';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
-const CATEGORY_COLORS = [
-  'hsl(142, 71%, 45%)',
+// Category colors — first color follows the theme primary, rest are fixed
+// complementary hues. Updated dynamically via useThemeColor in the component.
+const CATEGORY_COLORS_FIXED = [
+  '', // placeholder for primary (set at render time)
   'hsl(160, 84%, 39%)',
   'hsl(174, 72%, 35%)',
   'hsl(84, 81%, 44%)',
@@ -61,6 +64,12 @@ export default function DashboardCharts({
   weeklyPattern,
   chartLabel,
 }: DashboardChartsProps) {
+  // Read the theme's primary color dynamically so charts follow the
+  // user's chosen color theme (not hardcoded green).
+  const primary = useThemeColor('primary');
+  // Build category colors with primary as the first entry.
+  const CATEGORY_COLORS = [primary, ...CATEGORY_COLORS_FIXED.slice(1)];
+
   return (
     <>
       {/* ── Middle Row: Weekly Chart + Category Performance ─────── */}
@@ -103,7 +112,8 @@ export default function DashboardCharts({
                     {weeklyBarData.map((entry, index) => (
                       <Cell
                         key={index}
-                        fill={entry.rate >= 80 ? 'hsl(142, 71%, 45%)' : entry.rate >= 50 ? 'hsl(142, 71%, 60%)' : 'hsl(142, 71%, 75%)'}
+                        fill={primary}
+                        fillOpacity={entry.rate >= 80 ? 1 : entry.rate >= 50 ? 0.6 : 0.3}
                       />
                     ))}
                   </Bar>
@@ -183,8 +193,8 @@ export default function DashboardCharts({
                 <AreaChart data={monthlyChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor={primary} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={primary} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -216,7 +226,7 @@ export default function DashboardCharts({
                   <Area
                     type="monotone"
                     dataKey="rate"
-                    stroke="hsl(142, 71%, 45%)"
+                    stroke={primary}
                     strokeWidth={2}
                     fill="url(#greenGradient)"
                   />
@@ -262,7 +272,7 @@ export default function DashboardCharts({
                       fontSize: '12px',
                     }}
                   />
-                  <Bar dataKey="completed" stackId="a" fill="hsl(142, 71%, 45%)" radius={[0, 0, 0, 0]} maxBarSize={24} name="Selesai" />
+                  <Bar dataKey="completed" stackId="a" fill={primary} radius={[0, 0, 0, 0]} maxBarSize={24} name="Selesai" />
                   <Bar dataKey="missed" stackId="a" fill="hsl(0, 0%, 88%)" radius={[4, 4, 0, 0]} maxBarSize={24} name="Tidak" />
                 </BarChart>
               </ResponsiveContainer>
@@ -317,7 +327,8 @@ export default function DashboardCharts({
                     {weeklyPattern.map((entry, index) => (
                       <Cell
                         key={index}
-                        fill={entry.rate >= 80 ? 'hsl(142, 71%, 45%)' : entry.rate >= 50 ? 'hsl(142, 71%, 60%)' : 'hsl(142, 71%, 75%)'}
+                        fill={primary}
+                        fillOpacity={entry.rate >= 80 ? 1 : entry.rate >= 50 ? 0.6 : 0.3}
                       />
                     ))}
                   </Bar>

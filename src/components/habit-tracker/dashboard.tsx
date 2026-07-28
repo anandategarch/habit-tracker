@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { useTypewriter } from '@/hooks/use-typewriter';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   Target,
   CheckCircle,
@@ -225,7 +226,7 @@ function MoodEmoji({ mood }: { mood: string }) {
   };
   const emoji = map[mood.toLowerCase()] || '😐';
   const colorMap: Record<string, string> = {
-    great: 'text-green-500',
+    great: 'text-primary',
     good: 'text-green-400',
     okay: 'text-yellow-500',
     bad: 'text-orange-500',
@@ -348,6 +349,7 @@ function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; onRefres
 export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const queryClient = useQueryClient();
+  const primaryColor = useThemeColor('primary');
   const [period, setPeriod] = useState<Period>('all');
   const [retryCount, setRetryCount] = useState(0);
 
@@ -695,7 +697,7 @@ export default function Dashboard() {
                               style={{
                                 height: `${Math.max(4, (wt.minutes / 1440) * 100)}%`,
                                 minHeight: '4px',
-                                backgroundColor: th.targetTime && wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? '#22c55e' : '#ef4444',
+                                backgroundColor: th.targetTime && wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : '#ef4444',
                                 opacity: wt.minutes !== null ? 1 : 0.2,
                               }}
                               title={`${wt.day}: ${wt.time}`}
