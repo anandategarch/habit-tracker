@@ -1570,10 +1570,57 @@
   .anim-stagger,
   .anim-ring,
   .anim-lift,
-  .anim-cursor {
+  .anim-cursor,
+  .anim-flame-pulse,
+  .anim-flash-green,
+  .anim-crossfade {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   GAMIFICATION ANIMATIONS — Flame pulse, Number flash, Quote crossfade
+   Combo: playful reward feedback for streaks, completions, and refreshes
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Streak flame pulse: scale 1→1.12→1 every 1.5s when streak ≥ 7 ── */
+@keyframes anim-flame-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(249, 115, 22, 0)); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.5)); }
+}
+.anim-flame-pulse {
+  animation: anim-flame-pulse 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* ── Number flash: green pulse when a value increases (habit completed, XP gained) ── */
+@keyframes anim-flash-green {
+  0% { color: inherit; transform: scale(1); }
+  30% { color: oklch(0.622 0.174 142); transform: scale(1.12); }
+  100% { color: inherit; transform: scale(1); }
+}
+.anim-flash-green {
+  animation: anim-flash-green 0.8s ease-out;
+}
+
+/* ── Quote crossfade: fade out + slide up, new quote fades in from below ── */
+@keyframes anim-crossfade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-crossfade {
+  animation: anim-crossfade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Chart draw: bars grow from bottom, lines draw left-to-right ── */
+@keyframes anim-chart-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.anim-chart-bar {
+  transform-origin: bottom;
+  animation: anim-chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
