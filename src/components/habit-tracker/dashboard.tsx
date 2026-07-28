@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { useTypewriter } from '@/hooks/use-typewriter';
+import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import {
   Target,
   CheckCircle,
@@ -592,6 +593,7 @@ export default function Dashboard() {
       </section>
 
       {/* ── Progress Rings Section ───────────────────────────────── */}
+      <ScrollReveal>
       <section aria-label="Progress overview">
         <Card className="p-4">
           <CardContent className="p-0">
@@ -613,7 +615,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </section>
+      </ScrollReveal>
 
+      <ScrollReveal delay={100}>
       <DashboardCharts
         weeklyBarData={weeklyBarData}
         categoryPerformance={displayData.categoryPerformance}
@@ -622,9 +626,11 @@ export default function Dashboard() {
         weeklyPattern={displayData.weeklyPattern}
         chartLabel={chartLabel}
       />
+      </ScrollReveal>
 
       {/* ── Time-Tracked Habits (Waktu Habit Minggu Ini) ────────────── */}
       {displayData.timeTrackedSummary.length > 0 && (
+        <ScrollReveal delay={200}>
         <section aria-label="Time analysis">
           <Card className="p-4">
             <CardContent className="p-0">
@@ -717,6 +723,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </section>
+        </ScrollReveal>
       )}
 
       {/* ── Last Done (Terakhir Dilakukan) ─────────────────────────── */}

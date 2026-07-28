@@ -1624,3 +1624,133 @@
   transform-origin: bottom;
   animation: anim-chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   TRANSITION ANIMATIONS — Tab switch, Expand/collapse, Nav slide,
+   Modal scale, Scroll reveal, Drawer slide-up
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── #1 Tab switch: fade + slide-in from right ── */
+@keyframes anim-tab-enter {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.anim-tab-enter {
+  animation: anim-tab-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── #2 Expand/collapse: smooth height + fade using grid-template-rows ── */
+.anim-expand {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.3s ease;
+  opacity: 1;
+  overflow: hidden;
+}
+.anim-expand > * {
+  overflow: hidden;
+}
+.anim-expand-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+/* ── #3 Bottom nav active indicator: slide between positions ── */
+.anim-nav-pill {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.2s ease;
+}
+
+/* ── #4 Modal/dialog: scale 0.95→1 + fade in (enhance shadcn defaults) ── */
+@keyframes anim-modal-enter {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.anim-modal-enter {
+  animation: anim-modal-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes anim-modal-exit {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.95) translateY(8px); }
+}
+.anim-modal-exit {
+  animation: anim-modal-exit 0.2s ease-in forwards;
+}
+
+/* ── #6 Habit card check: enhanced pop with checkmark scale-in ── */
+@keyframes anim-check-pop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.03); }
+  60%  { transform: scale(0.99); }
+  100% { transform: scale(1); }
+}
+.anim-check-pop {
+  animation: anim-check-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes anim-checkmark-in {
+  from { opacity: 0; transform: scale(0.3); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.anim-checkmark-in {
+  animation: anim-checkmark-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── #7 Scroll reveal: fade-up when element enters viewport ── */
+@keyframes anim-scroll-reveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-scroll-reveal {
+  animation: anim-scroll-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── #8 Drawer/sheet: slide up from bottom ── */
+@keyframes anim-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.anim-sheet-up {
+  animation: anim-sheet-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes anim-sheet-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+.anim-sheet-down {
+  animation: anim-sheet-down 0.25s ease-in forwards;
+}
+
+/* ── #4/#8 Enhance shadcn Dialog/Drawer/Sheet with premium easing ── */
+/* These override the default tw-animate-css durations with smoother curves */
+[data-state="open"].animate-in {
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+[data-state="closed"].animate-out {
+  animation-timing-function: ease-in !important;
+}
+/* Dialog content: add subtle translateY to the zoom for a "lift" feel */
+[data-state="open"][role="dialog"] {
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* ── Reduced motion: disable all transition animations ── */
+@media (prefers-reduced-motion: reduce) {
+  .anim-tab-enter,
+  .anim-expand,
+  .anim-expand-collapsed,
+  .anim-modal-enter,
+  .anim-modal-exit,
+  .anim-check-pop,
+  .anim-checkmark-in,
+  .anim-scroll-reveal,
+  .anim-sheet-up,
+  .anim-sheet-down,
+  .anim-nav-pill {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    grid-template-rows: 1fr !important;
+  }
+}

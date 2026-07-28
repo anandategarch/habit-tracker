@@ -207,8 +207,8 @@ export default function Home() {
           {/* Content area — extra bottom padding on mobile so content
               doesn't get hidden behind the fixed bottom navigation bar. */}
           <div className="flex-1 p-4 md:p-6 overflow-auto pb-24 md:pb-6">
-            <div className="animate-slide-up">
-              <ActiveComponent key={activeTab} />
+            <div key={activeTab} className="anim-tab-enter">
+              <ActiveComponent />
             </div>
           </div>
         </main>
@@ -228,7 +228,7 @@ export default function Home() {
             'pb-[env(safe-area-inset-bottom)]'
           )}
         >
-          {BOTTOM_NAV_ITEMS.map((item) => {
+          {BOTTOM_NAV_ITEMS.map((item, navIdx) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
@@ -246,13 +246,23 @@ export default function Home() {
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {/* Active indicator: top border + pill background */}
-                {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
-                )}
-                {isActive && (
-                  <span className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/10" />
-                )}
+                {/* Sliding active indicator — always rendered, slides via transform */}
+                <span
+                  className={cn(
+                    'absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/10 anim-nav-pill',
+                    isActive ? 'opacity-100' : 'opacity-0',
+                  )}
+                  style={{
+                    transform: isActive ? 'translateX(0)' : `translateX(${(navIdx - BOTTOM_NAV_ITEMS.findIndex(n => n.id === activeTab)) * 100}%)`,
+                  }}
+                />
+                {/* Top accent bar — always rendered, slides with pill */}
+                <span
+                  className={cn(
+                    'absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary anim-nav-pill',
+                    isActive ? 'opacity-100' : 'opacity-0',
+                  )}
+                />
                 <Icon className={cn('h-5 w-5 shrink-0 relative z-10', isActive && 'text-primary')} />
                 <span className="text-xs font-medium leading-none relative z-10">{item.label}</span>
               </button>
