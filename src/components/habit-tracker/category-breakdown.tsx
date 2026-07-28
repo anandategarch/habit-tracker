@@ -231,8 +231,11 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
 
   // Fetch ALL expense transactions for the period (no category filter) so we
   // can derive the category dropdown + switch categories instantly.
+  // Query key is namespaced under ['finance', ...] so that invalidateFinance()
+  // (which invalidates { queryKey: ['finance'] }) refetches this query
+  // immediately when a new transaction is added/edited/deleted.
   const { data: allTx = [], isLoading } = useQuery<Transaction[]>({
-    queryKey: ['cb-transactions', period.start, period.end],
+    queryKey: ['finance', 'cb-transactions', period.start, period.end],
     queryFn: async () => {
       const res = await fetch(
         `/api/finance/transactions?type=expense&startDate=${period.start}&endDate=${period.end}`,
@@ -240,7 +243,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
       if (!res.ok) return [];
       return res.json();
     },
-    staleTime: 30_000,
+    staleTime: 10_000,
   });
 
   // Categories that have transactions (dropdown only shows these)
