@@ -72,7 +72,7 @@ export default function Badges() {
 
   const invalidateBadges = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['badges'] });
-    invalidateBadges();
+    triggerRefresh();
   }, [queryClient, triggerRefresh]);
 
   // ── Derived ─────────────────────────────────────────────────────────────
