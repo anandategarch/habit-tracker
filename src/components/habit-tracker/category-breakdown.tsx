@@ -63,55 +63,15 @@ function defaultPeriodValue(): string {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-// Premium fintech gradient palette — each weekday gets its own gradient.
-// Inspired by Linear / Stripe / Arc / Raycast / Apple interfaces.
-// Mapping (per user spec):
-//   Yesterday / Sun → Violet       (#7C3AED → #4F46E5)
-//   Monday          → Indigo-Blue  (#4F46E5 → #2563EB)
-//   Tuesday         → Cyan-Blue    (#06B6D4 → #3B82F6)
-//   Wednesday       → Pink-Purple  (#EC4899 → #A855F7)
-//   Thursday        → Emerald      (#10B981 → #34D399)
-//   Friday          → Orange-Peach (#F59E0B → #FB923C)
-//   Saturday        → Blue-Cyan    (#2563EB → #06B6D4)
-const DAY_GRADIENTS = [
-  { name: 'violet',       from: '#7C3AED', to: '#4F46E5', tint: 'rgba(124,58,237,0.08)' },  // Sun / Yesterday
-  { name: 'indigo-blue',  from: '#4F46E5', to: '#2563EB', tint: 'rgba(79,70,229,0.08)' },   // Mon
-  { name: 'cyan-blue',    from: '#06B6D4', to: '#3B82F6', tint: 'rgba(6,182,212,0.08)' },   // Tue
-  { name: 'pink-purple',  from: '#EC4899', to: '#A855F7', tint: 'rgba(236,72,153,0.08)' },  // Wed
-  { name: 'emerald',      from: '#10B981', to: '#34D399', tint: 'rgba(16,185,129,0.08)' },  // Thu
-  { name: 'orange-peach', from: '#F59E0B', to: '#FB923C', tint: 'rgba(245,158,11,0.08)' },  // Fri
-  { name: 'blue-cyan',    from: '#2563EB', to: '#06B6D4', tint: 'rgba(37,99,235,0.08)' },   // Sat
-];
-
-/** Weekday-based color assignment: the day-of-week (0=Sun ... 6=Sat)
- *  determines the gradient. Same weekday always gets the same color,
- *  different weekdays get different colors — consistent & predictable. */
-function dayGradient(dateKeyStr: string) {
-  // dateKeyStr = "yyyy-MM-dd"
-  const d = new Date(dateKeyStr + 'T12:00:00');
-  const weekday = d.getDay(); // 0=Sun, 6=Sat
-  return DAY_GRADIENTS[weekday % DAY_GRADIENTS.length];
-}
-
-/**
- * Amount-based intensity (Opsi B — hybrid heatmap feel).
- * Maps an amount to an opacity in [0.25, 1.0] based on where it sits
- * between min and max. Small transactions = very faded (0.25), large = solid (1.0).
- * Wide range makes the heatmap effect clearly visible even when min/max are close.
- */
-function amountIntensity(amount: number, min: number, max: number): number {
-  if (max <= min) return 1; // all same amount → full opacity
-  const t = (amount - min) / (max - min); // 0..1
-  return 0.25 + t * 0.75; // 0.25 .. 1.0
-}
-
-/** Convert a hex color (#RRGGBB) + opacity (0..1) into an rgba() string. */
-function hexToRgba(hex: string, opacity: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${opacity})`;
-}
+// Single premium theme gradient — used consistently across the entire
+// timeline. Keeps the UI clean and minimal (not too many colors).
+// Violet → Indigo → Blue, matching the app's primary palette.
+const THEME = {
+  from: '#7C3AED',
+  to: '#2563EB',
+  fromSoft: 'rgba(124, 58, 237, 0.08)',
+  toSoft: 'rgba(37, 99, 235, 0.06)',
+};
 
 function compactRupiah(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
@@ -159,8 +119,7 @@ function groupByDate(txs: Transaction[]) {
       const total = items.reduce((s, t) => s + t.amount, 0);
       // sort within group by time desc
       items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const gradient = dayGradient(key);
-      return { key, label, txs: items, total, gradient };
+      return { key, label, txs: items, total };
     });
 }
 
@@ -294,9 +253,8 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
     const total = txs.reduce((s, t) => s + t.amount, 0);
     const count = txs.length;
     const max = txs.reduce((m, t) => Math.max(m, t.amount), 0);
-    const min = txs.reduce((m, t) => Math.min(m, t.amount), max);
     const avg = count > 0 ? Math.round(total / count) : 0;
-    return { total, count, max, min, avg };
+    return { total, count, max, avg };
   }, [txs]);
 
   // Daily trend
@@ -506,71 +464,38 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
 
             {allExpanded && (
               <div className="cb-timeline">
-                {groups.map((g) => {
-                  const grad = g.gradient;
-                  // Day header intensity = based on the day's average amount
-                  // relative to the period's min/max. A day with big spending
-                  // gets a more saturated header; a quiet day stays soft.
-                  const dayAvg = g.txs.length > 0 ? g.total / g.txs.length : 0;
-                  const dayIntensity = amountIntensity(dayAvg, stats.min, stats.max);
-                  // Header background opacity scales with intensity (0.06..0.16)
-                  const headerOpacity = (0.06 + dayIntensity * 0.10).toFixed(2);
-                  return (
-                  <div
-                    key={g.key}
-                    className="cb-timeline-group"
-                    style={{
-                      '--day-from': grad.from,
-                      '--day-to': grad.to,
-                      '--day-tint': grad.tint,
-                    } as React.CSSProperties}
-                  >
-                    {/* Colorful day header — intensity reflects avg spending */}
+                {groups.map((g) => (
+                  <div key={g.key} className="cb-timeline-group">
+                    {/* Day header — clean, single theme gradient tint */}
                     <div
                       className="cb-timeline-date cb-timeline-date-colorful"
-                      style={{ background: `linear-gradient(90deg, ${hexToRgba(grad.from, Number(headerOpacity))}, ${hexToRgba(grad.to, Number(headerOpacity) * 0.5)})` }}
+                      style={{ background: `linear-gradient(90deg, ${THEME.fromSoft}, ${THEME.toSoft})` }}
                     >
                       <span
                         className="cb-timeline-pill"
-                        style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})`, opacity: dayIntensity }}
+                        style={{ background: `linear-gradient(135deg, ${THEME.from}, ${THEME.to})` }}
                       />
                       <span className="cb-timeline-day-label">{g.label}</span>
                       <span
                         className="cb-timeline-count cb-timeline-count-color"
-                        style={{ color: grad.from, opacity: 0.6 + dayIntensity * 0.4 }}
+                        style={{ color: THEME.from }}
                       >
                         {g.txs.length} trx · {formatRupiah(g.total)}
                       </span>
                     </div>
-                    <div
-                      className="cb-timeline-items cb-timeline-items-tinted"
-                      style={{ background: grad.tint }}
-                    >
+                    <div className="cb-timeline-items">
                       {g.txs.map((t) => {
                         const m = getCategoryMeta(t.category);
-                        // Per-transaction intensity: small = very faded, large = solid
-                        const txIntensity = amountIntensity(t.amount, stats.min, stats.max);
-                        // Row background: day color tinted by intensity.
-                        // Small tx = very light (3%), large tx = strong (18%).
-                        // This makes the heatmap effect obvious: big spenders pop.
-                        const rowBgOpacity = 0.03 + txIntensity * 0.15;
                         return (
                           <div
                             key={t.id}
-                            className="cb-tx-row cb-tx-row-colorful"
-                            style={{
-                              borderLeftColor: hexToRgba(grad.from, txIntensity),
-                              background: hexToRgba(grad.from, rowBgOpacity),
-                            }}
+                            className="cb-tx-row-theme"
                           >
                             <span
-                              className="cb-tx-dot cb-tx-dot-day"
-                              style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})`, opacity: txIntensity }}
+                              className="cb-tx-dot-theme"
+                              style={{ background: `linear-gradient(135deg, ${THEME.from}, ${THEME.to})` }}
                             />
-                            <div
-                              className="cb-tx-logo cb-tx-logo-colorful"
-                              style={{ background: hexToRgba(grad.from, 0.08 * txIntensity + 0.04) }}
-                            >
+                            <div className="cb-tx-logo-theme">
                               {merchantEmoji(t.description || '', m.emoji)}
                             </div>
                             <div className="cb-tx-info">
@@ -580,15 +505,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                                 {formatTime(t.date)}
                               </p>
                             </div>
-                            <span
-                              className="cb-tx-amount cb-tx-amount-colorful"
-                              style={{
-                                background: `linear-gradient(135deg, ${hexToRgba(grad.from, 0.15 * txIntensity + 0.05)}, ${hexToRgba(grad.to, 0.15 * txIntensity + 0.05)})`,
-                                color: grad.from,
-                                opacity: 0.5 + txIntensity * 0.5,
-                                fontWeight: 600 + Math.round(txIntensity * 200),
-                              }}
-                            >
+                            <span className="cb-tx-amount-theme">
                               {formatRupiah(t.amount)}
                             </span>
                           </div>
@@ -596,8 +513,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                       })}
                     </div>
                   </div>
-                  );
-                })}
+                ))}
               </div>
             )}
             {!allExpanded && (
