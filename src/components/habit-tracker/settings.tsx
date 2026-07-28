@@ -39,7 +39,6 @@ import {
   User,
   Palette,
   Globe,
-  Target,
   Save,
   Database,
   Trash2,
@@ -248,7 +247,9 @@ export default function Settings() {
   const dbStats: { habits: number; logs: number; days: number } | null = settings ? {
     habits: Array.isArray(habitsData) ? habitsData.length : 0,
     logs: Array.isArray(logsData) ? logsData.length : 0,
-    days: 0,
+    // "Days Tracked" = number of unique days with daily-log entries.
+    // DailyLog has a unique constraint on date, so length = unique days.
+    days: Array.isArray(logsData) ? logsData.length : 0,
   } : null;
 
   const handleSave = useCallback(async () => {

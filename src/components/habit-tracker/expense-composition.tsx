@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { MoreHorizontal, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, type AnalyticsData } from '@/components/habit-tracker/finance-types';
 import {
@@ -436,13 +436,6 @@ export default function ExpenseComposition({
               <SelectItem value="6">6 Bulan Terakhir</SelectItem>
             </SelectContent>
           </Select>
-          <button
-            type="button"
-            aria-label="More options"
-            className="ec-icon-btn"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
         </div>
       </header>
 

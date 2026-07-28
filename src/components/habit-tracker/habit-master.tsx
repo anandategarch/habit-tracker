@@ -52,17 +52,8 @@ import {
 import { Switch } from '@/components/ui/switch';
 import {
   Plus,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  Search,
-  Filter,
-  ListFilter,
   Clock,
   History,
-  X,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -73,7 +64,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
-import { getBadgeClass, getDotClass, getLabelColor } from '@/lib/label-colors';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
 // ── Types & Constants (imported from habit-master-types) ──────────────────

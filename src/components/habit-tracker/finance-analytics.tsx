@@ -142,7 +142,9 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
             {data.topCategories.length > 0 ? (() => {
               const totalSpending = data.topCategories.reduce((s, c) => s + c.amount, 0);
               const globalAvg = totalSpending / data.topCategories.length;
-              const MONTHS = 6; // data covers 6 months
+              // Use actual number of months in the data (not hardcoded 6) so the
+              // monthly average is correct even for users with <6 months of data.
+              const monthCount = data.monthlyComposition?.length || 1;
               const maxAmount = Math.max(...data.topCategories.map(c => c.amount));
               const largest = data.topCategories[0];
               const smallest = data.topCategories[data.topCategories.length - 1];
@@ -186,7 +188,7 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
                       const color = rankColors[i % rankColors.length];
                       const pct = maxAmount > 0 ? Math.round((item.amount / maxAmount) * 100) : 0;
                       // Per-category monthly average (differs per category)
-                      const catMonthlyAvg = item.amount / MONTHS;
+                      const catMonthlyAvg = item.amount / monthCount;
                       const avgPct = maxAmount > 0 ? Math.round((globalAvg / maxAmount) * 100) : 0;
                       const diffPct = globalAvg > 0 ? Math.round(((item.amount - globalAvg) / globalAvg) * 100) : 0;
                       const isAboveAvg = item.amount > globalAvg;

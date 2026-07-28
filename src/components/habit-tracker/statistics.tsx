@@ -213,10 +213,9 @@ function LoadingSkeleton() {
 
 export default function Statistics() {
   const refreshKey = useAppStore(s => s.refreshKey);
-  const [fetchError, setFetchError] = useState(false);
   const [period, setPeriod] = useState<Period>('all');
 
-  const { data: data, isFetching: fetching } = useQuery<StatisticsData>({
+  const { data: data, isFetching: fetching, isError } = useQuery<StatisticsData>({
     queryKey: ['statistics', period, refreshKey],
     queryFn: async () => {
       const r = await fetch(`/api/statistics?period=${period}`);
@@ -227,7 +226,7 @@ export default function Statistics() {
     },
     staleTime: 60_000,
   });
-  const loading = data === undefined && !fetchError;
+  const loading = data === undefined && !isError && isFetching;
 
   const handlePeriodChange = (newPeriod: Period) => {
     setPeriod(newPeriod);
@@ -247,6 +246,16 @@ export default function Statistics() {
   }, [data]);
 
   if (loading) return <LoadingSkeleton />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="text-4xl mb-3">⚠️</div>
+        <p className="text-sm font-medium text-muted-foreground">Gagal memuat statistik</p>
+        <p className="text-xs text-muted-foreground mt-1">Coba refresh halaman atau periksa koneksi.</p>
+      </div>
+    );
+  }
 
   const displayData = data || DEFAULT_STATS;
 

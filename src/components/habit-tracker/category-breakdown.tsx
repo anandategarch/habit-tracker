@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { SlidersHorizontal, ChevronDown, Clock } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, type Transaction } from '@/components/habit-tracker/finance-types';
 import {
@@ -335,9 +335,6 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
               ))}
             </SelectContent>
           </Select>
-          <button type="button" aria-label="Filter" className="cb-icon-btn">
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
         </div>
       </header>
 
