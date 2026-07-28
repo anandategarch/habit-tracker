@@ -109,6 +109,7 @@ export interface ThemePreset {
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
+  // ── Original presets (kept for backward compat) ──
   { name: 'Emerald', primaryColor: '#22c55e', secondaryColor: '#10b981', emoji: '🌿' },
   { name: 'Ocean', primaryColor: '#0ea5e9', secondaryColor: '#06b6d4', emoji: '🌊' },
   { name: 'Violet', primaryColor: '#8b5cf6', secondaryColor: '#a78bfa', emoji: '🔮' },
@@ -117,4 +118,18 @@ export const THEME_PRESETS: ThemePreset[] = [
   { name: 'Slate', primaryColor: '#64748b', secondaryColor: '#94a3b8', emoji: '🪨' },
   { name: 'Teal', primaryColor: '#14b8a6', secondaryColor: '#2dd4bf', emoji: '🔱' },
   { name: 'Crimson', primaryColor: '#dc2626', secondaryColor: '#ef4444', emoji: '❤️' },
+
+  // ── New modern soft presets (12 additions) ──
+  { name: 'Lavender', primaryColor: '#a78bfa', secondaryColor: '#c4b5fd', emoji: '💜' },
+  { name: 'Mint', primaryColor: '#6ee7b7', secondaryColor: '#a7f3d0', emoji: '🍃' },
+  { name: 'Sky', primaryColor: '#7dd3fc', secondaryColor: '#bae6fd', emoji: '☁️' },
+  { name: 'Peach', primaryColor: '#fdba74', secondaryColor: '#fed7aa', emoji: '🍑' },
+  { name: 'Coral', primaryColor: '#fb7185', secondaryColor: '#fda4af', emoji: '🪸' },
+  { name: 'Sunset', primaryColor: '#f97316', secondaryColor: '#fb923c', emoji: '🌅' },
+  { name: 'Indigo', primaryColor: '#6366f1', secondaryColor: '#818cf8', emoji: '🔵' },
+  { name: 'Sage', primaryColor: '#84cc16', secondaryColor: '#bef264', emoji: '🌱' },
+  { name: 'Plum', primaryColor: '#a855f7', secondaryColor: '#c084fc', emoji: '🍇' },
+  { name: 'Mocha', primaryColor: '#a78a6f', secondaryColor: '#c4a882', emoji: '☕' },
+  { name: 'Frost', primaryColor: '#94a3b8', secondaryColor: '#cbd5e1', emoji: '❄️' },
+  { name: 'Neon', primaryColor: '#22d3ee', secondaryColor: '#67e8f9', emoji: '⚡' },
 ];
