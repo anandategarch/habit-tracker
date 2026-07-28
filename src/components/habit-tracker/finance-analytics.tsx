@@ -25,13 +25,13 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import ExpenseHeatmap from '@/components/habit-tracker/expense-heatmap';
 import ExpenseComposition from '@/components/habit-tracker/expense-composition';
+import CategoryBreakdown from '@/components/habit-tracker/category-breakdown';
 
 // ── ChartInfo Helper ────────────────────────────────────────────────────
 
@@ -255,6 +255,9 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
 
       {/* 1. Komposisi Pengeluaran Bulanan — premium analytics workspace */}
       <ExpenseComposition data={data} getCategoryMeta={getCategoryMeta} />
+
+      {/* 2. Rincian Pengeluaran per Kategori — premium mobile fintech breakdown */}
+      <CategoryBreakdown getCategoryMeta={getCategoryMeta} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 3. Savings Trend */}
@@ -490,81 +493,30 @@ export default function FinanceAnalytics({ getCategoryMeta }: FinanceAnalyticsPr
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Weekly Pattern */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            Pola Pengeluaran per Hari
-            <ChartInfo text="Total dan rata-rata pengeluaran per hari dalam seminggu selama 6 bulan terakhir. Berguna untuk melihat pola: hari mana biasanya pengeluaran lebih tinggi." />
-          </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={data.weeklyPattern}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <RechartsTooltip
-                  formatter={(value: number, name: string) => [formatRupiah(value), name === 'total' ? 'Total' : 'Rata-rata']}
-                  contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                />
-                <Bar dataKey="total" fill="#a855f7" radius={[4, 4, 0, 0]} name="total" />
-                <Bar dataKey="avg" fill="#c084fc" radius={[4, 4, 0, 0]} name="avg" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Summary Stats + Largest Expenses */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            Ringkasan & Pengeluaran Terbesar
-            <ChartInfo text="Total pemasukan dan pengeluaran 6 bulan terakhir. Rasio tabungan = (pemasukan − pengeluaran) / pemasukan × 100%. Top 5 transaksi pengeluaran terbesar dalam periode." />
-          </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg bg-primary/10">
-                <p className="text-xs text-muted-foreground mb-1">Total Masuk</p>
-                <p className="text-sm font-bold text-primary">{formatRupiah(data.totalIncomeInRange)}</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/20">
-                <p className="text-xs text-muted-foreground mb-1">Total Keluar</p>
-                <p className="text-sm font-bold text-red-500">{formatRupiah(data.totalExpenseInRange)}</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-primary/10">
-                <p className="text-xs text-muted-foreground mb-1">Rasio Tabungan</p>
-                <p className={cn('text-sm font-bold', data.savingsRate >= 0 ? 'text-primary' : 'text-red-500')}>
-                  {data.savingsRate}%
-                </p>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">5 Pengeluaran Terbesar</p>
-              <div className="space-y-1.5">
-                {data.largestExpenses.length > 0 ? data.largestExpenses.map((tx, i) => {
-                  const meta = getCategoryMeta(tx.category);
-                  return (
-                    <div key={tx.id} className="flex items-center gap-2 text-xs">
-                      <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
-                      <span>{meta.emoji}</span>
-                      <span className="flex-1 truncate">{tx.description || tx.category}</span>
-                      <span className="font-semibold text-red-500 shrink-0">{formatRupiah(tx.amount)}</span>
-                    </div>
-                  );
-                }) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">📊 Belum ada data</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Weekly Pattern (full width) */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          Pola Pengeluaran per Hari
+          <ChartInfo text="Total dan rata-rata pengeluaran per hari dalam seminggu selama 6 bulan terakhir. Berguna untuk melihat pola: hari mana biasanya pengeluaran lebih tinggi." />
+        </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={data.weeklyPattern}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <RechartsTooltip
+                formatter={(value: number, name: string) => [formatRupiah(value), name === 'total' ? 'Total' : 'Rata-rata']}
+                contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+              />
+              <Bar dataKey="total" fill="#a855f7" radius={[4, 4, 0, 0]} name="total" />
+              <Bar dataKey="avg" fill="#c084fc" radius={[4, 4, 0, 0]} name="avg" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
