@@ -43,7 +43,6 @@ import {
   Trash2,
   Calendar,
   CheckCircle2,
-  Circle,
   ChevronDown,
   ChevronUp,
   X,

@@ -98,12 +98,10 @@ import type {
 import {
   FALLBACK_EXPENSE,
   FALLBACK_INCOME,
-  EMOJI_OPTIONS,
   FALLBACK_SOURCES,
   formatNominalInput,
   parseNominalInput,
   formatRupiah,
-  capitalize,
 } from './finance-types';
 
 // ── Component ────────────────────────────────────────────────────────────────

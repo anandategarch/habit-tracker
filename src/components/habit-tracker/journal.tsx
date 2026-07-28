@@ -39,9 +39,6 @@ import {
   BookOpen,
   Trash2,
   Calendar,
-  Smile,
-  Frown,
-  Meh,
   Edit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';

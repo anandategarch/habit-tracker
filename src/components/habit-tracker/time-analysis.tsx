@@ -342,11 +342,7 @@ export default function TimeAnalysisDialog({
               <Card className="py-3">
                 <CardHeader className="pb-2 pt-0 px-4">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {filter.startsWith('thisWeek') || filter.startsWith('lastWeek')
-                      ? 'Per Hari'
-                      : filter === 'thisMonth' || filter === 'lastMonth'
-                        ? 'Per Hari'
-                        : 'Per Hari'}
+                    Per Hari
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-2">
@@ -426,7 +422,7 @@ export default function TimeAnalysisDialog({
                           Terlambat
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="w-1 h-0 border-t-2 border-dashed border-emerald-500 inline-block w-4" />
+                          <span className="w-4 h-0 border-t-2 border-dashed border-emerald-500 inline-block" />
                           Target
                         </span>
                       </>

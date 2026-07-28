@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wallet, ArrowUpRight, ArrowDownRight, Layers } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { formatRupiah, type FundSource, type Transaction } from './finance-types';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';

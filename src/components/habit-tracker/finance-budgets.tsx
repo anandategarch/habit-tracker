@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Target, Plus, Edit3, Trash2, History, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { Target, Plus, Edit3, Trash2, History, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah } from './finance-types';
 import type { BudgetItem, DashboardData } from './finance-types';

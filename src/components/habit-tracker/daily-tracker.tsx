@@ -15,7 +15,6 @@ import {
   Flame,
   Star,
   Clock,
-  Target,
   Zap,
 } from 'lucide-react';
 import {
