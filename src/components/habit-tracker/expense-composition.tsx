@@ -16,6 +16,7 @@ import {
 import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, type AnalyticsData } from '@/components/habit-tracker/finance-types';
+import { CountUpRupiah } from '@/components/habit-tracker/count-up';
 import {
   Select,
   SelectContent,
@@ -74,13 +75,15 @@ function KpiCard({
   sub,
   accent,
   spark,
+  staggerIndex = 0,
 }: {
   emoji: string;
   label: string;
-  value: string;
+  value: React.ReactNode;
   sub?: React.ReactNode;
   accent: 'red' | 'orange' | 'amber' | 'purple' | 'pink' | 'blue';
   spark?: number[];
+  staggerIndex?: number;
 }) {
   const accents: Record<string, string> = {
     red: 'ec-kpi-red',
@@ -117,7 +120,10 @@ function KpiCard({
   }, [spark]);
 
   return (
-    <div className={cn('ec-kpi group', accents[accent])}>
+    <div
+      className={cn('ec-kpi group anim-stagger anim-lift', accents[accent])}
+      style={{ animationDelay: `${staggerIndex * 60}ms` }}
+    >
       {/* Decorative gradient orb */}
       <div
         className="ec-kpi-orb"
@@ -445,7 +451,8 @@ export default function ExpenseComposition({
           emoji="💳"
           label="Total Pengeluaran"
           accent="red"
-          value={formatRupiah(kpi.total)}
+          staggerIndex={0}
+          value={<CountUpRupiah amount={kpi.total} />}
           spark={totalSpark}
           sub={
             totals.length > 1 ? (
@@ -472,7 +479,8 @@ export default function ExpenseComposition({
           emoji="📈"
           label="Rata-rata per Bulan"
           accent="orange"
-          value={formatRupiah(kpi.avg)}
+          staggerIndex={1}
+          value={<CountUpRupiah amount={kpi.avg} />}
           spark={totalSpark}
           sub={<span className="text-muted-foreground">dari {totals.length} bulan</span>}
         />
@@ -480,7 +488,8 @@ export default function ExpenseComposition({
           emoji="📊"
           label="Bulan Tertinggi"
           accent="amber"
-          value={kpi.highest ? formatRupiah(kpi.highest.total) : '-'}
+          staggerIndex={2}
+          value={kpi.highest ? <CountUpRupiah amount={kpi.highest.total} /> : '-'}
           spark={highestSpark}
           sub={
             kpi.highest && (
@@ -492,7 +501,8 @@ export default function ExpenseComposition({
           emoji="📉"
           label="Bulan Terendah"
           accent="blue"
-          value={kpi.lowest ? formatRupiah(kpi.lowest.total) : '-'}
+          staggerIndex={3}
+          value={kpi.lowest ? <CountUpRupiah amount={kpi.lowest.total} /> : '-'}
           spark={lowestSpark}
           sub={
             kpi.lowest && (

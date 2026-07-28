@@ -13,6 +13,7 @@ import {
 import { ChevronDown, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, type Transaction } from '@/components/habit-tracker/finance-types';
+import { CountUpRupiah, CountUpNumber } from '@/components/habit-tracker/count-up';
 import {
   Select,
   SelectContent,
@@ -338,21 +339,21 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
               <div className="cb-stat-line cb-grad-purple" />
               <div className="cb-stat-body">
                 <span className="cb-stat-label">Total</span>
-                <span className="cb-stat-value">{formatRupiah(stats.total)}</span>
+                <span className="cb-stat-value"><CountUpRupiah amount={stats.total} /></span>
               </div>
             </div>
             <div className="cb-stat">
               <div className="cb-stat-line cb-grad-blue" />
               <div className="cb-stat-body">
                 <span className="cb-stat-label">Transaksi</span>
-                <span className="cb-stat-value">{stats.count} <span className="cb-stat-unit">trx</span></span>
+                <span className="cb-stat-value"><CountUpNumber value={stats.count} /> <span className="cb-stat-unit">trx</span></span>
               </div>
             </div>
             <div className="cb-stat">
               <div className="cb-stat-line cb-grad-orange" />
               <div className="cb-stat-body">
                 <span className="cb-stat-label">Tertinggi</span>
-                <span className="cb-stat-value">{formatRupiah(stats.max)}</span>
+                <span className="cb-stat-value"><CountUpRupiah amount={stats.max} /></span>
               </div>
             </div>
           </div>

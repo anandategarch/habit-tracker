@@ -28,6 +28,7 @@ import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass } from '@/lib/label-colors';
+import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   format,
@@ -237,12 +238,14 @@ function KpiCard({
   value,
   sub,
   accent,
+  staggerIndex = 0,
 }: {
   icon: React.ElementType;
   label: string;
   value: React.ReactNode;
   sub: React.ReactNode;
   accent: 'green' | 'orange' | 'rose' | 'amber';
+  staggerIndex?: number;
 }) {
   const accents: Record<string, string> = {
     green: 'kpi-card-green',
@@ -257,7 +260,10 @@ function KpiCard({
     amber: 'text-amber-500',
   };
   return (
-    <div className={cn('kpi-card group', accents[accent])}>
+    <div
+      className={cn('kpi-card group anim-stagger anim-lift', accents[accent])}
+      style={{ animationDelay: `${staggerIndex * 60}ms` }}
+    >
       <div className="flex items-center gap-1.5 mb-1.5">
         <Icon className={cn('h-3.5 w-3.5', iconColors[accent])} />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -671,9 +677,10 @@ export default function DailyTracker() {
           icon={Check}
           label="Completed"
           accent="green"
+          staggerIndex={0}
           value={
             <span>
-              {completedCount}
+              <CountUpNumber value={completedCount} />
               <span className="text-sm font-medium text-muted-foreground">
                 /{totalCount}
               </span>
@@ -697,11 +704,12 @@ export default function DailyTracker() {
           icon={Zap}
           label="Focus Time"
           accent="orange"
+          staggerIndex={1}
           value={
             <span>
-              {Math.floor(todayXP / 60)}
+              <CountUpNumber value={Math.floor(todayXP / 60)} />
               <span className="text-sm font-medium text-muted-foreground">h </span>
-              {todayXP % 60}
+              <CountUpNumber value={todayXP % 60} />
               <span className="text-sm font-medium text-muted-foreground">m</span>
             </span>
           }
@@ -711,9 +719,10 @@ export default function DailyTracker() {
           icon={Flame}
           label="Streak"
           accent="rose"
+          staggerIndex={2}
           value={
             <span>
-              {bestStreak}
+              <CountUpNumber value={bestStreak} />
               <span className="text-sm font-medium text-muted-foreground ml-1">
                 {bestStreak === 1 ? 'day' : 'days'}
               </span>
@@ -729,9 +738,10 @@ export default function DailyTracker() {
           icon={Star}
           label="XP"
           accent="amber"
+          staggerIndex={3}
           value={
             <span>
-              {todayXP}
+              <CountUpNumber value={todayXP} />
               <span className="text-sm font-medium text-muted-foreground ml-1">XP</span>
             </span>
           }
@@ -817,7 +827,7 @@ export default function DailyTracker() {
           </div>
         ) : (
           <div className="habit-grid">
-            {filteredHabits.map((habit) => {
+            {filteredHabits.map((habit, idx) => {
               const isDone = !!(completionMap[habit.id] ?? false);
               const isToggling = togglingIds.has(habit.id);
               const justCompleted = recentlyCompleted.has(habit.id);
@@ -837,10 +847,11 @@ export default function DailyTracker() {
                 <div
                   key={habit.id}
                   className={cn(
-                    'habit-card group cursor-pointer select-none',
+                    'habit-card group cursor-pointer select-none anim-stagger anim-lift',
                     isDone && 'habit-card-completed',
                     justCompleted && 'habit-card-pop',
                   )}
+                  style={{ animationDelay: `${idx * 40}ms` }}
                   onClick={() => handleHabitCheck(habit)}
                   role="button"
                   tabIndex={0}

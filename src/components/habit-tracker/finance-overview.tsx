@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { formatRupiah, CHART_COLORS } from './finance-types';
+import { CountUpRupiah, CountUpNumber } from './count-up';
 import type { DashboardData, LastDoneItem } from './finance-types';
 import SourceBalanceSection from './source-balance';
 
@@ -59,7 +60,7 @@ export default function FinanceOverview({
       <SourceBalanceSection />
 
       {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden anim-stagger" style={{ animationDelay: '0ms' }}>
         {/* Top section: big balance number */}
         <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-4 sm:px-6 sm:py-5">
           <p className="text-xs text-muted-foreground font-medium">Saldo Bulan Ini</p>
@@ -67,10 +68,10 @@ export default function FinanceOverview({
             'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
             dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600'
           )}>
-            {formatRupiah(dashboardData.balance)}
+            <CountUpRupiah amount={dashboardData.balance} />
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {dashboardData.transactionCount} transaksi
+            <CountUpNumber value={dashboardData.transactionCount} /> transaksi
           </p>
         </div>
 
@@ -85,7 +86,7 @@ export default function FinanceOverview({
               <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
               <span className="text-xs font-medium text-primary">Pemasukan</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-primary">{formatRupiah(dashboardData.totalIncome)}</p>
+            <p className="text-lg sm:text-xl font-bold text-primary"><CountUpRupiah amount={dashboardData.totalIncome} /></p>
             {dashboardData.previousMonth.income > 0 && (
               <p className={cn('text-xs mt-0.5', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
                 {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs lalu
@@ -99,7 +100,7 @@ export default function FinanceOverview({
               <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />
               <span className="text-xs font-medium text-red-500">Pengeluaran</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-red-500">{formatRupiah(dashboardData.totalExpense)}</p>
+            <p className="text-lg sm:text-xl font-bold text-red-500"><CountUpRupiah amount={dashboardData.totalExpense} /></p>
             {dashboardData.previousMonth.expense > 0 && (
               <p className={cn('text-xs mt-0.5', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
                 {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs lalu
