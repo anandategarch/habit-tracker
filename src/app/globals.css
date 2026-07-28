@@ -1516,3 +1516,64 @@
   border-color: oklch(1 0 0 / 6%);
   box-shadow: 0 4px 20px oklch(0 0 0 / 0.18);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PREMIUM ANIMATIONS — Count-up, Staggered entrance, Typewriter, Hover lift
+   Combo: Linear / Stripe / Apple Finance inspired
+   All respect prefers-reduced-motion (declared at bottom).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Staggered card entrance: slide-up + fade-in ── */
+@keyframes anim-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-stagger {
+  opacity: 0;
+  animation: anim-stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Progress ring draw: stroke-dashoffset animates from full to target ── */
+@keyframes anim-ring-draw {
+  from { stroke-dashoffset: var(--ring-circumference, 283); }
+  to   { stroke-dashoffset: var(--ring-offset, 0); }
+}
+.anim-ring {
+  animation: anim-ring-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Hover lift: subtle translateY + colored shadow ── */
+.anim-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.anim-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* ── Typewriter cursor blink ── */
+@keyframes anim-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.anim-cursor {
+  animation: anim-cursor-blink 1s steps(1) infinite;
+}
+
+/* ── Reduced motion: disable all animations ── */
+@media (prefers-reduced-motion: reduce) {
+  .anim-stagger,
+  .anim-ring,
+  .anim-lift,
+  .anim-cursor {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

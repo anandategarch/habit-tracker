@@ -10,6 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
+import { CountUpNumber } from '@/components/habit-tracker/count-up';
+import { useTypewriter } from '@/hooks/use-typewriter';
 import {
   Target,
   CheckCircle,
@@ -193,16 +195,19 @@ function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          className={color}
+          className={cn(color, 'anim-ring')}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+          style={{
+            '--ring-circumference': circumference,
+            '--ring-offset': offset,
+          } as React.CSSProperties}
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center" style={{ width: size, height: size }}>
-        <span className="text-lg font-bold">{value}%</span>
+        <span className="text-lg font-bold"><CountUpNumber value={value} suffix="%" /></span>
       </div>
       <span className="text-xs text-muted-foreground font-medium">{label}</span>
     </div>
@@ -298,6 +303,44 @@ const DEFAULT_DATA: DashboardData = {
   timeTrackedSummary: [],
   lastDoneSummary: [],
 };
+
+function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; onRefresh: () => void }) {
+  const { typed, done } = useTypewriter(quote.quote, 30, 300);
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+        <Sparkles className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm md:text-base font-medium text-foreground leading-relaxed italic">
+          &ldquo;{typed}
+          {!done && <span className="anim-cursor text-primary">|</span>}&rdquo;
+        </p>
+        {done && quote.translation && quote.translation !== quote.quote && (
+          <p className="text-xs md:text-sm text-muted-foreground leading-relaxed mt-1.5 animate-in fade-in duration-500">
+            {quote.translation}
+          </p>
+        )}
+        {done && (
+          <div className="flex items-center justify-between mt-2 animate-in fade-in duration-500">
+            <p className="text-xs text-muted-foreground">
+              — {quote.author}
+            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onRefresh}
+              aria-label="Refresh quote"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
@@ -478,35 +521,7 @@ export default function Dashboard() {
               </div>
             </div>
           ) : quote ? (
-            <div className="flex items-start gap-3">
-              <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm md:text-base font-medium text-foreground leading-relaxed italic">
-                  &ldquo;{quote.quote}&rdquo;
-                </p>
-                {quote.translation && quote.translation !== quote.quote && (
-                  <p className="text-xs md:text-sm text-muted-foreground leading-relaxed mt-1.5">
-                    {quote.translation}
-                  </p>
-                )}
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs text-muted-foreground">
-                    — {quote.author}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    onClick={handleRefreshQuote}
-                    aria-label="Refresh quote"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <QuoteDisplay quote={quote} onRefresh={handleRefreshQuote} />
           ) : null}
         </CardContent>
       </Card>
@@ -532,147 +547,45 @@ export default function Dashboard() {
       {/* ── KPI Cards Grid ──────────────────────────────────────── */}
       <section aria-label="Key metrics">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Total Habits</span>
-              <Target className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.totalHabits}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active habits</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Completion Rate</span>
-              <CheckCircle className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.completionRate}%</div>
-            <Progress value={displayData.completionRate} className="mt-2 h-1.5" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Current Streak</span>
-              <Flame className="h-4 w-4 text-orange-500" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.currentStreak}</div>
-            <p className="text-xs text-muted-foreground mt-1">days</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Longest Streak</span>
-              <Trophy className="h-4 w-4 text-yellow-500" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.longestStreak}</div>
-            <p className="text-xs text-muted-foreground mt-1">days</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Success Today</span>
-              <Zap className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.successToday}%</div>
-            <Progress value={displayData.successToday} className="mt-2 h-1.5" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Weekly</span>
-              <CalendarDays className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.weeklyCompletion}%</div>
-            <Progress value={displayData.weeklyCompletion} className="mt-2 h-1.5 [&>[data-slot=progress-indicator]]:bg-primary" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Monthly</span>
-              <TrendingUp className="h-4 w-4 text-teal-500" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.monthlyCompletion}%</div>
-            <Progress value={displayData.monthlyCompletion} className="mt-2 h-1.5 [&>[data-slot=progress-indicator]]:bg-teal-500" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Total XP</span>
-              <Star className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.totalXP.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Level {displayData.currentLevel}</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Level</span>
-              <Award className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.currentLevel}</div>
-            <div className="flex items-center gap-1 mt-1">
-              <Progress value={displayData.levelProgress} className="h-1.5 flex-1" />
-              <span className="text-xs text-muted-foreground">{displayData.levelProgress}%</span>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Badges</span>
-              <Award className="h-4 w-4 text-yellow-500" />
-            </div>
-            <div className="text-2xl font-bold">
-              {displayData.unlockedBadges}<span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span>
-            </div>
-            <Progress value={displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0} className="mt-2 h-1.5" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Mood</span>
-              <Smile className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex items-center gap-2">
-              <MoodEmoji mood={displayData.moodAverage} />
-              <span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Sleep Avg</span>
-              <Moon className="h-4 w-4 text-violet-400" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.sleepAverage}</div>
-            <p className="text-xs text-muted-foreground mt-1">hours / night</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Productivity</span>
-              <Brain className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.productivityScore}%</div>
-            <Progress value={displayData.productivityScore} className="mt-2 h-1.5" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Challenges</span>
-              <Swords className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.challengeProgress}%</div>
-            <Progress value={displayData.challengeProgress} className="mt-2 h-1.5" />
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-medium">Goals</span>
-              <Flag className="h-4 w-4 text-primary" />
-            </div>
-            <div className="text-2xl font-bold">{displayData.goalProgress}%</div>
-            <Progress value={displayData.goalProgress} className="mt-2 h-1.5" />
-          </Card>
+          {[
+            { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Active habits', key: 'habits' },
+            { label: 'Completion Rate', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
+            { label: 'Current Streak', icon: Flame, iconColor: 'text-orange-500', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'days', key: 'streak' },
+            { label: 'Longest Streak', icon: Trophy, iconColor: 'text-yellow-500', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'days', key: 'longest' },
+            { label: 'Success Today', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
+            { label: 'Weekly', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
+            { label: 'Monthly', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
+            { label: 'Total XP', icon: Star, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
+            { label: 'Level', icon: Award, iconColor: 'text-primary', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
+            { label: 'Badges', icon: Award, iconColor: 'text-yellow-500', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
+            { label: 'Productivity', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
+            { label: 'Challenges', icon: Swords, iconColor: 'text-primary', value: <CountUpNumber value={displayData.challengeProgress} suffix="%" />, sub: null, progress: displayData.challengeProgress, key: 'challenges' },
+            { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
+            { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><MoodEmoji mood={displayData.moodAverage} /><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
+            { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
+          ].map((card, i) => {
+            const Icon = card.icon;
+            return (
+              <Card
+                key={card.key}
+                className="p-4 anim-stagger anim-lift"
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
+                  <Icon className={cn('h-4 w-4', card.iconColor)} />
+                </div>
+                <div className="text-2xl font-bold">{card.value}</div>
+                {card.progress !== undefined && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Progress value={card.progress} className={cn('h-1.5 flex-1', card.progressColor)} />
+                    {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
+                  </div>
+                )}
+                {card.sub && <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>}
+              </Card>
+            );
+          })}
         </div>
       </section>
 
