@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass } from '@/lib/label-colors';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
+import { FlashNumber } from '@/components/habit-tracker/flash-number';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   format,
@@ -680,7 +681,7 @@ export default function DailyTracker() {
           staggerIndex={0}
           value={
             <span>
-              <CountUpNumber value={completedCount} />
+              <FlashNumber value={completedCount} />
               <span className="text-sm font-medium text-muted-foreground">
                 /{totalCount}
               </span>
@@ -741,7 +742,7 @@ export default function DailyTracker() {
           staggerIndex={3}
           value={
             <span>
-              <CountUpNumber value={todayXP} />
+              <FlashNumber value={todayXP} />
               <span className="text-sm font-medium text-muted-foreground ml-1">XP</span>
             </span>
           }
@@ -965,6 +966,7 @@ export default function DailyTracker() {
                           className={cn(
                             'h-3 w-3',
                             streak > 0 ? 'text-orange-500' : 'text-muted-foreground/40',
+                            streak >= 7 && 'anim-flame-pulse',
                           )}
                         />
                         {streak} {streak === 1 ? 'day' : 'days'}

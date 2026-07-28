@@ -306,8 +306,10 @@ const DEFAULT_DATA: DashboardData = {
 
 function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; onRefresh: () => void }) {
   const { typed, done } = useTypewriter(quote.quote, 30, 300);
+  // Crossfade key: changes when quote text changes → retriggers CSS animation
+  const crossfadeKey = quote.quote;
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 anim-crossfade" key={crossfadeKey}>
       <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
         <Sparkles className="h-4 w-4 text-primary" />
       </div>
@@ -550,7 +552,7 @@ export default function Dashboard() {
           {[
             { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Active habits', key: 'habits' },
             { label: 'Completion Rate', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
-            { label: 'Current Streak', icon: Flame, iconColor: 'text-orange-500', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'days', key: 'streak' },
+            { label: 'Current Streak', icon: Flame, iconColor: 'text-orange-500', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'days', key: 'streak' },
             { label: 'Longest Streak', icon: Trophy, iconColor: 'text-yellow-500', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'days', key: 'longest' },
             { label: 'Success Today', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
             { label: 'Weekly', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
@@ -573,7 +575,7 @@ export default function Dashboard() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
-                  <Icon className={cn('h-4 w-4', card.iconColor)} />
+                  <Icon className={cn('h-4 w-4', card.iconColor, card.iconClass)} />
                 </div>
                 <div className="text-2xl font-bold">{card.value}</div>
                 {card.progress !== undefined && (
