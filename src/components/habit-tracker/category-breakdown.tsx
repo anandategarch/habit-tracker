@@ -61,6 +61,31 @@ function buildPeriodOptions(): { value: string; label: string; start: string; en
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
+// Vibrant gradient palette for day groups — each day gets its own color
+// so the timeline feels alive and colorful (not monotone).
+const DAY_GRADIENTS = [
+  { name: 'violet',  from: '#8b5cf6', to: '#a855f7', tint: 'rgba(139,92,246,0.10)' },
+  { name: 'blue',    from: '#3b82f6', to: '#06b6d4', tint: 'rgba(59,130,246,0.10)' },
+  { name: 'cyan',    from: '#06b6d4', to: '#0ea5e9', tint: 'rgba(6,182,212,0.10)' },
+  { name: 'emerald', from: '#10b981', to: '#14b8a6', tint: 'rgba(16,185,129,0.10)' },
+  { name: 'lime',    from: '#84cc16', to: '#22c55e', tint: 'rgba(132,204,22,0.10)' },
+  { name: 'amber',   from: '#f59e0b', to: '#eab308', tint: 'rgba(245,158,11,0.10)' },
+  { name: 'orange',  from: '#f97316', to: '#fb923c', tint: 'rgba(249,115,22,0.10)' },
+  { name: 'rose',    from: '#ec4899', to: '#f43f5e', tint: 'rgba(236,72,153,0.10)' },
+  { name: 'pink',    from: '#ec4899', to: '#d946ef', tint: 'rgba(236,72,153,0.10)' },
+  { name: 'fuchsia', from: '#d946ef', to: '#a855f7', tint: 'rgba(217,70,239,0.10)' },
+];
+
+/** Stable day-color assignment: hash the date string → gradient index.
+ *  Same date always gets the same color, different dates get different colors. */
+function dayGradient(dateKeyStr: string) {
+  let hash = 0;
+  for (let i = 0; i < dateKeyStr.length; i++) {
+    hash = ((hash << 5) - hash + dateKeyStr.charCodeAt(i)) | 0;
+  }
+  return DAY_GRADIENTS[Math.abs(hash) % DAY_GRADIENTS.length];
+}
+
 function compactRupiah(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
   if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
@@ -107,7 +132,8 @@ function groupByDate(txs: Transaction[]) {
       const total = items.reduce((s, t) => s + t.amount, 0);
       // sort within group by time desc
       items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      return { key, label, txs: items, total };
+      const gradient = dayGradient(key);
+      return { key, label, txs: items, total, gradient };
     });
 }
 
@@ -456,19 +482,54 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
 
             {allExpanded && (
               <div className="cb-timeline">
-                {groups.map((g) => (
-                  <div key={g.key} className="cb-timeline-group">
-                    <div className="cb-timeline-date">
-                      <span>{g.label}</span>
-                      <span className="cb-timeline-count">{g.txs.length} trx · {formatRupiah(g.total)}</span>
+                {groups.map((g) => {
+                  const grad = g.gradient;
+                  return (
+                  <div
+                    key={g.key}
+                    className="cb-timeline-group"
+                    style={{
+                      '--day-from': grad.from,
+                      '--day-to': grad.to,
+                      '--day-tint': grad.tint,
+                    } as React.CSSProperties}
+                  >
+                    {/* Colorful day header with gradient pill + left bar */}
+                    <div
+                      className="cb-timeline-date cb-timeline-date-colorful"
+                      style={{ background: `linear-gradient(90deg, ${grad.from}14, ${grad.to}08)` }}
+                    >
+                      <span className="cb-timeline-pill" style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }} />
+                      <span className="cb-timeline-day-label">{g.label}</span>
+                      <span
+                        className="cb-timeline-count cb-timeline-count-color"
+                        style={{ color: grad.from }}
+                      >
+                        {g.txs.length} trx · {formatRupiah(g.total)}
+                      </span>
                     </div>
-                    <div className="cb-timeline-items">
+                    <div
+                      className="cb-timeline-items cb-timeline-items-tinted"
+                      style={{ background: grad.tint }}
+                    >
                       {g.txs.map((t) => {
                         const m = getCategoryMeta(t.category);
                         return (
-                          <div key={t.id} className="cb-tx-row">
-                            <span className={cn('cb-tx-dot', `cb-dot-${m.color || 'gray'}`)} />
-                            <div className="cb-tx-logo">{merchantEmoji(t.description || '', m.emoji)}</div>
+                          <div
+                            key={t.id}
+                            className="cb-tx-row cb-tx-row-colorful"
+                            style={{ borderLeftColor: grad.from }}
+                          >
+                            <span
+                              className="cb-tx-dot cb-tx-dot-day"
+                              style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }}
+                            />
+                            <div
+                              className="cb-tx-logo cb-tx-logo-colorful"
+                              style={{ background: `${grad.from}1a` }}
+                            >
+                              {merchantEmoji(t.description || '', m.emoji)}
+                            </div>
                             <div className="cb-tx-info">
                               <p className="cb-tx-name">{t.description || t.category}</p>
                               <p className="cb-tx-time">
@@ -476,23 +537,33 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                                 {formatTime(t.date)}
                               </p>
                             </div>
-                            <span className="cb-tx-amount">{formatRupiah(t.amount)}</span>
+                            <span
+                              className="cb-tx-amount cb-tx-amount-colorful"
+                              style={{
+                                background: `linear-gradient(135deg, ${grad.from}1f, ${grad.to}1f)`,
+                                color: grad.from,
+                              }}
+                            >
+                              {formatRupiah(t.amount)}
+                            </span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {!allExpanded && (
               <button
                 type="button"
-                className="cb-expand-hint"
+                className="cb-expand-hint cb-expand-hint-colorful"
                 onClick={() => setAllExpanded(true)}
               >
-                Lihat semua {txs.length} transaksi
-                <ChevronDown className="h-3.5 w-3.5" />
+                <span className="cb-expand-hint-gradient" />
+                <span className="relative">Lihat semua {txs.length} transaksi</span>
+                <ChevronDown className="h-3.5 w-3.5 relative" />
               </button>
             )}
           </div>
