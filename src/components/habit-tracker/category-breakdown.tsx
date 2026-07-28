@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { SlidersHorizontal, ChevronDown, Trophy, Flame, Clock } from 'lucide-react';
+import { SlidersHorizontal, ChevronDown, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, type Transaction } from '@/components/habit-tracker/finance-types';
 import {
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { jakartaDateKey } from '@/lib/timezone';
 
 // ── Period options ───────────────────────────────────────────────────────
@@ -190,6 +191,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
   const [periodValue, setPeriodValue] = useState('current'); // 'current' or 'yyyy-MM'
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
+  const isMobile = useIsMobile();
 
   const period = useMemo(
     () => periodOptions.find((o) => o.value === periodValue) || periodOptions[0],
@@ -269,7 +271,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
           disabled={categoriesWithTx.length === 0}
         >
           <SelectTrigger className="cb-dropdown cb-dropdown-cat">
-            <span className="text-base leading-none">{catMeta.emoji}</span>
+            <span className="text-sm leading-none">{catMeta.emoji}</span>
             <SelectValue placeholder="Pilih kategori" />
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />
           </SelectTrigger>
@@ -359,8 +361,8 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                 <span className="cb-trend-avg">Avg {compactRupiah(stats.avg)}</span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={trend} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={isMobile ? 130 : 180}>
+              <AreaChart data={trend} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                 <defs>
                   <linearGradient id="cb-stroke" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#8b5cf6" />
@@ -373,19 +375,19 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                 </defs>
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 9, fill: 'oklch(0.55 0.01 120)' }}
+                  tick={{ fontSize: isMobile ? 8 : 9, fill: 'oklch(0.55 0.01 120)' }}
                   tickLine={false}
                   axisLine={false}
                   interval="preserveStartEnd"
-                  minTickGap={20}
+                  minTickGap={isMobile ? 12 : 20}
                   dy={4}
                 />
                 <YAxis
-                  tick={{ fontSize: 9, fill: 'oklch(0.55 0.01 120)' }}
+                  tick={{ fontSize: isMobile ? 8 : 9, fill: 'oklch(0.55 0.01 120)' }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => compactRupiah(Number(v))}
-                  width={40}
+                  width={isMobile ? 34 : 40}
                 />
                 <RechartsTooltip
                   content={<ChartTooltip />}
