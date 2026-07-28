@@ -24,29 +24,25 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { jakartaDateKey } from '@/lib/timezone';
 
 // ── Period options ───────────────────────────────────────────────────────
-// "Bulan Berjalan" = 1st of current month → today (MTD).
-// Plus the last 6 named months for full-month review.
+// Last 6 full months. The current month (i=0) is the default selection,
+// so users immediately see the current month's data without picking "Bulan
+// Berjalan" explicitly. For the current month, the end date is capped at
+// today so we don't show future dates with no transactions.
 
 function buildPeriodOptions(): { value: string; label: string; start: string; end: string }[] {
   const now = new Date();
   const opts: { value: string; label: string; start: string; end: string }[] = [];
 
-  // Bulan Berjalan (MTD)
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  opts.push({
-    value: 'current',
-    label: 'Bulan Berjalan',
-    start: monthStart.toISOString().slice(0, 10),
-    end: now.toISOString().slice(0, 10),
-  });
-
-  // Last 6 full months
+  // Last 6 months (i=0 = current month)
   for (let i = 0; i < 6; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const y = d.getFullYear();
     const m = d.getMonth();
     const start = new Date(y, m, 1);
-    const end = new Date(y, m + 1, 0); // last day of month
+    // For the current month (i=0), cap end at today; for past months use last day
+    const end = i === 0
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      : new Date(y, m + 1, 0);
     const label = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
     opts.push({
       value: `${y}-${String(m + 1).padStart(2, '0')}`,
@@ -57,6 +53,12 @@ function buildPeriodOptions(): { value: string; label: string; start: string; en
   }
 
   return opts;
+}
+
+/** Default period = current month (first option, i=0). Computed once. */
+function defaultPeriodValue(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -89,6 +91,26 @@ function dayGradient(dateKeyStr: string) {
   const d = new Date(dateKeyStr + 'T12:00:00');
   const weekday = d.getDay(); // 0=Sun, 6=Sat
   return DAY_GRADIENTS[weekday % DAY_GRADIENTS.length];
+}
+
+/**
+ * Amount-based intensity (Opsi B — hybrid heatmap feel).
+ * Maps an amount to an opacity in [0.45, 1.0] based on where it sits
+ * between min and max. Small transactions = faded (0.45), large = solid (1.0).
+ * This makes the timeline feel like a heatmap: big spenders pop, small ones recede.
+ */
+function amountIntensity(amount: number, min: number, max: number): number {
+  if (max <= min) return 1; // all same amount → full opacity
+  const t = (amount - min) / (max - min); // 0..1
+  return 0.45 + t * 0.55; // 0.45 .. 1.0
+}
+
+/** Convert a hex color (#RRGGBB) + opacity (0..1) into an rgba() string. */
+function hexToRgba(hex: string, opacity: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
 }
 
 function compactRupiah(n: number): string {
@@ -219,7 +241,7 @@ interface CategoryBreakdownProps {
 
 export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdownProps) {
   const periodOptions = useMemo(() => buildPeriodOptions(), []);
-  const [periodValue, setPeriodValue] = useState('current'); // 'current' or 'yyyy-MM'
+  const [periodValue, setPeriodValue] = useState(defaultPeriodValue); // 'yyyy-MM'
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
   const isMobile = useIsMobile();
@@ -272,8 +294,9 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
     const total = txs.reduce((s, t) => s + t.amount, 0);
     const count = txs.length;
     const max = txs.reduce((m, t) => Math.max(m, t.amount), 0);
+    const min = txs.reduce((m, t) => Math.min(m, t.amount), max);
     const avg = count > 0 ? Math.round(total / count) : 0;
-    return { total, count, max, avg };
+    return { total, count, max, min, avg };
   }, [txs]);
 
   // Daily trend
@@ -291,8 +314,6 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
   // All transactions grouped by date
   const groups = useMemo(() => groupByDate(txs), [txs]);
 
-  const catMeta = effectiveCategory ? getCategoryMeta(effectiveCategory) : { emoji: '💳', color: 'gray' };
-
   // ── Render ──
 
   return (
@@ -305,9 +326,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
           disabled={categoriesWithTx.length === 0}
         >
           <SelectTrigger className="cb-dropdown cb-dropdown-cat">
-            <span className="text-sm leading-none">{catMeta.emoji}</span>
             <SelectValue placeholder="Pilih kategori" />
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />
           </SelectTrigger>
           <SelectContent>
             {categoriesWithTx.map((c) => {
@@ -325,7 +344,6 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
           <Select value={periodValue} onValueChange={setPeriodValue}>
             <SelectTrigger className="cb-dropdown">
               <SelectValue />
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />
             </SelectTrigger>
             <SelectContent align="end">
               {periodOptions.map((o) => (
@@ -490,6 +508,13 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
               <div className="cb-timeline">
                 {groups.map((g) => {
                   const grad = g.gradient;
+                  // Day header intensity = based on the day's average amount
+                  // relative to the period's min/max. A day with big spending
+                  // gets a more saturated header; a quiet day stays soft.
+                  const dayAvg = g.txs.length > 0 ? g.total / g.txs.length : 0;
+                  const dayIntensity = amountIntensity(dayAvg, stats.min, stats.max);
+                  // Header background opacity scales with intensity (0.06..0.16)
+                  const headerOpacity = (0.06 + dayIntensity * 0.10).toFixed(2);
                   return (
                   <div
                     key={g.key}
@@ -500,16 +525,19 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                       '--day-tint': grad.tint,
                     } as React.CSSProperties}
                   >
-                    {/* Colorful day header with gradient pill + left bar */}
+                    {/* Colorful day header — intensity reflects avg spending */}
                     <div
                       className="cb-timeline-date cb-timeline-date-colorful"
-                      style={{ background: `linear-gradient(90deg, ${grad.from}14, ${grad.to}08)` }}
+                      style={{ background: `linear-gradient(90deg, ${hexToRgba(grad.from, Number(headerOpacity))}, ${hexToRgba(grad.to, Number(headerOpacity) * 0.5)})` }}
                     >
-                      <span className="cb-timeline-pill" style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }} />
+                      <span
+                        className="cb-timeline-pill"
+                        style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})`, opacity: dayIntensity }}
+                      />
                       <span className="cb-timeline-day-label">{g.label}</span>
                       <span
                         className="cb-timeline-count cb-timeline-count-color"
-                        style={{ color: grad.from }}
+                        style={{ color: grad.from, opacity: 0.6 + dayIntensity * 0.4 }}
                       >
                         {g.txs.length} trx · {formatRupiah(g.total)}
                       </span>
@@ -520,19 +548,21 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                     >
                       {g.txs.map((t) => {
                         const m = getCategoryMeta(t.category);
+                        // Per-transaction intensity: small = faded, large = solid
+                        const txIntensity = amountIntensity(t.amount, stats.min, stats.max);
                         return (
                           <div
                             key={t.id}
                             className="cb-tx-row cb-tx-row-colorful"
-                            style={{ borderLeftColor: grad.from }}
+                            style={{ borderLeftColor: hexToRgba(grad.from, txIntensity) }}
                           >
                             <span
                               className="cb-tx-dot cb-tx-dot-day"
-                              style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})` }}
+                              style={{ background: `linear-gradient(135deg, ${grad.from}, ${grad.to})`, opacity: txIntensity }}
                             />
                             <div
                               className="cb-tx-logo cb-tx-logo-colorful"
-                              style={{ background: `${grad.from}1a` }}
+                              style={{ background: hexToRgba(grad.from, 0.10 * txIntensity + 0.04) }}
                             >
                               {merchantEmoji(t.description || '', m.emoji)}
                             </div>
@@ -546,8 +576,9 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                             <span
                               className="cb-tx-amount cb-tx-amount-colorful"
                               style={{
-                                background: `linear-gradient(135deg, ${grad.from}1f, ${grad.to}1f)`,
+                                background: `linear-gradient(135deg, ${hexToRgba(grad.from, 0.12 * txIntensity + 0.04)}, ${hexToRgba(grad.to, 0.12 * txIntensity + 0.04)})`,
                                 color: grad.from,
+                                opacity: 0.6 + txIntensity * 0.4,
                               }}
                             >
                               {formatRupiah(t.amount)}
