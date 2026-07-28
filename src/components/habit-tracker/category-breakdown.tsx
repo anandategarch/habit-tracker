@@ -61,29 +61,34 @@ function buildPeriodOptions(): { value: string; label: string; start: string; en
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-// Vibrant gradient palette for day groups — each day gets its own color
-// so the timeline feels alive and colorful (not monotone).
+// Premium fintech gradient palette — each weekday gets its own gradient.
+// Inspired by Linear / Stripe / Arc / Raycast / Apple interfaces.
+// Mapping (per user spec):
+//   Yesterday / Sun → Violet       (#7C3AED → #4F46E5)
+//   Monday          → Indigo-Blue  (#4F46E5 → #2563EB)
+//   Tuesday         → Cyan-Blue    (#06B6D4 → #3B82F6)
+//   Wednesday       → Pink-Purple  (#EC4899 → #A855F7)
+//   Thursday        → Emerald      (#10B981 → #34D399)
+//   Friday          → Orange-Peach (#F59E0B → #FB923C)
+//   Saturday        → Blue-Cyan    (#2563EB → #06B6D4)
 const DAY_GRADIENTS = [
-  { name: 'violet',  from: '#8b5cf6', to: '#a855f7', tint: 'rgba(139,92,246,0.10)' },
-  { name: 'blue',    from: '#3b82f6', to: '#06b6d4', tint: 'rgba(59,130,246,0.10)' },
-  { name: 'cyan',    from: '#06b6d4', to: '#0ea5e9', tint: 'rgba(6,182,212,0.10)' },
-  { name: 'emerald', from: '#10b981', to: '#14b8a6', tint: 'rgba(16,185,129,0.10)' },
-  { name: 'lime',    from: '#84cc16', to: '#22c55e', tint: 'rgba(132,204,22,0.10)' },
-  { name: 'amber',   from: '#f59e0b', to: '#eab308', tint: 'rgba(245,158,11,0.10)' },
-  { name: 'orange',  from: '#f97316', to: '#fb923c', tint: 'rgba(249,115,22,0.10)' },
-  { name: 'rose',    from: '#ec4899', to: '#f43f5e', tint: 'rgba(236,72,153,0.10)' },
-  { name: 'pink',    from: '#ec4899', to: '#d946ef', tint: 'rgba(236,72,153,0.10)' },
-  { name: 'fuchsia', from: '#d946ef', to: '#a855f7', tint: 'rgba(217,70,239,0.10)' },
+  { name: 'violet',       from: '#7C3AED', to: '#4F46E5', tint: 'rgba(124,58,237,0.08)' },  // Sun / Yesterday
+  { name: 'indigo-blue',  from: '#4F46E5', to: '#2563EB', tint: 'rgba(79,70,229,0.08)' },   // Mon
+  { name: 'cyan-blue',    from: '#06B6D4', to: '#3B82F6', tint: 'rgba(6,182,212,0.08)' },   // Tue
+  { name: 'pink-purple',  from: '#EC4899', to: '#A855F7', tint: 'rgba(236,72,153,0.08)' },  // Wed
+  { name: 'emerald',      from: '#10B981', to: '#34D399', tint: 'rgba(16,185,129,0.08)' },  // Thu
+  { name: 'orange-peach', from: '#F59E0B', to: '#FB923C', tint: 'rgba(245,158,11,0.08)' },  // Fri
+  { name: 'blue-cyan',    from: '#2563EB', to: '#06B6D4', tint: 'rgba(37,99,235,0.08)' },   // Sat
 ];
 
-/** Stable day-color assignment: hash the date string → gradient index.
- *  Same date always gets the same color, different dates get different colors. */
+/** Weekday-based color assignment: the day-of-week (0=Sun ... 6=Sat)
+ *  determines the gradient. Same weekday always gets the same color,
+ *  different weekdays get different colors — consistent & predictable. */
 function dayGradient(dateKeyStr: string) {
-  let hash = 0;
-  for (let i = 0; i < dateKeyStr.length; i++) {
-    hash = ((hash << 5) - hash + dateKeyStr.charCodeAt(i)) | 0;
-  }
-  return DAY_GRADIENTS[Math.abs(hash) % DAY_GRADIENTS.length];
+  // dateKeyStr = "yyyy-MM-dd"
+  const d = new Date(dateKeyStr + 'T12:00:00');
+  const weekday = d.getDay(); // 0=Sun, 6=Sat
+  return DAY_GRADIENTS[weekday % DAY_GRADIENTS.length];
 }
 
 function compactRupiah(n: number): string {
@@ -167,16 +172,16 @@ function dailyTrend(txs: Transaction[], startISO: string, endISO: string) {
   }));
 }
 
-// ── Category gradient (logo background) ─────────────────────────────────
+// ── Category gradient (logo background) — premium palette ──────────────
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
-  red: 'from-red-500 to-rose-500',
-  orange: 'from-orange-500 to-amber-500',
-  amber: 'from-amber-400 to-yellow-500',
-  purple: 'from-purple-500 to-fuchsia-500',
-  pink: 'from-pink-500 to-rose-500',
-  blue: 'from-blue-500 to-cyan-500',
-  gray: 'from-slate-400 to-slate-500',
+  red: 'from-violet-600 to-indigo-600',
+  orange: 'from-amber-500 to-orange-500',
+  amber: 'from-amber-500 to-orange-500',
+  purple: 'from-fuchsia-500 to-purple-600',
+  pink: 'from-pink-500 to-fuchsia-500',
+  blue: 'from-blue-600 to-cyan-500',
+  gray: 'from-slate-400 to-indigo-400',
 };
 
 function merchantEmoji(desc: string, catEmoji: string): string {
@@ -391,12 +396,13 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
               <AreaChart data={trend} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                 <defs>
                   <linearGradient id="cb-stroke" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#8b5cf6" />
-                    <stop offset="100%" stopColor="#3b82f6" />
+                    <stop offset="0%" stopColor="#7C3AED" />
+                    <stop offset="50%" stopColor="#4F46E5" />
+                    <stop offset="100%" stopColor="#2563EB" />
                   </linearGradient>
                   <linearGradient id="cb-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.18} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
+                    <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="#2563EB" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <XAxis
@@ -425,8 +431,8 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                   stroke="url(#cb-stroke)"
                   strokeWidth={2.5}
                   fill="url(#cb-fill)"
-                  dot={{ r: 3, fill: '#8b5cf6', strokeWidth: 0, opacity: 0 }}
-                  activeDot={{ r: 5, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }}
+                  dot={{ r: 3, fill: '#4F46E5', strokeWidth: 0, opacity: 0 }}
+                  activeDot={{ r: 5, fill: '#4F46E5', stroke: '#fff', strokeWidth: 2 }}
                   animationDuration={800}
                   isAnimationActive
                 />
