@@ -22,12 +22,31 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string; gradient: string
 
 const DEFAULT_COLOR = { bg: '#6366F1', text: '#6366F1', gradient: 'from-indigo-500/10 to-indigo-500/5', sparkline: '#6366F1' };
 
-// Generate fake sparkline data based on balance (deterministic, looks realistic)
-function generateSparkline(balance: number, seed: number) {
-  const base = Math.abs(balance) / 7 || 1000;
-  return Array.from({ length: 7 }, (_, i) => ({
-    v: base * (1 + Math.sin(i + seed) * 0.15 + (i / 10)),
-  }));
+// ── Types for balance-history API response ───────────────────────────────
+
+interface BalanceHistoryPoint {
+  date: string;
+  label: string;
+  balance: number;
+  netFlow: number;
+}
+
+interface SourceHistory {
+  id: string;
+  name: string;
+  emoji: string;
+  currentBalance: number;
+  startBalance: number;
+  periodIncome: number;
+  periodExpense: number;
+  periodChange: number;
+  dailyData: BalanceHistoryPoint[];
+}
+
+interface BalanceHistoryResponse {
+  sources: SourceHistory[];
+  period: string;
+  days: number;
 }
 
 export default function SourceBalanceSection() {
@@ -52,6 +71,21 @@ export default function SourceBalanceSection() {
     staleTime: 10_000,
   });
 
+  // Fetch REAL balance history (30 days) for the charts — replaces fake
+  // Math.sin() data that previously showed misleading sinusoidal curves.
+  const { data: balanceHistory } = useQuery<BalanceHistoryResponse | null>({
+    queryKey: ['finance', 'balance-history', '1m'],
+    queryFn: async () => {
+      const res = await fetch('/api/finance/sources/balance-history?period=1m');
+      if (!res.ok) return null;
+      const data = await res.json();
+      // API returns [] on error, { sources, period, days } on success
+      if (Array.isArray(data) || !data.sources) return null;
+      return data as BalanceHistoryResponse;
+    },
+    staleTime: 30_000,
+  });
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -69,9 +103,12 @@ export default function SourceBalanceSection() {
   const todayTotalIncome = todayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const todayTotalExpense = todayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
-  // Generate smooth chart data for summary
-  const summaryChartData = Array.from({ length: 12 }, (_, i) => ({
-    v: totalBalance * (0.85 + Math.sin(i / 2) * 0.05 + (i / 50)),
+  // Build REAL summary chart data: sum all sources' daily balances per date.
+  // All sources share the same date range from the API, so we iterate by index.
+  const historySources = balanceHistory?.sources ?? [];
+  const firstSourceData = historySources[0]?.dailyData ?? [];
+  const summaryChartData = firstSourceData.map((point, i) => ({
+    v: historySources.reduce((sum, s) => sum + (s.dailyData[i]?.balance || 0), 0),
   }));
 
   return (
@@ -127,28 +164,30 @@ export default function SourceBalanceSection() {
             </div>
           </div>
 
-          {/* Right: Mini chart */}
-          <div className="w-full lg:w-48 h-20 lg:h-24">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={summaryChartData}>
-                <defs>
-                  <linearGradient id="summaryGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366F1" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="v"
-                  stroke="#6366F1"
-                  strokeWidth={2.5}
-                  fill="url(#summaryGrad)"
-                  dot={false}
-                />
-                <YAxis hide domain={['dataMin', 'dataMax']} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Right: Mini chart — REAL 30-day total balance trend */}
+          {summaryChartData.length > 1 && (
+            <div className="w-full lg:w-48 h-20 lg:h-24">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={summaryChartData}>
+                  <defs>
+                    <linearGradient id="summaryGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6366F1" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey="v"
+                    stroke="#6366F1"
+                    strokeWidth={2.5}
+                    fill="url(#summaryGrad)"
+                    dot={false}
+                  />
+                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -156,8 +195,11 @@ export default function SourceBalanceSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         {sources.map((src, idx) => {
           const color = SOURCE_COLORS[src.name] || DEFAULT_COLOR;
-          const sparklineData = generateSparkline(src.balance, idx + 1);
           const isPositive = src.balance >= 0;
+
+          // REAL sparkline data: this source's 30-day balance history
+          const sourceHistory = historySources.find((h) => h.name === src.name);
+          const sparklineData = (sourceHistory?.dailyData ?? []).map((d) => ({ v: d.balance }));
 
           return (
             <div
@@ -205,27 +247,35 @@ export default function SourceBalanceSection() {
                   {isPositive ? 'Active' : 'Minus'}
                 </div>
 
-                {/* Tiny sparkline */}
-                <div className="w-16 h-6">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sparklineData}>
-                      <defs>
-                        <linearGradient id={`spark-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={color.sparkline} stopOpacity={0.3} />
-                          <stop offset="100%" stopColor={color.sparkline} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area
-                        type="monotone"
-                        dataKey="v"
-                        stroke={color.sparkline}
-                        strokeWidth={1.5}
-                        fill={`url(#spark-${idx})`}
-                        dot={false}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+                {/* Tiny sparkline — REAL 30-day balance history */}
+                {sparklineData.length > 1 ? (
+                  <div className="w-16 h-6">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sparklineData}>
+                        <defs>
+                          <linearGradient id={`spark-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color.sparkline} stopOpacity={0.3} />
+                            <stop offset="100%" stopColor={color.sparkline} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Area
+                          type="monotone"
+                          dataKey="v"
+                          stroke={color.sparkline}
+                          strokeWidth={1.5}
+                          fill={`url(#spark-${idx})`}
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  /* If no history (new source, <2 data points), show a subtle
+                     flat placeholder instead of a fake wave. */
+                  <div className="w-16 h-6 flex items-center">
+                    <div className="w-full h-px bg-muted-foreground/20" />
+                  </div>
+                )}
               </div>
             </div>
           );
