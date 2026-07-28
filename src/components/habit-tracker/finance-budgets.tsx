@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -43,25 +44,23 @@ export default function FinanceBudgets({
   onDeleteBudget,
 }: FinanceBudgetsProps) {
   const [showHistory, setShowHistory] = useState(false);
-  const [historyData, setHistoryData] = useState<BudgetSnapshot[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const fetchHistory = async () => {
-    setHistoryLoading(true);
-    try {
+  // Fetch budget snapshot history via TanStack Query.
+  // Enabled only when the history panel is open (lazy fetch).
+  // Replaces the old manual useState + fetch + silent-catch pattern
+  // that left users stuck on a loading spinner if the API failed.
+  const { data: historyData = [], isLoading: historyLoading, isError: historyError } = useQuery<BudgetSnapshot[]>({
+    queryKey: ['finance', 'budget-snapshots'],
+    queryFn: async () => {
       const res = await fetch('/api/finance/budgets/snapshot');
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryData(data);
-      }
-    } catch { /* silent */ }
-    setHistoryLoading(false);
-  };
+      if (!res.ok) throw new Error('Failed to load budget history');
+      return res.json();
+    },
+    enabled: showHistory,
+    staleTime: 30_000,
+  });
 
   const toggleHistory = () => {
-    if (!showHistory) {
-      fetchHistory();
-    }
     setShowHistory(!showHistory);
   };
 
@@ -99,6 +98,11 @@ export default function FinanceBudgets({
             {historyLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+              </div>
+            ) : historyError ? (
+              <div className="text-center py-4">
+                <p className="text-xs text-red-500 font-medium">Gagal memuat history budget</p>
+                <p className="text-xs text-muted-foreground mt-1">Coba tutup dan buka kembali.</p>
               </div>
             ) : sortedMonths.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">Belum ada history budget</p>
