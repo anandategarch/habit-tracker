@@ -37,13 +37,6 @@ export function lightenHex(hex: string, amount: number): string {
   return `#${[mix(r), mix(g), mix(b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** Darken a hex color by mixing with black */
-export function darkenHex(hex: string, amount: number): string {
-  const { r, g, b } = hexToRgb(hex);
-  const mix = (c: number) => Math.round(c * (1 - amount));
-  return `#${[mix(r), mix(g), mix(b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-}
-
 /** Generate a very light tint of the color (for backgrounds, secondary, accent) */
 export function tintColor(hex: string, opacity: number): string {
   const { r, g, b } = hexToRgb(hex);
@@ -105,11 +98,6 @@ export function resetThemeColors(): void {
     '--sidebar-ring', '--chart-1',
   ];
   vars.forEach((v) => root.style.removeProperty(v));
-}
-
-/** Dispatch a custom event so ThemeProvider can react to settings changes */
-export function dispatchThemeChange(): void {
-  window.dispatchEvent(new CustomEvent('rutina:theme-change'));
 }
 
 /** Preset theme definitions */
