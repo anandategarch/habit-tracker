@@ -1353,20 +1353,17 @@
   }
 }
 
-/* Colorful transaction row with left border accent */
+/* Colorful transaction row — background set inline based on amount intensity.
+   The inline style overrides this base, but we keep a fallback for non-JS. */
 .cb-tx-row-colorful {
   border-left: 3px solid;
-  background: oklch(1 0 0 / 0.7);
   backdrop-filter: blur(4px);
 }
-.dark .cb-tx-row-colorful {
-  background: oklch(0 0 0 / 0.15);
-}
 .cb-tx-row-colorful:hover {
-  background: oklch(1 0 0 / 0.95);
+  filter: brightness(0.96);
 }
 .dark .cb-tx-row-colorful:hover {
-  background: oklch(0 0 0 / 0.25);
+  filter: brightness(1.15);
 }
 
 /* Day-gradient dot (replaces flat category dot) */

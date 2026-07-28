@@ -95,14 +95,14 @@ function dayGradient(dateKeyStr: string) {
 
 /**
  * Amount-based intensity (Opsi B — hybrid heatmap feel).
- * Maps an amount to an opacity in [0.45, 1.0] based on where it sits
- * between min and max. Small transactions = faded (0.45), large = solid (1.0).
- * This makes the timeline feel like a heatmap: big spenders pop, small ones recede.
+ * Maps an amount to an opacity in [0.25, 1.0] based on where it sits
+ * between min and max. Small transactions = very faded (0.25), large = solid (1.0).
+ * Wide range makes the heatmap effect clearly visible even when min/max are close.
  */
 function amountIntensity(amount: number, min: number, max: number): number {
   if (max <= min) return 1; // all same amount → full opacity
   const t = (amount - min) / (max - min); // 0..1
-  return 0.45 + t * 0.55; // 0.45 .. 1.0
+  return 0.25 + t * 0.75; // 0.25 .. 1.0
 }
 
 /** Convert a hex color (#RRGGBB) + opacity (0..1) into an rgba() string. */
@@ -548,13 +548,20 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                     >
                       {g.txs.map((t) => {
                         const m = getCategoryMeta(t.category);
-                        // Per-transaction intensity: small = faded, large = solid
+                        // Per-transaction intensity: small = very faded, large = solid
                         const txIntensity = amountIntensity(t.amount, stats.min, stats.max);
+                        // Row background: day color tinted by intensity.
+                        // Small tx = very light (3%), large tx = strong (18%).
+                        // This makes the heatmap effect obvious: big spenders pop.
+                        const rowBgOpacity = 0.03 + txIntensity * 0.15;
                         return (
                           <div
                             key={t.id}
                             className="cb-tx-row cb-tx-row-colorful"
-                            style={{ borderLeftColor: hexToRgba(grad.from, txIntensity) }}
+                            style={{
+                              borderLeftColor: hexToRgba(grad.from, txIntensity),
+                              background: hexToRgba(grad.from, rowBgOpacity),
+                            }}
                           >
                             <span
                               className="cb-tx-dot cb-tx-dot-day"
@@ -562,7 +569,7 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                             />
                             <div
                               className="cb-tx-logo cb-tx-logo-colorful"
-                              style={{ background: hexToRgba(grad.from, 0.10 * txIntensity + 0.04) }}
+                              style={{ background: hexToRgba(grad.from, 0.08 * txIntensity + 0.04) }}
                             >
                               {merchantEmoji(t.description || '', m.emoji)}
                             </div>
@@ -576,9 +583,10 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
                             <span
                               className="cb-tx-amount cb-tx-amount-colorful"
                               style={{
-                                background: `linear-gradient(135deg, ${hexToRgba(grad.from, 0.12 * txIntensity + 0.04)}, ${hexToRgba(grad.to, 0.12 * txIntensity + 0.04)})`,
+                                background: `linear-gradient(135deg, ${hexToRgba(grad.from, 0.15 * txIntensity + 0.05)}, ${hexToRgba(grad.to, 0.15 * txIntensity + 0.05)})`,
                                 color: grad.from,
-                                opacity: 0.6 + txIntensity * 0.4,
+                                opacity: 0.5 + txIntensity * 0.5,
+                                fontWeight: 600 + Math.round(txIntensity * 200),
                               }}
                             >
                               {formatRupiah(t.amount)}
