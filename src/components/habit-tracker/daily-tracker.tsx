@@ -172,11 +172,13 @@ function ProgressRing({
   color,
   done,
   size = 52,
+  primaryColor,
 }: {
   progress: number;
   color: string;
   done: boolean;
   size?: number;
+  primaryColor: string;
 }) {
   const stroke = 4;
   const r = (size - stroke) / 2;
@@ -952,6 +954,7 @@ export default function DailyTracker() {
                       progress={pct}
                       color={catStyle.hex}
                       done={isDone}
+                      primaryColor={primaryColor}
                     />
                     <div className="text-right">
                       {isDone ? (
