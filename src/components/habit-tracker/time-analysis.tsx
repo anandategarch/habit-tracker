@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   BarChart,
   Bar,
@@ -120,6 +121,7 @@ export default function TimeAnalysisDialog({
   onOpenChange,
 }: TimeAnalysisDialogProps) {
   const [filter, setFilter] = useState<FilterType>('thisWeek');
+  const primaryColor = useThemeColor('primary');
 
   const { data: data, isLoading: loading, error: queryError, refetch } = useQuery<AnalysisData>({
     queryKey: ['time-analysis', habitId, filter],
@@ -377,14 +379,14 @@ export default function TimeAnalysisDialog({
                         {targetMinutes !== null && (
                           <ReferenceLine
                             y={targetMinutes}
-                            stroke="#22c55e"
+                            stroke={primaryColor}
                             strokeDasharray="6 3"
                             strokeWidth={2}
                             label={{
                               value: `Target ${data.habit.targetTime}`,
                               position: 'insideTopRight',
                               fontSize: 10,
-                              fill: '#22c55e',
+                              fill: primaryColor,
                             }}
                           />
                         )}
@@ -394,12 +396,12 @@ export default function TimeAnalysisDialog({
                           maxBarSize={40}
                         >
                           {chartData.map((entry, idx) => {
-                            let fill = '#22c55e'; // default green
+                            let fill = primaryColor; // default = primary
                             if (targetMinutes !== null) {
                               if (entry.time > targetMinutes) {
                                 fill = '#ef4444'; // red = late
                               } else if (entry.time <= targetMinutes) {
-                                fill = '#22c55e'; // green = on target
+                                fill = primaryColor; // primary = on target
                               }
                             }
                             return <Cell key={idx} fill={fill} fillOpacity={0.85} />;

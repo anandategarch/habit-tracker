@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { jakartaDateKey } from '@/lib/timezone';
 
 // ── Period options ───────────────────────────────────────────────────────
@@ -64,15 +65,15 @@ function defaultPeriodValue(): string {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-// Single premium theme gradient — used consistently across the entire
-// timeline. Keeps the UI clean and minimal (not too many colors).
-// Violet → Indigo → Blue, matching the app's primary palette.
-const THEME = {
-  from: '#7C3AED',
-  to: '#2563EB',
-  fromSoft: 'rgba(124, 58, 237, 0.08)',
-  toSoft: 'rgba(37, 99, 235, 0.06)',
-};
+// Build theme gradient from the primary color at runtime (in component).
+// This ensures the timeline follows the user's chosen color theme.
+
+function hexToRgba(hex: string, opacity: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
 
 function compactRupiah(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
@@ -205,6 +206,16 @@ export default function CategoryBreakdown({ getCategoryMeta }: CategoryBreakdown
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
   const isMobile = useIsMobile();
+
+  // Read the theme's primary color dynamically so the timeline follows
+  // the user's chosen color theme (not hardcoded violet/blue).
+  const primaryHex = useThemeColor('primary');
+  const THEME = useMemo(() => ({
+    from: primaryHex,
+    to: primaryHex,
+    fromSoft: hexToRgba(primaryHex, 0.08),
+    toSoft: hexToRgba(primaryHex, 0.06),
+  }), [primaryHex]);
 
   const period = useMemo(
     () => periodOptions.find((o) => o.value === periodValue) || periodOptions[0],
