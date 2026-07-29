@@ -157,7 +157,39 @@ export default function WeeklyTracker() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    // Fallback: show empty state instead of null so the section is always
+    // visible (even if the API fails or the DB table doesn't exist yet).
+    return (
+      <section className="anim-stagger">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-bold tracking-tight">📊 Weekly Tracker</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Set target pengeluaran per minggu</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((w, i) => (
+            <div
+              key={w}
+              className="wt-card wt-card-unset anim-stagger"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-bold">Week {w}</p>
+                  <p className="text-[10px] text-muted-foreground">—</p>
+                </div>
+              </div>
+              <div className="text-center py-3 rounded-xl border-2 border-dashed border-border">
+                <p className="text-[10px] text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   // ── Render ──
 
