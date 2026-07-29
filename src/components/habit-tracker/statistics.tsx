@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -214,6 +215,7 @@ function LoadingSkeleton() {
 export default function Statistics() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const [period, setPeriod] = useState<Period>('all');
+  const primaryColor = useThemeColor('primary');
 
   const { data: data, isFetching: fetching, isError } = useQuery<StatisticsData>({
     queryKey: ['statistics', period, refreshKey],
@@ -235,10 +237,10 @@ export default function Statistics() {
   const chartData = useMemo(() => {
     if (!data) return [];
     return [
-      { name: 'Completed', value: data.totalCompletion, color: '#22c55e' },
+      { name: 'Completed', value: data.totalCompletion, color: primaryColor },
       { name: 'Missed', value: data.missCount, color: '#f59e0b' },
     ];
-  }, [data]);
+  }, [data, primaryColor]);
 
   const total = useMemo(() => {
     if (!data) return 0;
