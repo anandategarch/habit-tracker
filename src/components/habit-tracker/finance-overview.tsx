@@ -1,19 +1,17 @@
 'use client';
 
-import { ResponsiveContainer, LineChart as RechartsLineChart, Line, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Target, Clock, Info, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Clock, Info, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { formatRupiah, CHART_COLORS } from './finance-types';
+import { formatRupiah } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import type { DashboardData, LastDoneItem } from './finance-types';
 import SourceBalanceSection from './source-balance';
-import WeeklyTracker from './weekly-tracker';
+import WeeklyTracker, { WeeklyTrendChart } from './weekly-tracker';
 
 function ChartInfo({ text }: { text: string }) {
   return (
@@ -36,16 +34,12 @@ interface FinanceOverviewProps {
   dashboardData: DashboardData;
   lastDoneData: LastDoneItem[];
   getCategoryMeta: (cat: string) => { emoji: string; color: string };
-  dailySpendingChartData: { date: string; amount: number }[];
-  categoryPieData: { name: string; value: number }[];
 }
 
 export default function FinanceOverview({
   dashboardData,
   lastDoneData,
   getCategoryMeta,
-  dailySpendingChartData,
-  categoryPieData,
 }: FinanceOverviewProps) {
   const incomeChange = dashboardData.previousMonth.income > 0
     ? Math.round(((dashboardData.totalIncome - dashboardData.previousMonth.income) / dashboardData.previousMonth.income) * 100)
@@ -62,6 +56,9 @@ export default function FinanceOverview({
 
       {/* ── WEEKLY TRACKER: 4-week budget grid ──────────────────── */}
       <WeeklyTracker />
+
+      {/* ── WEEKLY TREND CHART ──────────────────────────────────── */}
+      <WeeklyTrendChart />
 
       {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
       <Card className="overflow-hidden anim-stagger" style={{ animationDelay: '0ms' }}>
@@ -170,130 +167,6 @@ export default function FinanceOverview({
         </Card>
       )}
 
-      {/* ── Charts section (2 cols on desktop, stack on mobile) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Daily Spending Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              Tren Pengeluaran Harian
-              <ChartInfo text="Total pengeluaran per hari dalam bulan yang dipilih. Area merah menunjukkan intensitas pengeluaran." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {dailySpendingChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={dailySpendingChartData}>
-                  <defs>
-                    <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <RechartsTooltip
-                    formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
-                    contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                  />
-                  <Area type="monotone" dataKey="amount" stroke="#ef4444" fill="url(#spendGrad)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
-                Belum ada data pengeluaran bulan ini
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Category Breakdown */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              Pengeluaran per Kategori
-              <ChartInfo text="Persentase setiap kategori dari total pengeluaran bulan ini." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {categoryPieData.length > 0 ? (
-              <div className="space-y-3">
-                {categoryPieData.slice(0, 6).map((item, i) => {
-                  const meta = getCategoryMeta(item.name);
-                  const total = categoryPieData.reduce((s, c) => s + c.value, 0);
-                  const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-                  return (
-                    <div key={item.name} className="flex items-center gap-2">
-                      <span className="text-base">{meta.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center text-xs mb-0.5">
-                          <span className="truncate font-medium">{item.name}</span>
-                          <span className="text-muted-foreground ml-1 shrink-0">{pct}%</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                📊 Belum ada data
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Budget Overview (compact list, no grid of cards) ── */}
-      {dashboardData.budgetStatus.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Status Budget Bulan Ini
-              <ChartInfo text="Membandingkan total pengeluaran per kategori dengan batas anggaran." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="space-y-3">
-              {dashboardData.budgetStatus.map(b => {
-                const meta = getCategoryMeta(b.category);
-                const isOver = (b.percentage || 0) > 100;
-                return (
-                  <div key={b.id} className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium truncate">{meta.emoji} {b.category}</span>
-                      <span className={cn('text-xs shrink-0', isOver ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
-                        {formatRupiah(b.spent || 0)} / {formatRupiah(b.amount)}
-                      </span>
-                    </div>
-                    <Progress
-                      value={Math.min((b.percentage || 0), 100)}
-                      className={cn('h-2', isOver && '[&>div]:bg-red-500')}
-                    />
-                    {isOver && (
-                      <p className="text-xs text-red-500">Over budget {formatRupiah((b.spent || 0) - b.amount)}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {dashboardData.totalBudget > 0 && (
-              <div className="mt-3 pt-3 border-t flex flex-wrap justify-between gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                <span>Total Budget: {formatRupiah(dashboardData.totalBudget)}</span>
-                <span>Terpakai: {formatRupiah(dashboardData.totalBudgetSpent)} ({Math.round((dashboardData.totalBudgetSpent / dashboardData.totalBudget) * 100)}%)</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

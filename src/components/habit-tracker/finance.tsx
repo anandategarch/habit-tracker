@@ -314,30 +314,6 @@ export default function Finance() {
     fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
   }, [queryClient, triggerRefresh]);
 
-  // ── Budget Alerts ──────────────────────────────────────────────────────
-  // Check budget status after dashboard data loads and show toast alerts.
-  useEffect(() => {
-    if (!dashboardData || dashboardData.budgetStatus.length === 0) return;
-
-    for (const b of dashboardData.budgetStatus) {
-      const pct = b.percentage || 0;
-      const isOver = pct > 100;
-      const isWarning = pct >= 80 && pct <= 100;
-
-      if (isOver) {
-        toast.error(`⚠️ Budget ${b.category} over!`, {
-          description: `Terpakai ${formatRupiah(b.spent || 0)} dari ${formatRupiah(b.amount)} (${pct}%)`,
-          duration: 5000,
-        });
-      } else if (isWarning) {
-        toast.warning(`Budget ${b.category} ${pct}% terpakai`, {
-          description: `Sisa ${formatRupiah(Math.max(0, b.amount - (b.spent || 0)))}`,
-          duration: 4000,
-        });
-      }
-    }
-  }, [dashboardData]);
-
   // ── Auto-create budget snapshot on mount (ensures current month exists) ──
   useEffect(() => {
     fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
@@ -564,14 +540,6 @@ export default function Finance() {
     return true;
   }), [transactions, txFilter]);
 
-  const dailySpendingChartData = useMemo(() => dashboardData ? Object.entries(dashboardData.dailySpending)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, amount]) => ({ date: format(new Date(date), 'd MMM'), amount: Math.round(amount) })) : [], [dashboardData]);
-
-  const categoryPieData = useMemo(() => dashboardData ? Object.entries(dashboardData.expenseByCategory)
-    .map(([name, value]) => ({ name, value: Math.round(value) }))
-    .sort((a, b) => b.value - a.value) : [], [dashboardData]);
-
   const groupedTransactions = useMemo(() => {
     const sorted = [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const groups: { dateKey: string; dateLabel: string; dayName: string; txs: Transaction[]; totalIncome: number; totalExpense: number; net: number }[] = [];
@@ -647,8 +615,6 @@ export default function Finance() {
               dashboardData={dashboardData}
               lastDoneData={lastDoneData}
               getCategoryMeta={getCategoryMeta}
-              dailySpendingChartData={dailySpendingChartData}
-              categoryPieData={categoryPieData}
             />
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>
