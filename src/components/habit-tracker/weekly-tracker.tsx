@@ -426,7 +426,7 @@ function WeekCard({
   );
 }
 
-// ── WeeklyTrendChart: Bar chart showing spending per week vs target ──────
+// ── WeeklyTrendChart: Premium area chart with KPI cards ─────────────────
 
 export function WeeklyTrendChart() {
   const primaryColor = useThemeColor('primary');
@@ -443,9 +443,11 @@ export function WeeklyTrendChart() {
   });
 
   if (!data || data.weeks.every((w) => w.target === 0 && w.spent === 0)) {
-    return null; // no data yet
+    return null;
   }
 
+  // Build chart data
+  const hasTarget = data.weeks.some((w) => w.target > 0);
   const chartData = data.weeks.map((w) => ({
     label: `W${w.week}`,
     spent: w.spent,
@@ -457,79 +459,186 @@ export function WeeklyTrendChart() {
     1,
   );
 
+  // KPI values
+  const totalTarget = data.totalTarget || 0;
+  const totalSpend = data.totalSpent;
+  const vsTarget = totalTarget > 0 ? Math.round((totalSpend / totalTarget) * 100) : 0;
+  const avgPerWeek = data.weeks.length > 0 ? Math.round(totalSpend / data.weeks.length) : 0;
+  const isOverTarget = totalTarget > 0 && totalSpend > totalTarget;
+
+  // Convert month "2026-07" to "Juli 2026"
+  const [yr, mo] = data.month.split('-');
+  const monthLabel = new Date(parseInt(yr), parseInt(mo) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
   return (
-    <Card className="p-4 anim-stagger" style={{ animationDelay: '100ms' }}>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-sm font-bold tracking-tight">📈 Tren Mingguan</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {data.month} · {formatRupiah(data.totalSpent)} total
-          </p>
+    <section className="wt-premium anim-stagger" style={{ animationDelay: '100ms' }}>
+      {/* ── Header ── */}
+      <header className="wt-premium-header">
+        <div className="flex items-center gap-3">
+          {/* Gradient icon */}
+          <div className="wt-premium-icon">
+            <TrendingUp className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="wt-premium-title">Tren Mingguan</h3>
+            <p className="wt-premium-subtitle">{monthLabel} · Total {formatRupiah(totalSpend)}</p>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Bar chart */}
-      <div className="flex items-end justify-around gap-3 h-32 mb-2">
-        {chartData.map((d, i) => {
-          const spentHeight = maxVal > 0 ? (d.spent / maxVal) * 100 : 0;
-          const targetHeight = d.target && maxVal > 0 ? (d.target / maxVal) * 100 : 0;
-          const isOver = d.target && d.spent > d.target;
-          const isCurrent = data.currentWeek === i + 1;
+      {/* ── Main Chart ── */}
+      <div className="wt-premium-chart-area">
+        {/* Soft glow behind chart */}
+        <div className="wt-premium-glow" style={{ background: `radial-gradient(ellipse at center, ${primaryColor}15 0%, transparent 70%)` }} />
 
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              {/* Bar container */}
-              <div className="relative w-full flex-1 flex items-end">
-                {/* Target line */}
-                {d.target && (
+        {/* Chart */}
+        <div className="relative h-40 flex items-end justify-around gap-2 z-10">
+          {chartData.map((d, i) => {
+            const spentHeight = maxVal > 0 ? (d.spent / maxVal) * 80 : 0; // 80% max for breathing room
+            const targetHeight = d.target && maxVal > 0 ? (d.target / maxVal) * 80 : 0;
+            const isOver = d.target && d.spent > d.target;
+            const isCurrent = data.currentWeek === i + 1;
+            const hasData = d.spent > 0;
+
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                {/* Value label above marker */}
+                {hasData && (
+                  <span className="text-[10px] font-bold tabular-nums text-foreground whitespace-nowrap">
+                    {formatRupiah(d.spent).replace('Rp ', '')}
+                  </span>
+                )}
+
+                {/* Bar + marker + target line container */}
+                <div className="relative w-full flex-1 flex items-end justify-center">
+                  {/* Target dashed line */}
+                  {d.target && d.target > 0 && (
+                    <div
+                      className="absolute left-0 right-0 border-t-2 border-dashed z-20"
+                      style={{
+                        bottom: `${targetHeight}%`,
+                        borderColor: '#8B5CF6',
+                        opacity: 0.5,
+                      }}
+                    />
+                  )}
+
+                  {/* Spent bar with gradient + rounded top */}
                   <div
-                    className="absolute left-0 right-0 border-t-2 border-dashed opacity-40 z-10"
+                    className="wt-premium-bar anim-stagger"
                     style={{
-                      bottom: `${targetHeight}%`,
-                      borderColor: primaryColor,
+                      height: `${spentHeight}%`,
+                      background: isOver
+                        ? 'linear-gradient(180deg, #ef4444, #f87171)'
+                        : `linear-gradient(180deg, ${primaryColor}, ${primaryColor}99)`,
+                      minHeight: hasData ? '6px' : '0',
+                      animationDelay: `${i * 80}ms`,
                     }}
                   />
-                )}
-                {/* Spent bar */}
-                <div
-                  className="w-full rounded-t-lg transition-all duration-700 anim-stagger"
-                  style={{
-                    height: `${spentHeight}%`,
-                    backgroundColor: isOver ? '#ef4444' : primaryColor,
-                    minHeight: d.spent > 0 ? '4px' : '0',
-                    animationDelay: `${i * 80}ms`,
-                  }}
-                />
+
+                  {/* Floating circular marker on top of bar */}
+                  {hasData && (
+                    <div
+                      className="wt-premium-marker anim-stagger"
+                      style={{
+                        bottom: `${spentHeight}%`,
+                        backgroundColor: isOver ? '#ef4444' : primaryColor,
+                        animationDelay: `${i * 80 + 200}ms`,
+                      }}
+                    />
+                  )}
+
+                  {/* Current week indicator */}
+                  {isCurrent && (
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  )}
+                </div>
+
+                {/* Week label */}
+                <span
+                  className={cn(
+                    'text-[11px] font-semibold',
+                    isCurrent ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                >
+                  {d.label}
+                </span>
               </div>
-              {/* Label */}
-              <span
-                className={cn(
-                  'text-[10px] font-medium',
-                  isCurrent ? 'text-primary' : 'text-muted-foreground',
-                )}
-              >
-                {d.label}
-              </span>
-              {/* Amount */}
-              <span className="text-[9px] text-muted-foreground tabular-nums">
-                {d.spent > 0 ? formatRupiah(d.spent).replace('Rp ', '') : '—'}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        {/* Target line label */}
+        {hasTarget && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[10px] text-muted-foreground">Target: {formatRupiah(data.weeks.find(w => w.target > 0)?.target || 0)}</span>
+          </div>
+        )}
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-2">
-        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} />
-          Spent
+      {/* ── Legend ── */}
+      <div className="wt-premium-legend">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: primaryColor }} />
+          <span className="text-[11px] font-medium text-muted-foreground">Spent</span>
         </span>
-        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          <span className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: primaryColor }} />
-          Target
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-0 border-t-2 border-dashed" style={{ borderColor: '#8B5CF6' }} />
+          <span className="text-[11px] font-medium text-muted-foreground">Target</span>
         </span>
       </div>
-    </Card>
+
+      {/* ── Bottom KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Target Mingguan */}
+        <div className="wt-kpi-card anim-stagger" style={{ animationDelay: '200ms' }}>
+          <div className="wt-kpi-icon" style={{ background: 'linear-gradient(135deg, #6366F1, #818cf8)' }}>
+            🎯
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="wt-kpi-label">Target Mingguan</p>
+            <p className="wt-kpi-value">{totalTarget > 0 ? formatRupiah(totalTarget) : '—'}</p>
+          </div>
+        </div>
+
+        {/* Total Spend */}
+        <div className="wt-kpi-card anim-stagger" style={{ animationDelay: '260ms' }}>
+          <div className="wt-kpi-icon" style={{ background: 'linear-gradient(135deg, #8B5CF6, #a78bfa)' }}>
+            📈
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="wt-kpi-label">Total Spend</p>
+            <p className="wt-kpi-value">{formatRupiah(totalSpend)}</p>
+          </div>
+        </div>
+
+        {/* Vs Target */}
+        <div className="wt-kpi-card anim-stagger" style={{ animationDelay: '320ms' }}>
+          <div
+            className="wt-kpi-icon"
+            style={{ background: isOverTarget ? 'linear-gradient(135deg, #ef4444, #f87171)' : 'linear-gradient(135deg, #10B981, #34d399)' }}
+          >
+            {isOverTarget ? '⬆️' : '⬇️'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="wt-kpi-label">Vs Target</p>
+            <p className={cn('wt-kpi-value', isOverTarget ? 'text-red-500' : 'text-emerald-500')}>
+              {totalTarget > 0 ? `${vsTarget > 0 ? '+' : ''}${vsTarget}%` : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Average per Week */}
+        <div className="wt-kpi-card anim-stagger" style={{ animationDelay: '380ms' }}>
+          <div className="wt-kpi-icon" style={{ background: 'linear-gradient(135deg, #60A5FA, #93c5fd)' }}>
+            💳
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="wt-kpi-label">Avg / Week</p>
+            <p className="wt-kpi-value">{formatRupiah(avgPerWeek)}</p>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
