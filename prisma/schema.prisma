@@ -196,6 +196,22 @@ model Budget {
   updatedAt   DateTime @updatedAt
 }
 
+// Weekly budget tracker — 4 weeks per month (1-7, 8-14, 15-21, 22-end).
+// User sets a max spending target per week. Rollover carries remaining
+// budget to the next week. Auto-resets each month.
+model WeeklyBudget {
+  id        String   @id @default(cuid())
+  month     String   // "yyyy-MM" format, e.g. "2026-07"
+  week      Int      // 1, 2, 3, or 4
+  target    Int      // max spending target for this week (whole rupiah)
+  rollover  Boolean  @default(true) // whether remaining budget carries to next week
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([month, week])
+  @@index([month])
+}
+
 // Budget history per month — auto-saved at end of each month or on demand.
 // Tracks: how much was budgeted, how much was spent, and the rollover.
 model BudgetSnapshot {
