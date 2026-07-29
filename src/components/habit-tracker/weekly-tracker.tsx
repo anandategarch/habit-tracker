@@ -425,3 +425,111 @@ function WeekCard({
     </div>
   );
 }
+
+// ── WeeklyTrendChart: Bar chart showing spending per week vs target ──────
+
+export function WeeklyTrendChart() {
+  const primaryColor = useThemeColor('primary');
+  const currentMonth = jakartaDateString().slice(0, 7);
+
+  const { data } = useQuery<WeeklyBudgetData>({
+    queryKey: ['finance', 'weekly-budget', currentMonth],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/weekly-budget?month=${currentMonth}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 15_000,
+  });
+
+  if (!data || data.weeks.every((w) => w.target === 0 && w.spent === 0)) {
+    return null; // no data yet
+  }
+
+  const chartData = data.weeks.map((w) => ({
+    label: `W${w.week}`,
+    spent: w.spent,
+    target: w.target > 0 ? w.target : undefined,
+  }));
+
+  const maxVal = Math.max(
+    ...chartData.map((d) => Math.max(d.spent, d.target || 0)),
+    1,
+  );
+
+  return (
+    <Card className="p-4 anim-stagger" style={{ animationDelay: '100ms' }}>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-bold tracking-tight">📈 Tren Mingguan</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {data.month} · {formatRupiah(data.totalSpent)} total
+          </p>
+        </div>
+      </div>
+
+      {/* Bar chart */}
+      <div className="flex items-end justify-around gap-3 h-32 mb-2">
+        {chartData.map((d, i) => {
+          const spentHeight = maxVal > 0 ? (d.spent / maxVal) * 100 : 0;
+          const targetHeight = d.target && maxVal > 0 ? (d.target / maxVal) * 100 : 0;
+          const isOver = d.target && d.spent > d.target;
+          const isCurrent = data.currentWeek === i + 1;
+
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              {/* Bar container */}
+              <div className="relative w-full flex-1 flex items-end">
+                {/* Target line */}
+                {d.target && (
+                  <div
+                    className="absolute left-0 right-0 border-t-2 border-dashed opacity-40 z-10"
+                    style={{
+                      bottom: `${targetHeight}%`,
+                      borderColor: primaryColor,
+                    }}
+                  />
+                )}
+                {/* Spent bar */}
+                <div
+                  className="w-full rounded-t-lg transition-all duration-700 anim-stagger"
+                  style={{
+                    height: `${spentHeight}%`,
+                    backgroundColor: isOver ? '#ef4444' : primaryColor,
+                    minHeight: d.spent > 0 ? '4px' : '0',
+                    animationDelay: `${i * 80}ms`,
+                  }}
+                />
+              </div>
+              {/* Label */}
+              <span
+                className={cn(
+                  'text-[10px] font-medium',
+                  isCurrent ? 'text-primary' : 'text-muted-foreground',
+                )}
+              >
+                {d.label}
+              </span>
+              {/* Amount */}
+              <span className="text-[9px] text-muted-foreground tabular-nums">
+                {d.spent > 0 ? formatRupiah(d.spent).replace('Rp ', '') : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 mt-2">
+        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} />
+          Spent
+        </span>
+        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: primaryColor }} />
+          Target
+        </span>
+      </div>
+    </Card>
+  );
+}
