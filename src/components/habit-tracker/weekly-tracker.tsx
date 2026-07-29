@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Settings2, TrendingUp, TrendingDown, Copy, Sparkles } from 'lucide-react';
+import { Settings2, TrendingUp, Copy, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah } from './finance-types';
 import { toast } from 'sonner';
