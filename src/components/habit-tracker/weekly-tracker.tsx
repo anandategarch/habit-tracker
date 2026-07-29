@@ -105,22 +105,25 @@ export default function WeeklyTracker() {
     }
   };
 
-  const handleCopyFromLastMonth = async () => {
+  const handleAutoSuggest = async () => {
     if (!data) return;
-    // For now, just set all weeks to the suggested target
+    // Set all weeks to the smart suggested target
     try {
       const target = data.suggestedTarget;
-      for (let w = 1; w <= 4; w++) {
-        await fetch('/api/finance/weekly-budget', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ month: data.month, week: w, target, rollover: true }),
-        });
-      }
-      toast.success('Target disalin ke semua minggu');
+      // Use Promise.all for parallel requests (faster than sequential)
+      await Promise.all(
+        [1, 2, 3, 4].map((w) =>
+          fetch('/api/finance/weekly-budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month: data.month, week: w, target, rollover: true }),
+          })
+        )
+      );
+      toast.success(`Target ${formatRupiah(target)} diterapkan ke semua minggu`);
       queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
     } catch {
-      toast.error('Gagal menyalin target');
+      toast.error('Gagal menerapkan target');
     }
   };
 
@@ -128,14 +131,16 @@ export default function WeeklyTracker() {
     if (!data) return;
     const perWeek = Math.round(total / 4);
     try {
-      for (let w = 1; w <= 4; w++) {
-        await fetch('/api/finance/weekly-budget', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ month: data.month, week: w, target: perWeek, rollover: true }),
-        });
-      }
-      toast.success(`Rp ${formatRupiah(perWeek)} per minggu`);
+      await Promise.all(
+        [1, 2, 3, 4].map((w) =>
+          fetch('/api/finance/weekly-budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month: data.month, week: w, target: perWeek, rollover: true }),
+          })
+        )
+      );
+      toast.success(`${formatRupiah(perWeek)} per minggu`);
       queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
     } catch {
       toast.error('Gagal membagi target');
@@ -208,7 +213,7 @@ export default function WeeklyTracker() {
             variant="ghost"
             size="sm"
             className="h-7 text-xs gap-1"
-            onClick={handleCopyFromLastMonth}
+            onClick={handleAutoSuggest}
             title="Set all weeks to suggested target"
           >
             <Sparkles className="h-3 w-3" />

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { weeklyBudgetSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -76,16 +77,22 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate actual spending per week
+    // Use Jakarta timezone (UTC+7) for date extraction to match the user's
+    // local day — Vercel runs on UTC, so a 23:00 WIB transaction on day 7
+    // would otherwise be assigned to day 7 (16:00 UTC) instead of day 7.
+    const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
     const weekSpending = [0, 0, 0, 0];
     for (const tx of transactions) {
-      const txDate = new Date(tx.date);
-      const day = txDate.getDate();
+      // Shift the UTC time to Jakarta, then get the day-of-month
+      const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
+      const day = jakartaDate.getUTCDate();
       const week = dayToWeek(day);
       weekSpending[week - 1] += tx.amount;
     }
 
-    // Determine current week
-    const today = now.getDate();
+    // Determine current week (also using Jakarta time)
+    const jakartaNow = new Date(now.getTime() + JAKARTA_OFFSET_MS);
+    const today = jakartaNow.getUTCDate();
     const currentWeek = (year === now.getFullYear() && month === now.getMonth())
       ? dayToWeek(today)
       : 0; // 0 = not current month
@@ -94,8 +101,12 @@ export async function GET(request: NextRequest) {
     const suggestedTarget = await calculateSmartSuggestion();
 
     // Build response with rollover calculation
+    // rolloverIn = the amount carried INTO this week from the previous week
+    // effectiveTarget = this week's target + rolloverIn
+    // remaining = effectiveTarget - spent (can be negative if over)
+    // nextRolloverIn = remaining (if rollover enabled, carries to next week)
     const weeks = [];
-    let cumulativeRollover = 0;
+    let prevRollover = 0; // rollover carried from previous week
 
     for (let w = 1; w <= 4; w++) {
       const budget = budgets.find((b) => b.week === w);
@@ -103,21 +114,17 @@ export async function GET(request: NextRequest) {
       const rolloverEnabled = budget?.rollover ?? true;
       const spent = weekSpending[w - 1];
 
-      // Calculate effective target (with rollover from previous weeks)
-      let effectiveTarget = target;
-      if (target > 0 && rolloverEnabled) {
-        effectiveTarget = target + cumulativeRollover;
-      }
+      // rolloverIn = what was carried from the previous week
+      const rolloverIn = (w > 1 && rolloverEnabled && prevRollover !== 0) ? prevRollover : 0;
+
+      // effectiveTarget = target + rolloverIn (only if target is set)
+      const effectiveTarget = target > 0 ? target + rolloverIn : 0;
 
       // Remaining = effective target - spent
       const remaining = effectiveTarget > 0 ? effectiveTarget - spent : 0;
 
-      // Update cumulative rollover for next week
-      if (target > 0 && rolloverEnabled) {
-        cumulativeRollover = remaining; // can be negative if over budget
-      } else if (target > 0 && !rolloverEnabled) {
-        cumulativeRollover = 0; // no rollover
-      }
+      // Update prevRollover for the next iteration
+      prevRollover = (target > 0 && rolloverEnabled) ? remaining : 0;
 
       const { start, end } = weekDateRange(year, month, w);
 
@@ -130,7 +137,7 @@ export async function GET(request: NextRequest) {
         spent,
         remaining,
         rollover: rolloverEnabled,
-        rolloverIn: w > 1 && rolloverEnabled ? (cumulativeRollover - remaining + target) : 0,
+        rolloverIn,
         percentage: effectiveTarget > 0 ? Math.round((spent / effectiveTarget) * 100) : 0,
         status: target === 0 ? 'unset' : currentWeek === w ? 'active' : w < currentWeek ? 'past' : 'future',
         isOverBudget: effectiveTarget > 0 && spent > effectiveTarget,
@@ -163,23 +170,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { month, week, target, rollover } = body;
-
-    // Validate
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      return NextResponse.json({ error: 'Invalid month format. Use YYYY-MM' }, { status: 400 });
-    }
-    if (!week || week < 1 || week > 4) {
-      return NextResponse.json({ error: 'Week must be 1-4' }, { status: 400 });
-    }
-    if (typeof target !== 'number' || target < 0) {
-      return NextResponse.json({ error: 'Target must be a non-negative number' }, { status: 400 });
-    }
+    const parsed = parseOr400(weeklyBudgetSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { month, week, target, rollover } = parsed.data;
 
     const budget = await db.weeklyBudget.upsert({
       where: { month_week: { month, week } },
-      update: { target, rollover: rollover ?? true },
-      create: { month, week, target, rollover: rollover ?? true },
+      update: { target, rollover },
+      create: { month, week, target, rollover },
     });
 
     return NextResponse.json(budget);
