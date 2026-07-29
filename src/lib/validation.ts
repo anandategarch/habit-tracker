@@ -279,3 +279,11 @@ export function parseOr400<T>(
     response: NextResponse.json({ error: message }, { status: 400 }),
   };
 }
+
+// ── Weekly Budget ────────────────────────────────────────────────────────
+export const weeklyBudgetSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/, 'Invalid month format. Use YYYY-MM'),
+  week: z.number().int().min(1).max(4),
+  target: z.number().int().min(0),
+  rollover: z.boolean().optional().default(true),
+});
