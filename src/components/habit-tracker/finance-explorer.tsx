@@ -556,12 +556,12 @@ export default function FinanceExplorer({
                 </div>
               )}
             </div>
-            <div className="flex items-end justify-around gap-3 mt-4" style={{ height: '200px' }}>
+            <div className="flex items-end justify-around gap-3 mt-4" style={{ height: '210px' }}>
               {weekData.map((w, i) => {
                 const bw = budgetData?.weeks.find((b) => b.week === w.week);
                 const target = bw?.target || 0;
                 const maxVal = Math.max(...weekData.map((d) => d.total), target, 1);
-                const barAreaHeight = 140;
+                const barAreaHeight = 130;
                 const heightPx = maxVal > 0 ? Math.round((w.total / maxVal) * barAreaHeight) : 0;
                 const targetHeightPx = target > 0 && maxVal > 0 ? Math.round((target / maxVal) * barAreaHeight) : 0;
                 const isOver = bw?.isOverBudget ?? false;
@@ -598,14 +598,22 @@ export default function FinanceExplorer({
                       />
                     </div>
                     {/* Label + set target button */}
-                    <div className="h-8 flex flex-col items-center justify-end shrink-0">
+                    <div className="h-12 flex flex-col items-center justify-end shrink-0 gap-0.5">
                       <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
                       <span className="text-[9px] text-muted-foreground">{w.dateRange}</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDialog(w.week); }}
-                        className="text-[8px] text-muted-foreground hover:text-primary transition-colors mt-0.5"
+                        className={cn(
+                          'flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-semibold transition-all',
+                          target > 0
+                            ? isOver
+                              ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                              : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                            : 'bg-primary/10 text-primary hover:bg-primary/20',
+                        )}
                       >
-                        {target > 0 ? `${formatRupiah(target).replace('Rp ', '')}` : 'Set target'}
+                        <Target className="h-2.5 w-2.5" />
+                        {target > 0 ? formatRupiah(target).replace('Rp ', '') : 'Set Target'}
                       </button>
                     </div>
                   </div>
