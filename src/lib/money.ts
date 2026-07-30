@@ -48,20 +48,37 @@ export function assertPositiveMoney(input: unknown): number {
 }
 
 /**
- * Apply a transaction delta to a fund source balance.
- * Income adds, expense subtracts. Returns the new balance.
+ * Returns the signed delta to apply to a balance for a given transaction.
+ * Income: +amount, Expense: -amount.
+ *
+ * Use this with Prisma's atomic `increment` operator:
+ *   `data: { balance: { increment: signedDelta(amount, type) } }`
+ * to avoid the lost-update race in read-modify-write patterns.
  *
  * Accepts `string` for `type` because the Prisma schema stores it as `String`
  * (not an enum). Invalid values are treated as expense (the safer default for
  * a personal finance app — better to under-count than over-count).
+ */
+export function signedDelta(
+  amount: number,
+  type: 'income' | 'expense' | string
+): number {
+  return type === 'income' ? amount : -amount;
+}
+
+/**
+ * Apply a transaction delta to a fund source balance.
+ * Income adds, expense subtracts. Returns the new balance.
+ *
+ * NOTE: Prefer `signedDelta` + Prisma's atomic `increment` for writes to
+ * avoid lost-update races. This helper is kept only for read-only calculations.
  */
 export function applyDelta(
   balance: number,
   amount: number,
   type: 'income' | 'expense' | string
 ): number {
-  const delta = type === 'income' ? amount : -amount;
-  return balance + delta;
+  return balance + signedDelta(amount, type);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { toMoneyInt, applyDelta } from '@/lib/money';
+import { toMoneyInt, signedDelta } from '@/lib/money';
 import { createTransactionSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -25,8 +25,13 @@ export async function GET(request: NextRequest) {
       if (isNaN(year) || isNaN(mon) || mon < 1 || mon > 12) {
         return NextResponse.json({ error: 'Invalid month. Use YYYY-MM with valid month 01-12' }, { status: 400 });
       }
-      const start = new Date(year, mon - 1, 1);
-      const end = new Date(year, mon, 0, 23, 59, 59, 999);
+      // Use UTC midnight to match the Jakarta wall-clock month exactly.
+      // Previously used `new Date(year, mon - 1, 1)` which uses server-LOCAL
+      // midnight — on Vercel (UTC) this happens to work, but on any non-UTC
+      // server the first/last few hours of the Jakarta month leak across
+      // the boundary.
+      const start = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0, 0));
+      const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
       where.date = { gte: start, lte: end };
     }
 
@@ -106,12 +111,16 @@ export async function POST(request: NextRequest) {
       });
 
       // Try to update fund source balance if a matching source exists.
+      // Use Prisma's atomic `increment` operator to avoid the lost-update
+      // race that a read-modify-write pattern would create under concurrent
+      // writes (two POSTs reading the same balance and overwriting each
+      // other). `increment` issues a single SQL `UPDATE ... SET balance =
+      // balance + ?` which is atomic at the row level.
       const fundSource = await tx.fundSource.findUnique({ where: { name: sourceName } });
       if (fundSource) {
-        const newBalance = applyDelta(fundSource.balance, amount, type);
         await tx.fundSource.update({
           where: { id: fundSource.id },
-          data: { balance: newBalance },
+          data: { balance: { increment: signedDelta(amount, type) } },
         });
       }
 

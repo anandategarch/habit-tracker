@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { createHabitGroupSchema, updateHabitGroupSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/habit-groups
@@ -25,12 +26,9 @@ export async function GET() {
 // POST /api/habit-groups — create group
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { name, emoji, color } = body as { name: string; emoji?: string; color?: string };
-
-    if (!name?.trim()) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
-    }
+    const parsed = parseOr400(createHabitGroupSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const { name, emoji, color } = parsed.data;
 
     // Get max order
     const maxOrder = await db.habitGroup.aggregate({ _max: { order: true } });
@@ -52,17 +50,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/habit-groups — update group
+// PUT /api/habit-groups — update group (id in body)
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, name, emoji, color, order } = body as {
-      id: string; name?: string; emoji?: string; color?: string; order?: number;
-    };
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
-    }
+    const parsed = parseOr400(updateHabitGroupSchema, await request.json());
+    if (!parsed.success) return parsed.response;
+    const { id, name, emoji, color, order } = parsed.data;
 
     const data: Record<string, unknown> = {};
     if (name !== undefined) data.name = name.trim();

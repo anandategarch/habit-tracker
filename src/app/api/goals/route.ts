@@ -24,7 +24,11 @@ export async function POST(request: NextRequest) {
         description: description || null,
         deadline: deadline ? new Date(deadline) : null,
         priority: priority || 'Medium',
-        milestones: milestones ? JSON.stringify(milestones) : '[]',
+        // `milestones` is already a JSON string from the client (the goals
+        // component calls `JSON.stringify(form.milestones)` before sending).
+        // Previously this called `JSON.stringify(milestones)` again, wrapping
+        // it in extra quotes on every save and silently corrupting the data.
+        milestones: milestones || '[]',
       },
     });
     return NextResponse.json(goal, { status: 201 });

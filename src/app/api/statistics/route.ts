@@ -138,14 +138,21 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // ── Best day / worst day ─────────────────────────────────────
-    let bestDay = { date: 'N/A', rate: 0 };
-    let worstDay = { date: 'N/A', rate: 0 };
+    // Initialize worstDay with rate=101 (sentinel above 100%) so the first
+    // iteration always replaces it. Previously initialized to 0, but
+    // `rate < 0` is impossible for a percentage — so worstDay was never
+    // updated and always returned `{ date: 'N/A', rate: 0 }`.
+    let bestDay = { date: 'N/A', rate: -1 };
+    let worstDay = { date: 'N/A', rate: 101 };
 
     for (const [date, stat] of dailyStats) {
       const rate = stat.total > 0 ? Math.round((stat.done / stat.total) * 100) : 0;
       if (rate > bestDay.rate) bestDay = { date, rate };
       if (rate < worstDay.rate) worstDay = { date, rate };
     }
+    // If no days were tracked, fall back to N/A / 0.
+    if (bestDay.rate < 0) bestDay = { date: 'N/A', rate: 0 };
+    if (worstDay.rate > 100) worstDay = { date: 'N/A', rate: 0 };
 
     // ── Best week / best month ───────────────────────────────────
     const weeklyMap = new Map<string, { done: number; total: number }>();

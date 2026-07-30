@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { weeklyBudgetSchema, parseOr400 } from '@/lib/validation';
-import { dayToWeek } from '@/lib/timezone';
+import { dayToWeek, jakartaNowParts, jakartaDateKey } from '@/lib/timezone';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -47,9 +47,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get('month');
 
-    const now = new Date();
-    const year = monthParam ? parseInt(monthParam.split('-')[0]) : now.getFullYear();
-    const month = monthParam ? parseInt(monthParam.split('-')[1]) - 1 : now.getMonth();
+    // Default to Jakarta wall-clock month when no param. Previously used
+    // `new Date()` + LOCAL getFullYear/getMonth — wrong during Jakarta
+    // midnight rollover on UTC servers.
+    const jakartaParts = jakartaNowParts();
+    const year = monthParam ? parseInt(monthParam.split('-')[0]) : jakartaParts.year;
+    const month = monthParam ? parseInt(monthParam.split('-')[1]) - 1 : jakartaParts.month - 1;
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
     // Fetch existing weekly budgets for this month
@@ -58,9 +61,10 @@ export async function GET(request: NextRequest) {
       orderBy: { week: 'asc' },
     });
 
-    // Fetch all expense transactions for this month
-    const monthStart = new Date(year, month, 1);
-    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    // Fetch all expense transactions for this month. Use UTC midnight to
+    // match the Jakarta wall-clock month exactly (no server-TZ leakage).
+    const monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    const monthEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
     const transactions = await db.transaction.findMany({
       where: {
         type: 'expense',
@@ -71,23 +75,27 @@ export async function GET(request: NextRequest) {
 
     // Calculate actual spending per week
     // Use Jakarta timezone (UTC+7) for date extraction to match the user's
-    // local day — Vercel runs on UTC, so a 23:00 WIB transaction on day 7
-    // would otherwise be assigned to day 7 (16:00 UTC) instead of day 7.
-    const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+    // local day. We use the canonical `Intl.DateTimeFormat` with
+    // `timeZone: 'Asia/Jakarta'` via `jakartaDateKey()` — this works on ANY
+    // server timezone (Vercel UTC, local dev Asia/Jakarta, etc.). The
+    // previous pattern (`new Date(tx.date.getTime() + JAKARTA_OFFSET_MS)`
+    // then `getUTCDate()`) only worked on UTC servers.
     const weekSpending = [0, 0, 0, 0];
     for (const tx of transactions) {
-      // Shift the UTC time to Jakarta, then get the day-of-month
-      const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
-      const day = jakartaDate.getUTCDate();
+      // jakartaDateKey returns 'yyyy-MM-dd'; extract day-of-month.
+      const day = parseInt(jakartaDateKey(tx.date).slice(8, 10), 10);
       const week = dayToWeek(day);
       weekSpending[week - 1] += tx.amount;
     }
 
-    // Determine current week (also using Jakarta time)
-    const jakartaNow = new Date(now.getTime() + JAKARTA_OFFSET_MS);
-    const today = jakartaNow.getUTCDate();
-    const currentWeek = (year === now.getFullYear() && month === now.getMonth())
-      ? dayToWeek(today)
+    // Determine current week using Jakarta wall-clock components (works on
+    // any server TZ). Previously used `now.getFullYear()` / `now.getMonth()`
+    // (LOCAL components) — on a UTC server this happened to match Jakarta,
+    // but during Jakarta midnight rollover (UTC 17:00-23:59 = next day WIB)
+    // the comparison was off by one day, marking the wrong week as "current".
+    const jakartaNow = jakartaNowParts();
+    const currentWeek = (year === jakartaNow.year && month === jakartaNow.month - 1)
+      ? dayToWeek(jakartaNow.day)
       : 0; // 0 = not current month
 
     // Smart suggestion
@@ -98,7 +106,22 @@ export async function GET(request: NextRequest) {
     // effectiveTarget = this week's target + rolloverIn
     // remaining = effectiveTarget - spent (can be negative if over)
     // nextRolloverIn = remaining (if rollover enabled, carries to next week)
-    const weeks = [];
+    interface WeekData {
+      week: number;
+      label: string;
+      dateRange: string;
+      target: number;
+      effectiveTarget: number;
+      spent: number;
+      remaining: number;
+      rollover: boolean;
+      rolloverIn: number;
+      percentage: number;
+      status: string;
+      isOverBudget: boolean;
+      isCurrentWeek: boolean;
+    }
+    const weeks: WeekData[] = [];
     let prevRollover = 0; // rollover carried from previous week
 
     for (let w = 1; w <= 4; w++) {
@@ -138,9 +161,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Totals
-    const totalTarget = weeks.reduce((s, w) => s + w.target, 0);
-    const totalSpent = weeks.reduce((s, w) => s + w.spent, 0);
+    // Totals — only count weeks that have a target set (target > 0).
+    // Previously summed ALL 4 weeks' targets (including unset weeks with
+    // target=0), which made `totalPercentage` misleading: if only week 1 had
+    // a target of 100k but the user spent 130k across all 4 weeks, the UI
+    // showed "130% of total budget used" even though only week 1 was
+    // budgeted. Now `totalSpent` is also restricted to budgeted weeks so the
+    // percentage reflects "spent vs budgeted" rather than "spent vs everything".
+    const budgetedWeeks = weeks.filter((w) => w.target > 0);
+    const totalTarget = budgetedWeeks.reduce((s, w) => s + w.target, 0);
+    const totalSpent = budgetedWeeks.reduce((s, w) => s + w.spent, 0);
     const totalPercentage = totalTarget > 0 ? Math.round((totalSpent / totalTarget) * 100) : 0;
 
     return NextResponse.json({

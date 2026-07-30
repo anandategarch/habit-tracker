@@ -18,6 +18,11 @@ export async function PUT(
         ...(d.title !== undefined && { title: d.title }),
         ...(d.description !== undefined && { description: d.description }),
         ...(d.duration !== undefined && { duration: d.duration }),
+        // Previously dropped `startDate` even though the schema allows it —
+        // editing a challenge's start date silently did nothing. Note:
+        // `startDate` is non-nullable in the schema, so we only set it when
+        // a value is provided (no `: null` fallback).
+        ...(d.startDate !== undefined && { startDate: new Date(d.startDate) }),
         ...(d.progress !== undefined && { progress: d.progress }),
         ...(d.status !== undefined && { status: d.status }),
         ...(d.endDate !== undefined && { endDate: d.endDate ? new Date(d.endDate) : null }),

@@ -21,7 +21,7 @@ export async function PUT(
         ...(d.progress !== undefined && { progress: d.progress }),
         ...(d.priority !== undefined && { priority: d.priority }),
         ...(d.status !== undefined && { status: d.status }),
-        ...(d.milestones !== undefined && { milestones: JSON.stringify(d.milestones) }),
+        ...(d.milestones !== undefined && { milestones: d.milestones }),
         ...(d.achievement !== undefined && { achievement: d.achievement }),
       },
     });

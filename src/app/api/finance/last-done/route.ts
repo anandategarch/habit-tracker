@@ -16,11 +16,16 @@ export async function GET() {
 
     const categoryNames = trackedCategories.map(c => c.name);
 
-    // Get the latest transaction for each tracked category
+    // Get the latest transaction for each tracked category.
+    // Previously used `distinct: ['category']` + `orderBy: { date: 'desc' }`,
+    // which Prisma docs forbid (combining distinct with orderBy on a
+    // non-distinct field yields implementation-defined results). The JS
+    // dedupe below already picks the latest per category because the
+    // `orderBy: date desc` ensures the newest transaction is seen first.
+    // So we just drop the `distinct` and let the dedupe handle it.
     const lastTransactions = await db.transaction.findMany({
       where: { category: { in: categoryNames } },
       orderBy: { date: 'desc' },
-      distinct: ['category'],
     });
 
     // Build a map of category name -> last transaction

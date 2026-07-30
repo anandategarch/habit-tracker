@@ -83,7 +83,6 @@ import { HabitMobileCards } from './habit-mobile-cards';
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function HabitMaster() {
-  const refreshKey = useAppStore(s => s.refreshKey);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
   const { categories, priorities, difficulties, categoryMap, priorityMap, difficultyMap } = useHabitOptions();
@@ -123,7 +122,7 @@ export default function HabitMaster() {
   // ── Fetch habits ─────────────────────────────────────────────────────────
 
   const { data: habits = [], isLoading: loading } = useQuery<Habit[]>({
-    queryKey: ['habits', refreshKey],
+    queryKey: ['habits'],
     queryFn: async () => {
       const res = await fetch('/api/habits');
       if (!res.ok) throw new Error('Failed to fetch habits');
@@ -245,7 +244,7 @@ export default function HabitMaster() {
         });
         if (!res.ok) throw new Error('Failed to update habit');
         // Optimistic update
-        queryClient.setQueryData<Habit[]>(['habits', refreshKey], (prev = []) =>
+        queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
           prev.map((h) =>
             h.id === editingId ? { ...h, ...payload, updatedAt: new Date().toISOString() } : h
           )
@@ -261,7 +260,7 @@ export default function HabitMaster() {
         if (!res.ok) throw new Error('Failed to create habit');
         const newHabit = await res.json();
         // Optimistic update
-        queryClient.setQueryData<Habit[]>(['habits', refreshKey], (prev = []) => [...prev, newHabit]);
+        queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
         toast.success('Habit created successfully');
       }
 
@@ -283,7 +282,7 @@ export default function HabitMaster() {
       const res = await fetch(`/api/habits/${deleteId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete habit');
       // Optimistic update
-      queryClient.setQueryData<Habit[]>(['habits', refreshKey], (prev = []) => (prev).filter((h) => h.id !== deleteId));
+      queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => (prev).filter((h) => h.id !== deleteId));
       toast.success('Habit deleted successfully');
       setDeleteId(null);
       triggerRefresh();
@@ -299,7 +298,7 @@ export default function HabitMaster() {
     const newStatus = h.status === 'active' ? 'paused' : 'active';
     const statusLabel = newStatus === 'paused' ? 'paused' : 'resumed';
     // Optimistic
-    queryClient.setQueryData<Habit[]>(['habits', refreshKey], (prev = []) =>
+    queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
       prev.map((x) => (x.id === h.id ? { ...x, status: newStatus } : x))
     );
     try {
@@ -320,7 +319,7 @@ export default function HabitMaster() {
   async function handleArchive(h: Habit) {
     const newStatus = h.status === 'archived' ? 'active' : 'archived';
     const label = newStatus === 'archived' ? 'archived' : 'unarchived';
-    queryClient.setQueryData<Habit[]>(['habits', refreshKey], (prev = []) =>
+    queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
       prev.map((x) => (x.id === h.id ? { ...x, status: newStatus } : x))
     );
     try {
@@ -365,7 +364,7 @@ export default function HabitMaster() {
       });
       if (!res.ok) throw new Error();
       const newHabit = await res.json();
-      queryClient.setQueryData<Habit[]>(['habits', refreshKey], (prev = []) => [...prev, newHabit]);
+      queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
       setQuickName('');
       toast.success('Habit added quickly!');
       triggerRefresh();

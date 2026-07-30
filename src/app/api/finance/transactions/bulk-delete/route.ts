@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { applyDelta, inverseType } from '@/lib/money';
+import { signedDelta } from '@/lib/money';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -22,12 +22,13 @@ export async function POST(request: NextRequest) {
     const deleted = await db.$transaction(async (tx) => {
       const records = await tx.transaction.findMany({ where: { id: { in: ids } } });
 
-      // Revert each transaction's effect on its fund source.
+      // Revert each transaction's effect on its fund source using atomic
+      // increments — no read-modify-write, no lost-update race.
       for (const t of records) {
         const fs = await tx.fundSource.findUnique({ where: { name: t.source } });
         if (fs) {
-          const reverted = applyDelta(fs.balance, t.amount, inverseType(t.type));
-          await tx.fundSource.update({ where: { id: fs.id }, data: { balance: reverted } });
+          const revertDelta = -signedDelta(t.amount, t.type);
+          await tx.fundSource.update({ where: { id: fs.id }, data: { balance: { increment: revertDelta } } });
         }
       }
 
