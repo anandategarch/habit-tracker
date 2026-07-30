@@ -419,27 +419,30 @@ export default function FinanceExplorer({
             <div className="flex items-end justify-around gap-3 h-48 mt-4">
               {weekData.map((w, i) => {
                 const maxVal = Math.max(...weekData.map((d) => d.total), 1);
-                const height = maxVal > 0 ? (w.total / maxVal) * 80 : 0;
+                // Calculate pixel height: 80% of 192px (h-48 = 12rem = 192px)
+                // minus space for label + value text (~48px)
+                const barAreaHeight = 144; // 192 - 48 for labels
+                const heightPx = maxVal > 0 ? Math.round((w.total / maxVal) * barAreaHeight) : 0;
                 return (
                   <div
                     key={w.week}
-                    className="flex-1 flex flex-col items-center gap-2 cursor-pointer"
+                    className="flex-1 flex flex-col items-center gap-2 cursor-pointer h-full"
                     onClick={() => drillFromWeekToDay(w.week)}
                   >
-                    <span className="text-[10px] font-bold tabular-nums">{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
-                    <div className="w-full flex-1 flex items-end">
+                    <span className="text-[10px] font-bold tabular-nums shrink-0">{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
+                    <div className="w-full flex-1 flex items-end min-h-0">
                       <div
                         className="w-full rounded-t-lg anim-stagger transition-all duration-300 hover:opacity-80"
                         style={{
-                          height: `${height}%`,
+                          height: `${heightPx}px`,
                           background: `linear-gradient(180deg, ${primaryColor}, ${primaryColor}80)`,
                           minHeight: w.total > 0 ? '8px' : '0',
                           animationDelay: `${i * 80}ms`,
                         }}
                       />
                     </div>
-                    <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
-                    <span className="text-[9px] text-muted-foreground">{w.dateRange}</span>
+                    <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{w.label}</span>
+                    <span className="text-[9px] text-muted-foreground shrink-0">{w.dateRange}</span>
                   </div>
                 );
               })}
