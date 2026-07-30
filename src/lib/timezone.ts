@@ -129,3 +129,15 @@ export function jakartaShiftedNow(): Date {
 export function jakartaShifted(date: Date): Date {
   return new Date(date.getTime() + 7 * 60 * 60 * 1000);
 }
+
+/**
+ * Returns the week number (1-4) for a given day of month.
+ * Week 1: days 1-7, Week 2: days 8-14, Week 3: days 15-21, Week 4: days 22-end.
+ * Shared between weekly-budget API and finance-explorer component.
+ */
+export function dayToWeek(day: number): number {
+  if (day <= 7) return 1;
+  if (day <= 14) return 2;
+  if (day <= 21) return 3;
+  return 4;
+}
