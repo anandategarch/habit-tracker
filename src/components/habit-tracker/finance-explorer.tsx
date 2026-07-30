@@ -380,7 +380,7 @@ export default function FinanceExplorer({
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #EEF2FF' }}
                   cursor={{ fill: `${primaryColor}10` }}
                 />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) setSelectedMonth(d.month); }}>
+                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) { setSelectedMonth(d.month); setSelectedWeek(null); setSelectedCategory(null); setLevel('week'); } }}>
                   {monthlyData.map((entry, i) => (
                     <Cell key={i} fill={entry.month === selectedMonth ? primaryColor : `${primaryColor}60`} />
                   ))}
