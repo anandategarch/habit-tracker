@@ -11,8 +11,6 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   Cell,
-  PieChart,
-  Pie,
 } from 'recharts';
 import {
   ChevronRight,
@@ -60,12 +58,6 @@ interface WeekData {
   label: string;
   dateRange: string;
   total: number;
-}
-
-interface CatData {
-  category: string;
-  total: number;
-  count: number;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -279,16 +271,23 @@ export default function FinanceExplorer({
 
   // ── Drill handlers ──
 
-  const drillToWeek = (week: number) => {
-    setSelectedWeek(week);
+  // From month level: click a month bar → set month + drill to week level
+  const drillToMonth = (month: string) => {
+    setSelectedMonth(month);
+    setSelectedWeek(null);
     setSelectedDay(null);
     setLevel('week');
   };
-  const drillToDay = (day: number) => {
-    setSelectedDay(day);
+
+  // From week level: click a week bar → set week + drill to day level
+  const drillFromWeekToDay = (week: number) => {
+    setSelectedWeek(week);
+    setSelectedDay(null);
     setLevel('day');
   };
-  const drillToTransactions = () => {
+  // From day list: click a day → set day + drill to transactions
+  const drillFromDayToTransactions = (day: number) => {
+    setSelectedDay(day);
     setLevel('transactions');
   };
   const goBack = () => {
@@ -404,7 +403,7 @@ export default function FinanceExplorer({
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #EEF2FF' }}
                   cursor={{ fill: `${primaryColor}10` }}
                 />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) { setSelectedMonth(d.month); setSelectedWeek(null); setSelectedDay(null); setLevel('week'); } }}>
+                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) drillToMonth(d.month); }}>
                   {monthlyData.map((entry, i) => (
                     <Cell key={i} fill={entry.month === selectedMonth ? primaryColor : `${primaryColor}60`} />
                   ))}
@@ -427,7 +426,7 @@ export default function FinanceExplorer({
                   <div
                     key={w.week}
                     className="flex-1 flex flex-col items-center gap-2 cursor-pointer"
-                    onClick={() => drillToWeek(w.week)}
+                    onClick={() => drillFromWeekToDay(w.week)}
                   >
                     <span className="text-[10px] font-bold tabular-nums">{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
                     <div className="w-full flex-1 flex items-end">
@@ -465,7 +464,7 @@ export default function FinanceExplorer({
                   return (
                     <button
                       key={d.day}
-                      onClick={() => { drillToDay(d.day); drillToTransactions(); }}
+                      onClick={() => drillFromDayToTransactions(d.day)}
                       className="fe-cat-row anim-stagger w-full"
                       style={{ animationDelay: `${i * 50}ms` }}
                     >
