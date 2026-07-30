@@ -151,7 +151,7 @@ export default function FinanceExplorer({
       for (const tx of txs) {
         const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
         const key = `${jakartaDate.getUTCFullYear()}-${String(jakartaDate.getUTCMonth() + 1).padStart(2, '0')}`;
-        monthMap[key] = (monthMap[key] || 0) + tx.amount;
+        monthMap[key] = (monthMap[key] || 0) + (tx.amount || 0);
       }
       return Object.entries(monthMap)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -168,7 +168,7 @@ export default function FinanceExplorer({
     for (const tx of allTx) {
       const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
       const day = jakartaDate.getUTCDate();
-      weeks[dayToWeek(day) - 1] += tx.amount;
+      weeks[dayToWeek(day) - 1] += (tx.amount || 0);
     }
     const [y, m] = selectedMonth.split('-').map(Number);
     return [1, 2, 3, 4].map((w) => {
@@ -187,7 +187,7 @@ export default function FinanceExplorer({
       const day = jakartaDate.getUTCDate();
       if (dayToWeek(day) !== selectedWeek) continue;
       if (!dayMap[day]) dayMap[day] = { total: 0, count: 0 };
-      dayMap[day].total += tx.amount;
+      dayMap[day].total += (tx.amount || 0);
       dayMap[day].count++;
     }
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -396,6 +396,9 @@ export default function FinanceExplorer({
         {level === 'month' && (
           <div className="fe-card">
             <h3 className="fe-card-title">Overview 6 Bulan</h3>
+            {monthlyData.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-12">Belum ada data pengeluaran</p>
+            ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
@@ -413,6 +416,7 @@ export default function FinanceExplorer({
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            )}
             <p className="text-[10px] text-muted-foreground text-center mt-2">Klik bar bulan untuk drill-down ke minggu →</p>
           </div>
         )}
@@ -507,20 +511,20 @@ export default function FinanceExplorer({
               <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi</p>
             ) : (
               <div className="space-y-1 mt-4 max-h-96 overflow-y-auto">
-                {transactionList.map((tx, i) => {
-                  const meta = getCategoryMeta(tx.category);
+                {transactionList.filter(Boolean).map((tx, i) => {
+                  const meta = getCategoryMeta(tx.category || 'Unknown');
                   const d = new Date(tx.date);
                   return (
                     <div key={tx.id} className="fe-tx-row anim-stagger" style={{ animationDelay: `${i * 30}ms` }}>
                       <div className="fe-tx-logo">{meta.emoji}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{tx.description || tx.category}</p>
+                        <p className="text-sm font-medium truncate">{tx.description || tx.category || 'Unknown'}</p>
                         <p className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           <Clock className="h-2.5 w-2.5" />
-                          {d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {tx.category}
+                          {d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Unknown')}
                         </p>
                       </div>
-                      <span className="text-sm font-bold tabular-nums">{formatRupiah(tx.amount)}</span>
+                      <span className="text-sm font-bold tabular-nums">{formatRupiah(tx.amount || 0)}</span>
                     </div>
                   );
                 })}

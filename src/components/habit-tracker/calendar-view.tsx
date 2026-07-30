@@ -249,7 +249,7 @@ export default function CalendarView() {
     if (activeDays.length === 0)
       return { avg: 0, best: null, worst: null, entries: 0 };
 
-    const rates = activeDays.map((d) => d.completionRate as number);
+    const rates = activeDays.map((d) => (d.completionRate as number) || 0);
     const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
     const bestIdx = rates.indexOf(Math.max(...rates));
     const worstIdx = rates.indexOf(Math.min(...rates));
