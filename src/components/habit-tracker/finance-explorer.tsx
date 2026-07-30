@@ -257,15 +257,18 @@ export default function FinanceExplorer({
       ];
     }
     // transactions level
-    const total = transactionList.reduce((s, t) => s + t.amount, 0);
-    const avg = transactionList.length > 0 ? Math.round(total / transactionList.length) : 0;
-    const highest = transactionList.reduce((max, t) => t.amount > max.amount ? t : null, transactionList[0] || null);
+    const validTx = transactionList.filter((t) => t && typeof t.amount === 'number');
+    const total = validTx.reduce((s, t) => s + t.amount, 0);
+    const avg = validTx.length > 0 ? Math.round(total / validTx.length) : 0;
+    const highest = validTx.length > 0
+      ? validTx.reduce((max, t) => (t.amount > max.amount ? t : max), validTx[0])
+      : null;
     const dayLabel = dayData.find((d) => d.day === selectedDay);
     return [
       { icon: Wallet, label: dayLabel ? `${dayLabel.dayName}` : 'Total Hari', value: <CountUpRupiah amount={total} />, accent: 'indigo' as const },
       { icon: TrendingUp, label: 'Rata-rata/Transaksi', value: <CountUpRupiah amount={avg} />, accent: 'purple' as const },
       { icon: Target, label: 'Transaksi Terbesar', value: highest ? <CountUpRupiah amount={highest.amount} /> : '—', accent: 'amber' as const },
-      { icon: Receipt, label: 'Jumlah Transaksi', value: <CountUpNumber value={transactionList.length} />, accent: 'blue' as const },
+      { icon: Receipt, label: 'Jumlah Transaksi', value: <CountUpNumber value={validTx.length} />, accent: 'blue' as const },
     ];
   }, [level, monthlyData, weekData, dayData, transactionList, allTx.length, selectedWeek, selectedDay]);
 
