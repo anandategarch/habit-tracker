@@ -160,3 +160,9 @@ export const formatRupiah = (amount: number) => {
 };
 
 export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** Compact Rupiah format for chart labels: 1.5jt, 350k, 500 */
+export const compactRupiah = (n: number): string => {
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(n);
+};

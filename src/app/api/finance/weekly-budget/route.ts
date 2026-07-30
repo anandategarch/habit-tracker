@@ -1,16 +1,9 @@
 import { db } from '@/lib/db';
 import { weeklyBudgetSchema, parseOr400 } from '@/lib/validation';
+import { dayToWeek } from '@/lib/timezone';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
-
-/** Get the week number (1-4) for a given day of month. */
-function dayToWeek(day: number): number {
-  if (day <= 7) return 1;
-  if (day <= 14) return 2;
-  if (day <= 21) return 3;
-  return 4;
-}
 
 /** Get the date range (start, end) for a given week in a month. */
 function weekDateRange(year: number, month: number, week: number): { start: Date; end: Date } {

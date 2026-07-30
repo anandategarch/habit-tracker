@@ -23,10 +23,11 @@ import {
   Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatRupiah, type Transaction } from './finance-types';
+import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import { jakartaDateString } from '@/lib/jakarta-date';
+import { dayToWeek } from '@/lib/timezone';
 import {
   Select,
   SelectContent,
@@ -61,19 +62,6 @@ interface WeekData {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
-
-function compactRupiah(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
-  return String(n);
-}
-
-function dayToWeek(day: number): number {
-  if (day <= 7) return 1;
-  if (day <= 14) return 2;
-  if (day <= 21) return 3;
-  return 4;
-}
 
 function monthLabel(monthKey: string): string {
   const [y, m] = monthKey.split('-');
