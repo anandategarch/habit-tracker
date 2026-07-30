@@ -47,6 +47,7 @@ import {
   PieChart,
   Settings2,
   CalendarDays,
+  Compass,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -81,6 +82,18 @@ const FinanceAnalytics = dynamic(() => import('./finance-analytics'), {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Skeleton className="h-[280px] rounded-xl" />
         <Skeleton className="h-[280px] rounded-xl" />
+      </div>
+    </div>
+  ),
+});
+
+const FinanceExplorer = dynamic(() => import('./finance-explorer'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4">
+      <Skeleton className="h-[300px] rounded-xl" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
       </div>
     </div>
   ),
@@ -602,11 +615,12 @@ export default function Finance() {
 
       {/* Sub Tabs */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="text-xs sm:text-sm"><BarChart3 className="h-3.5 w-3.5 mr-1" />Ringkasan</TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm"><Wallet className="h-3.5 w-3.5 mr-1" />Transaksi</TabsTrigger>
           <TabsTrigger value="budgets" className="text-xs sm:text-sm"><Target className="h-3.5 w-3.5 mr-1" />Budget</TabsTrigger>
           <TabsTrigger value="analytics" className="text-xs sm:text-sm"><PieChart className="h-3.5 w-3.5 mr-1" />Analitik</TabsTrigger>
+          <TabsTrigger value="explorer" className="text-xs sm:text-sm"><Compass className="h-3.5 w-3.5 mr-1" />Explorer</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -654,6 +668,10 @@ export default function Finance() {
 
         <TabsContent value="analytics" className="mt-4">
           <FinanceAnalytics getCategoryMeta={getCategoryMeta} />
+        </TabsContent>
+
+        <TabsContent value="explorer" className="mt-4">
+          <FinanceExplorer getCategoryMeta={getCategoryMeta} />
         </TabsContent>
       </Tabs>
 
