@@ -324,37 +324,40 @@ export default function FinanceExplorer({
               Back
             </button>
           )}
-          <span className={cn('text-xs font-medium', level === 'month' ? 'text-foreground' : 'text-muted-foreground')}>
+          <button
+            onClick={() => { setLevel('month'); setSelectedWeek(null); setSelectedDay(null); }}
+            className={cn('text-xs font-medium hover:underline', level === 'month' ? 'text-foreground' : 'text-muted-foreground')}
+          >
             {fullMonthLabel(selectedMonth)}
-          </span>
+          </button>
           {level !== 'month' && (
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
-                onClick={() => { setLevel('month'); setSelectedWeek(null); setSelectedDay(null); }}
-                className={cn('text-xs font-medium', level === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                onClick={() => { setLevel('week'); setSelectedDay(null); }}
+                className={cn('text-xs font-medium hover:underline', level === 'week' ? 'text-foreground' : 'text-muted-foreground')}
               >
                 Weeks
               </button>
             </>
           )}
-          {selectedWeek !== null && level !== 'month' && (
+          {selectedWeek !== null && (level === 'day' || level === 'transactions') && (
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
                 onClick={() => { setLevel('week'); setSelectedDay(null); }}
-                className={cn('text-xs font-medium', level === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                className={cn('text-xs font-medium hover:underline', level === 'week' ? 'text-foreground' : 'text-muted-foreground')}
               >
                 W{selectedWeek}
               </button>
             </>
           )}
-          {selectedDay !== null && (level === 'day' || level === 'transactions') && (
+          {selectedDay !== null && level === 'transactions' && (
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
-                onClick={() => { setLevel('day'); }}
-                className={cn('text-xs font-medium', level === 'day' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                onClick={() => setLevel('day')}
+                className={cn('text-xs font-medium hover:underline', level === 'day' ? 'text-foreground' : 'text-muted-foreground')}
               >
                 {dayData.find((d) => d.day === selectedDay)?.date || `Day ${selectedDay}`}
               </button>
