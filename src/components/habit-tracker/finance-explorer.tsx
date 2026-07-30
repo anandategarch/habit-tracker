@@ -418,20 +418,24 @@ export default function FinanceExplorer({
         {level === 'week' && (
           <div className="fe-card">
             <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
-            <div className="flex items-end justify-around gap-3 h-48 mt-4">
+            <div className="flex items-end justify-around gap-3 mt-4" style={{ height: '200px' }}>
               {weekData.map((w, i) => {
                 const maxVal = Math.max(...weekData.map((d) => d.total), 1);
-                // Calculate pixel height: 80% of 192px (h-48 = 12rem = 192px)
-                // minus space for label + value text (~48px)
-                const barAreaHeight = 144; // 192 - 48 for labels
+                // Reserve 28px for value text above bar, 32px for labels below
+                // Bar area = 200 - 28 - 32 = 140px max
+                const barAreaHeight = 140;
                 const heightPx = maxVal > 0 ? Math.round((w.total / maxVal) * barAreaHeight) : 0;
                 return (
                   <div
                     key={w.week}
-                    className="flex-1 flex flex-col items-center gap-2 cursor-pointer h-full"
+                    className="flex-1 flex flex-col items-center cursor-pointer h-full"
                     onClick={() => drillFromWeekToDay(w.week)}
                   >
-                    <span className="text-[10px] font-bold tabular-nums shrink-0">{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
+                    {/* Fixed-height value label area — always 28px, never overlapped */}
+                    <div className="h-7 flex items-end justify-center shrink-0">
+                      <span className="text-[10px] font-bold tabular-nums">{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
+                    </div>
+                    {/* Bar area — fills remaining space, bar grows from bottom */}
                     <div className="w-full flex-1 flex items-end min-h-0">
                       <div
                         className="w-full rounded-t-lg anim-stagger transition-all duration-300 hover:opacity-80"
@@ -443,8 +447,11 @@ export default function FinanceExplorer({
                         }}
                       />
                     </div>
-                    <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{w.label}</span>
-                    <span className="text-[9px] text-muted-foreground shrink-0">{w.dateRange}</span>
+                    {/* Fixed-height label area — always 32px */}
+                    <div className="h-8 flex flex-col items-center justify-end shrink-0">
+                      <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
+                      <span className="text-[9px] text-muted-foreground">{w.dateRange}</span>
+                    </div>
                   </div>
                 );
               })}
