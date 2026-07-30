@@ -11,7 +11,6 @@ import { formatRupiah } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import type { DashboardData, LastDoneItem } from './finance-types';
 import SourceBalanceSection from './source-balance';
-import WeeklyTracker, { WeeklyTrendChart } from './weekly-tracker';
 
 function ChartInfo({ text }: { text: string }) {
   return (
@@ -53,12 +52,6 @@ export default function FinanceOverview({
     <div className="space-y-4 mt-4">
       {/* Saldo per Sumber Dana */}
       <SourceBalanceSection />
-
-      {/* ── WEEKLY TRACKER: 4-week budget grid ──────────────────── */}
-      <WeeklyTracker />
-
-      {/* ── WEEKLY TREND CHART ──────────────────────────────────── */}
-      <WeeklyTrendChart />
 
       {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
       <Card className="overflow-hidden anim-stagger" style={{ animationDelay: '0ms' }}>

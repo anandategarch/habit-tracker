@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,6 +21,9 @@ import {
   Target,
   Receipt,
   Clock,
+  Settings2,
+  Sparkles,
+  Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
@@ -35,6 +38,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -52,6 +66,24 @@ interface DayData {
   dayName: string;
   total: number;
   count: number;
+}
+
+interface WeekBudgetData {
+  month: string;
+  weeks: {
+    week: number;
+    target: number;
+    effectiveTarget: number;
+    spent: number;
+    remaining: number;
+    rollover: boolean;
+    rolloverIn: number;
+    percentage: number;
+    isOverBudget: boolean;
+  }[];
+  totalTarget: number;
+  totalSpent: number;
+  suggestedTarget: number;
 }
 
 interface WeekData {
@@ -101,11 +133,29 @@ export default function FinanceExplorer({
   getCategoryMeta: (cat: string) => { emoji: string; color: string };
 }) {
   const primaryColor = useThemeColor('primary');
+  const queryClient = useQueryClient();
   const monthOptions = useMemo(() => buildMonthOptions(), []);
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
   const [level, setLevel] = useState<DrillLevel>('month');
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
+  // Budget edit dialog state
+  const [editingWeek, setEditingWeek] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState('');
+  const [editRollover, setEditRollover] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Fetch weekly budget data for target/rollover/suggestion
+  const { data: budgetData } = useQuery<WeekBudgetData>({
+    queryKey: ['finance', 'weekly-budget', selectedMonth],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/weekly-budget?month=${selectedMonth}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 15_000,
+  });
 
   // Fetch ALL expense transactions for the selected month
   const { data: allTx = [], isLoading } = useQuery<Transaction[]>({
@@ -287,6 +337,82 @@ export default function FinanceExplorer({
     else if (level === 'week') { setLevel('month'); setSelectedWeek(null); }
   };
 
+  // ── Budget handlers ──
+
+  const openEditDialog = (week: number) => {
+    const bw = budgetData?.weeks.find((w) => w.week === week);
+    setEditingWeek(week);
+    setEditTarget(bw && bw.target > 0 ? String(bw.target) : String(budgetData?.suggestedTarget || '500000'));
+    setEditRollover(bw?.rollover ?? true);
+  };
+
+  const handleSaveBudget = async () => {
+    if (editingWeek === null) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/finance/weekly-budget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month: selectedMonth,
+          week: editingWeek,
+          target: parseInt(editTarget) || 0,
+          rollover: editRollover,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success(`Target Week ${editingWeek} disimpan`);
+      queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      setEditingWeek(null);
+    } catch {
+      toast.error('Gagal menyimpan target');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAutoSuggest = async () => {
+    const target = budgetData?.suggestedTarget;
+    if (!target) return;
+    try {
+      await Promise.all(
+        [1, 2, 3, 4].map((w) =>
+          fetch('/api/finance/weekly-budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month: selectedMonth, week: w, target, rollover: true }),
+          })
+        )
+      );
+      toast.success(`Target ${formatRupiah(target)} diterapkan ke semua minggu`);
+      queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+    } catch {
+      toast.error('Gagal menerapkan target');
+    }
+  };
+
+  const handleSplit = async () => {
+    const target = budgetData?.suggestedTarget;
+    if (!target) return;
+    const perWeek = Math.round((target * 4) / 4);
+    try {
+      await Promise.all(
+        [1, 2, 3, 4].map((w) =>
+          fetch('/api/finance/weekly-budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month: selectedMonth, week: w, target: perWeek, rollover: true }),
+          })
+        )
+      );
+      toast.success(`${formatRupiah(perWeek)} per minggu`);
+      queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+    } catch {
+      toast.error('Gagal membagi target');
+    }
+  };
+
   // ── Loading ──
 
   if (isLoading && level === 'month') {
@@ -414,49 +540,88 @@ export default function FinanceExplorer({
           </div>
         )}
 
-        {/* Level 2: Weekly bar chart */}
+        {/* Level 2: Weekly bar chart + budget targets */}
         {level === 'week' && (
           <div className="fe-card">
-            <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
+              {budgetData && budgetData.suggestedTarget > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <button onClick={handleAutoSuggest} className="flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline" title="Set all weeks to suggested target">
+                    <Sparkles className="h-3 w-3" /> Auto
+                  </button>
+                  <button onClick={handleSplit} className="flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline" title="Distribute evenly">
+                    <Copy className="h-3 w-3" /> Split
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex items-end justify-around gap-3 mt-4" style={{ height: '200px' }}>
               {weekData.map((w, i) => {
-                const maxVal = Math.max(...weekData.map((d) => d.total), 1);
-                // Reserve 28px for value text above bar, 32px for labels below
-                // Bar area = 200 - 28 - 32 = 140px max
+                const bw = budgetData?.weeks.find((b) => b.week === w.week);
+                const target = bw?.target || 0;
+                const maxVal = Math.max(...weekData.map((d) => d.total), target, 1);
                 const barAreaHeight = 140;
                 const heightPx = maxVal > 0 ? Math.round((w.total / maxVal) * barAreaHeight) : 0;
+                const targetHeightPx = target > 0 && maxVal > 0 ? Math.round((target / maxVal) * barAreaHeight) : 0;
+                const isOver = bw?.isOverBudget ?? false;
                 return (
                   <div
                     key={w.week}
                     className="flex-1 flex flex-col items-center cursor-pointer h-full"
                     onClick={() => drillFromWeekToDay(w.week)}
                   >
-                    {/* Fixed-height value label area — always 28px, never overlapped */}
+                    {/* Value label */}
                     <div className="h-7 flex items-end justify-center shrink-0">
-                      <span className="text-[10px] font-bold tabular-nums">{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
+                      <span className={cn('text-[10px] font-bold tabular-nums', isOver && 'text-red-500')}>{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
                     </div>
-                    {/* Bar area — fills remaining space, bar grows from bottom */}
-                    <div className="w-full flex-1 flex items-end min-h-0">
+                    {/* Bar + target line */}
+                    <div className="w-full flex-1 flex items-end min-h-0 relative">
+                      {/* Target dashed line */}
+                      {target > 0 && (
+                        <div
+                          className="absolute left-0 right-0 border-t-2 border-dashed z-20"
+                          style={{ bottom: `${targetHeightPx}px`, borderColor: '#8B5CF6', opacity: 0.6 }}
+                        />
+                      )}
+                      {/* Bar */}
                       <div
                         className="w-full rounded-t-lg anim-stagger transition-all duration-300 hover:opacity-80"
                         style={{
                           height: `${heightPx}px`,
-                          background: `linear-gradient(180deg, ${primaryColor}, ${primaryColor}80)`,
+                          background: isOver
+                            ? 'linear-gradient(180deg, #ef4444, #f87171)'
+                            : `linear-gradient(180deg, ${primaryColor}, ${primaryColor}80)`,
                           minHeight: w.total > 0 ? '8px' : '0',
                           animationDelay: `${i * 80}ms`,
                         }}
                       />
                     </div>
-                    {/* Fixed-height label area — always 32px */}
+                    {/* Label + set target button */}
                     <div className="h-8 flex flex-col items-center justify-end shrink-0">
                       <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
                       <span className="text-[9px] text-muted-foreground">{w.dateRange}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditDialog(w.week); }}
+                        className="text-[8px] text-muted-foreground hover:text-primary transition-colors mt-0.5"
+                      >
+                        {target > 0 ? `${formatRupiah(target).replace('Rp ', '')}` : 'Set target'}
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik minggu untuk drill-down ke hari →</p>
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-4 mt-2">
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} /> Spent
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: '#8B5CF6' }} /> Target
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center mt-1">Klik minggu untuk drill-down ke hari · Klik target untuk edit →</p>
           </div>
         )}
 
@@ -555,6 +720,49 @@ export default function FinanceExplorer({
           );
         })}
       </div>
+
+      {/* ── Budget Edit Dialog ── */}
+      <Dialog open={editingWeek !== null} onOpenChange={(open) => !open && setEditingWeek(null)}>
+        <DialogContent className="max-w-[95vw] sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Target Week {editingWeek}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Smart Suggestion */}
+            {budgetData && budgetData.suggestedTarget > 0 && (
+              <div className="flex items-center justify-between rounded-xl bg-primary/5 p-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-xs font-medium">Saran Target</p>
+                    <p className="text-sm font-bold">{formatRupiah(budgetData.suggestedTarget)}</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEditTarget(String(budgetData.suggestedTarget))}>
+                  Pakai
+                </Button>
+              </div>
+            )}
+            {/* Target Input */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Target Pengeluaran</Label>
+              <Input type="number" value={editTarget} onChange={(e) => setEditTarget(e.target.value)} placeholder="500000" className="text-lg font-bold" />
+              <p className="text-xs text-muted-foreground">Masukkan maks pengeluaran untuk minggu ini</p>
+            </div>
+            {/* Rollover Toggle */}
+            <div className="flex items-center justify-between rounded-xl border p-3">
+              <div>
+                <Label className="text-sm font-medium">Rollover</Label>
+                <p className="text-xs text-muted-foreground">Sisa budget masuk minggu depan</p>
+              </div>
+              <Switch checked={editRollover} onCheckedChange={setEditRollover} />
+            </div>
+            <Button className="w-full" onClick={handleSaveBudget} disabled={saving || !editTarget}>
+              {saving ? 'Menyimpan...' : 'Simpan Target'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
