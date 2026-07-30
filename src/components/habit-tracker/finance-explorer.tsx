@@ -39,12 +39,20 @@ import {
 
 // ── Types ───────────────────────────────────────────────────────────────
 
-type DrillLevel = 'month' | 'week' | 'category' | 'transactions';
+type DrillLevel = 'month' | 'week' | 'day' | 'transactions';
 
 interface MonthData {
   month: string;
   label: string;
   total: number;
+}
+
+interface DayData {
+  day: number;
+  date: string;
+  dayName: string;
+  total: number;
+  count: number;
 }
 
 interface WeekData {
@@ -117,7 +125,7 @@ export default function FinanceExplorer({
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
   const [level, setLevel] = useState<DrillLevel>('month');
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   // Fetch ALL expense transactions for the selected month
   const { data: allTx = [], isLoading } = useQuery<Transaction[]>({
@@ -178,34 +186,44 @@ export default function FinanceExplorer({
     });
   }, [allTx, selectedMonth]);
 
-  // Level 3: Category breakdown for selected week
-  const categoryData = useMemo<CatData[]>(() => {
+  // Level 3: Daily breakdown for selected week
+  const dayData = useMemo<DayData[]>(() => {
     if (selectedWeek === null) return [];
-    const catMap: Record<string, { total: number; count: number }> = {};
+    const dayMap: Record<number, { total: number; count: number }> = {};
     for (const tx of allTx) {
       const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
       const day = jakartaDate.getUTCDate();
       if (dayToWeek(day) !== selectedWeek) continue;
-      if (!catMap[tx.category]) catMap[tx.category] = { total: 0, count: 0 };
-      catMap[tx.category].total += tx.amount;
-      catMap[tx.category].count++;
+      if (!dayMap[day]) dayMap[day] = { total: 0, count: 0 };
+      dayMap[day].total += tx.amount;
+      dayMap[day].count++;
     }
-    return Object.entries(catMap)
-      .map(([category, d]) => ({ category, total: d.total, count: d.count }))
-      .sort((a, b) => b.total - a.total);
-  }, [allTx, selectedWeek]);
+    const [y, m] = selectedMonth.split('-').map(Number);
+    return Object.entries(dayMap)
+      .map(([dayStr, d]) => {
+        const day = parseInt(dayStr);
+        const date = new Date(y, m - 1, day);
+        return {
+          day,
+          date: date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+          dayName: date.toLocaleDateString('id-ID', { weekday: 'long' }),
+          total: d.total,
+          count: d.count,
+        };
+      })
+      .sort((a, b) => a.day - b.day);
+  }, [allTx, selectedWeek, selectedMonth]);
 
-  // Level 4: Transactions for selected category + week
+  // Level 4: Transactions for selected day
   const transactionList = useMemo<Transaction[]>(() => {
-    if (selectedWeek === null || !selectedCategory) return [];
+    if (selectedWeek === null || selectedDay === null) return [];
     return allTx
       .filter((tx) => {
         const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
-        const day = jakartaDate.getUTCDate();
-        return dayToWeek(day) === selectedWeek && tx.category === selectedCategory;
+        return dayToWeek(jakartaDate.getUTCDate()) === selectedWeek && jakartaDate.getUTCDate() === selectedDay;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [allTx, selectedWeek, selectedCategory]);
+  }, [allTx, selectedWeek, selectedDay]);
 
   // ── KPI values per level ──
 
@@ -234,15 +252,15 @@ export default function FinanceExplorer({
         { icon: Receipt, label: 'Total Transaksi', value: <CountUpNumber value={txCount} />, accent: 'blue' as const },
       ];
     }
-    if (level === 'category') {
-      const total = categoryData.reduce((s, c) => s + c.total, 0);
-      const avg = categoryData.length > 0 ? Math.round(total / categoryData.length) : 0;
-      const top = categoryData[0] || { category: '—', total: 0, count: 0 };
-      const txCount = categoryData.reduce((s, c) => s + c.count, 0);
+    if (level === 'day') {
+      const total = dayData.reduce((s, d) => s + d.total, 0);
+      const avg = dayData.length > 0 ? Math.round(total / dayData.length) : 0;
+      const top = dayData.reduce((max, d) => d.total > max.total ? d : max, dayData[0] || { total: 0, date: '—', dayName: '' });
+      const txCount = dayData.reduce((s, d) => s + d.count, 0);
       return [
         { icon: Wallet, label: `Total W${selectedWeek}`, value: <CountUpRupiah amount={total} />, accent: 'indigo' as const },
-        { icon: TrendingUp, label: 'Rata-rata/Kategori', value: <CountUpRupiah amount={avg} />, accent: 'purple' as const },
-        { icon: Target, label: 'Kategori Terbesar', value: <span><CountUpRupiah amount={top.total} /> <span className="text-xs text-muted-foreground">{top.category}</span></span>, accent: 'amber' as const },
+        { icon: TrendingUp, label: 'Rata-rata/Hari', value: <CountUpRupiah amount={avg} />, accent: 'purple' as const },
+        { icon: Target, label: 'Hari Terbesar', value: <span><CountUpRupiah amount={top.total} /> <span className="text-xs text-muted-foreground">{top.date}</span></span>, accent: 'amber' as const },
         { icon: Receipt, label: 'Total Transaksi', value: <CountUpNumber value={txCount} />, accent: 'blue' as const },
       ];
     }
@@ -250,31 +268,32 @@ export default function FinanceExplorer({
     const total = transactionList.reduce((s, t) => s + t.amount, 0);
     const avg = transactionList.length > 0 ? Math.round(total / transactionList.length) : 0;
     const highest = transactionList.reduce((max, t) => t.amount > max.amount ? t : null, transactionList[0] || null);
+    const dayLabel = dayData.find((d) => d.day === selectedDay);
     return [
-      { icon: Wallet, label: `Total ${selectedCategory}`, value: <CountUpRupiah amount={total} />, accent: 'indigo' as const },
+      { icon: Wallet, label: dayLabel ? `${dayLabel.dayName}` : 'Total Hari', value: <CountUpRupiah amount={total} />, accent: 'indigo' as const },
       { icon: TrendingUp, label: 'Rata-rata/Transaksi', value: <CountUpRupiah amount={avg} />, accent: 'purple' as const },
       { icon: Target, label: 'Transaksi Terbesar', value: highest ? <CountUpRupiah amount={highest.amount} /> : '—', accent: 'amber' as const },
       { icon: Receipt, label: 'Jumlah Transaksi', value: <CountUpNumber value={transactionList.length} />, accent: 'blue' as const },
     ];
-  }, [level, monthlyData, weekData, categoryData, transactionList, allTx.length, selectedWeek, selectedCategory]);
+  }, [level, monthlyData, weekData, dayData, transactionList, allTx.length, selectedWeek, selectedDay]);
 
   // ── Drill handlers ──
 
   const drillToWeek = (week: number) => {
     setSelectedWeek(week);
-    setSelectedCategory(null);
+    setSelectedDay(null);
     setLevel('week');
   };
-  const drillToCategory = (category: string) => {
-    setSelectedCategory(category);
-    setLevel('category');
+  const drillToDay = (day: number) => {
+    setSelectedDay(day);
+    setLevel('day');
   };
   const drillToTransactions = () => {
     setLevel('transactions');
   };
   const goBack = () => {
-    if (level === 'transactions') setLevel('category');
-    else if (level === 'category') { setLevel('week'); setSelectedCategory(null); }
+    if (level === 'transactions') setLevel('day');
+    else if (level === 'day') { setLevel('week'); setSelectedDay(null); }
     else if (level === 'week') { setLevel('month'); setSelectedWeek(null); }
   };
 
@@ -322,7 +341,7 @@ export default function FinanceExplorer({
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
-                onClick={() => { setLevel('month'); setSelectedWeek(null); setSelectedCategory(null); }}
+                onClick={() => { setLevel('month'); setSelectedWeek(null); setSelectedDay(null); }}
                 className={cn('text-xs font-medium', level === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
               >
                 Weeks
@@ -333,17 +352,22 @@ export default function FinanceExplorer({
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
-                onClick={() => { setLevel('week'); setSelectedCategory(null); }}
+                onClick={() => { setLevel('week'); setSelectedDay(null); }}
                 className={cn('text-xs font-medium', level === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
               >
                 W{selectedWeek}
               </button>
             </>
           )}
-          {selectedCategory && level !== 'month' && level !== 'week' && (
+          {selectedDay !== null && (level === 'day' || level === 'transactions') && (
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground">{selectedCategory}</span>
+              <button
+                onClick={() => { setLevel('day'); }}
+                className={cn('text-xs font-medium', level === 'day' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                {dayData.find((d) => d.day === selectedDay)?.date || `Day ${selectedDay}`}
+              </button>
             </>
           )}
         </div>
@@ -380,7 +404,7 @@ export default function FinanceExplorer({
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #EEF2FF' }}
                   cursor={{ fill: `${primaryColor}10` }}
                 />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) { setSelectedMonth(d.month); setSelectedWeek(null); setSelectedCategory(null); setLevel('week'); } }}>
+                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) { setSelectedMonth(d.month); setSelectedWeek(null); setSelectedDay(null); setLevel('week'); } }}>
                   {monthlyData.map((entry, i) => (
                     <Cell key={i} fill={entry.month === selectedMonth ? primaryColor : `${primaryColor}60`} />
                   ))}
@@ -423,84 +447,60 @@ export default function FinanceExplorer({
                 );
               })}
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik minggu untuk drill-down ke kategori →</p>
+            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik minggu untuk drill-down ke hari →</p>
           </div>
         )}
 
-        {/* Level 3: Category donut + list */}
-        {level === 'category' && selectedWeek !== null && (
+        {/* Level 3: Daily breakdown for selected week */}
+        {level === 'day' && selectedWeek !== null && (
           <div className="fe-card">
-            <h3 className="fe-card-title">Kategori — Week {selectedWeek}</h3>
-            {categoryData.length === 0 ? (
+            <h3 className="fe-card-title">Rincian Harian — Week {selectedWeek} ({weekData.find(w => w.week === selectedWeek)?.dateRange})</h3>
+            {dayData.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi di minggu ini</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                {/* Donut */}
-                <div className="relative h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        dataKey="total"
-                        nameKey="category"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={75}
-                        paddingAngle={2}
-                        cornerRadius={4}
-                      >
-                        {categoryData.map((d, i) => {
-                          const meta = getCategoryMeta(d.category);
-                          const colors = ['#6366F1', '#8B5CF6', '#F59E0B', '#3B82F6', '#10B981', '#EC4899', '#06B6D4', '#F97316'];
-                          return <Cell key={i} fill={colors[i % colors.length]} stroke="oklch(1 0 0)" strokeWidth={2} />;
-                        })}
-                      </Pie>
-                      <RechartsTooltip
-                        formatter={(value: number, name: string) => [formatRupiah(value), name]}
-                        contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-[9px] text-muted-foreground">Total</span>
-                    <span className="text-sm font-bold">{formatRupiah(categoryData.reduce((s, c) => s + c.total, 0))}</span>
-                  </div>
-                </div>
-                {/* Ranked list */}
-                <div className="space-y-1.5">
-                  {categoryData.map((c, i) => {
-                    const meta = getCategoryMeta(c.category);
-                    const total = categoryData.reduce((s, d) => s + d.total, 0);
-                    const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
-                    const colors = ['#6366F1', '#8B5CF6', '#F59E0B', '#3B82F6', '#10B981', '#EC4899', '#06B6D4', '#F97316'];
-                    return (
-                      <button
-                        key={c.category}
-                        onClick={() => { drillToCategory(c.category); drillToTransactions(); }}
-                        className="fe-cat-row anim-stagger w-full"
-                        style={{ animationDelay: `${i * 50}ms` }}
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
-                        <span className="text-sm font-medium truncate flex-1 min-w-0 text-left">{meta.emoji} {c.category}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{c.count} trx</span>
-                        <span className="text-sm font-bold tabular-nums">{formatRupiah(c.total)}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">{pct}%</span>
-                        <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="space-y-1.5 mt-4">
+                {dayData.map((d, i) => {
+                  const maxVal = Math.max(...dayData.map((dd) => dd.total), 1);
+                  const pct = maxVal > 0 ? Math.round((d.total / maxVal) * 100) : 0;
+                  return (
+                    <button
+                      key={d.day}
+                      onClick={() => { drillToDay(d.day); drillToTransactions(); }}
+                      className="fe-cat-row anim-stagger w-full"
+                      style={{ animationDelay: `${i * 50}ms` }}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex flex-col items-center w-10 shrink-0">
+                          <span className="text-sm font-bold tabular-nums">{d.day}</span>
+                          <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.dayName.slice(0, 3)}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-xs text-muted-foreground truncate">{d.count} transaksi</span>
+                            <span className="text-sm font-bold tabular-nums">{formatRupiah(d.total)}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%`, backgroundColor: primaryColor }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik kategori untuk lihat transaksi →</p>
+            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik hari untuk lihat transaksi →</p>
           </div>
         )}
 
-        {/* Level 4: Transaction list */}
-        {level === 'transactions' && selectedCategory && (
+        {/* Level 4: Transaction list for selected day */}
+        {level === 'transactions' && selectedDay !== null && (
           <div className="fe-card">
-            <h3 className="fe-card-title">Transaksi — {selectedCategory} · W{selectedWeek}</h3>
+            <h3 className="fe-card-title">Transaksi — {dayData.find((d) => d.day === selectedDay)?.dayName}, {dayData.find((d) => d.day === selectedDay)?.date}</h3>
             {transactionList.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi</p>
             ) : (
@@ -515,7 +515,7 @@ export default function FinanceExplorer({
                         <p className="text-sm font-medium truncate">{tx.description || tx.category}</p>
                         <p className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           <Clock className="h-2.5 w-2.5" />
-                          {d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} · {d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                          {d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {tx.category}
                         </p>
                       </div>
                       <span className="text-sm font-bold tabular-nums">{formatRupiah(tx.amount)}</span>
