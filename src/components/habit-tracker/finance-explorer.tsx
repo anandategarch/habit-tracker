@@ -124,7 +124,7 @@ export default function FinanceExplorer({
   });
 
   // Also fetch 6-month overview for Level 1 bar chart
-  const { data: monthlyData = [] } = useQuery<MonthData[]>({
+  const { data: monthlyData = [], isError: monthlyError } = useQuery<MonthData[]>({
     queryKey: ['finance', 'explorer-monthly'],
     queryFn: async () => {
       const now = new Date();
@@ -132,7 +132,7 @@ export default function FinanceExplorer({
       const res = await fetch(
         `/api/finance/transactions?type=expense&startDate=${sixMonthsAgo.toISOString().slice(0, 10)}&endDate=${now.toISOString().slice(0, 10)}`,
       );
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error('Failed to fetch monthly data');
       const txs: Transaction[] = await res.json();
       // Group by month
       const monthMap: Record<string, number> = {};
@@ -387,7 +387,9 @@ export default function FinanceExplorer({
         {level === 'month' && (
           <div className="fe-card">
             <h3 className="fe-card-title">Overview 6 Bulan</h3>
-            {monthlyData.length === 0 ? (
+            {monthlyError ? (
+              <p className="text-sm text-red-500 text-center py-12">Gagal memuat data. Coba refresh halaman.</p>
+            ) : monthlyData.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-12">Belum ada data pengeluaran</p>
             ) : (
             <ResponsiveContainer width="100%" height={220}>

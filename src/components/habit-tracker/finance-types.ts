@@ -46,30 +46,6 @@ export interface DashboardData {
   };
 }
 
-export interface AnalyticsData {
-  monthlyTrend: { month: string; income: number; expense: number; balance: number }[];
-  topCategories: { category: string; amount: number; percentage: number }[];
-  categoryBreakdown: Record<string, number>;
-  weeklyPattern: { day: string; total: number; avg: number; count: number }[];
-  incomeSources: { source: string; amount: number; percentage: number }[];
-  savingsRate: number;
-  totalIncomeInRange: number;
-  totalExpenseInRange: number;
-  largestExpenses: { id: string; category: string; description: string | null; amount: number; date: string }[];
-  dailySpending: { date: string; amount: number }[];
-  monthlyComposition: { month: string; monthLabel: string; categories: Record<string, number> }[];
-  monthlySavings: { month: string; monthLabel: string; savings: number; income: number; expense: number; changePercent: number }[];
-  categoryComparison: { category: string; thisMonth: number; lastMonth: number; change: number }[];
-  financialHealth: {
-    rasioTabungan: number;
-    diversifikasi: number;
-    disiplinBudget: number;
-    konsistensi: number;
-    keseimbangan: number;
-    overallScore: number;
-  };
-  sparklineData: { date: string; income: number; expense: number; balance: number; dailyAvg: number }[];
-}
 
 export interface FinanceCategory {
   id: string;
