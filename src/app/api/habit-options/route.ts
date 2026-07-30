@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { createHabitOptionSchema, parseOr400 } from '@/lib/validation';
 
 const VALID_TYPES = ['category', 'priority', 'difficulty'] as const;
 
@@ -108,14 +109,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, name, color, xp, order } = body;
-
-    if (!VALID_TYPES.includes(type)) {
-      return NextResponse.json(
-        { error: `type must be one of: ${VALID_TYPES.join(', ')}` },
-        { status: 400 },
-      );
-    }
+    const parsed = parseOr400(createHabitOptionSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { type, name, color, xp, order } = parsed.data;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'name is required and must not be empty' }, { status: 400 });

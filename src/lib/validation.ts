@@ -235,6 +235,7 @@ export const createHabitOptionSchema = z.object({
   order: z.number().int().min(0).optional(),
 });
 export type CreateHabitOptionInput = z.infer<typeof createHabitOptionSchema>;
+export const updateHabitOptionSchema = createHabitOptionSchema.partial();
 
 // ── Settings ─────────────────────────────────────────────────────────────
 

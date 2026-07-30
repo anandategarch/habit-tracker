@@ -69,8 +69,8 @@ const FinanceOverview = dynamic(() => import('./finance-overview'), {
     </div>
   ),
 });
-import FinanceTransactions from './finance-transactions';
-import FinanceBudgets from './finance-budgets';
+const FinanceTransactions = dynamic(() => import('./finance-transactions'), { ssr: false });
+const FinanceBudgets = dynamic(() => import('./finance-budgets'), { ssr: false });
 
 // Lazy load explorer — drill-down analytics workspace
 const FinanceExplorer = dynamic(() => import('./finance-explorer'), {

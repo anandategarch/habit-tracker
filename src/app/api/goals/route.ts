@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { createGoalSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
@@ -13,8 +14,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, deadline, priority, milestones } = body;
-    if (!title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 });
+    const parsed = parseOr400(createGoalSchema, body);
+    if (!parsed.success) return parsed.response;
+    const { title, description, deadline, priority, milestones } = parsed.data;
 
     const goal = await db.goal.create({
       data: {

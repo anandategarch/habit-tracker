@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { updateChallengeSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -8,15 +9,18 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const parsed = parseOr400(updateChallengeSchema, body);
+    if (!parsed.success) return parsed.response;
+    const d = parsed.data;
     const challenge = await db.challenge.update({
       where: { id },
       data: {
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.duration !== undefined && { duration: body.duration }),
-        ...(body.progress !== undefined && { progress: body.progress }),
-        ...(body.status !== undefined && { status: body.status }),
-        ...(body.endDate !== undefined && { endDate: body.endDate ? new Date(body.endDate) : null }),
+        ...(d.title !== undefined && { title: d.title }),
+        ...(d.description !== undefined && { description: d.description }),
+        ...(d.duration !== undefined && { duration: d.duration }),
+        ...(d.progress !== undefined && { progress: d.progress }),
+        ...(d.status !== undefined && { status: d.status }),
+        ...(d.endDate !== undefined && { endDate: d.endDate ? new Date(d.endDate) : null }),
       },
     });
     return NextResponse.json(challenge);
