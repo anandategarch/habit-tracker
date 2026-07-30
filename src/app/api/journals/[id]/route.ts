@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { updateJournalSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/journals/[id]
@@ -24,15 +25,18 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const parsed = parseOr400(updateJournalSchema, body);
+    if (!parsed.success) return parsed.response;
+    const d = parsed.data;
     const journal = await db.journal.update({
       where: { id },
       data: {
-        ...(body.mood !== undefined && { mood: body.mood }),
-        ...(body.stress !== undefined && { stress: body.stress }),
-        ...(body.energy !== undefined && { energy: body.energy }),
-        ...(body.sleep !== undefined && { sleep: body.sleep }),
-        ...(body.reflection !== undefined && { reflection: body.reflection }),
-        ...(body.winToday !== undefined && { winToday: body.winToday }),
+        ...(d.mood !== undefined && { mood: d.mood }),
+        ...(d.stress !== undefined && { stress: d.stress }),
+        ...(d.energy !== undefined && { energy: d.energy }),
+        ...(d.sleep !== undefined && { sleep: d.sleep }),
+        ...(d.reflection !== undefined && { reflection: d.reflection }),
+        ...(d.winToday !== undefined && { winToday: d.winToday }),
         ...(body.lessonLearned !== undefined && { lessonLearned: body.lessonLearned }),
         ...(body.tomorrowPlan !== undefined && { tomorrowPlan: body.tomorrowPlan }),
       },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { updateHabitOptionSchema, parseOr400 } from '@/lib/validation';
 
 // PUT /api/habit-options/:id
 export async function PUT(
@@ -9,13 +10,15 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, color, xp, order } = body;
+    const parsed = parseOr400(updateHabitOptionSchema, body);
+    if (!parsed.success) return parsed.response;
+    const d = parsed.data;
 
     const data: Record<string, unknown> = {};
-    if (name !== undefined) data.name = name.trim();
-    if (color !== undefined) data.color = color;
-    if (xp !== undefined) data.xp = xp;
-    if (order !== undefined) data.order = order;
+    if (d.name !== undefined) data.name = d.name.trim();
+    if (d.color !== undefined) data.color = d.color;
+    if (d.xp !== undefined) data.xp = d.xp;
+    if (d.order !== undefined) data.order = d.order;
 
     const option = await db.habitOption.update({
       where: { id },

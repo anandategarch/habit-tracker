@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { updateGoalSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -8,17 +9,20 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const parsed = parseOr400(updateGoalSchema, body);
+    if (!parsed.success) return parsed.response;
+    const d = parsed.data;
     const goal = await db.goal.update({
       where: { id },
       data: {
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.deadline !== undefined && { deadline: body.deadline ? new Date(body.deadline) : null }),
-        ...(body.progress !== undefined && { progress: body.progress }),
-        ...(body.priority !== undefined && { priority: body.priority }),
-        ...(body.status !== undefined && { status: body.status }),
-        ...(body.milestones !== undefined && { milestones: JSON.stringify(body.milestones) }),
-        ...(body.achievement !== undefined && { achievement: body.achievement }),
+        ...(d.title !== undefined && { title: d.title }),
+        ...(d.description !== undefined && { description: d.description }),
+        ...(d.deadline !== undefined && { deadline: d.deadline ? new Date(d.deadline) : null }),
+        ...(d.progress !== undefined && { progress: d.progress }),
+        ...(d.priority !== undefined && { priority: d.priority }),
+        ...(d.status !== undefined && { status: d.status }),
+        ...(d.milestones !== undefined && { milestones: JSON.stringify(d.milestones) }),
+        ...(d.achievement !== undefined && { achievement: d.achievement }),
       },
     });
     return NextResponse.json(goal);
