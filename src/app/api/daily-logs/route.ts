@@ -66,8 +66,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid date is required' }, { status: 400 });
     }
 
-    // Use explicit UTC midnight for consistent date storage
-    const dateObj = new Date(`${date}T00:00:00Z`);
+    // Build a UTC-midnight Date keyed to the YYYY-MM-DD of the (already-coerced)
+    // Date object. Previously this used `new Date(`${date}T00:00:00Z`)`, but
+    // `date` is a `Date` (z.coerce.date()), so `${date}` stringifies via
+    // `Date.prototype.toString()` → e.g.
+    //   "Wed Jan 15 2025 00:00:00 GMT+0000 (Coordinated Universal Time)T00:00:00Z"
+    // which is unparseable and yields Invalid Date — the entire endpoint was
+    // broken. Extract the YMD from the UTC components and rebuild.
+    const dateObj = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
     const log = await db.dailyLog.upsert({
       where: { date: dateObj },

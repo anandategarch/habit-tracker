@@ -154,6 +154,12 @@ model FinanceCategory {
   trackLastDone Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  // Prevent duplicate category names within the same type — previously
+  // allowed two "Food" expense categories, which made `Budget.category`
+  // (unique) ambiguous and broke the categories DELETE route's transaction
+  // count.
+  @@unique([type, name])
 }
 
 model FundSource {

@@ -37,8 +37,12 @@ export async function PUT(
         ...(d.sleep !== undefined && { sleep: d.sleep }),
         ...(d.reflection !== undefined && { reflection: d.reflection }),
         ...(d.winToday !== undefined && { winToday: d.winToday }),
-        ...(body.lessonLearned !== undefined && { lessonLearned: body.lessonLearned }),
-        ...(body.tomorrowPlan !== undefined && { tomorrowPlan: body.tomorrowPlan }),
+        // Previously used `body.lessonLearned` / `body.tomorrowPlan` (raw,
+        // unvalidated) instead of the Zod-parsed `d.*`. Bypassed validation
+        // for these two fields — could store arbitrary types. Now uses the
+        // parsed values consistently.
+        ...(d.lessonLearned !== undefined && { lessonLearned: d.lessonLearned }),
+        ...(d.tomorrowPlan !== undefined && { tomorrowPlan: d.tomorrowPlan }),
       },
     });
     return NextResponse.json(journal);

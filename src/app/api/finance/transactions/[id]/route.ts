@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { applyDelta, inverseType } from '@/lib/money';
+import { signedDelta } from '@/lib/money';
 import { updateTransactionSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -40,33 +40,33 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const newSource = update.source ?? existing.source;
 
       // Revert old effect on the OLD source (if it exists as a FundSource row).
+      // Use atomic `increment` with the inverse delta to avoid the lost-update
+      // race. Previously used a read-modify-write (`applyDelta(balance, ...)`),
+      // which also corrupted the balance when the type flipped on the same
+      // source — see worklog Task ID 2-a/2-c Critical bug.
       const oldFundSource = await tx.fundSource.findUnique({ where: { name: existing.source } });
       if (oldFundSource) {
-        const reverted = applyDelta(oldFundSource.balance, existing.amount, inverseType(existing.type));
+        // Revert = apply the opposite delta of what was originally applied.
+        // If original was income (+amount), revert is -amount. If expense,
+        // revert is +amount. Equivalent to signedDelta(amount, inverseType).
+        const revertDelta = -signedDelta(existing.amount, existing.type);
         await tx.fundSource.update({
           where: { id: oldFundSource.id },
-          data: { balance: reverted },
+          data: { balance: { increment: revertDelta } },
         });
       }
 
       // Apply new effect on the NEW source (if it exists as a FundSource row).
-      if (newSource !== existing.source) {
-        const newFundSource = await tx.fundSource.findUnique({ where: { name: newSource } });
-        if (newFundSource) {
-          const applied = applyDelta(newFundSource.balance, newAmount, newType);
-          await tx.fundSource.update({
-            where: { id: newFundSource.id },
-            data: { balance: applied },
-          });
-        }
-      } else if (oldFundSource) {
-        // Same source, just apply the delta of (new - old).
-        const delta = newType === 'income'
-          ? (newAmount - existing.amount)
-          : -(newAmount - existing.amount);
+      // If newSource === existing.source, the row was already reverted above;
+      // applying the new effect on top produces the correct final balance for
+      // any combination of type/amount change.
+      const newFundSource = newSource !== existing.source
+        ? await tx.fundSource.findUnique({ where: { name: newSource } })
+        : oldFundSource;
+      if (newFundSource) {
         await tx.fundSource.update({
-          where: { id: oldFundSource.id },
-          data: { balance: oldFundSource.balance + delta },
+          where: { id: newFundSource.id },
+          data: { balance: { increment: signedDelta(newAmount, newType) } },
         });
       }
 
@@ -102,13 +102,14 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       const existing = await tx.transaction.findUnique({ where: { id } });
       if (!existing) throw new Error('NOT_FOUND');
 
-      // Revert the effect on the fund source.
+      // Revert the effect on the fund source using an atomic increment
+      // (no read-modify-write).
       const fundSource = await tx.fundSource.findUnique({ where: { name: existing.source } });
       if (fundSource) {
-        const reverted = applyDelta(fundSource.balance, existing.amount, inverseType(existing.type));
+        const revertDelta = -signedDelta(existing.amount, existing.type);
         await tx.fundSource.update({
           where: { id: fundSource.id },
-          data: { balance: reverted },
+          data: { balance: { increment: revertDelta } },
         });
       }
 

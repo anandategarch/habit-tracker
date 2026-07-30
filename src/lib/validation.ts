@@ -177,6 +177,18 @@ export const createBadgeSchema = z.object({
 });
 export type CreateBadgeInput = z.infer<typeof createBadgeSchema>;
 
+// Partial update schema for PUT /api/badges/[id]. At least one field required.
+export const updateBadgeSchema = z
+  .object({
+    name: nonEmpty(200).optional(),
+    description: nonEmpty(500).optional(),
+    icon: z.string().max(20).optional(),
+    requirement: nonEmpty(500).optional(),
+    unlocked: z.boolean().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: 'No fields provided' });
+export type UpdateBadgeInput = z.infer<typeof updateBadgeSchema>;
+
 export const createRewardSchema = z.object({
   name: nonEmpty(200),
   description: optionalString(500),
@@ -185,6 +197,18 @@ export const createRewardSchema = z.object({
   status: z.enum(['locked', 'unlocked', 'redeemed']).optional(),
 });
 export type CreateRewardInput = z.infer<typeof createRewardSchema>;
+
+// Partial update schema for PUT /api/rewards/[id]. At least one field required.
+export const updateRewardSchema = z
+  .object({
+    name: nonEmpty(200).optional(),
+    description: optionalString(500).optional(),
+    unlockCondition: nonEmpty(500).optional(),
+    xpCost: z.number().int().min(0).optional(),
+    status: z.enum(['locked', 'unlocked', 'redeemed']).optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: 'No fields provided' });
+export type UpdateRewardInput = z.infer<typeof updateRewardSchema>;
 
 // ── Journal ──────────────────────────────────────────────────────────────
 
@@ -224,6 +248,23 @@ export const createHabitGroupSchema = z.object({
   order: z.number().int().min(0).optional(),
 });
 export type CreateHabitGroupInput = z.infer<typeof createHabitGroupSchema>;
+
+// Partial update schema for PUT /api/habit-groups. `id` is required (taken
+// from the request body since the route uses a body-based `id` rather than
+// a URL param). At least one updatable field must be present alongside `id`.
+export const updateHabitGroupSchema = z
+  .object({
+    id: z.string().min(1),
+    name: nonEmpty(100).optional(),
+    emoji: z.string().max(20).optional(),
+    color: z.string().max(20).optional(),
+    order: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (d) => d.name !== undefined || d.emoji !== undefined || d.color !== undefined || d.order !== undefined,
+    { message: 'No updatable fields provided' }
+  );
+export type UpdateHabitGroupInput = z.infer<typeof updateHabitGroupSchema>;
 
 // ── Habit Option ─────────────────────────────────────────────────────────
 

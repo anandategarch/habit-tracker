@@ -59,12 +59,16 @@ export async function GET(request: NextRequest) {
       return { ...item, movingAvg: Math.round(avgRate) };
     });
 
-    // Weekly trend
+    // Weekly trend (half-open intervals to avoid double-counting boundary logs)
     const weeklyTrend: { week: string; completed: number; total: number; rate: number }[] = [];
     for (let i = Math.floor(daysBack / 7); i >= 0; i--) {
       const wStart = subDays(today, (i + 1) * 7);
       const wEnd = subDays(today, i * 7);
-      const wLogs = logs.filter(l => l.date >= wStart && l.date <= wEnd);
+      // Half-open [wStart, wEnd) — a log exactly at wStart belongs to this
+      // week only; a log at wEnd belongs to the next week. Previously both
+      // ends were inclusive, so a log on the boundary date was counted in
+      // two adjacent weeks.
+      const wLogs = logs.filter(l => l.date >= wStart && l.date < wEnd);
       const wCompleted = wLogs.filter(l => l.completed).length;
       weeklyTrend.push({
         week: `${format(wStart, 'MMM dd')} - ${format(wEnd, 'MMM dd')}`,
@@ -74,12 +78,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Monthly trend (last 6 months)
+    // Monthly trend (last N months, scaled to period — capped at 6).
+    // Previously hardcoded to 6 months but the `logs` fetch only covered
+    // `daysBack` (default 30) days, so months 2-6 always reported 0/0/0 —
+    // misleading the user into thinking they had no historical data.
+    const monthsToShow = Math.min(6, Math.max(1, Math.ceil(daysBack / 30)));
     const monthlyTrend: { month: string; completed: number; total: number; rate: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = monthsToShow - 1; i >= 0; i--) {
       const mStart = startOfMonth(subMonths(today, i));
       const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 0);
-      const mLogs = logs.filter(l => l.date >= mStart && l.date <= mEnd);
+      // Half-open [mStart, mEnd+1day) to avoid double-counting boundary logs.
+      const mEndExclusive = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1);
+      const mLogs = logs.filter(l => l.date >= mStart && l.date < mEndExclusive);
       const mCompleted = mLogs.filter(l => l.completed).length;
       monthlyTrend.push({
         month: format(mStart, 'MMM yyyy'),

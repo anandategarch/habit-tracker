@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { jakartaMonthString } from '@/lib/timezone';
 
 // POST /api/finance/budgets/snapshot
 // Creates a BudgetSnapshot for the specified month (or current month if not specified).
@@ -11,11 +12,16 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month') || format(new Date(), 'yyyy-MM');
+    // Use Jakarta wall-clock month for the default. Previously used
+    // `format(new Date(), 'yyyy-MM')` which reads server-LOCAL components —
+    // on Vercel (UTC) at Jakarta midnight rollover (e.g. 2024-12-31 17:30 UTC
+    // = 2025-01-01 00:30 WIB), this returned "2024-12" instead of "2025-01".
+    const month = searchParams.get('month') || jakartaMonthString();
     const [year, mon] = month.split('-').map(Number);
 
-    const monthStart = new Date(year, mon - 1, 1);
-    const monthEnd = new Date(year, mon, 0, 23, 59, 59, 999);
+    // Use UTC midnight to match the Jakarta wall-clock month exactly.
+    const monthStart = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0, 0));
+    const monthEnd = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
 
     // Previous month for rollover
     const prevDate = subMonths(monthStart, 1);

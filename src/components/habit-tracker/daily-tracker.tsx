@@ -707,18 +707,16 @@ export default function DailyTracker() {
         />
         <KpiCard
           icon={Zap}
-          label="Focus Time"
+          label="XP Today"
           accent="orange"
           staggerIndex={1}
           value={
             <span>
-              <CountUpNumber value={Math.floor(todayXP / 60)} />
-              <span className="text-sm font-medium text-muted-foreground">h </span>
-              <CountUpNumber value={todayXP % 60} />
-              <span className="text-sm font-medium text-muted-foreground">m</span>
+              <CountUpNumber value={todayXP} />
+              <span className="text-sm font-medium text-muted-foreground"> XP</span>
             </span>
           }
-          sub={<span className="text-orange-600 dark:text-orange-400">+{todayXP} XP today</span>}
+          sub={<span className="text-orange-600 dark:text-orange-400">earn more to level up</span>}
         />
         <KpiCard
           icon={Flame}

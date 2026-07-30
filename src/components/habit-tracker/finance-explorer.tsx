@@ -472,7 +472,7 @@ export default function FinanceExplorer({
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
                 onClick={() => { setLevel('week'); setSelectedDay(null); }}
-                className={cn('text-xs font-medium hover:underline', level === 'week' ? 'text-foreground' : 'text-muted-foreground')}
+                className="text-xs font-medium text-muted-foreground hover:underline"
               >
                 W{selectedWeek}
               </button>
@@ -483,7 +483,7 @@ export default function FinanceExplorer({
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <button
                 onClick={() => setLevel('day')}
-                className={cn('text-xs font-medium hover:underline', level === 'day' ? 'text-foreground' : 'text-muted-foreground')}
+                className="text-xs font-medium text-muted-foreground hover:underline"
               >
                 {dayData.find((d) => d.day === selectedDay)?.date || `Day ${selectedDay}`}
               </button>

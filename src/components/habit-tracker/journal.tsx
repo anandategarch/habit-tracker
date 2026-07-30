@@ -225,8 +225,12 @@ export default function JournalTab() {
   });
 
   const invalidateJournals = useCallback(() => {
+    // Invalidate the TanStack Query cache for the journals list, then bump the
+    // `refreshKey` state so the `useQuery` above refetches with a new queryKey.
+    // Previously this called `invalidateJournals()` recursively (infinite
+    // loop → RangeError: Maximum call stack size exceeded) on every save/delete.
     queryClient.invalidateQueries({ queryKey: ['journals'] });
-    invalidateJournals();
+    triggerRefresh();
   }, [queryClient, triggerRefresh]);
 
   // ── Form handlers ─────────────────────────────────────────────────────────

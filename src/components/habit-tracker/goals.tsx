@@ -119,7 +119,6 @@ const EMPTY_FORM: GoalFormData = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function GoalsTab() {
-  const refreshKey = useAppStore(s => s.refreshKey);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
   const { priorityMap } = useHabitOptions();
@@ -140,7 +139,7 @@ export default function GoalsTab() {
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
   const { data: goals = null, isLoading: loading } = useQuery<Goal[]>({
-    queryKey: ['goals', refreshKey],
+    queryKey: ['goals'],
     queryFn: async () => {
       const res = await fetch('/api/goals');
       if (!res.ok) throw new Error('Failed to fetch goals');
@@ -291,7 +290,7 @@ export default function GoalsTab() {
       if (!res.ok) throw new Error('Failed to update');
 
       // Optimistic update
-      queryClient.setQueryData<Goal[]>(['goals', refreshKey], (prev) =>
+      queryClient.setQueryData<Goal[]>(['goals'], (prev) =>
         prev
           ? prev.map((g) =>
               g.id === goalId

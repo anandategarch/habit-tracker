@@ -535,7 +535,7 @@ export default function Finance() {
     if (txFilter.type !== 'all' && tx.type !== txFilter.type) return false;
     if (txFilter.category !== 'all' && tx.category !== txFilter.category) return false;
     if (txFilter.source !== 'all' && tx.source !== txFilter.source) return false;
-    if (txFilter.search && !tx.description?.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.category.toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.notes?.toLowerCase().includes(txFilter.search.toLowerCase())) return false;
+    if (txFilter.search && !tx.description?.toLowerCase().includes(txFilter.search.toLowerCase()) && !(tx.category ?? '').toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.notes?.toLowerCase().includes(txFilter.search.toLowerCase())) return false;
     return true;
   }), [transactions, txFilter]);
 
