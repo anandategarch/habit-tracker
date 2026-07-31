@@ -31,6 +31,17 @@ interface TodayTransaction {
   source: string;
 }
 
+interface CategoryStats {
+  name: string;
+  todayAmount: number;
+  todayCount: number;
+  maxTransaction: number;
+  avgTransaction: number;
+  maxDaily: number;
+  avgDaily: number;
+  deltaVsAvgDaily: number;
+}
+
 interface DailyRecap {
   date: string;
   today: {
@@ -40,6 +51,7 @@ interface DailyRecap {
     transactionCount: number;
     transactions: TodayTransaction[];
     categories: Array<{ name: string; amount: number; count: number }>;
+    categoryStats: CategoryStats[];
     sources: Array<{ name: string; amount: number }>;
     hourlyBreakdown: number[];
     peakHour: { hour: number; amount: number } | null;
@@ -430,6 +442,69 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
   );
 }
 
+// ── Category Insight Row (per-category deep stats) ───────────────────────
+// For each category that has transactions today, shows:
+//   Row 1: emoji + name + today's total + delta badge (vs avg daily)
+//   Row 2: muted mini-stats — Max tx, Avg tx, Max/day, Avg/day
+//
+// Delta badge:
+//   - Negative (today < avg) → green "↓ Xk below avg" (good for expense)
+//   - Positive (today > avg) → red "↑ Xk above avg" (overspending)
+//   - Zero → muted "at avg"
+
+function CategoryInsightRow({ stats }: { stats: CategoryStats }) {
+  const delta = stats.deltaVsAvgDaily;
+  const isBelow = delta < 0;
+  const isAbove = delta > 0;
+  const isAtAvg = delta === 0;
+
+  const deltaColorClass = isAtAvg ? 'text-muted-foreground'
+    : isBelow ? 'text-emerald-600 dark:text-emerald-400'
+    : 'text-red-600 dark:text-red-400';
+  const DeltaIcon = isAtAvg ? Minus : isBelow ? TrendingDown : TrendingUp;
+
+  return (
+    <div className="py-1.5 border-b border-border/40 last:border-b-0">
+      {/* Row 1: name + today amount + delta badge */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          <span className="text-sm shrink-0">📦</span>
+          <span className="text-xs font-medium truncate">{stats.name}</span>
+          <span className="text-[10px] text-muted-foreground shrink-0">· {stats.todayCount}x</span>
+        </div>
+        <span className="text-xs font-bold tabular-nums shrink-0">
+          {compactRupiahSafe(stats.todayAmount)}
+        </span>
+        <div className={cn('flex items-center gap-0.5 shrink-0 min-w-[60px] justify-end', deltaColorClass)}>
+          <DeltaIcon className="h-3 w-3 shrink-0" />
+          <span className="text-[10px] font-medium tabular-nums">
+            {isAtAvg ? 'at avg' : `${compactRupiahSafe(Math.abs(delta))}`}
+          </span>
+        </div>
+      </div>
+
+      {/* Row 2: mini-stats line — Max tx, Avg tx, Max/day, Avg/day */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[10px] text-muted-foreground">
+        <span className="shrink-0">
+          Max tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.maxTransaction)}</span>
+        </span>
+        <span className="shrink-0 text-muted-foreground/50">·</span>
+        <span className="shrink-0">
+          Avg tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.avgTransaction)}</span>
+        </span>
+        <span className="shrink-0 text-muted-foreground/50">·</span>
+        <span className="shrink-0">
+          Max/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.maxDaily)}</span>
+        </span>
+        <span className="shrink-0 text-muted-foreground/50">·</span>
+        <span className="shrink-0">
+          Avg/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.avgDaily)}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Comparison Pill ──────────────────────────────────────────────────────
 
 function ComparisonPill({ changePct, direction, label }: { changePct: number | null; direction: string; label: string }) {
@@ -763,16 +838,9 @@ export default function DailyRecap() {
           </div>
         </div>
 
-        {/* Peak hour + top transaction */}
-        {today.peakHour && (
-          <div className="flex items-center gap-1.5 text-xs min-w-0">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-muted-foreground shrink-0">Tertinggi:</span>
-            <span className="font-medium shrink-0">{formatHourLabel(today.peakHour.hour)}</span>
-            <span className="text-muted-foreground shrink-0">·</span>
-            <span className="font-medium truncate">{formatRupiah(today.peakHour.amount)}</span>
-          </div>
-        )}
+        {/* Top transaction (largest single expense today) — kept per user request.
+            The "Spending tertinggi" (peak hour) row was removed because the
+            hourly heatmap below already visualizes peak activity. */}
         {today.topTransaction && (
           <div className="flex items-center gap-1.5 text-xs min-w-0">
             <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
@@ -780,6 +848,24 @@ export default function DailyRecap() {
             <span className="font-medium truncate">{today.topTransaction.category}</span>
             <span className="text-muted-foreground shrink-0">·</span>
             <span className="font-medium shrink-0">{compactRupiahSafe(today.topTransaction.amount)}</span>
+          </div>
+        )}
+
+        {/* Per-category deep insights — only categories with transactions today.
+            Shows today's amount + delta vs avg daily, plus max/avg per-tx and
+            per-day stats from the last 30 days. Placed above the hourly heatmap
+            because it's more actionable (category-level pattern vs time-of-day). */}
+        {today.categoryStats.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              <Brain className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
+            </div>
+            <div className="rounded-lg bg-muted/20 px-2.5 py-0.5">
+              {today.categoryStats.map((cat) => (
+                <CategoryInsightRow key={cat.name} stats={cat} />
+              ))}
+            </div>
           </div>
         )}
 
