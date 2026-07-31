@@ -288,6 +288,9 @@ export const updateSettingsSchema = z.object({
   weekStart: z.enum(['monday', 'sunday', 'saturday']).optional(),
   language: z.string().max(10).optional(),
   targetCompletion: z.number().int().min(1).max(100).optional(),
+  // Daily budget target in whole rupiah. 0 = unset (ring hidden in UI).
+  // Max 100jt as a sane upper bound.
+  dailyBudgetTarget: z.number().int().min(0).max(100_000_000).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

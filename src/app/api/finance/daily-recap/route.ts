@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
-import { jakartaDateString, jakartaDateKey, jakartaNowParts, jakartaMonthString, dayToWeek } from '@/lib/timezone';
+import { jakartaDateString, jakartaDateKey, jakartaNowParts, jakartaMonthString } from '@/lib/timezone';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -448,18 +448,15 @@ export async function GET() {
       }
     }
 
-    // ── Daily budget (from weekly budget, if set) ────────────────────
-    // Daily target = weekly target / 7. We pick the current week's target.
+    // ── Daily budget (from AppSettings.dailyBudgetTarget) ───────────
+    // User sets a single daily target via the progress ring tap → dialog
+    // in the Daily Recap UI. Stored in AppSettings (1 value for all days).
+    // 0 = not set → dailyBudget stays null → ring hidden in UI.
     let dailyBudget: DailyRecapResponse['dailyBudget'] = null;
     let budgetStreak = 0;
-    const weeklyBudgets = await db.weeklyBudget.findMany({
-      where: { month: monthKey },
-      orderBy: { week: 'asc' },
-    });
-    const currentWeek = dayToWeek(todayParts.day);
-    const currentWeekBudget = weeklyBudgets.find((b) => b.week === currentWeek);
-    if (currentWeekBudget && currentWeekBudget.target > 0) {
-      const dailyTarget = Math.round(currentWeekBudget.target / 7);
+    const appSettings = await db.appSettings.findFirst();
+    const dailyTarget = appSettings?.dailyBudgetTarget ?? 0;
+    if (dailyTarget > 0) {
       const spent = todayExpense;
       const remaining = dailyTarget - spent;
       const percentage = dailyTarget > 0 ? Math.round((spent / dailyTarget) * 100) : 0;
@@ -512,19 +509,25 @@ export async function GET() {
     const trend = trendSlope(last7dExpenses);
 
     // Budget ETA: when will monthly budget run out?
-    // Monthly budget = sum of all weekly budgets for this month.
-    //
-    // Edge case: if user only set targets for some weeks (e.g., weeks 1 & 2
-    // but not 3 & 4), the raw sum understates the intended monthly budget and
-    // triggers a premature "over budget" alert. Fix: extrapolate missing
-    // weeks from the average of the set weeks, so the monthly budget reflects
-    // the user's apparent weekly target pattern.
+    // Monthly budget = dailyTarget × daysInMonth (if user set daily budget),
+    // else fall back to weekly budgets (extrapolated to 4 weeks).
     let budgetETA: DailyRecapResponse['predictions']['budgetETA'] = null;
-    const setWeeks = weeklyBudgets.filter((b) => b.target > 0);
-    if (setWeeks.length > 0 && burnRate > 0) {
-      const avgWeeklyTarget = setWeeks.reduce((s, b) => s + b.target, 0) / setWeeks.length;
-      // Extrapolate to all 4 weeks — this is the implied monthly budget.
-      const totalMonthlyTarget = Math.round(avgWeeklyTarget * 4);
+    let totalMonthlyTarget = 0;
+    if (dailyTarget > 0) {
+      // Daily budget set → monthly = daily × days in month
+      totalMonthlyTarget = dailyTarget * daysInMonth;
+    } else {
+      // Fallback: weekly budgets (extrapolated to 4 weeks if partial)
+      const weeklyBudgets = await db.weeklyBudget.findMany({
+        where: { month: monthKey },
+        orderBy: { week: 'asc' },
+      });
+      const setWeeks = weeklyBudgets.filter((b) => b.target > 0);
+      if (setWeeks.length > 0) {
+        totalMonthlyTarget = Math.round((setWeeks.reduce((s, b) => s + b.target, 0) / setWeeks.length) * 4);
+      }
+    }
+    if (totalMonthlyTarget > 0 && burnRate > 0) {
       const remainingBudget = totalMonthlyTarget - monthExpenseSoFar;
       // If already over budget, daysLeft is meaningless — set to 0.
       const daysLeft = remainingBudget > 0 ? Math.floor(remainingBudget / burnRate) : 0;
@@ -534,20 +537,15 @@ export async function GET() {
         projectedOver: remainingBudget < 0 ? Math.abs(remainingBudget) : 0,
       };
     }
-    // totalWeeklyTarget is reused by smartCapTomorrow — keep the extrapolated
-    // version so both computations stay consistent.
-    const totalWeeklyTarget = setWeeks.length > 0
-      ? Math.round((setWeeks.reduce((s, b) => s + b.target, 0) / setWeeks.length) * 4)
-      : 0;
 
     // Smart cap for the rest of the month (avg daily budget remaining).
-    // Labeled "Sisa/hari" in the UI (was misleadingly "Besok max").
+    // Labeled "Sisa/hari" in the UI.
     // Divisor = days STRICTLY AFTER today (not including today, since today's
     // spend is already in monthExpenseSoFar). If today is the last day of the
     // month, remainingDays = 0 → no cap shown (nothing left to budget for).
     let smartCapTomorrow: number | null = null;
-    if (totalWeeklyTarget > 0) {
-      const remainingBudget = totalWeeklyTarget - monthExpenseSoFar;
+    if (totalMonthlyTarget > 0) {
+      const remainingBudget = totalMonthlyTarget - monthExpenseSoFar;
       const remainingDays = daysInMonth - daysElapsed; // strictly after today
       if (remainingDays > 0) {
         smartCapTomorrow = Math.max(0, Math.round(remainingBudget / remainingDays));
