@@ -114,7 +114,7 @@ interface DailyRecap {
     spent: number;
     remaining: number;
     percentage: number;
-    status: 'under' | 'on_track' | 'nearing' | 'over' | 'no_budget';
+    status: 'under' | 'on_track' | 'nearing' | 'over';
   } | null;
 }
 
@@ -470,6 +470,120 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
 //   - Positive (today > avg) → red "↑ Xk above avg" (overspending)
 //   - Zero → muted "at avg"
 
+// ── Budget Dialog (reusable) ─────────────────────────────────────────────
+// Extracted so both the empty-state Card and the main Card can render it
+// without duplicating the JSX. Controlled by parent via props.
+
+function BudgetDialog({
+  open,
+  onOpenChange,
+  budgetInput,
+  setBudgetInput,
+  onSave,
+  onRemove,
+  isPending,
+  hasExistingBudget,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  budgetInput: string;
+  setBudgetInput: (v: string) => void;
+  onSave: () => void;
+  onRemove: () => void;
+  isPending: boolean;
+  hasExistingBudget: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            Budget Harian
+          </DialogTitle>
+          <DialogDescription>
+            Set target pengeluaran per hari. Berlaku untuk semua hari.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label htmlFor="daily-budget-input" className="text-xs">
+            Nominal (Rp)
+          </Label>
+          <Input
+            id="daily-budget-input"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="100.000"
+            value={budgetInput}
+            onChange={(e) => {
+              // Format with thousand separators as user types.
+              const digits = e.target.value.replace(/[^\d]/g, '');
+              if (!digits) {
+                setBudgetInput('');
+                return;
+              }
+              setBudgetInput(digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onSave();
+              }
+            }}
+            className="text-lg font-semibold tabular-nums"
+            autoFocus
+          />
+          {budgetInput && (() => {
+            const digits = budgetInput.replace(/[^\d]/g, '');
+            const n = digits ? parseInt(digits, 10) : 0;
+            return (
+              <p className="text-xs text-muted-foreground">
+                Preview: <span className="font-medium text-foreground">{formatRupiah(n)}</span>
+              </p>
+            );
+          })()}
+        </div>
+        <DialogFooter className="flex-row gap-2 sm:justify-between">
+          {hasExistingBudget ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRemove}
+              disabled={isPending}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Hapus
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={isPending}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onSave}
+              disabled={isPending || !budgetInput.replace(/[^\d]/g, '')}
+            >
+              {isPending ? 'Menyimpan...' : 'Simpan'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CategoryInsightRow({ stats, pct }: { stats: CategoryStats; pct: number }) {
   const delta = stats.deltaVsAvgDaily;
   const isBelow = delta < 0;
@@ -639,12 +753,20 @@ export default function DailyRecap() {
 
   /** Open the budget dialog, pre-filling the input with the current target. */
   function openBudgetDialog(currentTarget: number | null) {
-    setBudgetInput(currentTarget ? String(currentTarget) : '');
+    // Format with thousand separators so the prefill matches what the
+    // onChange handler would produce (was showing "100000" instead of "100.000").
+    const formatted = currentTarget
+      ? String(currentTarget).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+      : '';
+    setBudgetInput(formatted);
     setBudgetDialogOpen(true);
   }
 
   /** Parse the formatted input ("100.000" → 100000) and save. */
   function handleSaveBudget() {
+    // Guard against double-submit — Enter key + click, or rapid Enter presses,
+    // could fire multiple concurrent mutations (race condition in PUT /api/settings).
+    if (saveBudgetMutation.isPending) return;
     // Strip non-digits (handles "100.000", "100,000", " 100000 ")
     const digits = budgetInput.replace(/[^\d]/g, '');
     const target = digits ? parseInt(digits, 10) : 0;
@@ -706,24 +828,85 @@ export default function DailyRecap() {
   const { today, comparison, streaks, predictions, alerts, patterns, gamification, sparkline, dailyBudget } = recap;
 
   // ── Empty state: no transactions today ─────────────────────────────
+  // Note: budget ring/button is still shown here so the user can set/view
+  // their daily budget even on a no-transaction day (was previously hidden,
+  // making the budget feature inaccessible until a transaction was logged).
   const isEmpty = today.transactionCount === 0 && today.income === 0;
 
   if (isEmpty) {
     return (
       <Card className="overflow-hidden anim-stagger">
-        <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-6 sm:px-6 text-center">
-          <div className="text-3xl mb-2">🌤️</div>
-          <p className="text-sm font-semibold">Belum ada aktivitas hari ini</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Catat transaksi pertama untuk mulai melacak insight harianmu
-          </p>
-          {patterns.personalityTag && (
-            <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-background/60 backdrop-blur-sm border border-border/50">
-              <span>{patterns.personalityTag.emoji}</span>
-              <span className="text-xs font-medium">{patterns.personalityTag.tag}</span>
+        <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground font-medium mb-1">Hari Ini</p>
+              <p className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-500">
+                Rp 0
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                belum ada transaksi
+              </p>
             </div>
-          )}
+            {/* Budget ring (or "Set budget" button) — same as non-empty state */}
+            {dailyBudget && dailyBudget.target ? (
+              <button
+                type="button"
+                onClick={() => openBudgetDialog(dailyBudget.target)}
+                className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1 -m-1 hover:bg-muted/40 transition-colors"
+                aria-label={`Budget harian ${dailyBudget.percentage}%, tap to edit`}
+              >
+                <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={48}>
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold leading-none">{dailyBudget.percentage}%</p>
+                  </div>
+                </ProgressRing>
+                <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground text-center leading-tight">
+                  <span>dari {compactRupiahSafe(dailyBudget.target)}</span>
+                  <Pencil className="h-2 w-2 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+                </div>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openBudgetDialog(null)}
+                className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1.5 -m-1 border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                aria-label="Set daily budget"
+              >
+                <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
+                  <Target className="h-4 w-4" />
+                </div>
+                <span className="text-[9px] text-muted-foreground group-hover:text-primary transition-colors">
+                  Set budget
+                </span>
+              </button>
+            )}
+          </div>
+          <div className="text-center mt-3 pt-3 border-t border-border/40">
+            <div className="text-2xl mb-1">🌤️</div>
+            <p className="text-xs font-medium">Belum ada aktivitas hari ini</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Catat transaksi pertama untuk mulai melacak insight harianmu
+            </p>
+            {patterns.personalityTag && (
+              <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-background/60 backdrop-blur-sm border border-border/50">
+                <span className="text-xs">{patterns.personalityTag.emoji}</span>
+                <span className="text-[10px] font-medium">{patterns.personalityTag.tag}</span>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Budget dialog (same as non-empty state) */}
+        <BudgetDialog
+          open={budgetDialogOpen}
+          onOpenChange={setBudgetDialogOpen}
+          budgetInput={budgetInput}
+          setBudgetInput={setBudgetInput}
+          onSave={handleSaveBudget}
+          onRemove={handleRemoveBudget}
+          isPending={saveBudgetMutation.isPending}
+          hasExistingBudget={!!dailyBudget?.target}
+        />
       </Card>
     );
   }
@@ -771,7 +954,7 @@ export default function DailyRecap() {
               </ProgressRing>
               <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground text-center leading-tight">
                 <span>dari {compactRupiahSafe(dailyBudget.target)}</span>
-                <Pencil className="h-2 w-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Pencil className="h-2 w-2 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
               </div>
             </button>
           ) : (
@@ -1159,97 +1342,17 @@ export default function DailyRecap() {
         )}
       </div>
 
-      {/* ── Daily Budget Edit Dialog ────────────────────────────────────
-          Custom input only (no presets per user request). Single value for
-          all days (stored in AppSettings.dailyBudgetTarget). Saves via
-          PUT /api/settings, then invalidates the daily-recap query. */}
-      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-primary" />
-              Budget Harian
-            </DialogTitle>
-            <DialogDescription>
-              Set target pengeluaran per hari. Berlaku untuk semua hari.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="daily-budget-input" className="text-xs">
-              Nominal (Rp)
-            </Label>
-            <Input
-              id="daily-budget-input"
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="100.000"
-              value={budgetInput}
-              onChange={(e) => {
-                // Format with thousand separators as user types.
-                const digits = e.target.value.replace(/[^\d]/g, '');
-                if (!digits) {
-                  setBudgetInput('');
-                  return;
-                }
-                setBudgetInput(digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSaveBudget();
-                }
-              }}
-              className="text-lg font-semibold tabular-nums"
-              autoFocus
-            />
-            {budgetInput && (() => {
-              const digits = budgetInput.replace(/[^\d]/g, '');
-              const n = digits ? parseInt(digits, 10) : 0;
-              return (
-                <p className="text-xs text-muted-foreground">
-                  Preview: <span className="font-medium text-foreground">{formatRupiah(n)}</span>
-                </p>
-              );
-            })()}
-          </div>
-          <DialogFooter className="flex-row gap-2 sm:justify-between">
-            {dailyBudget && dailyBudget.target ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleRemoveBudget}
-                disabled={saveBudgetMutation.isPending}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Hapus
-              </Button>
-            ) : (
-              <div />
-            )}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setBudgetDialogOpen(false)}
-                disabled={saveBudgetMutation.isPending}
-              >
-                Batal
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSaveBudget}
-                disabled={saveBudgetMutation.isPending || !budgetInput.replace(/[^\d]/g, '')}
-              >
-                {saveBudgetMutation.isPending ? 'Menyimpan...' : 'Simpan'}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ── Daily Budget Edit Dialog (reusable component) ─────────────── */}
+      <BudgetDialog
+        open={budgetDialogOpen}
+        onOpenChange={setBudgetDialogOpen}
+        budgetInput={budgetInput}
+        setBudgetInput={setBudgetInput}
+        onSave={handleSaveBudget}
+        onRemove={handleRemoveBudget}
+        isPending={saveBudgetMutation.isPending}
+        hasExistingBudget={!!dailyBudget?.target}
+      />
     </Card>
   );
 }
