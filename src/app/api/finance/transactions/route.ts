@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { toMoneyInt, signedDelta } from '@/lib/money';
 import { createTransactionSchema, parseOr400 } from '@/lib/validation';
+import { jakartaDateKey } from '@/lib/timezone';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/finance/transactions?month=2025-01&type=expense&search=xxx
@@ -25,14 +26,18 @@ export async function GET(request: NextRequest) {
       if (isNaN(year) || isNaN(mon) || mon < 1 || mon > 12) {
         return NextResponse.json({ error: 'Invalid month. Use YYYY-MM with valid month 01-12' }, { status: 400 });
       }
-      // Use UTC midnight to match the Jakarta wall-clock month exactly.
-      // Previously used `new Date(year, mon - 1, 1)` which uses server-LOCAL
-      // midnight — on Vercel (UTC) this happens to work, but on any non-UTC
-      // server the first/last few hours of the Jakarta month leak across
-      // the boundary.
+      // Fetch a 7-day buffer around the month boundary to catch transactions
+      // whose Jakarta date falls in this month but whose UTC epoch is in the
+      // previous/next month (Jakarta is UTC+7, so 00:00-06:59 Jakarta on the
+      // 1st has a UTC epoch on the last day of the previous month).
+      // Post-query, we filter by jakartaDateKey to get the exact month.
       const start = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0, 0));
+      // Subtract 7 hours to include Jakarta midnight of the 1st
+      const fetchStart = new Date(start.getTime() - 7 * 60 * 60 * 1000);
       const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
-      where.date = { gte: start, lte: end };
+      // Add 7 hours to include Jakarta late-night of the last day
+      const fetchEnd = new Date(end.getTime() + 7 * 60 * 60 * 1000);
+      where.date = { gte: fetchStart, lte: fetchEnd };
     }
 
     if (startDate && endDate) {
@@ -74,6 +79,14 @@ export async function GET(request: NextRequest) {
         where,
         orderBy: { date: 'desc' },
       });
+      // Post-query filter: if month param was given, filter by Jakarta date
+      // key to get the exact month (the query fetched a 7h buffer on each
+      // side to catch timezone-boundary transactions).
+      if (month) {
+        transactions = transactions.filter(
+          (t) => jakartaDateKey(t.date).slice(0, 7) === month
+        );
+      }
     } catch (e) {
       console.error('GET /api/finance/transactions query failed:', e);
     }

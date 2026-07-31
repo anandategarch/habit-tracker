@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { jakartaMonthString } from '@/lib/timezone';
+import { jakartaMonthString, jakartaDateKey } from '@/lib/timezone';
 
 // POST /api/finance/budgets/snapshot
 // Creates a BudgetSnapshot for the specified month (or current month if not specified).
@@ -19,9 +19,11 @@ export async function POST(request: NextRequest) {
     const month = searchParams.get('month') || jakartaMonthString();
     const [year, mon] = month.split('-').map(Number);
 
-    // Use UTC midnight to match the Jakarta wall-clock month exactly.
+    // Fetch with 7h buffer to catch timezone-boundary transactions.
     const monthStart = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0, 0));
+    const fetchStart = new Date(monthStart.getTime() - 7 * 60 * 60 * 1000);
     const monthEnd = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
+    const fetchEnd = new Date(monthEnd.getTime() + 7 * 60 * 60 * 1000);
 
     // Previous month for rollover
     const prevDate = subMonths(monthStart, 1);
@@ -30,13 +32,17 @@ export async function POST(request: NextRequest) {
     // Get all budgets
     const budgets = await db.budget.findMany();
 
-    // Get all transactions for this month (expenses only)
-    const transactions = await db.transaction.findMany({
+    // Get all transactions for this month (expenses only), then filter by
+    // Jakarta date key to get the exact month.
+    const allFetchedTx = await db.transaction.findMany({
       where: {
-        date: { gte: monthStart, lte: monthEnd },
+        date: { gte: fetchStart, lte: fetchEnd },
         type: 'expense',
       },
     });
+    const transactions = allFetchedTx.filter(
+      (t) => jakartaDateKey(t.date).slice(0, 7) === month
+    );
 
     // Group spending by category
     const spendingByCategory = new Map<string, number>();

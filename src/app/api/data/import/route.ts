@@ -14,6 +14,13 @@ interface ImportPayload {
   budgets?: Record<string, unknown>[];
   financeCategories?: Record<string, unknown>[];
   settings?: Record<string, unknown>[];
+  // Added 6 missing tables for complete backup/restore
+  fundSources?: Record<string, unknown>[];
+  weeklyBudgets?: Record<string, unknown>[];
+  budgetSnapshots?: Record<string, unknown>[];
+  habitGroups?: Record<string, unknown>[];
+  learningTopics?: Record<string, unknown>[];
+  habitOptions?: Record<string, unknown>[];
 }
 
 const FIELDS_TO_STRIP = new Set(['id', 'createdAt', 'updatedAt']);
@@ -40,6 +47,9 @@ function isValidPayload(body: unknown): body is ImportPayload {
     'habits', 'habitLogs', 'dailyLogs', 'journals', 'goals',
     'challenges', 'badges', 'rewards', 'transactions',
     'budgets', 'financeCategories', 'settings',
+    // Added 6 missing tables
+    'fundSources', 'weeklyBudgets', 'budgetSnapshots',
+    'habitGroups', 'learningTopics', 'habitOptions',
   ]);
   for (const key of Object.keys(body as Record<string, unknown>)) {
     if (!allowedKeys.has(key)) return false;
@@ -66,41 +76,60 @@ export async function POST(request: NextRequest) {
     const result = await db.$transaction(async (tx) => {
       const counts: Record<string, number> = {};
 
-      // Delete children before parents to respect foreign key constraints
-      // HabitLog depends on Habit (onDelete: Cascade, but be explicit)
-      if (body.habitLogs) {
+      // Delete children before parents to respect foreign key constraints.
+      // Guard with length > 0: empty array means "skip", not "wipe all".
+      // Previously `if (body.habitLogs)` was truthy for [] → silently deleted
+      // all data when a partial backup was imported.
+      if (body.habitLogs && body.habitLogs.length > 0) {
         await tx.habitLog.deleteMany();
       }
-      if (body.habits) {
+      if (body.habits && body.habits.length > 0) {
         await tx.habit.deleteMany();
       }
-
-      if (body.dailyLogs) {
+      if (body.habitOptions && body.habitOptions.length > 0) {
+        await tx.habitOption.deleteMany();
+      }
+      if (body.habitGroups && body.habitGroups.length > 0) {
+        await tx.habitGroup.deleteMany();
+      }
+      if (body.dailyLogs && body.dailyLogs.length > 0) {
         await tx.dailyLog.deleteMany();
       }
-      if (body.journals) {
+      if (body.journals && body.journals.length > 0) {
         await tx.journal.deleteMany();
       }
-      if (body.goals) {
+      if (body.goals && body.goals.length > 0) {
         await tx.goal.deleteMany();
       }
-      if (body.challenges) {
+      if (body.challenges && body.challenges.length > 0) {
         await tx.challenge.deleteMany();
       }
-      if (body.badges) {
+      if (body.badges && body.badges.length > 0) {
         await tx.badge.deleteMany();
       }
-      if (body.rewards) {
+      if (body.rewards && body.rewards.length > 0) {
         await tx.reward.deleteMany();
       }
-      if (body.transactions) {
+      if (body.transactions && body.transactions.length > 0) {
         await tx.transaction.deleteMany();
       }
-      if (body.budgets) {
+      if (body.budgets && body.budgets.length > 0) {
         await tx.budget.deleteMany();
       }
-      if (body.financeCategories) {
+      if (body.budgetSnapshots && body.budgetSnapshots.length > 0) {
+        await tx.budgetSnapshot.deleteMany();
+      }
+      if (body.weeklyBudgets && body.weeklyBudgets.length > 0) {
+        await tx.weeklyBudget.deleteMany();
+      }
+      if (body.financeCategories && body.financeCategories.length > 0) {
         await tx.financeCategory.deleteMany();
+      }
+      if (body.fundSources && body.fundSources.length > 0) {
+        await tx.fundSource.deleteMany();
+      }
+      if (body.learningTopics && body.learningTopics.length > 0) {
+        await tx.learningTopic.deleteMany();
       }
 
       // Insert in dependency order: parents first, then children.
@@ -252,6 +281,48 @@ export async function POST(request: NextRequest) {
           });
           counts.settings = 1;
         }
+      }
+
+      // ── 6 previously-missing tables ──────────────────────────────────
+      // Without these, backup/restore silently destroyed fund-source
+      // balances, weekly budgets, habit groups, learning topics, and
+      // habit options. Now they're part of the export/import cycle.
+
+      // HabitGroups must be inserted BEFORE habits (habits reference groupId)
+      if (body.habitGroups && body.habitGroups.length > 0) {
+        const data = stripAutoFields(body.habitGroups);
+        const res = await tx.habitGroup.createMany({ data });
+        counts.habitGroups = res.count;
+      }
+
+      if (body.habitOptions && body.habitOptions.length > 0) {
+        const data = stripAutoFields(body.habitOptions);
+        const res = await tx.habitOption.createMany({ data });
+        counts.habitOptions = res.count;
+      }
+
+      if (body.fundSources && body.fundSources.length > 0) {
+        const data = stripAutoFields(body.fundSources);
+        const res = await tx.fundSource.createMany({ data });
+        counts.fundSources = res.count;
+      }
+
+      if (body.weeklyBudgets && body.weeklyBudgets.length > 0) {
+        const data = stripAutoFields(body.weeklyBudgets);
+        const res = await tx.weeklyBudget.createMany({ data });
+        counts.weeklyBudgets = res.count;
+      }
+
+      if (body.budgetSnapshots && body.budgetSnapshots.length > 0) {
+        const data = stripAutoFields(body.budgetSnapshots);
+        const res = await tx.budgetSnapshot.createMany({ data });
+        counts.budgetSnapshots = res.count;
+      }
+
+      if (body.learningTopics && body.learningTopics.length > 0) {
+        const data = stripAutoFields(body.learningTopics);
+        const res = await tx.learningTopic.createMany({ data });
+        counts.learningTopics = res.count;
       }
 
       return counts;

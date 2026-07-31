@@ -265,7 +265,7 @@ function KpiCard({
   };
   return (
     <div
-      className={cn('kpi-card group anim-stagger anim-lift', accents[accent])}
+      className={cn('kpi-card group anim-stagger', accents[accent])}
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
     >
       <div className="flex items-center gap-1.5 mb-1.5">
@@ -850,7 +850,8 @@ export default function DailyTracker() {
                 <div
                   key={habit.id}
                   className={cn(
-                    'habit-card group cursor-pointer select-none anim-stagger anim-lift',
+                    'habit-card group cursor-pointer select-none anim-stagger',
+                    !justCompleted && 'anim-lift',
                     isDone && 'habit-card-completed',
                     justCompleted && 'habit-card-pop anim-check-pop',
                   )}

@@ -496,8 +496,10 @@ export default function Dashboard() {
     label: d.day.slice(0, 3),
   }));
 
-  const priorityVariant = (p: string) => {
-    switch (p.toLowerCase()) {
+  const priorityVariant = (p?: string) => {
+    // Guard against null/undefined — previously crashed on .toLowerCase()
+    // if a habit had a missing priority field.
+    switch ((p ?? 'medium').toLowerCase()) {
       case 'high':
         return 'destructive' as const;
       case 'medium':
@@ -580,7 +582,7 @@ export default function Dashboard() {
             return (
               <Card
                 key={card.key}
-                className="p-4 anim-stagger anim-lift"
+                className="p-4 anim-stagger"
                 style={{ animationDelay: `${i * 50}ms` }}
               >
                 <div className="flex items-center justify-between mb-1">
