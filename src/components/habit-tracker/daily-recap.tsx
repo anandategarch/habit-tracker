@@ -23,7 +23,11 @@ interface TodayTransaction {
   amount: number;
   category: string;
   description: string | null;
-  hour: number;
+  // ISO string of the transaction date. The client formats this to Jakarta
+  // wall-clock time via `toLocaleTimeString('id-ID', { timeZone:
+  // 'Asia/Jakarta' })` — same code path as the Transactions tab, so the time
+  // shown here always matches the Transactions tab for the same transaction.
+  date: string;
   source: string;
 }
 
@@ -96,8 +100,30 @@ interface DailyRecap {
 
 const HOUR_LABELS = ['00', '03', '06', '09', '12', '15', '18', '21'];
 
-function formatHour(h: number): string {
-  if (h === 0) return '00:00';
+/**
+ * Format a transaction's ISO date string to a Jakarta wall-clock time.
+ * Uses `toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })` — the
+ * SAME code path as the Transactions tab (`finance-transactions.tsx:65-68`).
+ * This guarantees the time shown in the daily recap always matches the time
+ * shown in the Transactions tab for the same transaction.
+ *
+ * Returns "HH.MM" (Indonesian format uses dot separator) or empty string.
+ */
+function formatTxTime(isoDate: string): string {
+  try {
+    const d = new Date(isoDate);
+    return d.toLocaleTimeString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
+/** Format an integer hour (0-23) as "HH:00" for the peak-hour label. */
+function formatHourLabel(h: number): string {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
@@ -108,42 +134,64 @@ function formatDateShort(d: string): string {
   return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
-// ── Sparkline (mini 7-day line chart, no library) ────────────────────────
+/** Compact rupiah that handles 0 gracefully (returns "0" not "0k"). */
+function compactRupiahSafe(n: number): string {
+  if (n === 0) return '0';
+  return compactRupiah(n);
+}
+
+// ── Sparkline (mini 7-day line chart, premium) ──────────────────────────
 
 function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; isToday: boolean }> }) {
   if (data.length === 0) return null;
-  const max = Math.max(...data.map((d) => d.amount), 1);
-  const W = 100, H = 28;
+  const values = data.map((d) => d.amount);
+  const max = Math.max(...values, 1);
+  const hasAnyData = values.some((v) => v > 0);
+
+  const W = 120, H = 36;
   const step = W / (data.length - 1 || 1);
   const points = data.map((d, i) => {
     const x = i * step;
-    const y = H - (d.amount / max) * (H - 4) - 2;
+    // If no data at all, draw flat line at bottom (not top).
+    const y = hasAnyData ? H - (d.amount / max) * (H - 6) - 3 : H - 3;
     return { x, y, ...d };
   });
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
   const areaPath = `${path} L ${W} ${H} L 0 ${H} Z`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-7" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill="url(#spark-grad)" className="text-primary" />
-      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-primary" strokeLinecap="round" strokeLinejoin="round" />
-      {points.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r={p.isToday ? 2.2 : 1.2}
-          className={p.isToday ? 'text-primary' : 'text-muted-foreground'}
-          fill="currentColor"
+    <div className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-9" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {hasAnyData && <path d={areaPath} fill="url(#spark-grad)" className="text-primary" />}
+        <path
+          d={path}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-primary"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
-      ))}
-    </svg>
+        {points.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={p.isToday ? 2.5 : 1.5}
+            className={p.isToday ? 'text-primary' : 'text-muted-foreground/50'}
+            fill="currentColor"
+            stroke={p.isToday ? 'hsl(var(--background))' : undefined}
+            strokeWidth={p.isToday ? 1.5 : 0}
+          />
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -164,7 +212,7 @@ function ProgressRing({
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const clampedPct = Math.min(percentage, 100);
+  const clampedPct = Math.min(Math.max(percentage, 0), 100);
   const offset = circumference - (clampedPct / 100) * circumference;
 
   const colorClass =
@@ -205,37 +253,52 @@ function ProgressRing({
   );
 }
 
-// ── Hourly Heatmap (24-bar mini viz) ─────────────────────────────────────
+// ── Hourly Heatmap (24-bar mini viz, premium) ────────────────────────────
 
 function HourlyHeatmap({ hourly }: { hourly: number[] }) {
   const max = Math.max(...hourly, 1);
+  const hasData = hourly.some((h) => h > 0);
+
+  if (!hasData) {
+    return (
+      <div className="h-8 flex items-center justify-center text-[10px] text-muted-foreground italic">
+        Belum ada aktivitas
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-end gap-[2px] h-8">
-      {hourly.map((amt, h) => {
-        const hRatio = amt / max;
-        const isLateNight = h >= 22 || h < 5;
-        const isMorning = h >= 5 && h < 12;
-        const isAfternoon = h >= 12 && h < 18;
-        const color = amt === 0 ? 'bg-muted/40'
-          : isLateNight ? 'bg-purple-400'
-          : isMorning ? 'bg-amber-400'
-          : isAfternoon ? 'bg-primary'
-          : 'bg-blue-400';
-        return (
-          <Tooltip key={h}>
-            <TooltipTrigger asChild>
-              <div
-                className={cn('flex-1 min-w-[3px] rounded-sm transition-all hover:opacity-80', color)}
-                style={{ height: amt === 0 ? '4px' : `${Math.max(8, hRatio * 100)}%` }}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              <p className="font-medium">{formatHour(h)}</p>
-              <p className="text-muted-foreground">{amt > 0 ? formatRupiah(amt) : '—'}</p>
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
+    <div className="space-y-1">
+      <div className="flex items-end gap-[3px] h-10">
+        {hourly.map((amt, h) => {
+          const hRatio = amt / max;
+          const isLateNight = h >= 22 || h < 5;
+          const isMorning = h >= 5 && h < 12;
+          const isAfternoon = h >= 12 && h < 18;
+          const color = amt === 0 ? 'bg-muted/30'
+            : isLateNight ? 'bg-purple-400 dark:bg-purple-500'
+            : isMorning ? 'bg-amber-400 dark:bg-amber-500'
+            : isAfternoon ? 'bg-primary'
+            : 'bg-blue-400 dark:bg-blue-500';
+          return (
+            <Tooltip key={h}>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn('flex-1 min-w-[4px] rounded-sm transition-all hover:opacity-80 cursor-default', color)}
+                  style={{ height: amt === 0 ? '3px' : `${Math.max(10, hRatio * 100)}%` }}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                <p className="font-medium">{formatHourLabel(h)}</p>
+                <p className="text-muted-foreground">{amt > 0 ? formatRupiah(amt) : '—'}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-[9px] text-muted-foreground px-0.5">
+        {HOUR_LABELS.map((h) => <span key={h}>{h}</span>)}
+      </div>
     </div>
   );
 }
@@ -246,8 +309,8 @@ function ComparisonPill({ changePct, direction, label }: { changePct: number | n
   if (changePct === null || direction === 'unknown') {
     return (
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Minus className="h-3 w-3" />
-        <span>{label}: —</span>
+        <Minus className="h-3 w-3 shrink-0" />
+        <span className="truncate">{label}: —</span>
       </div>
     );
   }
@@ -259,9 +322,9 @@ function ComparisonPill({ changePct, direction, label }: { changePct: number | n
     : 'text-emerald-500';
   const Icon = isSame ? Minus : isUp ? TrendingUp : TrendingDown;
   return (
-    <div className={cn('flex items-center gap-1 text-xs font-medium', colorClass)}>
-      <Icon className="h-3 w-3" />
-      <span>{label} {Math.abs(changePct)}%</span>
+    <div className={cn('flex items-center gap-1 text-xs font-medium min-w-0', colorClass)}>
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate">{label} {Math.abs(changePct)}%</span>
     </div>
   );
 }
@@ -281,9 +344,9 @@ function AlertChip({ alert }: { alert: DailyRecap['alerts'][number] }) {
     : alert.type === 'recurring' ? Calendar
     : Sparkles;
   return (
-    <div className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border', severityClass)}>
+    <div className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border max-w-full', severityClass)}>
       <Icon className="h-3 w-3 shrink-0" />
-      <span className="truncate">{alert.message}</span>
+      <span className="truncate min-w-0">{alert.message}</span>
     </div>
   );
 }
@@ -300,13 +363,13 @@ function StatTile({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className={cn('flex items-center justify-center w-7 h-7 rounded-lg shrink-0', iconClass ?? 'bg-muted/50 text-muted-foreground')}>
-        <Icon className="h-3.5 w-3.5" />
+    <div className="flex items-center gap-1.5 min-w-0">
+      <div className={cn('flex items-center justify-center w-6 h-6 rounded-md shrink-0', iconClass ?? 'bg-muted/50 text-muted-foreground')}>
+        <Icon className="h-3 w-3" />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
-        <p className={cn('text-sm font-semibold truncate', valueClass)}>{value}</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+        <p className={cn('text-xs sm:text-sm font-semibold truncate', valueClass)}>{value}</p>
       </div>
     </div>
   );
@@ -371,9 +434,9 @@ export default function DailyRecap() {
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
       <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-4 sm:px-6 sm:py-5">
         {/* Top row: label + date + budget ring */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               <p className="text-xs text-muted-foreground font-medium">Hari Ini</p>
               {gamification.dailyBadge && (
                 <Badge variant="secondary" className="text-[10px] py-0 px-1.5 gap-0.5">
@@ -383,7 +446,7 @@ export default function DailyRecap() {
               )}
             </div>
             <p className={cn(
-              'text-2xl sm:text-3xl font-bold tracking-tight',
+              'text-xl sm:text-3xl font-bold tracking-tight break-words',
               today.expense > 0 ? 'text-foreground' : 'text-emerald-500'
             )}>
               <CountUpRupiah amount={today.expense} />
@@ -396,20 +459,20 @@ export default function DailyRecap() {
           {/* Budget ring (if set) */}
           {dailyBudget && dailyBudget.target && (
             <div className="flex flex-col items-center gap-1 shrink-0">
-              <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={56}>
+              <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={48}>
                 <div className="text-center">
-                  <p className="text-[10px] font-bold leading-none">{dailyBudget.percentage}%</p>
+                  <p className="text-[9px] font-bold leading-none">{dailyBudget.percentage}%</p>
                 </div>
               </ProgressRing>
               <p className="text-[9px] text-muted-foreground text-center leading-tight">
-                dari<br />{compactRupiah(dailyBudget.target)}
+                dari {compactRupiahSafe(dailyBudget.target)}
               </p>
             </div>
           )}
         </div>
 
         {/* Comparison pills row */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
           <ComparisonPill
             changePct={comparison.vsYesterday.changePct}
             direction={comparison.vsYesterday.direction}
@@ -422,11 +485,11 @@ export default function DailyRecap() {
           />
           {predictions.trendDirection.direction !== 'flat' && (
             <div className={cn(
-              'flex items-center gap-1 text-xs font-medium',
+              'flex items-center gap-1 text-xs font-medium min-w-0',
               predictions.trendDirection.direction === 'up' ? 'text-red-500' : 'text-emerald-500'
             )}>
-              {predictions.trendDirection.direction === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              <span>Tren {predictions.trendDirection.direction === 'up' ? 'naik' : 'turun'}</span>
+              {predictions.trendDirection.direction === 'up' ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+              <span className="truncate">Tren {predictions.trendDirection.direction === 'up' ? 'naik' : 'turun'}</span>
             </div>
           )}
         </div>
@@ -434,7 +497,7 @@ export default function DailyRecap() {
         {/* Sparkline */}
         <div className="mt-3 -mb-1">
           <MiniSparkline data={sparkline.daily7d} />
-          <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+          <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
             <span>7 hari lalu</span>
             <span>Hari ini</span>
           </div>
@@ -456,7 +519,7 @@ export default function DailyRecap() {
       {/* ── 3 STAT TILES: income / expense / net ─────────────────────── */}
       <div className="border-t border-border" />
       <div className="grid grid-cols-3 divide-x divide-border">
-        <div className="px-3 py-2.5">
+        <div className="px-2 py-2.5 sm:px-3">
           <StatTile
             label="Masuk"
             value={<CountUpRupiah amount={today.income} />}
@@ -465,7 +528,7 @@ export default function DailyRecap() {
             valueClass="text-emerald-600 dark:text-emerald-400"
           />
         </div>
-        <div className="px-3 py-2.5">
+        <div className="px-2 py-2.5 sm:px-3">
           <StatTile
             label="Keluar"
             value={<CountUpRupiah amount={today.expense} />}
@@ -474,7 +537,7 @@ export default function DailyRecap() {
             valueClass="text-red-600 dark:text-red-400"
           />
         </div>
-        <div className="px-3 py-2.5">
+        <div className="px-2 py-2.5 sm:px-3">
           <StatTile
             label="Bersih"
             value={<CountUpRupiah amount={today.net} />}
@@ -569,7 +632,7 @@ export default function DailyRecap() {
             <p className="text-sm font-bold">{formatRupiah(predictions.burnRate)}/hari</p>
             {predictions.smartCapTomorrow !== null && (
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                Besok max {compactRupiah(predictions.smartCapTomorrow)}
+                Besok max {compactRupiahSafe(predictions.smartCapTomorrow)}
               </p>
             )}
           </div>
@@ -577,21 +640,21 @@ export default function DailyRecap() {
 
         {/* Peak hour + top transaction */}
         {today.peakHour && (
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-xs min-w-0">
             <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-muted-foreground">Spending tertinggi:</span>
-            <span className="font-medium">{formatHour(today.peakHour.hour)}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-medium">{formatRupiah(today.peakHour.amount)}</span>
+            <span className="text-muted-foreground shrink-0">Tertinggi:</span>
+            <span className="font-medium shrink-0">{formatHourLabel(today.peakHour.hour)}</span>
+            <span className="text-muted-foreground shrink-0">·</span>
+            <span className="font-medium truncate">{formatRupiah(today.peakHour.amount)}</span>
           </div>
         )}
         {today.topTransaction && (
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-xs min-w-0">
             <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-            <span className="text-muted-foreground">Transaksi terbesar:</span>
-            <span className="font-medium">{today.topTransaction.category}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-medium">{formatRupiah(today.topTransaction.amount)}</span>
+            <span className="text-muted-foreground shrink-0">Terbesar:</span>
+            <span className="font-medium truncate">{today.topTransaction.category}</span>
+            <span className="text-muted-foreground shrink-0">·</span>
+            <span className="font-medium shrink-0">{compactRupiahSafe(today.topTransaction.amount)}</span>
           </div>
         )}
 
@@ -607,9 +670,6 @@ export default function DailyRecap() {
           <TooltipProvider delayDuration={200}>
             <HourlyHeatmap hourly={today.hourlyBreakdown} />
           </TooltipProvider>
-          <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
-            {HOUR_LABELS.map((h) => <span key={h}>{h}</span>)}
-          </div>
         </div>
 
         {/* Category pills */}
@@ -625,12 +685,12 @@ export default function DailyRecap() {
                 return (
                   <div
                     key={cat.name}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/50 border border-border/50 text-xs"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-muted/50 border border-border/50 text-xs max-w-full"
                   >
-                    <span className="font-medium">{cat.name}</span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="font-semibold">{formatRupiah(cat.amount)}</span>
-                    <span className="text-[10px] text-muted-foreground">({pct}%)</span>
+                    <span className="font-medium truncate">{cat.name}</span>
+                    <span className="text-muted-foreground shrink-0">·</span>
+                    <span className="font-semibold shrink-0">{compactRupiahSafe(cat.amount)}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">({pct}%)</span>
                   </div>
                 );
               })}
@@ -670,23 +730,23 @@ export default function DailyRecap() {
 
         {/* Best/worst day reference */}
         {(patterns.bestDayThisMonth || patterns.worstDayThisMonth) && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             {patterns.bestDayThisMonth && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-emerald-500">🏆</span>
-                <span className="text-muted-foreground">Best:</span>
-                <span className="font-medium">{formatDateShort(patterns.bestDayThisMonth.date)}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="font-medium">{compactRupiah(patterns.bestDayThisMonth.amount)}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-emerald-500 shrink-0">🏆</span>
+                <span className="text-muted-foreground shrink-0">Best:</span>
+                <span className="font-medium shrink-0">{formatDateShort(patterns.bestDayThisMonth.date)}</span>
+                <span className="text-muted-foreground shrink-0">·</span>
+                <span className="font-medium truncate">{compactRupiahSafe(patterns.bestDayThisMonth.amount)}</span>
               </div>
             )}
             {patterns.worstDayThisMonth && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-red-500">📉</span>
-                <span className="text-muted-foreground">Worst:</span>
-                <span className="font-medium">{formatDateShort(patterns.worstDayThisMonth.date)}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="font-medium">{compactRupiah(patterns.worstDayThisMonth.amount)}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-red-500 shrink-0">📉</span>
+                <span className="text-muted-foreground shrink-0">Worst:</span>
+                <span className="font-medium shrink-0">{formatDateShort(patterns.worstDayThisMonth.date)}</span>
+                <span className="text-muted-foreground shrink-0">·</span>
+                <span className="font-medium truncate">{compactRupiahSafe(patterns.worstDayThisMonth.amount)}</span>
               </div>
             )}
           </div>
@@ -744,15 +804,20 @@ export default function DailyRecap() {
         {/* Today's transactions list (compact) */}
         {today.transactions.length > 0 && (
           <div>
-            <div className="flex items-center gap-1 mb-1.5">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Transaksi hari ini</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Transaksi hari ini</span>
+              </div>
+              {today.transactionCount > today.transactions.length && (
+                <span className="text-[10px] text-muted-foreground">+{today.transactionCount - today.transactions.length} lainnya</span>
+              )}
             </div>
-            <div className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
+            <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
               {today.transactions.map((tx) => (
                 <div key={tx.id} className="flex items-center gap-2 py-1 text-xs">
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-10">
-                    {formatHour(tx.hour)}
+                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-12">
+                    {formatTxTime(tx.date)}
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
@@ -766,7 +831,7 @@ export default function DailyRecap() {
                     'font-semibold tabular-nums shrink-0',
                     tx.type === 'income' ? 'text-emerald-500' : 'text-red-500'
                   )}>
-                    {tx.type === 'income' ? '+' : '−'}{compactRupiah(tx.amount)}
+                    {tx.type === 'income' ? '+' : '−'}{compactRupiahSafe(tx.amount)}
                   </span>
                 </div>
               ))}

@@ -10,7 +10,13 @@ interface TodayTransaction {
   amount: number;
   category: string;
   description: string | null;
-  hour: number; // 0-23 Jakarta time
+  // ISO string of the transaction date (real epoch). The client formats this
+  // to a Jakarta wall-clock time via `toLocaleTimeString('id-ID', { timeZone:
+  // 'Asia/Jakarta' })` — exactly the same code path as the Transactions tab
+  // uses. Previously we sent only an integer `hour` here, which threw away
+  // the minutes and made the time shown in the daily recap disagree with the
+  // time shown in the Transactions tab for the same transaction.
+  date: string;
   source: string;
 }
 
@@ -188,6 +194,11 @@ export async function GET() {
     const todayTransactions: TodayTransaction[] = [];
 
     for (const tx of todayTx) {
+      // Extract Jakarta hour for the hourly heatmap bucket (0-23). We keep
+      // this as an integer for the heatmap array index. The actual display
+      // time (with minutes) comes from `tx.date.toISOString()` below, which
+      // the client formats to Jakarta wall-clock — same path as the
+      // Transactions tab uses, so the two always agree.
       const hour = parseInt(
         new Intl.DateTimeFormat('en-GB', {
           timeZone: 'Asia/Jakarta',
@@ -215,13 +226,15 @@ export async function GET() {
         amount: tx.amount,
         category: tx.category,
         description: tx.description,
-        hour,
+        date: tx.date.toISOString(),
         source: tx.source,
       });
     }
 
-    // Sort today's transactions by time descending (newest first)
-    todayTransactions.sort((a, b) => b.hour - a.hour);
+    // Sort today's transactions by actual timestamp descending (newest first).
+    // Previously sorted by integer hour only, which made transactions in the
+    // same hour appear in nondeterministic order.
+    todayTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const todayCategories: CategoryBreakdown[] = Array.from(todayCategoryMap.entries())
       .map(([name, v]) => ({ name, amount: v.amount, count: v.count }))
@@ -394,7 +407,10 @@ export async function GET() {
     const totalWeeklyTarget = weeklyBudgets.reduce((s, b) => s + b.target, 0);
     if (totalWeeklyTarget > 0 && burnRate > 0) {
       const remainingBudget = totalWeeklyTarget - monthExpenseSoFar;
-      const daysLeft = Math.floor(remainingBudget / burnRate);
+      // If already over budget, daysLeft is meaningless — set to 0.
+      // (Previously `Math.floor(negative / burnRate)` returned a negative
+      // number, which the UI would render as "X days left" — misleading.)
+      const daysLeft = remainingBudget > 0 ? Math.floor(remainingBudget / burnRate) : 0;
       budgetETA = {
         daysLeft,
         willExceed: remainingBudget < 0,
@@ -458,16 +474,34 @@ export async function GET() {
       });
     }
 
-    // Late night spending: tx between 22:00-04:00
-    const lateNightTx = todayTransactions.filter((t) => t.type === 'expense' && (t.hour >= 22 || t.hour < 4));
+    // Late night spending: tx between 22:00-04:00 Jakarta time.
+    // We need to re-extract the hour from the ISO date string since the
+    // `TodayTransaction` type no longer carries an `hour` field (it now
+    // carries the full ISO date for accurate minute-precision display).
+    const lateNightTx = todayTransactions.filter((t) => {
+      if (t.type !== 'expense') return false;
+      const h = parseInt(
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          hour12: false,
+        }).format(new Date(t.date)),
+        10
+      ) % 24;
+      return h >= 22 || h < 4;
+    });
     if (lateNightTx.length > 0) {
       const lateNightTotal = lateNightTx.reduce((s, t) => s + t.amount, 0);
-      const hour = lateNightTx[0].hour;
-      const hourLabel = hour >= 22 ? `${hour}:00` : `0${hour}:00`;
+      // Format the first late-night tx's time as "HH.MM" (Indonesian).
+      const firstTime = new Date(lateNightTx[0].date).toLocaleTimeString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
       alerts.push({
         type: 'late_night',
         severity: 'info',
-        message: `🌙 Late night spending: ${formatRupiahShort(lateNightTotal)} jam ${hourLabel}`,
+        message: `🌙 Late night spending: ${formatRupiahShort(lateNightTotal)} jam ${firstTime}`,
         data: { total: lateNightTotal, count: lateNightTx.length },
       });
     }
@@ -615,12 +649,19 @@ export async function GET() {
     const comboMultiplier = Math.max(1, budgetStreak >= 3 ? Math.floor(budgetStreak / 3) + 1 : 1);
 
     // Personal record: is today the lowest expense in 30 days?
+    // Use `filter(... < todayExpense).length + 1` for rank instead of
+    // `indexOf` — indexOf returns the first index of a duplicate value, so
+    // if two days had the same amount, the rank was wrong.
     const all30dExpenses = Array.from(monthDailyTotals.values()).sort((a, b) => a - b);
     const isRecord = todayExpense > 0 && all30dExpenses.length >= 3 && todayExpense === all30dExpenses[0];
     const personalRecord = isRecord
       ? { isRecord: true, amount: todayExpense, rank: 1, totalDays: all30dExpenses.length }
       : todayExpense > 0 && all30dExpenses.length >= 3
-      ? { isRecord: false, amount: todayExpense, rank: all30dExpenses.indexOf(todayExpense) + 1, totalDays: all30dExpenses.length }
+      ? (() => {
+          // Rank = number of days with strictly less expense + 1.
+          const lowerCount = all30dExpenses.filter((e) => e < todayExpense).length;
+          return { isRecord: false, amount: todayExpense, rank: lowerCount + 1, totalDays: all30dExpenses.length };
+        })()
       : null;
 
     // ── Sparkline ────────────────────────────────────────────────────
@@ -636,7 +677,7 @@ export async function GET() {
         expense: todayExpense,
         net: todayIncome - todayExpense,
         transactionCount: todayTx.length,
-        transactions: todayTransactions.slice(0, 10), // top 10 for UI
+        transactions: todayTransactions.slice(0, 20), // top 20 for UI
         categories: todayCategories,
         sources: todaySources,
         hourlyBreakdown,
