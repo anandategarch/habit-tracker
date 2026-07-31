@@ -57,6 +57,7 @@ import { getBadgeClass } from '@/lib/label-colors';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Milestone {
+  id?: string; // optional stable id for React keys (generated client-side)
   text: string;
   done: boolean;
 }
@@ -190,7 +191,7 @@ export default function GoalsTab() {
     if (!text) return;
     setForm((f) => ({
       ...f,
-      milestones: [...f.milestones, { text, done: false }],
+      milestones: [...f.milestones, { id: crypto.randomUUID(), text, done: false }],
     }));
     setNewMilestone('');
   }
@@ -616,7 +617,7 @@ export default function GoalsTab() {
               {form.milestones.length > 0 && (
                 <div className="space-y-2">
                   {form.milestones.map((ms, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={ms.id ?? idx} className="flex items-center gap-2">
                       <div className="flex-1">
                         <Input
                           value={ms.text}

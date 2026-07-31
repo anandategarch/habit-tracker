@@ -61,17 +61,25 @@ export async function GET(request: NextRequest) {
       orderBy: { week: 'asc' },
     });
 
-    // Fetch all expense transactions for this month. Use UTC midnight to
-    // match the Jakarta wall-clock month exactly (no server-TZ leakage).
+    // Fetch all expense transactions for this month, with a 7h buffer on
+    // each side to catch timezone-boundary transactions (Jakarta is UTC+7,
+    // so 00:00-06:59 Jakarta on the 1st has a UTC epoch in the previous
+    // month). Post-query, we filter by jakartaDateKey to get the exact month.
     const monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    const fetchStart = new Date(monthStart.getTime() - 7 * 60 * 60 * 1000);
     const monthEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
-    const transactions = await db.transaction.findMany({
+    const fetchEnd = new Date(monthEnd.getTime() + 7 * 60 * 60 * 1000);
+    const allFetchedTx = await db.transaction.findMany({
       where: {
         type: 'expense',
-        date: { gte: monthStart, lte: monthEnd },
+        date: { gte: fetchStart, lte: fetchEnd },
       },
       select: { amount: true, date: true },
     });
+    // Filter to exact Jakarta month
+    const transactions = allFetchedTx.filter(
+      (t) => jakartaDateKey(t.date).slice(0, 7) === monthKey
+    );
 
     // Calculate actual spending per week
     // Use Jakarta timezone (UTC+7) for date extraction to match the user's

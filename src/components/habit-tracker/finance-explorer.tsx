@@ -721,7 +721,7 @@ export default function FinanceExplorer({
           const Icon = kpi.icon;
           const color = accentColors[kpi.accent];
           return (
-            <div key={i} className="fe-kpi anim-stagger anim-lift" style={{ animationDelay: `${i * 60}ms` }}>
+            <div key={`${level}-${i}`} className="fe-kpi anim-stagger" style={{ animationDelay: `${i * 60}ms` }}>
               <div className="fe-kpi-icon" style={{ background: `linear-gradient(135deg, ${color}, ${color}dd)` }}>
                 <Icon className="h-3.5 w-3.5 text-white" />
               </div>

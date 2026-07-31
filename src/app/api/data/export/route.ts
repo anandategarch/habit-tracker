@@ -16,6 +16,15 @@ export async function GET() {
       budgets,
       financeCategories,
       settings,
+      // Added 6 missing tables so backup/restore is complete. Without these,
+      // a reset+restore cycle silently destroyed fund-source balances,
+      // weekly budgets, habit groups, learning topics, and habit options.
+      fundSources,
+      weeklyBudgets,
+      budgetSnapshots,
+      habitGroups,
+      learningTopics,
+      habitOptions,
     ] = await Promise.all([
       db.habit.findMany(),
       db.habitLog.findMany(),
@@ -29,6 +38,12 @@ export async function GET() {
       db.budget.findMany(),
       db.financeCategory.findMany(),
       db.appSettings.findMany(),
+      db.fundSource.findMany(),
+      db.weeklyBudget.findMany(),
+      db.budgetSnapshot.findMany(),
+      db.habitGroup.findMany(),
+      db.learningTopic.findMany(),
+      db.habitOption.findMany(),
     ]);
 
     const data = {
@@ -44,6 +59,12 @@ export async function GET() {
       budgets,
       financeCategories,
       settings,
+      fundSources,
+      weeklyBudgets,
+      budgetSnapshots,
+      habitGroups,
+      learningTopics,
+      habitOptions,
     };
 
     const today = new Date().toISOString().slice(0, 10);

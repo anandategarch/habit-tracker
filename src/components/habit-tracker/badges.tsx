@@ -321,7 +321,7 @@ export default function Badges() {
               className={cn(
                 'group relative overflow-hidden transition-all hover:shadow-md',
                 badge.unlocked
-                  ? 'border-primary/20 bg-white'
+                  ? 'border-primary/20 bg-card'
                   : 'border-gray-100 opacity-60 hover:opacity-90'
               )}
             >
@@ -333,14 +333,14 @@ export default function Badges() {
                       'flex h-14 w-14 items-center justify-center rounded-2xl text-3xl transition-colors',
                       badge.unlocked
                         ? 'bg-primary/10 ring-2 ring-primary/20'
-                        : 'bg-gray-100'
+                        : 'bg-muted'
                     )}
                   >
                     {badge.icon || '🏆'}
                   </div>
                   {/* Lock overlay for locked badges */}
                   {!badge.unlocked && (
-                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/50 backdrop-blur-[1px]">
+                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/50 backdrop-blur-[1px]">
                       <Lock className="h-4 w-4 text-gray-500" />
                     </div>
                   )}
@@ -365,7 +365,7 @@ export default function Badges() {
                       'text-xs rounded-md px-2 py-1 w-full leading-relaxed',
                       badge.unlocked
                         ? 'text-primary bg-primary/10'
-                        : 'text-muted-foreground bg-gray-50'
+                        : 'text-muted-foreground bg-muted'
                     )}
                   >
                     {badge.requirement}
@@ -384,7 +384,7 @@ export default function Badges() {
                       : 'Unlocked'}
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="border-gray-200 text-gray-500 bg-gray-50 text-xs">
+                  <Badge variant="outline" className="border-border text-muted-foreground bg-muted text-xs">
                     <Lock className="mr-1 h-3 w-3" />
                     Locked
                   </Badge>
@@ -398,7 +398,7 @@ export default function Badges() {
                     className={cn(
                       'h-7 text-xs flex-1 max-w-[100px]',
                       badge.unlocked
-                        ? 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        ? 'border-border text-muted-foreground hover:bg-muted'
                         : 'border-primary/20 text-primary hover:bg-primary/10 hover:text-primary'
                     )}
                     onClick={() => handleToggleUnlock(badge)}
