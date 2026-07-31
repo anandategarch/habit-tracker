@@ -140,7 +140,48 @@ function compactRupiahSafe(n: number): string {
   return compactRupiah(n);
 }
 
-// ── Sparkline (mini 7-day line chart, premium) ──────────────────────────
+// ── Smooth curve helper (Catmull-Rom → cubic Bezier) ────────────────────
+// Converts an array of points into a smooth SVG path using the Catmull-Rom
+// spline algorithm. Each segment between two points becomes a cubic Bezier
+// curve whose control points are derived from the neighboring points,
+// producing a continuous, natural-looking line with no sharp angles.
+
+function catmullRomPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  if (points.length === 2) {
+    return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} L ${points[1].x.toFixed(2)} ${points[1].y.toFixed(2)}`;
+  }
+
+  let path = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    // p0 = previous point (or clamp to p1 at the start)
+    // p1 = current point (segment start)
+    // p2 = next point (segment end)
+    // p3 = point after next (or clamp to p2 at the end)
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+
+    // Catmull-Rom → Bezier control points (tension factor 1/6)
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    path += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  }
+
+  return path;
+}
+
+// ── Sparkline (premium fintech line chart) ────────────────────────────────
+// Smooth curved line with vibrant blue→purple gradient stroke (#5B5FFB →
+// #7C6CFF) and a very soft translucent area fill (12% opacity) with subtle
+// Gaussian blur beneath. Minimalist — only the "today" point is highlighted
+// with a soft glow halo + background ring.
 
 function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; isToday: boolean }> }) {
   if (data.length === 0) return null;
@@ -148,48 +189,96 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
   const max = Math.max(...values, 1);
   const hasAnyData = values.some((v) => v > 0);
 
-  const W = 120, H = 36;
+  // Wide viewBox (300×48) keeps horizontal stretch low on most screens.
+  const W = 300, H = 48;
   const step = W / (data.length - 1 || 1);
   const points = data.map((d, i) => {
     const x = i * step;
     // If no data at all, draw flat line at bottom (not top).
-    const y = hasAnyData ? H - (d.amount / max) * (H - 6) - 3 : H - 3;
+    const y = hasAnyData ? H - (d.amount / max) * (H - 12) - 6 : H - 6;
     return { x, y, ...d };
   });
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
-  const areaPath = `${path} L ${W} ${H} L 0 ${H} Z`;
+
+  const linePath = catmullRomPath(points);
+  const areaPath = `${linePath} L ${W} ${H} L 0 ${H} Z`;
+
+  // Find the today point (for the glowing highlight)
+  const todayPoint = points.find((p) => p.isToday);
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-9" preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-12" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          {/* Horizontal gradient for stroke: vibrant blue → purple */}
+          <linearGradient id="spark-stroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#5B5FFB" />
+            <stop offset="100%" stopColor="#7C6CFF" />
           </linearGradient>
+          {/* Vertical gradient for area fill: 15% opacity → 0% (top → bottom) */}
+          <linearGradient id="spark-area" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#5B5FFB" stopOpacity="0.15" />
+            <stop offset="50%" stopColor="#7C6CFF" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#7C6CFF" stopOpacity="0" />
+          </linearGradient>
+          {/* Subtle blur filter for the area fill (soft, dreamy feel) */}
+          <filter id="spark-blur" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="1.5" />
+          </filter>
+          {/* Glow filter for the today point */}
+          <filter id="spark-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" />
+          </filter>
         </defs>
-        {hasAnyData && <path d={areaPath} fill="url(#spark-grad)" className="text-primary" />}
+
+        {/* Soft blurred area fill beneath the line */}
+        {hasAnyData && (
+          <path
+            d={areaPath}
+            fill="url(#spark-area)"
+            filter="url(#spark-blur)"
+          />
+        )}
+
+        {/* Smooth curved line with blue→purple gradient */}
         <path
-          d={path}
+          d={linePath}
           fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          className="text-primary"
+          stroke="url(#spark-stroke)"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
         />
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={p.isToday ? 2.5 : 1.5}
-            className={p.isToday ? 'text-primary' : 'text-muted-foreground/50'}
-            fill="currentColor"
-            stroke={p.isToday ? 'hsl(var(--background))' : undefined}
-            strokeWidth={p.isToday ? 1.5 : 0}
-          />
-        ))}
+
+        {/* Today point: glow halo + bg ring + solid dot */}
+        {hasAnyData && todayPoint && (
+          <g>
+            {/* Outer glow (blurred, semi-transparent) */}
+            <circle
+              cx={todayPoint.x}
+              cy={todayPoint.y}
+              r="5"
+              fill="#7C6CFF"
+              opacity="0.3"
+              filter="url(#spark-glow)"
+            />
+            {/* Background ring (matches card bg — creates cutout from the line) */}
+            <circle
+              cx={todayPoint.x}
+              cy={todayPoint.y}
+              r="3.5"
+              className="text-background"
+              fill="currentColor"
+            />
+            {/* Inner solid dot */}
+            <circle
+              cx={todayPoint.x}
+              cy={todayPoint.y}
+              r="2.5"
+              fill="#7C6CFF"
+            />
+          </g>
+        )}
       </svg>
     </div>
   );
@@ -412,7 +501,7 @@ export default function DailyRecap() {
   if (isEmpty) {
     return (
       <Card className="overflow-hidden anim-stagger">
-        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-6 sm:px-6 text-center">
+        <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-6 sm:px-6 text-center">
           <div className="text-3xl mb-2">🌤️</div>
           <p className="text-sm font-semibold">Belum ada aktivitas hari ini</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -432,7 +521,7 @@ export default function DailyRecap() {
   return (
     <Card className="overflow-hidden anim-stagger">
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
-      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-4 sm:px-6 sm:py-5">
+      <div className="relative bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
         {/* Top row: label + date + budget ring */}
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
@@ -494,10 +583,10 @@ export default function DailyRecap() {
           )}
         </div>
 
-        {/* Sparkline */}
-        <div className="mt-3 -mb-1">
+        {/* Sparkline — premium line chart with blue→purple gradient */}
+        <div className="mt-4">
           <MiniSparkline data={sparkline.daily7d} />
-          <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
+          <div className="flex justify-between text-[9px] text-muted-foreground mt-1.5">
             <span>7 hari lalu</span>
             <span>Hari ini</span>
           </div>
