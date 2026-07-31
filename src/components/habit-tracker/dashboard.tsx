@@ -573,7 +573,7 @@ export default function Dashboard() {
             { label: 'Productivity', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
             { label: 'Challenges', icon: Swords, iconColor: 'text-primary', value: <CountUpNumber value={displayData.challengeProgress} suffix="%" />, sub: null, progress: displayData.challengeProgress, key: 'challenges' },
             { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
-            { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><MoodEmoji mood={displayData.moodAverage} /><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
+            { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
             { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
           ].map((card, i) => {
             const Icon = card.icon;

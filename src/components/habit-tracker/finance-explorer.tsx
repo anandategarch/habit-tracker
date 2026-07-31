@@ -516,7 +516,10 @@ export default function FinanceExplorer({
             {monthlyError ? (
               <p className="text-sm text-red-500 text-center py-12">Gagal memuat data. Coba refresh halaman.</p>
             ) : monthlyData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">Belum ada data pengeluaran</p>
+              <div className="text-center py-12">
+                <div className="text-3xl mb-2 anim-float-subtle">📊</div>
+                <p className="text-sm text-muted-foreground">Belum ada data pengeluaran</p>
+              </div>
             ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
@@ -542,7 +545,7 @@ export default function FinanceExplorer({
 
         {/* Level 2: Weekly bar chart + budget targets */}
         {level === 'week' && (
-          <div className="fe-card">
+          <div className="fe-card anim-slide-in-right">
             <div className="flex items-center justify-between mb-2">
               <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
               {budgetData && budgetData.suggestedTarget > 0 && (
@@ -586,7 +589,10 @@ export default function FinanceExplorer({
                       )}
                       {/* Bar */}
                       <div
-                        className="w-full rounded-t-lg anim-stagger transition-all duration-300 hover:opacity-80"
+                        className={cn(
+                          'w-full rounded-t-lg anim-stagger transition-all duration-300 hover:opacity-80',
+                          isOver && 'anim-flash-red'
+                        )}
                         style={{
                           height: `${heightPx}px`,
                           background: isOver

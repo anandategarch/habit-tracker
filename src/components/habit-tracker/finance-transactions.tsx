@@ -223,8 +223,12 @@ export default function FinanceTransactions({
         </div>
       ) : (
         <div className="tx-timeline space-y-0">
-          {groupedTransactions.map(group => (
-            <div key={group.dateKey}>
+          {groupedTransactions.map((group, idx) => (
+            <div
+              key={group.dateKey}
+              className="anim-row-stagger"
+              style={{ '--stagger-index': idx } as React.CSSProperties}
+            >
               {/* Sticky date pill */}
               <div className="tx-date-pill">
                 {group.dateLabel}, {capitalize(group.dayName)}

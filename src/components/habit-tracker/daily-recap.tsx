@@ -392,7 +392,7 @@ function ProgressRing({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className={cn('transition-all duration-700 ease-out', colorClass)}
+          className={cn('anim-color-smooth', colorClass)}
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
@@ -584,7 +584,7 @@ function BudgetDialog({
   );
 }
 
-function CategoryInsightRow({ stats, pct }: { stats: CategoryStats; pct: number }) {
+function CategoryInsightRow({ stats, pct, staggerIndex = 0 }: { stats: CategoryStats; pct: number; staggerIndex?: number }) {
   const delta = stats.deltaVsAvgDaily;
   const isBelow = delta < 0;
   const isAbove = delta > 0;
@@ -596,7 +596,10 @@ function CategoryInsightRow({ stats, pct }: { stats: CategoryStats; pct: number 
   const DeltaIcon = isAtAvg ? Minus : isBelow ? TrendingDown : TrendingUp;
 
   return (
-    <div className="py-1.5 border-b border-border/40 last:border-b-0">
+    <div
+      className="py-1.5 border-b border-border/40 last:border-b-0 anim-row-stagger"
+      style={{ '--stagger-index': staggerIndex } as React.CSSProperties}
+    >
       {/* Row 1: emoji + name + count + pct + today amount + delta badge */}
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
@@ -882,7 +885,7 @@ export default function DailyRecap() {
             )}
           </div>
           <div className="text-center mt-3 pt-3 border-t border-border/40">
-            <div className="text-2xl mb-1">🌤️</div>
+            <div className="text-2xl mb-1 anim-float-subtle">🌤️</div>
             <p className="text-xs font-medium">Belum ada aktivitas hari ini</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
               Catat transaksi pertama untuk mulai melacak insight harianmu
@@ -1056,7 +1059,7 @@ export default function DailyRecap() {
       {dailyBudget && dailyBudget.target && dailyBudget.status === 'over' && (
         <>
           <div className="border-t border-border" />
-          <div className="px-4 py-2.5 sm:px-6 bg-red-50/50 dark:bg-red-950/20">
+          <div className="px-4 py-2.5 sm:px-6 bg-red-50/50 dark:bg-red-950/20 anim-flash-red">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
@@ -1066,7 +1069,7 @@ export default function DailyRecap() {
                 +{formatRupiah(Math.abs(dailyBudget.remaining))}
               </span>
             </div>
-            <Progress value={Math.min(dailyBudget.percentage, 100)} className="h-1.5 bg-red-100 dark:bg-red-950/50" />
+            <Progress value={Math.min(dailyBudget.percentage, 100)} className="h-1.5 bg-red-100 dark:bg-red-950/50 anim-liquid-fill" />
           </div>
         </>
       )}
@@ -1170,10 +1173,10 @@ export default function DailyRecap() {
               <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
             </div>
             <div className="rounded-lg bg-muted/20 px-2.5 py-0.5">
-              {today.categoryStats.map((cat) => {
+              {today.categoryStats.map((cat, idx) => {
                 const pct = today.expense > 0 ? Math.round((cat.todayAmount / today.expense) * 100) : 0;
                 return (
-                  <CategoryInsightRow key={cat.name} stats={cat} pct={pct} />
+                  <CategoryInsightRow key={cat.name} stats={cat} pct={pct} staggerIndex={idx} />
                 );
               })}
             </div>

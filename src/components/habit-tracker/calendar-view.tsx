@@ -354,7 +354,7 @@ export default function CalendarView() {
                       transition-all duration-150
                       ${getHeatmapColor(day.completionRate)}
                       ${!day.isCurrentMonth ? 'opacity-35' : ''}
-                      ${day.isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}
+                      ${day.isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background anim-glow-breathe' : ''}
                       hover:ring-1 hover:ring-primary/50 cursor-default
                     `}
                   >
