@@ -11,6 +11,7 @@ import { formatRupiah } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import type { DashboardData, LastDoneItem } from './finance-types';
 import SourceBalanceSection from './source-balance';
+import DailyRecap from './daily-recap';
 
 function ChartInfo({ text }: { text: string }) {
   return (
@@ -50,6 +51,9 @@ export default function FinanceOverview({
 
   return (
     <div className="space-y-4 mt-4">
+      {/* ── DAILY RECAP: Today's transaction insights (premium) ──────── */}
+      <DailyRecap />
+
       {/* Saldo per Sumber Dana */}
       <SourceBalanceSection />
 
