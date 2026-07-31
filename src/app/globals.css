@@ -197,15 +197,32 @@
   animation: scaleIn 0.2s ease-out forwards;
 }
 
-/* Skeleton shimmer */
+/* Skeleton shimmer — premium gradient sweep (light + dark mode aware).
+   Uses CSS variables (--muted, --accent) so it adapts to theme.
+   will-change: background-position hints the browser to optimize the
+   animation for compositing (smoother on low-end devices). */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .shimmer {
-  background: linear-gradient(90deg, oklch(0.96 0.005 120) 25%, oklch(0.91 0.005 120) 50%, oklch(0.96 0.005 120) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    var(--accent) 50%,
+    var(--muted) 75%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.5s infinite linear;
+  will-change: background-position;
+}
+
+/* Respect reduced motion — disable shimmer animation too */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    background: var(--muted);
+  }
 }
 
 /* Smooth bottom nav transition */
@@ -519,6 +536,7 @@
 .anim-stagger {
   opacity: 0;
   animation: anim-stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
 }
 
 /* ── Progress ring draw: stroke-dashoffset animates from full to target ── */
@@ -528,11 +546,13 @@
 }
 .anim-ring {
   animation: anim-ring-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: stroke-dashoffset;
 }
 
 /* ── Hover lift: subtle translateY + colored shadow ── */
 .anim-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
 }
 .anim-lift:hover {
   transform: translateY(-2px);
@@ -595,6 +615,7 @@
 }
 .anim-crossfade {
   animation: anim-crossfade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
 }
 
 /* ── Chart draw: bars grow from bottom, lines draw left-to-right ── */
@@ -605,6 +626,7 @@
 .anim-chart-bar {
   transform-origin: bottom;
   animation: anim-chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -619,6 +641,7 @@
 }
 .anim-tab-enter {
   animation: anim-tab-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
 }
 
 /* ── #2 Expand/collapse: smooth height + fade using grid-template-rows ── */
@@ -651,6 +674,7 @@
 }
 .anim-modal-enter {
   animation: anim-modal-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
 }
 @keyframes anim-modal-exit {
   from { opacity: 1; transform: scale(1) translateY(0); }
@@ -685,6 +709,7 @@
 }
 .anim-scroll-reveal {
   animation: anim-scroll-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
 }
 
 /* ── #8 Drawer/sheet: slide up from bottom ── */
@@ -694,6 +719,7 @@
 }
 .anim-sheet-up {
   animation: anim-sheet-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform;
 }
 @keyframes anim-sheet-down {
   from { transform: translateY(0); }
