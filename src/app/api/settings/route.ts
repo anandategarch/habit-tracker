@@ -31,6 +31,7 @@ export async function PUT(request: NextRequest) {
           ...(body.weekStart !== undefined && { weekStart: body.weekStart }),
           ...(body.language !== undefined && { language: body.language }),
           ...(body.targetCompletion !== undefined && { targetCompletion: body.targetCompletion }),
+          ...(body.dailyBudgetTarget !== undefined && { dailyBudgetTarget: body.dailyBudgetTarget }),
         },
       });
     } else {
@@ -44,6 +45,7 @@ export async function PUT(request: NextRequest) {
           ...(body.weekStart !== undefined && { weekStart: body.weekStart }),
           ...(body.language !== undefined && { language: body.language }),
           ...(body.targetCompletion !== undefined && { targetCompletion: body.targetCompletion }),
+          ...(body.dailyBudgetTarget !== undefined && { dailyBudgetTarget: body.dailyBudgetTarget }),
         },
       });
     }

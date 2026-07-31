@@ -248,6 +248,10 @@ model AppSettings {
   weekStart        String   @default("monday")
   language         String   @default("en")
   targetCompletion Int      @default(80)
+  // Daily budget target in whole rupiah. 0 = not set (ring hidden in UI).
+  // User-set via the progress ring tap → dialog in Daily Recap. Applies to
+  // all days (single value, no per-day override).
+  dailyBudgetTarget Int     @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
