@@ -7,6 +7,7 @@ export async function GET() {
     const goals = await db.goal.findMany({ orderBy: { createdAt: 'desc' } });
     return NextResponse.json(goals);
   } catch (error) {
+    console.error('GET /api/goals error:', error);
     return NextResponse.json([]);
   }
 }
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(goal, { status: 201 });
   } catch (error) {
+    console.error('POST /api/goals error:', error);
     return NextResponse.json({ error: 'Failed to create goal' }, { status: 500 });
   }
 }

@@ -103,19 +103,77 @@ export async function POST(request: NextRequest) {
         await tx.financeCategory.deleteMany();
       }
 
-      // Insert in dependency order: parents first, then children
-      // Note: skipDuplicates is not supported on SQLite, so we delete all rows
-      // before insert (above) and rely on the import being authoritative.
+      // Insert in dependency order: parents first, then children.
+      //
+      // ── FK remapping for habits → habitLogs ──────────────────────────
+      // The export contains OLD habit IDs (cuid strings). When we strip `id`
+      // and re-insert habits, Prisma generates NEW cuid IDs. The habitLogs
+      // still reference the OLD habitId → FK constraint violation (or
+      // silent orphaned logs if FK enforcement is off).
+      //
+      // Fix: insert habits one-by-one (not createMany), capture the
+      // old→new ID mapping, then rewrite each habitLog's `habitId` before
+      // inserting. This preserves the habit↔log relationship across import.
+      const habitIdMap = new Map<string, string>(); // oldId → newId
+
       if (body.habits && body.habits.length > 0) {
-        const data = stripAutoFields(body.habits);
-        const res = await tx.habit.createMany({ data });
-        counts.habits = res.count;
+        const cleaned = stripAutoFields(body.habits);
+        let habitsInserted = 0;
+        for (let i = 0; i < body.habits.length; i++) {
+          const oldId = body.habits[i].id;
+          if (typeof oldId !== 'string') {
+            // No old id to map — just insert (log will be orphaned, but
+            // we can't do better without an id).
+            await tx.habit.create({ data: cleaned[i] });
+            habitsInserted++;
+            continue;
+          }
+          // Insert with explicit old id preserved — this way habitLogs
+          // that reference the old id still work. We only strip id if
+          // there's a collision (extremely unlikely with cuid).
+          try {
+            await tx.habit.create({ data: { ...cleaned[i], id: oldId } });
+            habitIdMap.set(oldId, oldId);
+            habitsInserted++;
+          } catch {
+            // ID collision (rare) — let Prisma generate a new id, map it.
+            const created = await tx.habit.create({ data: cleaned[i] });
+            habitIdMap.set(oldId, created.id);
+            habitsInserted++;
+          }
+        }
+        counts.habits = habitsInserted;
       }
 
       if (body.habitLogs && body.habitLogs.length > 0) {
-        const data = stripAutoFields(body.habitLogs);
-        const res = await tx.habitLog.createMany({ data });
-        counts.habitLogs = res.count;
+        const cleaned = stripAutoFields(body.habitLogs);
+        // Rewrite each log's habitId using the map. If an old habitId
+        // isn't in the map (e.g., habit wasn't in the import payload),
+        // skip the log rather than creating an orphan.
+        const validLogs: any[] = [];
+        let skippedOrphaned = 0;
+        for (let i = 0; i < body.habitLogs.length; i++) {
+          const oldHabitId = body.habitLogs[i].habitId;
+          if (typeof oldHabitId !== 'string') {
+            // No habitId field — shouldn't happen, but skip defensively.
+            skippedOrphaned++;
+            continue;
+          }
+          const newHabitId = habitIdMap.get(oldHabitId);
+          if (!newHabitId) {
+            // Original habit wasn't imported — log would be orphaned.
+            skippedOrphaned++;
+            continue;
+          }
+          validLogs.push({ ...cleaned[i], habitId: newHabitId });
+        }
+        if (validLogs.length > 0) {
+          const res = await tx.habitLog.createMany({ data: validLogs });
+          counts.habitLogs = res.count;
+        }
+        if (skippedOrphaned > 0) {
+          console.warn(`Import: skipped ${skippedOrphaned} orphaned habitLogs (habitId not in import)`);
+        }
       }
 
       if (body.dailyLogs && body.dailyLogs.length > 0) {
