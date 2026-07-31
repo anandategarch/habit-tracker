@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "db:seed": "curl -s -X POST http://localhost:3000/api/seed > /dev/null && echo 'Seed done!'"
+    "db:seed": "curl -s -X POST http://localhost:3000/api/seed > /dev/null && echo 'Seed done!'",
+    "turso:sync": "bun run scripts/sync-turso.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
