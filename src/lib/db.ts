@@ -8,17 +8,35 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient(): PrismaClientInstance {
-  const databaseUrl = process.env.DATABASE_URL || 'file:./db/dev.db';
+  const databaseUrl = process.env.DATABASE_URL;
 
-  if (databaseUrl.startsWith('libsql://')) {
+  // ── Production safety check ──────────────────────────────────────
+  // Previously fell back silently to `file:./db/dev.db` if DATABASE_URL
+  // was unset. On Vercel serverless, that path is an ephemeral read-only
+  // file inside the lambda container — writes would silently fail or be
+  // lost between invocations. Fail fast in production instead.
+  if (!databaseUrl) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'DATABASE_URL is not set. Production deployments must configure a ' +
+        'Turso/libsql database URL. See .env.example for details.'
+      );
+    }
+    // Dev only: fall back to local SQLite for convenience.
+    console.warn('⚠️  DATABASE_URL not set — using local SQLite (dev only).');
+  }
+
+  const effectiveUrl = databaseUrl || 'file:./db/dev.db';
+
+  if (effectiveUrl.startsWith('libsql://')) {
     // Parse authToken from URL query param: libsql://host?authToken=TOKEN
     // This allows using a single DATABASE_URL env var on Vercel/Turso deployments.
-    let cleanUrl = databaseUrl;
+    let cleanUrl = effectiveUrl;
     let authToken = process.env.DATABASE_AUTH_TOKEN || '';
 
     // Extract authToken from URL if present (?authToken=xxx)
-    if (databaseUrl.includes('?authToken=')) {
-      const parts = databaseUrl.split('?authToken=');
+    if (effectiveUrl.includes('?authToken=')) {
+      const parts = effectiveUrl.split('?authToken=');
       cleanUrl = parts[0];
       authToken = parts[1] || authToken;
     }
