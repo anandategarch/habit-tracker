@@ -24,6 +24,8 @@ interface CategoryBreakdown {
   name: string;
   amount: number;
   count: number;
+  emoji: string;
+  color: string;
 }
 
 /**
@@ -41,6 +43,9 @@ interface CategoryBreakdown {
  *
  * deltaVsAvgDaily = todayAmount - avgDaily. Negative = below average
  * (good for expense), positive = above average (overspending).
+ *
+ * emoji/color come from the FinanceCategory table (with FALLBACK_EXPENSE
+ * lookup for default-named categories that still have the placeholder 📦).
  */
 interface CategoryStats {
   name: string;
@@ -51,6 +56,8 @@ interface CategoryStats {
   maxDaily: number;
   avgDaily: number;
   deltaVsAvgDaily: number;
+  emoji: string;
+  color: string;
 }
 
 interface SourceBreakdown {
@@ -173,6 +180,51 @@ function stdDev(values: number[]): number {
   return Math.sqrt(variance);
 }
 
+/**
+ * Fallback emoji/color for default-named categories that still have the
+ * placeholder 📦 emoji in the DB. Mirrors the FALLBACK_EXPENSE list in
+ * finance-types.ts so the API and the client resolveEmoji() helper stay
+ * in sync. (We don't import from finance-types to keep the API module
+ * server-only — finance-types is a client-shared file.)
+ */
+const FALLBACK_CATEGORY_META: Record<string, { emoji: string; color: string }> = {
+  'Makanan & Minuman': { emoji: '🍽️', color: '#ef4444' },
+  'Transportasi': { emoji: '🚗', color: '#f97316' },
+  'Belanja': { emoji: '🛍️', color: '#eab308' },
+  'Hiburan': { emoji: '🎮', color: '#a855f7' },
+  'Kesehatan': { emoji: '🏥', color: '#ec4899' },
+  'Pendidikan': { emoji: '📚', color: '#3b82f6' },
+  'Tagihan & Utilitas': { emoji: '📋', color: '#6366f1' },
+  'Tabungan & Investasi': { emoji: '🏦', color: '#14b8a6' },
+  'Gaji': { emoji: '💰', color: '#22c55e' },
+  'Freelance': { emoji: '💻', color: '#06b6d4' },
+  'Investasi': { emoji: '📈', color: '#f59e0b' },
+  'Bisnis': { emoji: '🏢', color: '#8b5cf6' },
+};
+
+const DEFAULT_EMOJI = '📦';
+const DEFAULT_COLOR = '#78716c';
+
+/**
+ * Resolve a category's display emoji/color.
+ * - If the FinanceCategory row has a non-default emoji, use it.
+ * - Else, look up the fallback map by name (covers default-named categories
+ *   that the user never customized).
+ * - Else, fall back to 📦 / #78716c.
+ */
+function resolveCategoryMeta(
+  name: string,
+  dbRow?: { emoji: string; color: string }
+): { emoji: string; color: string } {
+  if (dbRow && dbRow.emoji !== DEFAULT_EMOJI) {
+    return { emoji: dbRow.emoji, color: dbRow.color || DEFAULT_COLOR };
+  }
+  const fallback = FALLBACK_CATEGORY_META[name];
+  if (fallback) return fallback;
+  if (dbRow) return { emoji: dbRow.emoji || DEFAULT_EMOJI, color: dbRow.color || DEFAULT_COLOR };
+  return { emoji: DEFAULT_EMOJI, color: DEFAULT_COLOR };
+}
+
 // ── Main Handler ─────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -203,6 +255,24 @@ export async function GET() {
       },
       orderBy: { date: 'desc' },
     });
+
+    // ── Fetch FinanceCategory table for emoji/color resolution ──────
+    // We need this so the API can return the correct emoji per category
+    // (the client DailyRecap component doesn't have access to the parent
+    // finance.tsx getCategoryMeta helper, so we resolve server-side).
+    // Single query — cheap, returns only a few rows.
+    const financeCategories = await db.financeCategory.findMany({
+      select: { name: true, type: true, emoji: true, color: true },
+    });
+    const financeCategoryMap = new Map<string, { emoji: string; color: string; type: string }>();
+    for (const c of financeCategories) {
+      financeCategoryMap.set(c.name, { emoji: c.emoji, color: c.color, type: c.type });
+    }
+    /** Resolve emoji/color for a category name (used by all category UI blocks). */
+    const metaFor = (name: string) => resolveCategoryMeta(
+      name,
+      financeCategoryMap.get(name) ? { emoji: financeCategoryMap.get(name)!.emoji, color: financeCategoryMap.get(name)!.color } : undefined
+    );
 
     // ── Bucket transactions by Jakarta date key ──────────────────────
     const txByDate = new Map<string, typeof allRecentTx>();
@@ -265,7 +335,10 @@ export async function GET() {
     todayTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const todayCategories: CategoryBreakdown[] = Array.from(todayCategoryMap.entries())
-      .map(([name, v]) => ({ name, amount: v.amount, count: v.count }))
+      .map(([name, v]) => {
+        const meta = metaFor(name);
+        return { name, amount: v.amount, count: v.count, emoji: meta.emoji, color: meta.color };
+      })
       .sort((a, b) => b.amount - a.amount);
 
     const todaySources: SourceBreakdown[] = Array.from(todaySourceMap.entries())
@@ -700,6 +773,8 @@ export async function GET() {
         maxDaily,
         avgDaily,
         deltaVsAvgDaily: todayEntry.amount - avgDaily,
+        emoji: metaFor(cat).emoji,
+        color: metaFor(cat).color,
       });
     }
     // Sort by todayAmount desc — biggest spending today first.

@@ -40,6 +40,8 @@ interface CategoryStats {
   maxDaily: number;
   avgDaily: number;
   deltaVsAvgDaily: number;
+  emoji: string;
+  color: string;
 }
 
 interface DailyRecap {
@@ -50,7 +52,7 @@ interface DailyRecap {
     net: number;
     transactionCount: number;
     transactions: TodayTransaction[];
-    categories: Array<{ name: string; amount: number; count: number }>;
+    categories: Array<{ name: string; amount: number; count: number; emoji: string; color: string }>;
     categoryStats: CategoryStats[];
     sources: Array<{ name: string; amount: number }>;
     hourlyBreakdown: number[];
@@ -452,7 +454,7 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
 //   - Positive (today > avg) → red "↑ Xk above avg" (overspending)
 //   - Zero → muted "at avg"
 
-function CategoryInsightRow({ stats }: { stats: CategoryStats }) {
+function CategoryInsightRow({ stats, pct }: { stats: CategoryStats; pct: number }) {
   const delta = stats.deltaVsAvgDaily;
   const isBelow = delta < 0;
   const isAbove = delta > 0;
@@ -465,12 +467,13 @@ function CategoryInsightRow({ stats }: { stats: CategoryStats }) {
 
   return (
     <div className="py-1.5 border-b border-border/40 last:border-b-0">
-      {/* Row 1: name + today amount + delta badge */}
+      {/* Row 1: emoji + name + count + pct + today amount + delta badge */}
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          <span className="text-sm shrink-0">📦</span>
+          <span className="text-sm shrink-0">{stats.emoji}</span>
           <span className="text-xs font-medium truncate">{stats.name}</span>
           <span className="text-[10px] text-muted-foreground shrink-0">· {stats.todayCount}x</span>
+          <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">({pct}%)</span>
         </div>
         <span className="text-xs font-bold tabular-nums shrink-0">
           {compactRupiahSafe(stats.todayAmount)}
@@ -840,16 +843,23 @@ export default function DailyRecap() {
 
         {/* Top transaction (largest single expense today) — kept per user request.
             The "Spending tertinggi" (peak hour) row was removed because the
-            hourly heatmap below already visualizes peak activity. */}
-        {today.topTransaction && (
-          <div className="flex items-center gap-1.5 text-xs min-w-0">
-            <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-            <span className="text-muted-foreground shrink-0">Terbesar:</span>
-            <span className="font-medium truncate">{today.topTransaction.category}</span>
-            <span className="text-muted-foreground shrink-0">·</span>
-            <span className="font-medium shrink-0">{compactRupiahSafe(today.topTransaction.amount)}</span>
-          </div>
-        )}
+            hourly heatmap below already visualizes peak activity.
+            Emoji is looked up from categoryStats (which carries the DB emoji). */}
+        {today.topTransaction && (() => {
+          const topCat = today.topTransaction.category;
+          const meta = today.categoryStats.find((c) => c.name === topCat)
+            ?? today.categories.find((c) => c.name === topCat);
+          return (
+            <div className="flex items-center gap-1.5 text-xs min-w-0">
+              <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <span className="text-muted-foreground shrink-0">Terbesar:</span>
+              {meta && <span className="text-sm shrink-0">{meta.emoji}</span>}
+              <span className="font-medium truncate">{topCat}</span>
+              <span className="text-muted-foreground shrink-0">·</span>
+              <span className="font-medium shrink-0">{compactRupiahSafe(today.topTransaction.amount)}</span>
+            </div>
+          );
+        })()}
 
         {/* Per-category deep insights — only categories with transactions today.
             Shows today's amount + delta vs avg daily, plus max/avg per-tx and
@@ -862,9 +872,12 @@ export default function DailyRecap() {
               <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
             </div>
             <div className="rounded-lg bg-muted/20 px-2.5 py-0.5">
-              {today.categoryStats.map((cat) => (
-                <CategoryInsightRow key={cat.name} stats={cat} />
-              ))}
+              {today.categoryStats.map((cat) => {
+                const pct = today.expense > 0 ? Math.round((cat.todayAmount / today.expense) * 100) : 0;
+                return (
+                  <CategoryInsightRow key={cat.name} stats={cat} pct={pct} />
+                );
+              })}
             </div>
           </div>
         )}
@@ -883,31 +896,11 @@ export default function DailyRecap() {
           </TooltipProvider>
         </div>
 
-        {/* Category pills */}
-        {today.categories.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1 mb-1.5">
-              <Brain className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Kategori</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {today.categories.map((cat) => {
-                const pct = today.expense > 0 ? Math.round((cat.amount / today.expense) * 100) : 0;
-                return (
-                  <div
-                    key={cat.name}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-muted/50 border border-border/50 text-xs max-w-full"
-                  >
-                    <span className="font-medium truncate">{cat.name}</span>
-                    <span className="text-muted-foreground shrink-0">·</span>
-                    <span className="font-semibold shrink-0">{compactRupiahSafe(cat.amount)}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">({pct}%)</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Category pills section removed — redundant with "Insight per
+            kategori" above, which shows the same name + today amount plus
+            max/avg stats and delta. The pct (proportion of total expense)
+            is now shown inline in each CategoryInsightRow to preserve that
+            info without duplicating the category list. */}
 
         {/* Gamification: personal record */}
         {gamification.personalRecord && (
