@@ -79,6 +79,7 @@ interface DailyRecapResponse {
     expense: number;
     net: number;
     transactionCount: number;
+    expenseCount: number; // count of expense tx only (for "N transaksi" label)
     transactions: TodayTransaction[];
     categories: CategoryBreakdown[];
     categoryStats: CategoryStats[];
@@ -412,9 +413,12 @@ export async function GET() {
     const hasHistory = allRecentTx.length > 0;
     const maxStreakLookback = hasHistory ? 30 : 0;
 
-    // No-spend streak: consecutive days with 0 expense (today counts only if 0)
+    // No-spend streak: consecutive days with 0 expense (today counts only if 0).
+    // Require today to have at least one tracked transaction — otherwise a day
+    // where the user simply didn't log anything would falsely count as a
+    // no-spend day.
     let noSpendStreak = 0;
-    if (todayExpense === 0 && maxStreakLookback > 0) {
+    if (todayExpense === 0 && todayTx.length > 0 && maxStreakLookback > 0) {
       noSpendStreak = 1;
       for (let i = 1; i <= maxStreakLookback; i++) {
         const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
@@ -484,9 +488,14 @@ export async function GET() {
     // ── Predictions ──────────────────────────────────────────────────
     // Month-end projection: (spent so far this month / days elapsed) × total days
     const [yy, mm] = monthKey.split('-').map(Number);
-    const monthStart = new Date(Date.UTC(yy, mm - 1, 1, 0, 0, 0, 0));
-    const monthEnd = new Date(Date.UTC(yy, mm, 0, 23, 59, 59, 999));
-    const monthTx = allRecentTx.filter((t) => t.date >= monthStart && t.date <= monthEnd);
+    // Filter transactions by Jakarta month string (NOT UTC epoch bounds).
+    // Previously used `new Date(Date.UTC(yy, mm-1, 1))` .. `Date.UTC(yy, mm, 0)`
+    // which is UTC midnight — but Jakarta is UTC+7, so transactions in Jakarta
+    // between 00:00-06:59 on the 1st of the month have UTC epochs on the last
+    // day of the *previous* month and were excluded. Cascading bug:
+    // monthExpenseSoFar understated → monthEndProjection wrong → budgetETA wrong
+    // → bestDay/worstDay/personalRecord all wrong.
+    const monthTx = allRecentTx.filter((t) => jakartaDateKey(t.date).slice(0, 7) === monthKey);
     const monthExpenseSoFar = monthTx
       .filter((t) => t.type === 'expense')
       .reduce((s, t) => s + t.amount, 0);
@@ -503,14 +512,21 @@ export async function GET() {
     const trend = trendSlope(last7dExpenses);
 
     // Budget ETA: when will monthly budget run out?
-    // Monthly budget = sum of all weekly budgets for this month
+    // Monthly budget = sum of all weekly budgets for this month.
+    //
+    // Edge case: if user only set targets for some weeks (e.g., weeks 1 & 2
+    // but not 3 & 4), the raw sum understates the intended monthly budget and
+    // triggers a premature "over budget" alert. Fix: extrapolate missing
+    // weeks from the average of the set weeks, so the monthly budget reflects
+    // the user's apparent weekly target pattern.
     let budgetETA: DailyRecapResponse['predictions']['budgetETA'] = null;
-    const totalWeeklyTarget = weeklyBudgets.reduce((s, b) => s + b.target, 0);
-    if (totalWeeklyTarget > 0 && burnRate > 0) {
-      const remainingBudget = totalWeeklyTarget - monthExpenseSoFar;
+    const setWeeks = weeklyBudgets.filter((b) => b.target > 0);
+    if (setWeeks.length > 0 && burnRate > 0) {
+      const avgWeeklyTarget = setWeeks.reduce((s, b) => s + b.target, 0) / setWeeks.length;
+      // Extrapolate to all 4 weeks — this is the implied monthly budget.
+      const totalMonthlyTarget = Math.round(avgWeeklyTarget * 4);
+      const remainingBudget = totalMonthlyTarget - monthExpenseSoFar;
       // If already over budget, daysLeft is meaningless — set to 0.
-      // (Previously `Math.floor(negative / burnRate)` returned a negative
-      // number, which the UI would render as "X days left" — misleading.)
       const daysLeft = remainingBudget > 0 ? Math.floor(remainingBudget / burnRate) : 0;
       budgetETA = {
         daysLeft,
@@ -518,13 +534,21 @@ export async function GET() {
         projectedOver: remainingBudget < 0 ? Math.abs(remainingBudget) : 0,
       };
     }
+    // totalWeeklyTarget is reused by smartCapTomorrow — keep the extrapolated
+    // version so both computations stay consistent.
+    const totalWeeklyTarget = setWeeks.length > 0
+      ? Math.round((setWeeks.reduce((s, b) => s + b.target, 0) / setWeeks.length) * 4)
+      : 0;
 
-    // Smart cap tomorrow: max spending to stay on budget pace
-    // = (remaining monthly budget) / (remaining days in month including today)
+    // Smart cap for the rest of the month (avg daily budget remaining).
+    // Labeled "Sisa/hari" in the UI (was misleadingly "Besok max").
+    // Divisor = days STRICTLY AFTER today (not including today, since today's
+    // spend is already in monthExpenseSoFar). If today is the last day of the
+    // month, remainingDays = 0 → no cap shown (nothing left to budget for).
     let smartCapTomorrow: number | null = null;
     if (totalWeeklyTarget > 0) {
       const remainingBudget = totalWeeklyTarget - monthExpenseSoFar;
-      const remainingDays = daysInMonth - daysElapsed + 1; // include today
+      const remainingDays = daysInMonth - daysElapsed; // strictly after today
       if (remainingDays > 0) {
         smartCapTomorrow = Math.max(0, Math.round(remainingBudget / remainingDays));
       }
@@ -589,7 +613,7 @@ export async function GET() {
         }).format(new Date(t.date)),
         10
       ) % 24;
-      return h >= 22 || h < 4;
+      return h >= 22 || h < 5; // aligned with heatmap coloring (h < 5)
     });
     if (lateNightTx.length > 0) {
       const lateNightTotal = lateNightTx.reduce((s, t) => s + t.amount, 0);
@@ -616,17 +640,37 @@ export async function GET() {
       });
     }
 
-    // Recurring detected: same description + similar amount (±10%) in ≥3 different months
+    // Recurring detected: same description + similar amount (±10%) in ≥3
+    // different months.
+    //
+    // Two bugs fixed here:
+    //   1. `allRecentTx` only covers 30 days, so a 30-day window can span at
+    //      most 3 calendar months (and only when today is day 1-2 of a month
+    //      following a 28-31 day month). For ~93% of the month, ≥3 months was
+    //      unreachable — feature was dead code. Fix: fetch a wider 95-day
+    //      window specifically for recurring detection.
+    //   2. The comment promised "similar amount (±10%)" but the code only
+    //      checked description equality. Fix: add the ±10% amount check.
     if (todayTransactions.length > 0) {
+      // Fetch 95 days of history for recurring detection (3+ months coverage).
+      // Separate query — small payload since we only need description+amount+date.
+      const ninetyFiveDaysAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000);
+      const recurringHistoryTx = await db.transaction.findMany({
+        where: { date: { gte: ninetyFiveDaysAgo }, type: 'expense' },
+        select: { description: true, amount: true, date: true },
+      });
+
       for (const tx of todayTransactions) {
         if (tx.type !== 'expense' || !tx.description) continue;
         const matchingMonths = new Set<string>();
-        for (const old of allRecentTx) {
-          if (old.type !== 'expense' || !old.description) continue;
-          if (old.description === tx.description) {
-            const oldKey = jakartaDateKey(old.date);
-            matchingMonths.add(oldKey.slice(0, 7));
-          }
+        for (const old of recurringHistoryTx) {
+          if (!old.description) continue;
+          if (old.description !== tx.description) continue;
+          // ±10% amount similarity check (was missing — comment promised it).
+          // Skip if amounts differ by more than 10% of today's amount.
+          if (tx.amount > 0 && Math.abs(old.amount - tx.amount) / tx.amount > 0.1) continue;
+          const oldKey = jakartaDateKey(old.date);
+          matchingMonths.add(oldKey.slice(0, 7));
         }
         if (matchingMonths.size >= 3) {
           alerts.push({
@@ -826,6 +870,7 @@ export async function GET() {
         expense: todayExpense,
         net: todayIncome - todayExpense,
         transactionCount: todayTx.length,
+        expenseCount: todayTx.filter((t) => t.type === 'expense').length,
         transactions: todayTransactions.slice(0, 20), // top 20 for UI
         categories: todayCategories,
         categoryStats,
@@ -867,7 +912,10 @@ export async function GET() {
         transactionDiversity,
         cashFlowHealth,
         savingsRate,
-        categoryAnomaly: categoryAnomaly.slice(0, 3),
+        // Filter to actual anomalies first, then slice — previously sliced
+        // top-3 by z-score which could include non-anomalies (zScore < 1.5)
+        // while dropping real anomalies further down the list.
+        categoryAnomaly: categoryAnomaly.filter((c) => c.isAnomaly).slice(0, 5),
       },
       gamification: {
         dailyBadge,

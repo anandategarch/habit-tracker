@@ -5,11 +5,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   TrendingUp, TrendingDown, Minus, AlertTriangle, Zap, Target, Flame,
   Trophy, Sparkles, Clock, ArrowUpRight, ArrowDownRight, Coffee, Moon,
-  Activity, Brain, Award, Calendar, Info,
+  Activity, Brain, Award, Calendar, Info, RefreshCw, AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupiah, compactRupiah } from './finance-types';
@@ -51,6 +52,7 @@ interface DailyRecap {
     expense: number;
     net: number;
     transactionCount: number;
+    expenseCount: number;
     transactions: TodayTransaction[];
     categories: Array<{ name: string; amount: number; count: number; emoji: string; color: string }>;
     categoryStats: CategoryStats[];
@@ -158,9 +160,17 @@ function formatDateShort(d: string): string {
   return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
-/** Compact rupiah that handles 0 gracefully (returns "0" not "0k"). */
+/**
+ * Compact rupiah that handles 0 gracefully and disambiguates small amounts.
+ * - 0 → "0"
+ * - < 1.000 → full format ("Rp 500") — previously returned bare "500" which
+ *   was ambiguous next to "50k" (could be read as 500 thousand).
+ * - ≥ 1.000 → compact ("50k", "1.2jt")
+ */
 function compactRupiahSafe(n: number): string {
   if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs < 1000) return formatRupiah(n);
   return compactRupiah(n);
 }
 
@@ -583,7 +593,7 @@ function StatTile({
 // ── Main Component ───────────────────────────────────────────────────────
 
 export default function DailyRecap() {
-  const { data: recap, isLoading } = useQuery<DailyRecap>({
+  const { data: recap, isLoading, isError, refetch } = useQuery<DailyRecap>({
     queryKey: ['finance', 'daily-recap'],
     queryFn: async () => {
       const res = await fetch('/api/finance/daily-recap');
@@ -591,7 +601,35 @@ export default function DailyRecap() {
       return res.json();
     },
     staleTime: 30_000,
+    retry: 1,
   });
+
+  // Error state — previously the skeleton rendered forever on API failure
+  // because `isLoading` became false but `recap` stayed undefined.
+  if (isError) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="p-4 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400 shrink-0">
+            <AlertCircle className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold">Gagal memuat rekap harian</p>
+            <p className="text-[10px] text-muted-foreground">Coba lagi dalam sejenak</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="h-7 text-xs px-2 shrink-0"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Coba lagi
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   if (isLoading || !recap) {
     return (
@@ -657,7 +695,7 @@ export default function DailyRecap() {
               <CountUpRupiah amount={today.expense} />
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              total pengeluaran · <CountUpNumber value={today.transactionCount} /> transaksi
+              total pengeluaran · <CountUpNumber value={today.expenseCount} /> transaksi
             </p>
           </div>
 
@@ -835,7 +873,7 @@ export default function DailyRecap() {
             <p className="text-sm font-bold">{formatRupiah(predictions.burnRate)}/hari</p>
             {predictions.smartCapTomorrow !== null && (
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                Besok max {compactRupiahSafe(predictions.smartCapTomorrow)}
+                Sisa/hari {compactRupiahSafe(predictions.smartCapTomorrow)}
               </p>
             )}
           </div>
