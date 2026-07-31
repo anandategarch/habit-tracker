@@ -590,7 +590,7 @@ export default function FinanceExplorer({
                       {/* Bar */}
                       <div
                         className={cn(
-                          'w-full rounded-t-lg anim-stagger transition-all duration-300 hover:opacity-80',
+                          'w-full rounded-t-lg transition-all duration-300 hover:opacity-80',
                           isOver && 'anim-flash-red'
                         )}
                         style={{
@@ -599,7 +599,6 @@ export default function FinanceExplorer({
                             ? 'linear-gradient(180deg, #ef4444, #f87171)'
                             : `linear-gradient(180deg, ${primaryColor}, ${primaryColor}80)`,
                           minHeight: w.total > 0 ? '8px' : '0',
-                          animationDelay: `${i * 80}ms`,
                         }}
                       />
                     </div>
