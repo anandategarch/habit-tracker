@@ -138,7 +138,7 @@ interface DailyRecapResponse {
     spent: number;
     remaining: number;
     percentage: number;
-    status: 'under' | 'on_track' | 'nearing' | 'over' | 'no_budget';
+    status: 'under' | 'on_track' | 'nearing' | 'over';
   } | null;
 }
 
@@ -543,12 +543,16 @@ export async function GET() {
     // Divisor = days STRICTLY AFTER today (not including today, since today's
     // spend is already in monthExpenseSoFar). If today is the last day of the
     // month, remainingDays = 0 → no cap shown (nothing left to budget for).
+    // Also returns null if already over monthly budget (remainingBudget < 0)
+    // — previously Math.max(0, negative) returned 0, which the UI showed as
+    // "Sisa/hari: Rp 0" (misleading — reads as "zero per day" instead of
+    // "you're over budget").
     let smartCapTomorrow: number | null = null;
     if (totalMonthlyTarget > 0) {
       const remainingBudget = totalMonthlyTarget - monthExpenseSoFar;
       const remainingDays = daysInMonth - daysElapsed; // strictly after today
-      if (remainingDays > 0) {
-        smartCapTomorrow = Math.max(0, Math.round(remainingBudget / remainingDays));
+      if (remainingDays > 0 && remainingBudget > 0) {
+        smartCapTomorrow = Math.round(remainingBudget / remainingDays);
       }
     }
 

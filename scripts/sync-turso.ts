@@ -117,6 +117,15 @@ function parseSchema(schemaText: string): PrismaModel[] {
       if (!fieldMatch) continue;
 
       const [, name, type, questionMark, attrs] = fieldMatch;
+
+      // Skip Prisma relation fields — they are virtual (no physical column
+      // in SQLite). Detect by @relation attribute, or type ending with []
+      // (one-to-many), or type ending with ? (one-to-one optional relation).
+      // Without this skip, sync would emit `habits TEXT NOT NULL` columns
+      // that break Prisma inserts (it never sends relation fields).
+      if (attrs.includes('@relation')) continue;
+      if (attrs.includes('[]')) continue; // one-to-many: `habits Habit[]`
+
       const isId = attrs.includes('@id');
       const isUnique = attrs.includes('@unique');
       const defaultMatch = attrs.match(/@default\(([^)]+)\)/);
@@ -164,7 +173,8 @@ function defaultToSql(field: PrismaField): string | null {
   if (stringMatch) return `'${stringMatch[1]}'`;
 
   // Boolean: @default(true) → "1", @default(false) → "0"
-  if (d === 'true') return '0'; // SQLite boolean
+  // (SQLite stores booleans as 0/1 INTEGER)
+  if (d === 'true') return '1';
   if (d === 'false') return '0';
 
   // Numeric: @default(0), @default(80), @default(3.14)
@@ -279,7 +289,7 @@ async function main() {
   const tablesResult = await client.execute(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_%'"
   );
-  const existingTables = new Set(tablesResult.rows.map((r) => (r as { name: string }).name));
+  const existingTables = new Set(tablesResult.rows.map((r) => (r as unknown as { name: string }).name));
   console.log(`📂 Found ${existingTables.size} existing tables in Turso`);
   console.log('');
 
@@ -304,7 +314,7 @@ async function main() {
     } else {
       // Table exists — check for missing columns
       const colsResult = await client.execute(`PRAGMA table_info("${model.name}")`);
-      const existingCols = new Set(colsResult.rows.map((r) => (r as { name: string }).name));
+      const existingCols = new Set(colsResult.rows.map((r) => (r as unknown as { name: string }).name));
 
       for (const field of model.fields) {
         if (!existingCols.has(field.name)) {
