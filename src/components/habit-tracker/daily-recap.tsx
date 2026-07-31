@@ -127,6 +127,16 @@ function formatHourLabel(h: number): string {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
+/** Format a YYYY-MM-DD date as "DD-Www" (e.g. "31-Mon", "30-Sun") for chart axis labels. */
+function formatDayMonthLabel(d: string): string {
+  const [y, m, day] = d.split('-');
+  const date = new Date(Number(y), Number(m) - 1, Number(day));
+  const dayNum = date.getDate();
+  // 3-letter weekday, first letter uppercase, locale-independent (en-US)
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+  return `${dayNum}-${weekday}`;
+}
+
 function formatDateShort(d: string): string {
   // d = "2026-07-31" → "31 Jul"
   const [y, m, day] = d.split('-');
@@ -280,6 +290,26 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
           </g>
         )}
       </svg>
+
+      {/* Date labels below the chart — one per data point, evenly spaced.
+          Uses a flex row with each cell taking 1/N width so labels align
+          exactly under each chart point. Center-aligned text. Today's label
+          is highlighted (bold + colored) to match the highlighted dot above. */}
+      <div className="flex mt-1">
+        {data.map((d, i) => (
+          <div
+            key={i}
+            className={cn(
+              'flex-1 text-center text-[9px] tabular-nums leading-tight',
+              d.isToday
+                ? 'font-bold text-[#7C6CFF]'
+                : 'text-muted-foreground'
+            )}
+          >
+            {formatDayMonthLabel(d.date)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -343,10 +373,13 @@ function ProgressRing({
 }
 
 // ── Hourly Heatmap (24-bar mini viz, premium) ────────────────────────────
+// Shows total spending for the day as a label above the bars, then the 24-bar
+// heatmap below, then the hour axis labels at the bottom.
 
 function HourlyHeatmap({ hourly }: { hourly: number[] }) {
   const max = Math.max(...hourly, 1);
   const hasData = hourly.some((h) => h > 0);
+  const total = hourly.reduce((s, a) => s + a, 0);
 
   if (!hasData) {
     return (
@@ -358,6 +391,11 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
 
   return (
     <div className="space-y-1">
+      {/* Total spending label on top of the bars */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</span>
+        <span className="text-xs font-bold tabular-nums text-foreground">{compactRupiahSafe(total)}</span>
+      </div>
       <div className="flex items-end gap-[3px] h-10">
         {hourly.map((amt, h) => {
           const hRatio = amt / max;
@@ -583,13 +621,11 @@ export default function DailyRecap() {
           )}
         </div>
 
-        {/* Sparkline — premium line chart with blue→purple gradient */}
+        {/* Sparkline — premium line chart with blue→purple gradient.
+            Date labels (DD-Www) are rendered inside the component, one per
+            data point, so we don't duplicate them here. */}
         <div className="mt-4">
           <MiniSparkline data={sparkline.daily7d} />
-          <div className="flex justify-between text-[9px] text-muted-foreground mt-1.5">
-            <span>7 hari lalu</span>
-            <span>Hari ini</span>
-          </div>
         </div>
       </div>
 
