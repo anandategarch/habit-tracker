@@ -890,3 +890,138 @@
 .dark .fe-kpi-value {
   color: oklch(0.95 0.005 120);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PREMIUM FINTECH ANIMATIONS — v2
+   Subtle, smooth, liquid feel. All respect prefers-reduced-motion.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Smooth color/stroke transition (budget ring, status pills) ── */
+/* Apply to elements whose color should smoothly transition when state
+   changes (e.g., budget ring green → amber → red). */
+.anim-color-smooth {
+  transition: stroke 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              fill 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Staggered row entrance (category insights, transaction list) ── */
+/* Use with --stagger-index CSS variable set inline per item. */
+@keyframes anim-row-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-row-stagger {
+  opacity: 0;
+  animation: anim-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--stagger-index, 0) * 60ms);
+  will-change: transform, opacity;
+}
+
+/* ── Slide-in from right (drill-down navigation: month → week → day) ── */
+@keyframes anim-slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.anim-slide-in-right {
+  animation: anim-slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* ── Slide-in from left (drill-up: back navigation) ── */
+@keyframes anim-slide-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.anim-slide-in-left {
+  animation: anim-slide-in-left 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* ── Single red flash for over-budget elements (bars, alerts) ── */
+@keyframes anim-flash-red {
+  0%, 100% { background-color: var(--bg, transparent); }
+  50% { background-color: oklch(0.65 0.2 25 / 0.15); }
+}
+.anim-flash-red {
+  animation: anim-flash-red 0.6s ease-out 1;
+}
+
+/* ── Subtle breathing glow (today cell, active elements) ── */
+@keyframes anim-glow-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.62 0.19 264 / 0); }
+  50% { box-shadow: 0 0 0 4px oklch(0.62 0.19 264 / 0.12); }
+}
+.anim-glow-breathe {
+  animation: anim-glow-breathe 3s ease-in-out infinite;
+}
+
+/* ── Urgency pulse (deadline < 7 days, soft red glow) ── */
+@keyframes anim-urgency-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.65 0.2 25 / 0); }
+  50% { box-shadow: 0 0 0 3px oklch(0.65 0.2 25 / 0.10); }
+}
+.anim-urgency-pulse {
+  animation: anim-urgency-pulse 2.5s ease-in-out infinite;
+}
+
+/* ── Subtle float (empty state illustrations, icons) ── */
+@keyframes anim-float-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.anim-float-subtle {
+  animation: anim-float-subtle 3s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── Micro-pulse (single, subtle — for data-load moments) ── */
+@keyframes anim-micro-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.anim-micro-pulse {
+  animation: anim-micro-pulse 0.5s ease-out 1;
+}
+
+/* ── Liquid fill bar (premium progress, Apple Fitness style) ── */
+/* Apply to a ::before pseudo or inner div. Uses gradient + slow sweep. */
+@keyframes anim-liquid-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.anim-liquid-fill {
+  position: relative;
+  overflow: hidden;
+}
+.anim-liquid-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.15) 50%,
+    transparent 100%
+  );
+  animation: anim-liquid-sweep 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Reduced motion: disable all new premium animations ── */
+@media (prefers-reduced-motion: reduce) {
+  .anim-color-smooth { transition: none; }
+  .anim-row-stagger,
+  .anim-slide-in-right,
+  .anim-slide-in-left,
+  .anim-flash-red,
+  .anim-glow-breathe,
+  .anim-urgency-pulse,
+  .anim-float-subtle,
+  .anim-micro-pulse,
+  .anim-liquid-fill::after {
+    animation: none !important;
+  }
+  .anim-row-stagger { opacity: 1; }
+}

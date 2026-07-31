@@ -48,7 +48,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, isPast, parseISO } from 'date-fns';
+import { format, isPast, parseISO, differenceInCalendarDays } from 'date-fns';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
@@ -361,6 +361,11 @@ export default function GoalsTab() {
     const isCompleted = goal.status === 'completed';
     const isCancelled = goal.status === 'cancelled';
     const isOverdue = goal.deadline && isPast(parseISO(goal.deadline)) && !isCompleted && !isCancelled;
+    // Deadline within 7 days (not overdue yet) — subtle urgency pulse
+    const isUrgent = !isOverdue && goal.deadline && (() => {
+      const days = differenceInCalendarDays(parseISO(goal.deadline), new Date());
+      return days >= 0 && days <= 7;
+    })();
 
     return (
       <Card
@@ -459,9 +464,11 @@ export default function GoalsTab() {
             {goal.deadline ? (
               <span
                 className={cn(
-                  'flex items-center gap-1 text-xs',
+                  'flex items-center gap-1 text-xs rounded px-1 py-0.5',
                   isOverdue
                     ? 'text-red-500 font-medium'
+                    : isUrgent
+                    ? 'text-amber-600 dark:text-amber-400 font-medium anim-urgency-pulse'
                     : 'text-muted-foreground'
                 )}
               >
