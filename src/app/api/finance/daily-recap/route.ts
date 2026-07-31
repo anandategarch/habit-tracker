@@ -26,6 +26,33 @@ interface CategoryBreakdown {
   count: number;
 }
 
+/**
+ * Per-category deep stats for categories that have transactions today.
+ * Computed from the last 30 days of history — gives the user a sense of
+ * how today's spending in each category compares to their usual pattern.
+ *
+ * Two dimensions are computed:
+ *   - Per-transaction (maxTransaction / avgTransaction): the largest single
+ *     tx in this category over 30 days, and the average nominal per tx.
+ *   - Per-day (maxDaily / avgDaily): the largest day-total in this category
+ *     over 30 days, and the average daily total (only counting days that
+ *     have at least one tx in this category — so the avg isn't diluted by
+ *     no-activity days).
+ *
+ * deltaVsAvgDaily = todayAmount - avgDaily. Negative = below average
+ * (good for expense), positive = above average (overspending).
+ */
+interface CategoryStats {
+  name: string;
+  todayAmount: number;
+  todayCount: number;
+  maxTransaction: number;
+  avgTransaction: number;
+  maxDaily: number;
+  avgDaily: number;
+  deltaVsAvgDaily: number;
+}
+
 interface SourceBreakdown {
   name: string;
   amount: number;
@@ -47,6 +74,7 @@ interface DailyRecapResponse {
     transactionCount: number;
     transactions: TodayTransaction[];
     categories: CategoryBreakdown[];
+    categoryStats: CategoryStats[];
     sources: SourceBreakdown[];
     hourlyBreakdown: number[]; // 24 elements, expense per hour
     peakHour: { hour: number; amount: number } | null;
@@ -631,6 +659,52 @@ export async function GET() {
     }
     categoryAnomaly.sort((a, b) => b.zScore - a.zScore);
 
+    // ── Per-category deep stats (for the "per-category insight" UI block).
+    // For each category that has transactions today, compute:
+    //   - todayAmount / todayCount (today's totals)
+    //   - maxTransaction / avgTransaction (per single-tx, 30-day)
+    //   - maxDaily / avgDaily (per-day-total, 30-day — only days with tx)
+    //   - deltaVsAvgDaily = todayAmount - avgDaily (negative = below avg)
+    //
+    // We reuse `catDayTotals` for the per-day aggregation, and walk
+    // `allRecentTx` once more to bucket per-tx amounts per category.
+    const catTxAmounts = new Map<string, number[]>(); // category -> [amount, amount, ...]
+    for (const tx of allRecentTx) {
+      if (tx.type !== 'expense') continue;
+      if (!catTxAmounts.has(tx.category)) catTxAmounts.set(tx.category, []);
+      catTxAmounts.get(tx.category)!.push(tx.amount);
+    }
+
+    const categoryStats: CategoryStats[] = [];
+    for (const [cat, dayMap] of catDayTotals.entries()) {
+      const todayEntry = todayCategoryMap.get(cat);
+      if (!todayEntry) continue; // only categories with tx today
+      const txAmounts = catTxAmounts.get(cat) ?? [];
+      const dailyTotals = Array.from(dayMap.values());
+
+      const maxTransaction = txAmounts.length > 0 ? Math.max(...txAmounts) : 0;
+      const avgTransaction = txAmounts.length > 0
+        ? Math.round(txAmounts.reduce((a, b) => a + b, 0) / txAmounts.length)
+        : 0;
+      const maxDaily = dailyTotals.length > 0 ? Math.max(...dailyTotals) : 0;
+      const avgDaily = dailyTotals.length > 0
+        ? Math.round(dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length)
+        : 0;
+
+      categoryStats.push({
+        name: cat,
+        todayAmount: todayEntry.amount,
+        todayCount: todayEntry.count,
+        maxTransaction,
+        avgTransaction,
+        maxDaily,
+        avgDaily,
+        deltaVsAvgDaily: todayEntry.amount - avgDaily,
+      });
+    }
+    // Sort by todayAmount desc — biggest spending today first.
+    categoryStats.sort((a, b) => b.todayAmount - a.todayAmount);
+
     // ── Gamification ─────────────────────────────────────────────────
 
     // Daily badge
@@ -679,6 +753,7 @@ export async function GET() {
         transactionCount: todayTx.length,
         transactions: todayTransactions.slice(0, 20), // top 20 for UI
         categories: todayCategories,
+        categoryStats,
         sources: todaySources,
         hourlyBreakdown,
         peakHour,
