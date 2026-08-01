@@ -39,6 +39,13 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
     // easeOutExpo: fast start, slow finish — premium feel.
     const ease = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
+    // Throttle setState to every ~33ms (30fps) instead of every frame (60fps).
+    // Halves the number of re-renders during count-up animation.
+    // With 6+ count-up components animating simultaneously, this prevents
+    // re-render storms that cause the "freeze/lag" feeling during data load.
+    let lastUpdate = 0;
+    const UPDATE_INTERVAL = 33; // ms (~30fps for setState, RAF still 60fps)
+
     const tick = (now: number) => {
       const elapsed = now - start;
       const t = Math.min(elapsed / duration, 1);
@@ -48,7 +55,14 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
       const factor = Math.pow(10, decimals);
       const rounded = Math.round(current * factor) / factor;
       displayRef.current = rounded;
-      setDisplay(rounded);
+
+      // Only setState if enough time has passed since last update,
+      // OR if this is the final frame (t === 1).
+      if (t >= 1 || now - lastUpdate >= UPDATE_INTERVAL) {
+        setDisplay(rounded);
+        lastUpdate = now;
+      }
+
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {

@@ -131,8 +131,22 @@ export const parseNominalInput = (value: string): string => {
   return value.replace(/[^\d]/g, '');
 };
 
+// ── Cached formatters (performance critical) ───────────────────────────
+// Intl.NumberFormat construction is expensive (~0.1-0.5ms per call).
+// Previously formatRupiah created a new formatter on EVERY call — including
+// every animation frame of CountUpRupiah (60 calls/second × 6+ components =
+// 360+ formatter constructions/second → GC pressure → jank/freezing).
+// Cache the formatter instance once and reuse.
+
+const rupiahFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 export const formatRupiah = (amount: number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+  return rupiahFormatter.format(amount);
 };
 
 export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
