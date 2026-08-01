@@ -28,8 +28,12 @@ export function QueryProvider({ children }: { children: ReactNode }) {
             staleTime: 30_000,
             // Keep unused data in cache for 5 minutes (quick tab switches).
             gcTime: 5 * 60 * 1000,
-            // Don't refetch on mount if data is fresh (avoid thundering herd).
-            refetchOnMount: false,
+            // Refetch on mount IF data is stale (React Query default).
+            // Previously set to `false` — caused stale data after tab
+            // switches (user saw old data for up to 30s before window
+            // focus triggered a refetch). Now uses default behavior:
+            // refetch on mount only when staleTime has elapsed.
+            refetchOnMount: true,
             // Refetch when window regains focus (user returns to tab).
             refetchOnWindowFocus: true,
             // Retry failed requests once (network blips).

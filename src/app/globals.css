@@ -1025,3 +1025,32 @@
   }
   .anim-row-stagger { opacity: 1; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PERFORMANCE — smooth loading transitions
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Smooth fade-in for data-loaded content (replaces jarring skeleton→data swap).
+   Apply to containers that transition from loading to data state.
+   Uses opacity-only transition (GPU-composited, no layout thrash). */
+.anim-data-enter {
+  animation: anim-data-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
+}
+@keyframes anim-data-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Content-visibility: auto for long lists — browser skips rendering
+   offscreen items until scrolled into view. Massive perf win for
+   transaction lists, habit lists, etc. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 50px;
+}
+
+/* Reduce motion: disable data-enter animation */
+@media (prefers-reduced-motion: reduce) {
+  .anim-data-enter { animation: none; opacity: 1; }
+}

@@ -838,7 +838,7 @@ export default function DailyRecap() {
 
   if (isEmpty) {
     return (
-      <Card className="overflow-hidden anim-stagger">
+      <Card className="overflow-hidden anim-stagger anim-data-enter">
         <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -915,7 +915,7 @@ export default function DailyRecap() {
   }
 
   return (
-    <Card className="overflow-hidden anim-stagger">
+    <Card className="overflow-hidden anim-stagger anim-data-enter">
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
       <div className="relative bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
         {/* Top row: label + date + budget ring */}
@@ -1318,7 +1318,7 @@ export default function DailyRecap() {
                 <span className="text-[10px] text-muted-foreground">+{today.transactionCount - today.transactions.length} lainnya</span>
               )}
             </div>
-            <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+            <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar cv-auto">
               {today.transactions.map((tx) => (
                 <div key={tx.id} className="flex items-center gap-2 py-1 text-xs">
                   <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-12">
