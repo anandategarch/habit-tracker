@@ -30,7 +30,7 @@ import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { dayToWeek } from '@/lib/timezone';
+import { dayToWeek, jakartaDateKey } from '@/lib/timezone';
 import {
   Select,
   SelectContent,
@@ -123,7 +123,8 @@ function buildMonthOptions(): { value: string; label: string }[] {
   return opts;
 }
 
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+// JAKARTA_OFFSET_MS removed — all timezone conversions now use
+// jakartaDateKey() from @/lib/timezone which works on any server TZ.
 
 // ── Component ───────────────────────────────────────────────────────────
 
@@ -161,12 +162,11 @@ export default function FinanceExplorer({
   const { data: allTx = [], isLoading } = useQuery<Transaction[]>({
     queryKey: ['finance', 'explorer', selectedMonth],
     queryFn: async () => {
-      const [y, m] = selectedMonth.split('-');
-      const start = new Date(parseInt(y), parseInt(m) - 1, 1);
-      const end = new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999);
-      const res = await fetch(
-        `/api/finance/transactions?type=expense&startDate=${start.toISOString().slice(0, 10)}&endDate=${end.toISOString().slice(0, 10)}`,
-      );
+      // Use the `month` param (already timezone-fixed with 7h buffer +
+      // jakartaDateKey post-filter in the API) instead of startDate/endDate
+      // which had a midnight-truncation bug (date-only string parsed as
+      // UTC midnight → transactions after midnight excluded).
+      const res = await fetch(`/api/finance/transactions?month=${selectedMonth}&type=expense`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -179,16 +179,23 @@ export default function FinanceExplorer({
     queryFn: async () => {
       const now = new Date();
       const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      // Send FULL ISO datetime strings (not date-only) to avoid midnight
+      // truncation. Previously sent "2026-08-01" which API parsed as UTC
+      // midnight → all transactions after midnight on Aug 1 were excluded
+      // → August bar didn't appear in the chart despite having transactions.
+      // Add 1 day buffer to endDate to include all of today's transactions.
+      const startDate = sixMonthsAgo.toISOString();
+      const endDate = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
       const res = await fetch(
-        `/api/finance/transactions?type=expense&startDate=${sixMonthsAgo.toISOString().slice(0, 10)}&endDate=${now.toISOString().slice(0, 10)}`,
+        `/api/finance/transactions?type=expense&startDate=${startDate}&endDate=${endDate}`,
       );
       if (!res.ok) throw new Error('Failed to fetch monthly data');
       const txs: Transaction[] = await res.json();
-      // Group by month
+      // Group by Jakarta month using jakartaDateKey for correct assignment
+      // (previously used manual JAKARTA_OFFSET_MS which only works on UTC servers).
       const monthMap: Record<string, number> = {};
       for (const tx of txs) {
-        const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
-        const key = `${jakartaDate.getUTCFullYear()}-${String(jakartaDate.getUTCMonth() + 1).padStart(2, '0')}`;
+        const key = jakartaDateKey(new Date(tx.date)).slice(0, 7);
         monthMap[key] = (monthMap[key] || 0) + (tx.amount || 0);
       }
       return Object.entries(monthMap)
@@ -204,8 +211,9 @@ export default function FinanceExplorer({
   const weekData = useMemo<WeekData[]>(() => {
     const weeks = [0, 0, 0, 0];
     for (const tx of allTx) {
-      const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
-      const day = jakartaDate.getUTCDate();
+      // Use jakartaDateKey for correct day-of-month extraction (works on
+      // any server TZ, not just UTC).
+      const day = parseInt(jakartaDateKey(new Date(tx.date)).slice(8, 10), 10);
       weeks[dayToWeek(day) - 1] += (tx.amount || 0);
     }
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -221,8 +229,7 @@ export default function FinanceExplorer({
     if (selectedWeek === null) return [];
     const dayMap: Record<number, { total: number; count: number }> = {};
     for (const tx of allTx) {
-      const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
-      const day = jakartaDate.getUTCDate();
+      const day = parseInt(jakartaDateKey(new Date(tx.date)).slice(8, 10), 10);
       if (dayToWeek(day) !== selectedWeek) continue;
       if (!dayMap[day]) dayMap[day] = { total: 0, count: 0 };
       dayMap[day].total += (tx.amount || 0);
@@ -249,8 +256,8 @@ export default function FinanceExplorer({
     if (selectedWeek === null || selectedDay === null) return [];
     return allTx
       .filter((tx) => {
-        const jakartaDate = new Date(new Date(tx.date).getTime() + JAKARTA_OFFSET_MS);
-        return dayToWeek(jakartaDate.getUTCDate()) === selectedWeek && jakartaDate.getUTCDate() === selectedDay;
+        const day = parseInt(jakartaDateKey(new Date(tx.date)).slice(8, 10), 10);
+        return dayToWeek(day) === selectedWeek && day === selectedDay;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [allTx, selectedWeek, selectedDay]);
