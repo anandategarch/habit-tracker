@@ -1054,3 +1054,15 @@
 @media (prefers-reduced-motion: reduce) {
   .anim-data-enter { animation: none; opacity: 1; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PERFORMANCE — layout containment
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Contain layout/style/paint to prevent thrashing when sibling elements
+   update. Critical for cards that contain animating content (count-up,
+   charts) — without containment, a re-render in one card forces layout
+   recalculation in ALL siblings. */
+.contain-card {
+  contain: layout style paint;
+}
