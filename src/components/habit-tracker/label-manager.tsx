@@ -291,7 +291,7 @@ export default function LabelManager() {
                         <span className="text-xs text-muted-foreground ml-1">{item.xp} XP</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <Button
                         size="icon"
                         variant="ghost"

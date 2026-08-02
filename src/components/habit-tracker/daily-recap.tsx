@@ -1017,7 +1017,7 @@ export default function DailyRecap() {
         <div className="px-2 py-2.5 sm:px-3">
           <StatTile
             label="Masuk"
-            value={<CountUpRupiah amount={today.income} />}
+            value={<span className="tabular-nums">{compactRupiahSafe(today.income)}</span>}
             icon={ArrowUpRight}
             iconClass="bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"
             valueClass="text-emerald-600 dark:text-emerald-400"
@@ -1026,7 +1026,7 @@ export default function DailyRecap() {
         <div className="px-2 py-2.5 sm:px-3">
           <StatTile
             label="Keluar"
-            value={<CountUpRupiah amount={today.expense} />}
+            value={<span className="tabular-nums">{compactRupiahSafe(today.expense)}</span>}
             icon={ArrowDownRight}
             iconClass="bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400"
             valueClass="text-red-600 dark:text-red-400"
@@ -1035,7 +1035,7 @@ export default function DailyRecap() {
         <div className="px-2 py-2.5 sm:px-3">
           <StatTile
             label="Bersih"
-            value={<CountUpRupiah amount={today.net} />}
+            value={<span className="tabular-nums">{compactRupiahSafe(today.net)}</span>}
             icon={Activity}
             iconClass={cn(
               'bg-muted/50',
