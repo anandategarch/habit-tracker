@@ -47,6 +47,7 @@ import {
   Settings2,
   CalendarDays,
   Compass,
+  PieChart,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -74,6 +75,19 @@ const FinanceBudgets = dynamic(() => import('./finance-budgets'), { ssr: false }
 
 // Lazy load explorer — drill-down analytics workspace
 const FinanceExplorer = dynamic(() => import('./finance-explorer'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4">
+      <Skeleton className="h-[300px] rounded-xl" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+      </div>
+    </div>
+  ),
+});
+
+// Lazy load category explorer — per-category drill-down with charts
+const CategoryExplorer = dynamic(() => import('./category-explorer'), {
   ssr: false,
   loading: () => (
     <div className="space-y-4">
@@ -601,11 +615,12 @@ export default function Finance() {
 
       {/* Sub Tabs */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="text-xs sm:text-sm"><BarChart3 className="h-3.5 w-3.5 mr-1" />Ringkasan</TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm"><Wallet className="h-3.5 w-3.5 mr-1" />Transaksi</TabsTrigger>
           <TabsTrigger value="budgets" className="text-xs sm:text-sm"><Target className="h-3.5 w-3.5 mr-1" />Budget</TabsTrigger>
           <TabsTrigger value="explorer" className="text-xs sm:text-sm"><Compass className="h-3.5 w-3.5 mr-1" />Explorer</TabsTrigger>
+          <TabsTrigger value="categories" className="text-xs sm:text-sm"><PieChart className="h-3.5 w-3.5 mr-1" />Kategori</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -653,6 +668,10 @@ export default function Finance() {
 
         <TabsContent value="explorer" className="mt-4">
           <FinanceExplorer getCategoryMeta={getCategoryMeta} />
+        </TabsContent>
+
+        <TabsContent value="categories" className="mt-4">
+          <CategoryExplorer getCategoryMeta={getCategoryMeta} />
         </TabsContent>
       </Tabs>
 
