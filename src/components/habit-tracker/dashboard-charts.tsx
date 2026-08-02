@@ -237,8 +237,10 @@ export default function DashboardCharts({
         </Card>
       </section>
 
-      {/* ── Stacked Bar: Completed vs Missed + Weekly Pattern ──────────── */}
-      <section aria-label="Habit completion detail" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ── Stacked Bar: Completed vs Missed + Weekly Pattern ────────────
+          Hidden on mobile: redundant with "30 Hari Completion Trend" above.
+          Shows same data in different format — not essential for mobile UX. */}
+      <section aria-label="Habit completion detail" className="hidden md:grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">

@@ -579,10 +579,17 @@ export default function Dashboard() {
             { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
           ].map((card, i) => {
             const Icon = card.icon;
+            // Hide non-essential KPI cards on mobile (< 640px) to reduce
+            // cognitive overload. 15 cards → 6 on mobile.
+            // Hidden: longest, success, weekly, monthly, level, badges,
+            // productivity, challenges, goals.
+            // Visible: habits, completion, streak, xp, mood, sleep.
+            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'challenges', 'goals']);
+            const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
             return (
               <Card
                 key={card.key}
-                className="p-4 anim-stagger"
+                className={cn('p-4 anim-stagger', isHiddenOnMobile && 'hidden sm:block')}
                 style={{ animationDelay: `${i * 50}ms` }}
               >
                 <div className="flex items-center justify-between mb-1">
