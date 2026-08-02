@@ -200,7 +200,7 @@ export default function DashboardCharts({
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
                     dataKey="day"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 11 }}
                     className="text-muted-foreground"
                     axisLine={false}
                     tickLine={false}
@@ -254,7 +254,7 @@ export default function DashboardCharts({
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
                     dataKey="day"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 11 }}
                     className="text-muted-foreground"
                     axisLine={false}
                     tickLine={false}

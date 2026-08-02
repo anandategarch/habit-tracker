@@ -531,11 +531,11 @@ export default function FinanceExplorer({
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={48} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={48} />
                 <RechartsTooltip
                   formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
-                  contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #EEF2FF' }}
+                  contentStyle={{ borderRadius: '12px', fontSize: '11px', backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}
                   cursor={{ fill: `${primaryColor}10` }}
                 />
                 <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) drillToMonth(d.month); }}>
