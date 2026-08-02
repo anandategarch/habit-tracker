@@ -1,0 +1,489 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+} from 'recharts';
+import {
+  ChevronLeft,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Receipt,
+  Clock,
+  Trophy,
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
+import { CountUpRupiah, CountUpNumber } from './count-up';
+import { jakartaMonthString, jakartaDateKey } from '@/lib/timezone';
+import { format as formatDate, subMonths } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+
+// ── Types ────────────────────────────────────────────────────────────────
+
+interface CategoryTotal {
+  name: string;
+  emoji: string;
+  color: string;
+  total: number;
+  count: number;
+  percentage: number;
+}
+
+interface DailyData {
+  day: number;
+  date: string;
+  label: string;
+  total: number;
+  count: number;
+  cumulative: number;
+}
+
+interface CategoryExplorerProps {
+  getCategoryMeta: (cat: string) => { emoji: string; color: string };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return formatDate(new Date(y, m - 1, 1), 'MMM yyyy', { locale: idLocale });
+}
+
+function formatTxTime(isoDate: string): string {
+  try {
+    return new Date(isoDate).toLocaleTimeString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
+function formatDateShort(d: string): string {
+  const [y, m, day] = d.split('-');
+  const date = new Date(Number(y), Number(m) - 1, Number(day));
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+}
+
+function compactRupiahSafe(n: number): string {
+  if (n === 0) return '0';
+  return compactRupiah(n);
+}
+
+// ── Main Component ───────────────────────────────────────────────────────
+
+export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerProps) {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(jakartaMonthString());
+
+  // Month options (last 12 months)
+  const monthOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = 0; i <= 11; i++) {
+      const d = subMonths(now, i);
+      opts.push({
+        value: formatDate(d, 'yyyy-MM'),
+        label: formatDate(d, 'MMMM yyyy', { locale: idLocale }),
+      });
+    }
+    return opts;
+  }, []);
+
+  // Fetch all expense transactions for the selected month
+  const { data: transactions = [], isLoading } = useQuery<Transaction[]>({
+    queryKey: ['finance', 'category-explorer', selectedMonth],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/transactions?month=${selectedMonth}&type=expense`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  // Group transactions by category for the list view
+  const categoryTotals = useMemo<CategoryTotal[]>(() => {
+    const map = new Map<string, { total: number; count: number }>();
+    for (const tx of transactions) {
+      const existing = map.get(tx.category) ?? { total: 0, count: 0 };
+      existing.total += tx.amount || 0;
+      existing.count += 1;
+      map.set(tx.category, existing);
+    }
+    const grandTotal = Array.from(map.values()).reduce((s, v) => s + v.total, 0);
+    return Array.from(map.entries())
+      .map(([name, v]) => {
+        const meta = getCategoryMeta(name);
+        return {
+          name,
+          emoji: meta.emoji,
+          color: meta.color,
+          total: v.total,
+          count: v.count,
+          percentage: grandTotal > 0 ? Math.round((v.total / grandTotal) * 100) : 0,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [transactions, getCategoryMeta]);
+
+  const grandTotal = useMemo(
+    () => categoryTotals.reduce((s, c) => s + c.total, 0),
+    [categoryTotals]
+  );
+
+  // ── Category Detail View ──────────────────────────────────────────────
+
+  if (selectedCategory) {
+    const cat = categoryTotals.find((c) => c.name === selectedCategory);
+    if (!cat) {
+      // Category not found (e.g., month changed) — go back to list
+      setSelectedCategory(null);
+      return null;
+    }
+
+    // Filter transactions for this category
+    const catTx = transactions
+      .filter((t) => t.category === selectedCategory)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Build daily breakdown for chart
+    const [yy, mm] = selectedMonth.split('-').map(Number);
+    const daysInMonth = new Date(yy, mm, 0).getDate();
+    const dailyMap = new Map<number, { total: number; count: number }>();
+    for (const tx of catTx) {
+      const day = parseInt(jakartaDateKey(new Date(tx.date)).slice(8, 10), 10);
+      const existing = dailyMap.get(day) ?? { total: 0, count: 0 };
+      existing.total += tx.amount || 0;
+      existing.count += 1;
+      dailyMap.set(day, existing);
+    }
+
+    let cumulative = 0;
+    const chartData: DailyData[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const data = dailyMap.get(d);
+      cumulative += data?.total ?? 0;
+      const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+      chartData.push({
+        day: d,
+        date: dateStr,
+        label: d % 5 === 0 || d === 1 ? String(d) : '',
+        total: data?.total ?? 0,
+        count: data?.count ?? 0,
+        cumulative,
+      });
+    }
+
+    // Stats
+    const avgPerTx = catTx.length > 0 ? Math.round(cat.total / catTx.length) : 0;
+    const activeDays = dailyMap.size;
+    const avgPerDay = activeDays > 0 ? Math.round(cat.total / activeDays) : 0;
+    const maxTx = catTx.reduce((max, t) => (t.amount > max.amount ? t : max), catTx[0] ?? { amount: 0, description: '', date: '' });
+    const maxDay = Array.from(dailyMap.entries()).reduce(
+      (max, [day, v]) => (v.total > max.total ? { day, total: v.total } : max),
+      { day: 0, total: 0 }
+    );
+
+    // Peak hour pattern
+    const hourMap = new Map<number, number>();
+    for (const tx of catTx) {
+      const h = parseInt(
+        new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }).format(new Date(tx.date)),
+        10
+      ) % 24;
+      hourMap.set(h, (hourMap.get(h) ?? 0) + 1);
+    }
+    const peakHour = Array.from(hourMap.entries()).reduce(
+      (max, [h, count]) => (count > max.count ? { hour: h, count } : max),
+      { hour: 0, count: 0 }
+    );
+
+    const primaryColor = cat.color || '#6366f1';
+
+    return (
+      <div className="space-y-4">
+        {/* Breadcrumb + back */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Kategori
+          </button>
+          <ChevronLeft className="h-3 w-3 text-muted-foreground/50" />
+          <span className="text-xs font-medium text-foreground">{cat.emoji} {cat.name}</span>
+        </div>
+
+        {/* Month picker */}
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px] h-9">
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {monthOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Hero number */}
+        <Card className="overflow-hidden anim-stagger contain-card">
+          <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-5 sm:px-6">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl">{cat.emoji}</span>
+              <p className="text-sm font-semibold">{cat.name}</p>
+              <span className="text-xs text-muted-foreground">· {monthLabel(selectedMonth)}</span>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              <CountUpRupiah amount={cat.total} />
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              <CountUpNumber value={catTx.length} /> transaksi · {activeDays} hari aktif · {cat.percentage}% dari total
+            </p>
+          </div>
+        </Card>
+
+        {/* Combination chart: bars (daily) + line (cumulative) */}
+        <Card className="overflow-hidden anim-stagger contain-card">
+          <div className="px-4 py-3 sm:px-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                Grafik Harian
+              </h3>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: primaryColor }} />
+                  Harian
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-4 h-0.5" style={{ backgroundColor: '#7C6CFF' }} />
+                  Kumulatif
+                </span>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => compactRupiahSafe(v)} />
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                  formatter={(value: number, name: string) => [
+                    formatRupiah(value),
+                    name === 'total' ? 'Harian' : name === 'cumulative' ? 'Kumulatif' : name,
+                  ]}
+                  labelFormatter={(label: string) => `Tgl ${label}`}
+                />
+                <Bar dataKey="total" fill={primaryColor} radius={[3, 3, 0, 0]} maxBarSize={20} />
+                <Line
+                  type="monotone"
+                  dataKey="cumulative"
+                  stroke="#7C6CFF"
+                  strokeWidth={2}
+                  dot={false}
+                  yAxisId={0}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Card className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Rata²/tx</p>
+            <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(avgPerTx)}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Rata²/hari</p>
+            <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(avgPerDay)}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Tertinggi</p>
+            <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(maxTx.amount)}</p>
+          </Card>
+          <Card className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Hari max</p>
+            <p className="text-sm font-bold tabular-nums mt-0.5">{maxDay.day > 0 ? `Tgl ${maxDay.day}` : '—'}</p>
+          </Card>
+        </div>
+
+        {/* Pattern insights */}
+        {peakHour.count > 0 && (
+          <Card className="p-3 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              Paling sering beli jam{' '}
+              <span className="font-semibold text-foreground">
+                {String(peakHour.hour).padStart(2, '0')}:00
+              </span>{' '}
+              ({peakHour.count}×)
+            </p>
+          </Card>
+        )}
+
+        {/* Transaction list */}
+        <Card className="overflow-hidden">
+          <div className="px-4 py-2.5 sm:px-6 border-b border-border">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+              Rincian Transaksi
+            </h3>
+          </div>
+          <div className="max-h-96 overflow-y-auto custom-scrollbar cv-auto">
+            {catTx.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Belum ada transaksi {cat.emoji} {cat.name} di {monthLabel(selectedMonth)}
+              </p>
+            ) : (
+              catTx.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center gap-3 px-4 py-2 sm:px-6 border-b border-border/40 last:border-b-0"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {tx.description || tx.category}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatDateShort(jakartaDateKey(new Date(tx.date)))} · {formatTxTime(tx.date)} · {tx.source}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums shrink-0 text-red-500">
+                    −{compactRupiahSafe(tx.amount)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Category List View ────────────────────────────────────────────────
+
+  return (
+    <div className="space-y-4">
+      {/* Month picker */}
+      <div className="flex items-center justify-between gap-2">
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px] h-9">
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {monthOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="text-right">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</p>
+          <p className="text-sm font-bold tabular-nums">{isLoading ? '...' : formatRupiah(grandTotal)}</p>
+        </div>
+      </div>
+
+      {/* Category list */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-16 rounded-xl" />
+          ))}
+        </div>
+      ) : categoryTotals.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="text-3xl mb-2 anim-float-subtle">📊</div>
+          <p className="text-sm font-medium">Belum ada pengeluaran</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Catat transaksi untuk melihat breakdown per kategori
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {categoryTotals.map((cat, idx) => (
+            <button
+              key={cat.name}
+              onClick={() => setSelectedCategory(cat.name)}
+              className="w-full text-left anim-row-stagger group"
+              style={{ '--stagger-index': idx } as React.CSSProperties}
+            >
+              <Card className="overflow-hidden transition-all hover:shadow-md hover:border-primary/30 contain-card">
+                <div className="flex items-center gap-3 px-4 py-3">
+                  {/* Emoji */}
+                  <div
+                    className="flex items-center justify-center w-10 h-10 rounded-xl text-lg shrink-0"
+                    style={{ backgroundColor: `${cat.color}15` }}
+                  >
+                    {cat.emoji}
+                  </div>
+
+                  {/* Name + count */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{cat.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {cat.count} transaksi · {cat.percentage}% dari total
+                    </p>
+                  </div>
+
+                  {/* Total */}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold tabular-nums">{formatRupiah(cat.total)}</p>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="hidden sm:block w-20 shrink-0">
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${cat.percentage}%`,
+                          backgroundColor: cat.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile progress bar (full width below) */}
+                <div className="sm:hidden h-1 bg-muted">
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{
+                      width: `${cat.percentage}%`,
+                      backgroundColor: cat.color,
+                    }}
+                  />
+                </div>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
