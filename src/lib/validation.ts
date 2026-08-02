@@ -139,6 +139,7 @@ export const createGoalSchema = z.object({
   title: nonEmpty(200),
   description: optionalString(2000),
   deadline: z.coerce.date().nullish(),
+  // Goal progress is 0-100 (percentage). Max 100 is correct for goals.
   progress: z.number().int().min(0).max(100).optional(),
   priority: z.enum(['Low', 'Medium', 'High']).optional(),
   status: z.enum(['active', 'completed', 'paused']).optional(),
@@ -159,7 +160,10 @@ export const createChallengeSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().nullish(),
   status: z.enum(['active', 'completed', 'paused']).optional(),
-  progress: z.number().int().min(0).max(100).optional(),
+  // Challenge progress is a day-count (not percentage) — must match
+  // duration max (3650). Previously capped at 100, blocking challenges
+  // with duration > 100 from being completed.
+  progress: z.number().int().min(0).max(3650).optional(),
 });
 export type CreateChallengeInput = z.infer<typeof createChallengeSchema>;
 
@@ -215,9 +219,11 @@ export type UpdateRewardInput = z.infer<typeof updateRewardSchema>;
 export const createJournalSchema = z.object({
   date: z.coerce.date(),
   mood: z.number().int().min(1).max(5).optional(),
-  stress: z.number().int().min(1).max(5).optional(),
-  energy: z.number().int().min(1).max(5).optional(),
-  sleep: z.number().min(0).max(24).optional(),
+  // Use .nullish() (accepts null + undefined) — client sends null when
+  // field is empty. .optional() only accepts undefined, causing 400.
+  stress: z.number().int().min(1).max(5).nullish(),
+  energy: z.number().int().min(1).max(5).nullish(),
+  sleep: z.number().min(0).max(24).nullish(),
   reflection: optionalString(10000),
   winToday: optionalString(2000),
   lessonLearned: optionalString(2000),

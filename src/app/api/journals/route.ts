@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
         lessonLearned: lessonLearned || null,
         tomorrowPlan: tomorrowPlan || null,
       },
+      // Cast to any: Prisma SQLite nullable Int/Float types don't accept
+      // null in UpdateInput at the TS level (runtime handles it correctly).
       update: {
         ...(mood !== undefined && { mood }),
         ...(stress !== undefined && { stress }),
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
         ...(winToday !== undefined && { winToday }),
         ...(lessonLearned !== undefined && { lessonLearned }),
         ...(tomorrowPlan !== undefined && { tomorrowPlan }),
-      },
+      } as any,
     });
 
     return NextResponse.json(journal);
