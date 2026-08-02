@@ -729,8 +729,8 @@ export default function DailyTracker() {
           value={
             <span>
               <CountUpNumber value={bestStreak} />
-              <span className="text-sm font-medium text-muted-foreground ml-1">
-                {bestStreak === 1 ? 'day' : 'days'}
+              <span className="text-sm font-medium text-muted-foreground ml-1.5">
+                {bestStreak === 1 ? ' day' : ' days'}
               </span>
             </span>
           }
@@ -940,7 +940,7 @@ export default function DailyTracker() {
                     )}
                     <span
                       className={cn(
-                        'inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full',
+                        'inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full',
                         getBadgeClass(
                           categoryMap[habit.category]?.color || 'slate',
                         ),

@@ -48,9 +48,9 @@ const STATUS_CONFIG: Record<
 > = {
   locked: {
     label: 'Locked',
-    color: 'text-gray-600',
-    bg: 'bg-gray-50',
-    border: 'border-gray-200',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted',
+    border: 'border-border',
     icon: Lock,
   },
   unlocked: {
@@ -255,7 +255,7 @@ export default function Rewards() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Rewards</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Rewards</h2>
           <p className="text-sm text-muted-foreground">
             {rewards.length} reward{rewards.length !== 1 ? 's' : ''} &middot;{' '}
             {unlockedRewards.length} unlocked &middot; {redeemedRewards.length} redeemed
@@ -374,7 +374,7 @@ export default function Rewards() {
               return (
                 <Card
                   key={reward.id}
-                  className="group overflow-hidden border-primary/20 bg-white transition-shadow hover:shadow-md"
+                  className="group overflow-hidden border-primary/20 bg-card transition-shadow hover:shadow-md"
                 >
                   <CardContent className="p-5 space-y-3">
                     <div className="flex items-start gap-3">
@@ -458,14 +458,14 @@ export default function Rewards() {
               return (
                 <Card
                   key={reward.id}
-                  className="group relative overflow-hidden border-gray-100 opacity-75 transition-all hover:opacity-100 hover:shadow-md"
+                  className="group relative overflow-hidden border-border opacity-75 transition-all hover:opacity-100 hover:shadow-md"
                 >
                   <CardContent className="p-5 space-y-3">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-2xl relative">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-2xl relative">
                         🎁
-                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-gray-200/60">
-                          <Lock className="h-4 w-4 text-gray-500" />
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-muted/60">
+                          <Lock className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
@@ -498,7 +498,7 @@ export default function Rewards() {
                     )}
 
                     {reward.unlockCondition && (
-                      <p className="text-xs text-muted-foreground bg-gray-50 rounded-md px-2.5 py-1.5">
+                      <p className="text-xs text-muted-foreground bg-muted rounded-md px-2.5 py-1.5">
                         {reward.unlockCondition}
                       </p>
                     )}

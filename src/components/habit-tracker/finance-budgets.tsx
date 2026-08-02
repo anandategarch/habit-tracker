@@ -147,7 +147,7 @@ export default function FinanceBudgets({
                               <span className="flex items-center gap-1 truncate">
                                 {meta.emoji} {snap.category}
                                 {snap.rolloverIn > 0 && (
-                                  <span className="text-green-500 text-[10px]">(+{formatRupiah(snap.rolloverIn)})</span>
+                                  <span className="text-green-500 text-[11px]">(+{formatRupiah(snap.rolloverIn)})</span>
                                 )}
                               </span>
                               <span className={cn(
@@ -218,10 +218,10 @@ export default function FinanceBudgets({
                     </div>
                   </div>
                   <div className="flex gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditBudget(b)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onEditBudget(b)}>
                       <Edit3 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDeleteBudget(b.id)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-red-500 hover:text-red-600" onClick={() => onDeleteBudget(b.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

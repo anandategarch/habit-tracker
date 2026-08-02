@@ -206,7 +206,7 @@ export default function Badges() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Badges</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Badges</h2>
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-primary">{stats.unlocked}</span>
             <span className="text-muted-foreground">/ {stats.total} Unlocked</span>
@@ -326,7 +326,7 @@ export default function Badges() {
                 'group relative overflow-hidden transition-all hover:shadow-md',
                 badge.unlocked
                   ? 'border-primary/20 bg-card'
-                  : 'border-gray-100 opacity-60 hover:opacity-90'
+                  : 'border-border opacity-60 hover:opacity-90'
               )}
             >
               <CardContent className="p-4 flex flex-col items-center text-center space-y-3">
@@ -345,7 +345,7 @@ export default function Badges() {
                   {/* Lock overlay for locked badges */}
                   {!badge.unlocked && (
                     <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/50 backdrop-blur-[1px]">
-                      <Lock className="h-4 w-4 text-gray-500" />
+                      <Lock className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
                 </div>
