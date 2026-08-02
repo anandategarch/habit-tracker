@@ -527,7 +527,7 @@ export default function Dashboard() {
         </div>
         <CardContent className="p-5 relative z-10">
           {quoteLoading ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap gap-y-2">
               <Skeleton className="h-8 w-8 rounded-full" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-full" />
@@ -541,7 +541,7 @@ export default function Dashboard() {
       </Card>
 
       {/* ── Period Filter ──────────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap gap-y-2">
         <Calendar className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">Periode:</span>
         <PeriodFilter period={period} onPeriodChange={handlePeriodChange} />
@@ -589,7 +589,7 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
                   <Icon className={cn('h-4 w-4', card.iconColor, card.iconClass)} />
                 </div>
-                <div className="text-2xl font-bold">{card.value}</div>
+                <div className="tabular-nums text-xl sm:text-2xl font-bold">{card.value}</div>
                 {card.progress !== undefined && (
                   <div className="flex items-center gap-1 mt-2">
                     <Progress value={card.progress} className={cn('h-1.5 flex-1', card.progressColor)} />

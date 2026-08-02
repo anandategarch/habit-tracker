@@ -274,7 +274,7 @@ function KpiCard({
           {label}
         </span>
       </div>
-      <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+      <p className="text-xl font-bold tracking-tight tabular-nums">{value}</p>
       <p className="text-[11px] mt-0.5 text-muted-foreground">{sub}</p>
     </div>
   );

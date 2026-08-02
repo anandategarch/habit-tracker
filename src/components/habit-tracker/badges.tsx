@@ -395,7 +395,7 @@ export default function Badges() {
                 )}
 
                 {/* Actions (visible on hover) */}
-                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-full justify-center">
+                <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity w-full justify-center">
                   <Button
                     variant="outline"
                     size="sm"

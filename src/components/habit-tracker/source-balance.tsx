@@ -141,7 +141,7 @@ export default function SourceBalanceSection() {
           <div className="flex-1 space-y-4">
             <div>
               <p className="text-sm text-muted-foreground font-medium">Total Saldo</p>
-              <p className="text-3xl sm:text-4xl font-bold tracking-tight mt-1">
+              <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-1 break-words">
                 {formatRupiah(totalBalance)}
               </p>
             </div>

@@ -595,7 +595,7 @@ export default function Finance() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPrevMonth}><CalendarDays className="h-4 w-4" /></Button>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[170px] h-9"><SelectValue /></SelectTrigger>
             <SelectContent className="max-h-64">
               {monthOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}><span className="capitalize">{opt.label}</span></SelectItem>))}
             </SelectContent>
@@ -615,12 +615,12 @@ export default function Finance() {
 
       {/* Sub Tabs */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm"><BarChart3 className="h-3.5 w-3.5 mr-1" />Ringkasan</TabsTrigger>
-          <TabsTrigger value="transactions" className="text-xs sm:text-sm"><Wallet className="h-3.5 w-3.5 mr-1" />Transaksi</TabsTrigger>
-          <TabsTrigger value="budgets" className="text-xs sm:text-sm"><Target className="h-3.5 w-3.5 mr-1" />Budget</TabsTrigger>
-          <TabsTrigger value="explorer" className="text-xs sm:text-sm"><Compass className="h-3.5 w-3.5 mr-1" />Explorer</TabsTrigger>
-          <TabsTrigger value="categories" className="text-xs sm:text-sm"><PieChart className="h-3.5 w-3.5 mr-1" />Kategori</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto scrollbar-hide">
+          <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><BarChart3 className="h-3.5 w-3.5 mr-1" />Ringkasan</TabsTrigger>
+          <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><Wallet className="h-3.5 w-3.5 mr-1" />Transaksi</TabsTrigger>
+          <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><Target className="h-3.5 w-3.5 mr-1" />Budget</TabsTrigger>
+          <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><Compass className="h-3.5 w-3.5 mr-1" />Explorer</TabsTrigger>
+          <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><PieChart className="h-3.5 w-3.5 mr-1" />Kategori</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -753,7 +753,7 @@ export default function Finance() {
                     <span className="text-lg">{cat.emoji}</span>
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
                     {cat.trackLastDone && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
-                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                    <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
@@ -772,7 +772,7 @@ export default function Finance() {
                     <span className="text-lg">{cat.emoji}</span>
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
                     {cat.trackLastDone && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
-                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                    <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
@@ -831,7 +831,7 @@ export default function Finance() {
                     )}
                   </div>
                   {src.id && (
-                    <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                    <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSource(src)}><Edit3 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => setDeletingSource(src)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>

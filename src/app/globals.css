@@ -342,15 +342,18 @@
   color: oklch(0.708 0 0);
 }
 
-/* Total expense footer */
+/* Total expense footer — sits above mobile bottom nav (h-14 = 56px) */
 .tx-total-footer {
   position: sticky;
-  bottom: 0;
+  bottom: 3.5rem; /* clear bottom nav on mobile */
   z-index: 5;
   padding: 0.75rem 1rem;
   background: oklch(1 0 0);
   border-top: 1px solid oklch(0.91 0.005 120);
   backdrop-filter: blur(8px);
+}
+@media (min-width: 768px) {
+  .tx-total-footer { bottom: 0; } /* no bottom nav on desktop */
 }
 .dark .tx-total-footer {
   background: oklch(0.205 0 0);
