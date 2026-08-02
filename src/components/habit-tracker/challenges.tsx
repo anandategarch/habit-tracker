@@ -258,11 +258,20 @@ export default function Challenges() {
       const res = await fetch(`/api/challenges/${challenge.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ progress: newProgress }),
+        body: JSON.stringify({
+          progress: newProgress,
+          // Auto-complete when progress reaches duration
+          ...(newProgress >= challenge.duration && { status: 'completed' }),
+        }),
       });
       if (!res.ok) throw new Error('Failed to update');
       queryClient.setQueryData<Challenge[]>(['challenges', refreshKey], (prev) =>
-        prev?.map((c) => (c.id === challenge.id ? { ...c, progress: newProgress } : c)) ?? []
+        prev?.map((c) => (c.id === challenge.id ? {
+          ...c,
+          progress: newProgress,
+          // Update status in cache so challenge moves to Past section
+          status: newProgress >= c.duration ? 'completed' : c.status,
+        } : c)) ?? []
       );
 
       if (newProgress >= challenge.duration) {

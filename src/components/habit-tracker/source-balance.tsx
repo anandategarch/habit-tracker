@@ -64,7 +64,12 @@ export default function SourceBalanceSection() {
   const { data: todayTx = [] } = useQuery<Transaction[]>({
     queryKey: ['finance', 'transactions-today', today],
     queryFn: async () => {
-      const res = await fetch(`/api/finance/transactions?startDate=${today}&endDate=${today}`);
+      // Send full ISO datetime strings (not date-only) to avoid UTC midnight
+      // truncation. Previously sent "2026-08-01" which API parsed as UTC
+      // midnight → transactions after midnight excluded.
+      const startDate = `${today}T00:00:00+07:00`;
+      const endDate = `${today}T23:59:59+07:00`;
+      const res = await fetch(`/api/finance/transactions?startDate=${startDate}&endDate=${endDate}`);
       if (!res.ok) return [];
       return res.json();
     },

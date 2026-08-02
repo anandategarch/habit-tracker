@@ -906,7 +906,7 @@ export default function DailyRecap() {
   }
 
   return (
-    <Card className="overflow-hidden anim-stagger anim-data-enter">
+    <Card className="overflow-hidden anim-stagger contain-card">
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
       <div className="relative bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
         {/* Top row: label + date + budget ring */}

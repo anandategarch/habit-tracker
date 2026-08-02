@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { format } from 'date-fns';
+import { jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
 
 // ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -21,15 +22,22 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month') || format(jakartaToday(), 'yyyy-MM');
 
     const [year, mon] = month.split('-').map(Number);
+    // Fetch with 7h buffer to catch Jakarta timezone-boundary transactions.
     const startOfMonth = new Date(year, mon - 1, 1);
     const endOfMonth = new Date(year, mon, 0, 23, 59, 59, 999);
+    const fetchStart = new Date(startOfMonth.getTime() - 7 * 60 * 60 * 1000);
+    const fetchEnd = new Date(endOfMonth.getTime() + 7 * 60 * 60 * 1000);
 
     // All transactions for the month (resilient — won't crash on schema mismatch)
     let transactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];
     try {
-      transactions = await db.transaction.findMany({
-        where: { date: { gte: startOfMonth, lte: endOfMonth } },
+      const allFetched = await db.transaction.findMany({
+        where: { date: { gte: fetchStart, lte: fetchEnd } },
       });
+      // Post-query filter by Jakarta month for exact match
+      transactions = allFetched.filter(
+        (t) => jakartaDateKey(t.date).slice(0, 7) === month
+      );
     } catch (e) { console.error('Finance dashboard: transactions query failed:', e); }
 
     const totalIncome = transactions
@@ -91,13 +99,18 @@ export async function GET(request: NextRequest) {
     const [prevYear, prevMon] = prevMonth.split('-').map(Number);
     const prevStart = new Date(prevYear, prevMon - 1, 1);
     const prevEnd = new Date(prevYear, prevMon, 0, 23, 59, 59, 999);
+    const prevFetchStart = new Date(prevStart.getTime() - 7 * 60 * 60 * 1000);
+    const prevFetchEnd = new Date(prevEnd.getTime() + 7 * 60 * 60 * 1000);
 
     // Previous month transactions (resilient)
     let prevTransactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];
     try {
-      prevTransactions = await db.transaction.findMany({
-        where: { date: { gte: prevStart, lte: prevEnd } },
+      const allPrevFetched = await db.transaction.findMany({
+        where: { date: { gte: prevFetchStart, lte: prevFetchEnd } },
       });
+      prevTransactions = allPrevFetched.filter(
+        (t) => jakartaDateKey(t.date).slice(0, 7) === prevMonth
+      );
     } catch (e) { console.error('Finance dashboard: prevTransactions query failed:', e); }
 
     const prevIncome = prevTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);

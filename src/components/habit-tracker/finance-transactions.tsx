@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit3, Search, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { jakartaDateString } from '@/lib/timezone';
 import { formatRupiah, capitalize } from './finance-types';
 import type { Transaction } from './finance-types';
 
@@ -56,7 +57,7 @@ export default function FinanceTransactions({
   const [multiSelect, setMultiSelect] = useState(false);
 
   // Calculate today's total expense
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jakartaDateString();
   const todayExpense = filteredTransactions
     .filter(t => t.date.slice(0, 10) === today && t.type === 'expense')
     .reduce((s, t) => s + t.amount, 0);
