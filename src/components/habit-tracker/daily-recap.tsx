@@ -148,13 +148,19 @@ function formatHourLabel(h: number): string {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
-/** Format a YYYY-MM-DD date as "DD-Www" (e.g. "31-Mon", "30-Sun") for chart axis labels. */
+/** Format a YYYY-MM-DD date as "DD-Www" (e.g. "31-Mon", "30-Sun") for chart axis labels.
+ *  Uses Intl.DateTimeFormat with explicit timezone to ensure consistent
+ *  weekday calculation regardless of the server/browser timezone. */
 function formatDayMonthLabel(d: string): string {
   const [y, m, day] = d.split('-');
-  const date = new Date(Number(y), Number(m) - 1, Number(day));
-  const dayNum = date.getDate();
-  // 3-letter weekday, first letter uppercase, locale-independent (en-US)
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+  // Construct a UTC date from the YMD components, then format with
+  // en-US locale to get the English weekday abbreviation.
+  const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(day)));
+  const dayNum = date.getUTCDate();
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    weekday: 'short',
+  }).format(date);
   return `${dayNum}-${weekday}`;
 }
 

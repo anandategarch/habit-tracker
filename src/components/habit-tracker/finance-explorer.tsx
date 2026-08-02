@@ -535,6 +535,7 @@ export default function FinanceExplorer({
                 <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={48} />
                 <RechartsTooltip
                   formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
+                  labelFormatter={(label: string) => label || ''}
                   contentStyle={{ borderRadius: '12px', fontSize: '11px', backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}
                   cursor={{ fill: `${primaryColor}10` }}
                 />

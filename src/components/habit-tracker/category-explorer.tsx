@@ -220,10 +220,14 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
       // without month context — confusing when switching between months.
       const dateObj = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]) - 1, d);
       const dayLabel = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+      // XAxis label: show "DD Mon" for tick days (every 5), empty otherwise.
+      // Previously just showed bare day numbers (1, 5, 10...) without month —
+      // user couldn't tell which month they're looking at.
+      const axisLabel = d % 5 === 0 || d === 1 ? dayLabel : '';
       chartData.push({
         day: d,
         date: dateStr,
-        label: d % 5 === 0 || d === 1 ? String(d) : '',
+        label: axisLabel,
         dateLabel: dayLabel,
         total: data?.total ?? 0,
         count: data?.count ?? 0,
