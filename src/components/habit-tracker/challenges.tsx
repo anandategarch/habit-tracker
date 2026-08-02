@@ -482,7 +482,7 @@ export default function Challenges() {
             {activeChallenges.map((challenge) => {
               const info = getDaysInfo(challenge);
               const statusCfg = getStatusConfig(challenge.status);
-              const pct = Math.round((challenge.progress / challenge.duration) * 100);
+              const pct = challenge.duration > 0 ? Math.round((challenge.progress / challenge.duration) * 100) : 0;
 
               return (
                 <Card
@@ -611,7 +611,7 @@ export default function Challenges() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {pastChallenges.map((challenge) => {
               const statusCfg = getStatusConfig(challenge.status as ChallengeStatus);
-              const pct = Math.round((challenge.progress / challenge.duration) * 100);
+              const pct = challenge.duration > 0 ? Math.round((challenge.progress / challenge.duration) * 100) : 0;
 
               return (
                 <Card

@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/jakarta-date';
+import { jakartaDateKey } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
@@ -511,8 +512,8 @@ export default function JournalTab() {
 
   function renderEntryCard(entry: Journal) {
     const isExpanded = expandedId === entry.id;
-    const formattedDate = format(new Date(entry.date + 'T00:00:00'), 'EEEE, MMM d, yyyy');
-    const isToday = entry.date === jakartaDateString();
+    const formattedDate = format(new Date(entry.date), 'EEEE, MMM d, yyyy');
+    const isToday = jakartaDateKey(new Date(entry.date)) === jakartaDateString();
 
     return (
       <Card
@@ -741,7 +742,7 @@ export default function JournalTab() {
               Are you sure you want to delete the journal entry for{' '}
               <span className="font-medium text-foreground">
                 {deleteTarget
-                  ? format(new Date(deleteTarget.date + 'T00:00:00'), 'MMMM d, yyyy')
+                  ? format(new Date(deleteTarget.date), 'MMMM d, yyyy')
                   : ''}
               </span>
               ? This action cannot be undone.

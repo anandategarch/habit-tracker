@@ -217,27 +217,21 @@ function ProgressRing({
 }
 
 function MoodEmoji({ mood }: { mood: string }) {
-  const map: Record<string, string> = {
-    great: '😊',
-    good: '🙂',
-    okay: '😐',
-    bad: '😔',
-    terrible: '😢',
+  // API returns moodAverage as a numeric string (e.g. "3.0", "4.5").
+  // Map numeric value to emoji — previously looked up mood WORDS
+  // (great/good/okay/bad/terrible) which never matched, always showing 😐.
+  const num = Number(mood);
+  const rounded = isNaN(num) ? 3 : Math.round(num);
+  const emojiMap: Record<number, string> = {
+    1: '😢', 2: '😔', 3: '😐', 4: '🙂', 5: '😊',
   };
-  // Guard against null/undefined `moodAverage` from the API — previously
-  // crashed on `mood.toLowerCase()` when the dashboard was rendered for a
-  // new user with no daily logs (the API returns `moodAverage: null`).
-  const key = (mood ?? '').toLowerCase();
-  const emoji = map[key] || '😐';
-  const colorMap: Record<string, string> = {
-    great: 'text-primary',
-    good: 'text-green-400',
-    okay: 'text-yellow-500',
-    bad: 'text-orange-500',
-    terrible: 'text-red-500',
+  const emoji = emojiMap[rounded] || '😐';
+  const colorMap: Record<number, string> = {
+    1: 'text-red-500', 2: 'text-orange-500', 3: 'text-yellow-500',
+    4: 'text-emerald-500', 5: 'text-emerald-500',
   };
   return (
-    <span className={cn('text-2xl', colorMap[key] || 'text-muted-foreground')}>
+    <span className={cn('text-2xl', colorMap[rounded] || 'text-muted-foreground')}>
       {emoji}
     </span>
   );
@@ -462,6 +456,7 @@ export default function Dashboard() {
       case '7d': return '7 Hari';
       case '1m': return '30 Hari';
       case '3m': return '90 Hari';
+      case 'all': return 'Semua';
       default: return '30 Hari';
     }
   }, [period]);
@@ -713,7 +708,9 @@ export default function Dashboard() {
                               style={{
                                 height: `${Math.max(4, (wt.minutes / 1440) * 100)}%`,
                                 minHeight: '4px',
-                                backgroundColor: th.targetTime && wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : '#ef4444',
+                                backgroundColor: th.targetTime
+                                  ? (wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : '#ef4444')
+                                  : primaryColor,
                                 opacity: wt.minutes !== null ? 1 : 0.2,
                               }}
                               title={`${wt.day}: ${wt.time}`}
