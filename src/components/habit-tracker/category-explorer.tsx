@@ -168,9 +168,25 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
   // ── Category Detail View ──────────────────────────────────────────────
 
   if (selectedCategory) {
+    // When month changes, transactions briefly become [] during refetch.
+    // Without this guard, categoryTotals is [] → cat not found → user
+    // bounces back to list view even if category exists in new month.
+    if (isLoading) {
+      return (
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-[120px] rounded-xl" />
+          <Skeleton className="h-[260px] rounded-xl" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+          </div>
+        </div>
+      );
+    }
+
     const cat = categoryTotals.find((c) => c.name === selectedCategory);
     if (!cat) {
-      // Category not found (e.g., month changed) — go back to list
+      // Category genuinely doesn't exist in this month — go back to list
       setSelectedCategory(null);
       return null;
     }
@@ -728,7 +744,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             </h3>
             <div className="space-y-1.5">
               {anomalies.slice(0, 3).map((a, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs">
+                <div key={a.tx.id || i} className="flex items-center gap-2 text-xs">
                   <span className="text-amber-500 shrink-0">⚠️</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">

@@ -267,9 +267,11 @@ export default function JournalTab() {
       const body: Record<string, unknown> = {
         date: form.date,
         mood: Number(form.mood),
-        stress: Number(form.stress) || null,
-        energy: Number(form.energy) || null,
-        sleep: Number(form.sleep) || null,
+        // Use ternary instead of || — `Number('0') || null` returns null
+        // because 0 is falsy. Sleep=0 is a valid value (slept 0 hours).
+        stress: form.stress ? Number(form.stress) : null,
+        energy: form.energy ? Number(form.energy) : null,
+        sleep: form.sleep !== '' ? Number(form.sleep) : null,
         reflection: form.reflection || null,
         winToday: form.winToday || null,
         lessonLearned: form.lessonLearned || null,
