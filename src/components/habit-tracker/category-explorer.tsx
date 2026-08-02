@@ -11,6 +11,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
+  ReferenceLine,
 } from 'recharts';
 import {
   ChevronLeft,
@@ -21,6 +22,7 @@ import {
   Receipt,
   Clock,
   Trophy,
+  Wallet,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -115,6 +117,22 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
       return res.json();
     },
     staleTime: 30_000,
+  });
+
+  // Fetch previous month for comparison (B4: vs Last Month)
+  const prevMonthStr = useMemo(() => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  }, [selectedMonth]);
+
+  const { data: prevTransactions = [] } = useQuery<Transaction[]>({
+    queryKey: ['finance', 'category-explorer', prevMonthStr],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/transactions?month=${prevMonthStr}&type=expense`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60_000,
   });
 
   // Group transactions by category for the list view
@@ -214,6 +232,59 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
       { hour: 0, count: 0 }
     );
 
+    // ── B4: vs Last Month comparison ──────────────────────────────────
+    const prevCatTx = prevTransactions.filter((t) => t.category === selectedCategory);
+    const prevTotal = prevCatTx.reduce((s, t) => s + (t.amount || 0), 0);
+    const vsLastMonthPct = prevTotal > 0
+      ? Math.round(((cat.total - prevTotal) / prevTotal) * 100)
+      : null;
+    const vsLastMonthDir = vsLastMonthPct === null ? 'unknown'
+      : vsLastMonthPct > 0 ? 'up'
+      : vsLastMonthPct < 0 ? 'down'
+      : 'same';
+
+    // ── A2: Time-of-day distribution ──────────────────────────────────
+    const timeOfDayMap = {
+      pagi: { label: '🌅 Pagi (5-12)', count: 0, total: 0, hours: '05:00-11:59' },
+      siang: { label: '☀️ Siang (12-17)', count: 0, total: 0, hours: '12:00-16:59' },
+      sore: { label: '🌆 Sore (17-22)', count: 0, total: 0, hours: '17:00-21:59' },
+      malam: { label: '🌙 Malam (22-5)', count: 0, total: 0, hours: '22:00-04:59' },
+    };
+    for (const tx of catTx) {
+      const h = parseInt(
+        new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }).format(new Date(tx.date)),
+        10
+      ) % 24;
+      if (h >= 5 && h < 12) { timeOfDayMap.pagi.count++; timeOfDayMap.pagi.total += tx.amount || 0; }
+      else if (h >= 12 && h < 17) { timeOfDayMap.siang.count++; timeOfDayMap.siang.total += tx.amount || 0; }
+      else if (h >= 17 && h < 22) { timeOfDayMap.sore.count++; timeOfDayMap.sore.total += tx.amount || 0; }
+      else { timeOfDayMap.malam.count++; timeOfDayMap.malam.total += tx.amount || 0; }
+    }
+    const maxTimeSlot = Math.max(
+      timeOfDayMap.pagi.count, timeOfDayMap.siang.count,
+      timeOfDayMap.sore.count, timeOfDayMap.malam.count, 1
+    );
+    const topTimeSlot = Object.entries(timeOfDayMap).reduce(
+      (max, [key, v]) => v.count > max.count ? { key, ...v } : max,
+      { key: '', label: '', count: 0, total: 0, hours: '' }
+    );
+
+    // ── C9: Source breakdown ──────────────────────────────────────────
+    const sourceMap = new Map<string, number>();
+    for (const tx of catTx) {
+      sourceMap.set(tx.source, (sourceMap.get(tx.source) ?? 0) + (tx.amount || 0));
+    }
+    const sourceList = Array.from(sourceMap.entries())
+      .map(([name, total]) => ({
+        name,
+        total,
+        percentage: cat.total > 0 ? Math.round((total / cat.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    // ── E15: Daily average for chart reference line ───────────────────
+    const dailyAverage = activeDays > 0 ? Math.round(cat.total / activeDays) : 0;
+
     const primaryColor = cat.color || '#6366f1';
 
     return (
@@ -258,6 +329,26 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <p className="text-xs text-muted-foreground mt-0.5">
               <CountUpNumber value={catTx.length} /> transaksi · {activeDays} hari aktif · {cat.percentage}% dari total
             </p>
+
+            {/* B4: vs Last Month comparison */}
+            {vsLastMonthPct !== null && (
+              <div className={cn(
+                'inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium',
+                vsLastMonthDir === 'up'
+                  ? 'bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400'
+                  : vsLastMonthDir === 'down'
+                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                  : 'bg-muted text-muted-foreground'
+              )}>
+                {vsLastMonthDir === 'up' && <TrendingUp className="h-3 w-3" />}
+                {vsLastMonthDir === 'down' && <TrendingDown className="h-3 w-3" />}
+                {vsLastMonthDir === 'same' && <Minus className="h-3 w-3" />}
+                <span>
+                  {vsLastMonthDir === 'same' ? 'Sama dengan' : `${Math.abs(vsLastMonthPct)}% ${vsLastMonthDir === 'up' ? 'naik' : 'turun'} dari`}
+                  {' '}bulan lalu ({compactRupiahSafe(prevTotal)})
+                </span>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -278,6 +369,12 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   <span className="w-4 h-0.5" style={{ backgroundColor: '#7C6CFF' }} />
                   Kumulatif
                 </span>
+                {dailyAverage > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="w-4 h-0 border-t-2 border-dashed" style={{ borderColor: '#f59e0b' }} />
+                    Rata²
+                  </span>
+                )}
               </div>
             </div>
             <ResponsiveContainer width="100%" height={220}>
@@ -299,6 +396,21 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   labelFormatter={(label: string) => `Tgl ${label}`}
                 />
                 <Bar dataKey="total" fill={primaryColor} radius={[3, 3, 0, 0]} maxBarSize={20} />
+                {/* E15: Average line — dashed reference showing daily average */}
+                {dailyAverage > 0 && (
+                  <ReferenceLine
+                    y={dailyAverage}
+                    stroke="#f59e0b"
+                    strokeWidth={1.5}
+                    strokeDasharray="5 3"
+                    label={{
+                      value: `Avg ${compactRupiahSafe(dailyAverage)}`,
+                      position: 'right',
+                      fill: '#f59e0b',
+                      fontSize: 9,
+                    }}
+                  />
+                )}
                 <Line
                   type="monotone"
                   dataKey="cumulative"
@@ -343,6 +455,75 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
               </span>{' '}
               ({peakHour.count}×)
             </p>
+          </Card>
+        )}
+
+        {/* A2: Time-of-day distribution */}
+        {catTx.length > 0 && (
+          <Card className="p-3">
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              Distribusi Waktu
+            </h3>
+            <div className="space-y-1.5">
+              {Object.entries(timeOfDayMap).map(([key, slot]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground w-28 shrink-0 truncate">{slot.label}</span>
+                  <div className="flex-1 h-4 bg-muted/30 rounded-sm overflow-hidden">
+                    <div
+                      className={cn(
+                        'h-full rounded-sm transition-all duration-500',
+                        key === topTimeSlot.key && slot.count > 0 && 'ring-1 ring-foreground/20'
+                      )}
+                      style={{
+                        width: `${(slot.count / maxTimeSlot) * 100}%`,
+                        backgroundColor: key === topTimeSlot.key ? primaryColor : `${primaryColor}60`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-medium tabular-nums shrink-0 w-12 text-right">
+                    {slot.count > 0 ? `${slot.count}×` : '—'}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-16 text-right hidden sm:block">
+                    {slot.total > 0 ? compactRupiahSafe(slot.total) : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {topTimeSlot.count > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-2">
+                💡 Dominan {topTimeSlot.label.toLowerCase()} — {topTimeSlot.count} dari {catTx.length} transaksi
+              </p>
+            )}
+          </Card>
+        )}
+
+        {/* C9: Source breakdown */}
+        {sourceList.length > 1 && (
+          <Card className="p-3">
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+              <Wallet className="h-3 w-3 text-muted-foreground" />
+              Sumber Dana
+            </h3>
+            <div className="space-y-1.5">
+              {sourceList.map((src) => (
+                <div key={src.name} className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground flex-1 truncate">{src.name}</span>
+                  <div className="w-20 h-2 bg-muted/30 rounded-full overflow-hidden shrink-0">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${src.percentage}%`, backgroundColor: primaryColor }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-medium tabular-nums shrink-0 w-16 text-right">
+                    {compactRupiahSafe(src.total)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-8 text-right">
+                    {src.percentage}%
+                  </span>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
 
