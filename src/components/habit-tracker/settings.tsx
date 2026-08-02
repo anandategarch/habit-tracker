@@ -266,6 +266,9 @@ export default function Settings() {
         const savedSettings = await res.json();
         sessionStorage.setItem('rutina_settings', JSON.stringify(savedSettings));
         queryClient.invalidateQueries({ queryKey: ['settings'] });
+        // Dispatch theme-change event so chart components (useThemeColor)
+        // re-read CSS variables immediately without waiting for window focus.
+        window.dispatchEvent(new CustomEvent('rutina:theme-change', { detail: savedSettings }));
       } else {
         toast.error('Failed to save settings');
       }

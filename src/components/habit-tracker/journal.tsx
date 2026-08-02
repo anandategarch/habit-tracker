@@ -276,11 +276,17 @@ export default function JournalTab() {
         tomorrowPlan: form.tomorrowPlan || null,
       };
 
-      const res = await fetch('/api/journals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const res = form.id
+        ? await fetch(`/api/journals/${form.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+        : await fetch('/api/journals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
 
       if (!res.ok) throw new Error('Failed to save journal');
 

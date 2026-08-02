@@ -402,7 +402,7 @@ export default function FinanceExplorer({
   const handleSplit = async () => {
     const target = budgetData?.suggestedTarget;
     if (!target) return;
-    const perWeek = Math.round((target * 4) / 4);
+    const perWeek = Math.round(target / 4);
     try {
       await Promise.all(
         [1, 2, 3, 4].map((w) =>

@@ -46,6 +46,8 @@ export default function ThemeProvider() {
         const parsed = JSON.parse(cached);
         applySettings(parsed);
         appliedRef.current = true;
+        // Notify chart components (useThemeColor) to re-read CSS variables
+        window.dispatchEvent(new CustomEvent('rutina:theme-change', { detail: parsed }));
       } catch {
         // ignore
       }
@@ -59,6 +61,8 @@ export default function ThemeProvider() {
         sessionStorage.setItem('rutina_settings', JSON.stringify(data));
         applySettings(data);
         appliedRef.current = true;
+        // Notify chart components (useThemeColor) to re-read CSS variables
+        window.dispatchEvent(new CustomEvent('rutina:theme-change', { detail: data }));
       })
       .catch(() => {
         // On fetch failure, at least apply dark mode preference from localStorage

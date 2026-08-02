@@ -603,7 +603,10 @@ export default function DailyTracker() {
 
   // ---- effects ----
   useEffect(() => {
-    if (habits.length === 0) return;
+    if (habits.length === 0) {
+      setLoading(false); // prevent stuck skeleton for users with no habits
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       setLoading(true);

@@ -31,7 +31,7 @@ export async function PUT(
         mood: parsed.data.mood ?? 3,
         energy: parsed.data.energy ?? 3,
         sleep: parsed.data.sleep ?? 7,
-        notes: body.notes || null,
+        notes: parsed.data.notes ?? null,
       },
       update: updateData,
     });

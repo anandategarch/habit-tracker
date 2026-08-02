@@ -133,6 +133,8 @@ export default function Badges() {
             : b
         ) ?? []
       );
+      // Refresh dashboard badge count (unlockedBadges/totalBadges KPI)
+      triggerRefresh();
     } catch {
       toast.error('Failed to update badge');
     }
@@ -144,6 +146,8 @@ export default function Badges() {
       if (!res.ok) throw new Error('Failed to delete');
       toast.success('Badge deleted');
       queryClient.setQueryData<BadgeItem[]>(['badges', refreshKey], (prev) => prev?.filter((b) => b.id !== badge.id) ?? []);
+      // Refresh dashboard badge count
+      triggerRefresh();
     } catch {
       toast.error('Failed to delete badge');
     }
