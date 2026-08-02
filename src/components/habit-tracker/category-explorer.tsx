@@ -285,6 +285,104 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
     // ── E15: Daily average for chart reference line ───────────────────
     const dailyAverage = activeDays > 0 ? Math.round(cat.total / activeDays) : 0;
 
+    // ── A1: Day-of-week breakdown ─────────────────────────────────────
+    const DOW_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const dowMap = new Array(7).fill(0).map(() => ({ total: 0, count: 0 }));
+    for (const tx of catTx) {
+      const dateKey = jakartaDateKey(new Date(tx.date));
+      const d = new Date(dateKey + 'T00:00:00Z');
+      const dow = d.getUTCDay();
+      dowMap[dow].total += tx.amount || 0;
+      dowMap[dow].count += 1;
+    }
+    const dowMaxTotal = Math.max(...dowMap.map((d) => d.total), 1);
+    const dowTop = dowMap.reduce<{ idx: number; total: number; count: number }>(
+      (max, d, i) => (d.total > max.total ? { idx: i, total: d.total, count: d.count } : max),
+      { idx: 0, total: 0, count: 0 }
+    );
+    const dowData = dowMap.map((d, i) => ({
+      day: DOW_NAMES[i],
+      total: d.total,
+      count: d.count,
+      pct: cat.total > 0 ? Math.round((d.total / cat.total) * 100) : 0,
+    }));
+
+    // ── C8: Amount distribution histogram ─────────────────────────────
+    const histogram = (() => {
+      if (catTx.length === 0) return [];
+      // Determine bucket boundaries from max tx
+      const max = Math.max(...catTx.map((t) => t.amount || 0), 1);
+      // Create 5 buckets: 0-20%, 20-40%, 40-60%, 60-80%, 80-100% of max
+      const bucketSize = max / 5;
+      const buckets = new Array(5).fill(0).map((_, i) => ({
+        range: `${compactRupiahSafe(Math.round(i * bucketSize))}-${compactRupiahSafe(Math.round((i + 1) * bucketSize))}`,
+        count: 0,
+        total: 0,
+      }));
+      for (const tx of catTx) {
+        const amt = tx.amount || 0;
+        let idx = Math.floor(amt / bucketSize);
+        if (idx >= 5) idx = 4; // clamp max into last bucket
+        if (idx < 0) idx = 0;
+        buckets[idx].count++;
+        buckets[idx].total += amt;
+      }
+      return buckets;
+    })();
+    const histMaxCount = Math.max(...histogram.map((b) => b.count), 1);
+    const dominantBucket = histogram.reduce<{ idx: number; range: string; count: number; total: number }>(
+      (max, b, i) => (b.count > max.count ? { idx: i, range: b.range, count: b.count, total: b.total } : max),
+      { idx: 0, range: '', count: 0, total: 0 }
+    );
+
+    // ── D11: Personality tag ──────────────────────────────────────────
+    const personalityTag = (() => {
+      if (catTx.length === 0) return null;
+      // Check weekend dominance
+      const weekendCount = dowMap[0].count + dowMap[6].count; // Sun + Sat
+      const weekendPct = catTx.length > 0 ? weekendCount / catTx.length : 0;
+      // Check morning dominance
+      const morningPct = catTx.length > 0 ? timeOfDayMap.pagi.count / catTx.length : 0;
+      // Check frequency (transactions per active day)
+      const freq = activeDays > 0 ? catTx.length / activeDays : 0;
+      // Check if high spender (>30% of grand total)
+      const isHighSpender = cat.percentage >= 30;
+
+      if (isHighSpender) {
+        return { tag: 'Heavy Spender', emoji: '💸', desc: '>30% dari total pengeluaran bulan ini' };
+      }
+      if (freq >= 1.5) {
+        return { tag: 'Daily Ritual', emoji: '🔄', desc: 'Rata-rata lebih dari 1× per hari aktif' };
+      }
+      if (weekendPct >= 0.5) {
+        return { tag: 'Weekend Splurger', emoji: '🎉', desc: `${Math.round(weekendPct * 100)}% transaksi di weekend` };
+      }
+      if (morningPct >= 0.7) {
+        return { tag: 'Morning Ritual', emoji: '🌅', desc: `${Math.round(morningPct * 100)}% transaksi di pagi hari` };
+      }
+      if (catTx.length < 4) {
+        return { tag: 'Occasional', emoji: '🍃', desc: 'Kurang dari 4× per bulan' };
+      }
+      return { tag: 'Steady Spender', emoji: '⚖️', desc: 'Pola spending yang konsisten' };
+    })();
+
+    // ── D12: Anomaly detection ────────────────────────────────────────
+    const anomalies = (() => {
+      if (catTx.length < 3) return []; // need at least 3 for meaningful average
+      const amounts = catTx.map((t) => t.amount || 0);
+      const mean = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+      const variance = amounts.reduce((s, v) => s + (v - mean) ** 2, 0) / amounts.length;
+      const sd = Math.sqrt(variance);
+      if (sd === 0) return [];
+      return catTx
+        .map((tx) => {
+          const z = (tx.amount - mean) / sd;
+          return { tx, zScore: Math.round(z * 100) / 100, mean: Math.round(mean) };
+        })
+        .filter((a) => a.zScore > 1.5) // 1.5σ above normal
+        .sort((a, b) => b.zScore - a.zScore);
+    })();
+
     const primaryColor = cat.color || '#6366f1';
 
     return (
@@ -521,6 +619,133 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-8 text-right">
                     {src.percentage}%
                   </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* D11: Personality tag */}
+        {personalityTag && (
+          <Card className="p-3 flex items-center gap-3 bg-primary/5">
+            <span className="text-2xl shrink-0">{personalityTag.emoji}</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-primary">{personalityTag.tag}</p>
+              <p className="text-[10px] text-muted-foreground">{personalityTag.desc}</p>
+            </div>
+          </Card>
+        )}
+
+        {/* A1: Day-of-week breakdown */}
+        {catTx.length > 0 && (
+          <Card className="p-3">
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+              <Calendar className="h-3 w-3 text-muted-foreground" />
+              Pola per Hari
+            </h3>
+            <div className="flex items-end justify-between gap-1.5 h-20">
+              {dowData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                  <span className="text-[9px] font-medium tabular-nums shrink-0">
+                    {d.total > 0 ? compactRupiahSafe(d.total) : ''}
+                  </span>
+                  <div className="w-full flex-1 flex items-end min-h-0">
+                    <div
+                      className={cn(
+                        'w-full rounded-t-sm transition-all duration-500',
+                        i === dowTop.idx && d.total > 0 && 'ring-1 ring-foreground/20'
+                      )}
+                      style={{
+                        height: d.total > 0 ? `${(d.total / dowMaxTotal) * 100}%` : '2px',
+                        minHeight: d.total > 0 ? '8px' : '2px',
+                        backgroundColor: i === dowTop.idx ? primaryColor : `${primaryColor}50`,
+                      }}
+                    />
+                  </div>
+                  <span className={cn(
+                    'text-[9px] shrink-0',
+                    i === dowTop.idx && d.total > 0 ? 'font-bold text-foreground' : 'text-muted-foreground'
+                  )}>
+                    {d.day}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {dowTop.total > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-2">
+                💡 Paling boros di hari {DOW_NAMES[dowTop.idx]} — {compactRupiahSafe(dowTop.total)} ({dowTop.count}×)
+              </p>
+            )}
+          </Card>
+        )}
+
+        {/* C8: Amount distribution histogram */}
+        {histogram.length > 0 && catTx.length >= 3 && (
+          <Card className="p-3">
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+              <Receipt className="h-3 w-3 text-muted-foreground" />
+              Distribusi Nominal
+            </h3>
+            <div className="flex items-end justify-between gap-2 h-20">
+              {histogram.map((b, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                  <span className="text-[9px] font-medium tabular-nums shrink-0">
+                    {b.count > 0 ? `${b.count}×` : ''}
+                  </span>
+                  <div className="w-full flex-1 flex items-end min-h-0">
+                    <div
+                      className={cn(
+                        'w-full rounded-t-sm transition-all duration-500',
+                        i === dominantBucket.idx && b.count > 0 && 'ring-1 ring-foreground/20'
+                      )}
+                      style={{
+                        height: b.count > 0 ? `${(b.count / histMaxCount) * 100}%` : '2px',
+                        minHeight: b.count > 0 ? '8px' : '2px',
+                        backgroundColor: i === dominantBucket.idx ? primaryColor : `${primaryColor}50`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[8px] text-muted-foreground text-center leading-tight shrink-0 truncate w-full">
+                    {b.range}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {dominantBucket.count > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-2">
+                💡 Mayoritas transaksi di range {dominantBucket.range} ({dominantBucket.count}×)
+              </p>
+            )}
+          </Card>
+        )}
+
+        {/* D12: Anomaly detection */}
+        {anomalies.length > 0 && (
+          <Card className="p-3 border-amber-200 dark:border-amber-900/50">
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+              <TrendingUp className="h-3 w-3" />
+              Anomali Terdeteksi
+            </h3>
+            <div className="space-y-1.5">
+              {anomalies.slice(0, 3).map((a, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="text-amber-500 shrink-0">⚠️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                      {a.tx.description || a.tx.category}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatDateShort(jakartaDateKey(new Date(a.tx.date)))} · {formatTxTime(a.tx.date)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold tabular-nums text-amber-600 dark:text-amber-400">
+                      {compactRupiahSafe(a.tx.amount)}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">
+                      {a.zScore}σ di atas rata-rata ({compactRupiahSafe(a.mean)})
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
