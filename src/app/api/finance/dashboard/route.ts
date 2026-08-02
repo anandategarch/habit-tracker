@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { format } from 'date-fns';
-import { jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
+import { jakartaDateKey, jakartaMonthString, jakartaNowParts } from '@/lib/timezone';
 
 // ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -19,7 +19,7 @@ function jakartaToday(): Date {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month') || format(jakartaToday(), 'yyyy-MM');
+    const month = searchParams.get('month') || jakartaMonthString();
 
     const [year, mon] = month.split('-').map(Number);
     // Fetch with 7h buffer to catch Jakarta timezone-boundary transactions.
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     transactions
       .filter(t => t.type === 'expense')
       .forEach(t => {
-        const day = format(new Date(t.date.getTime() + JAKARTA_OFFSET_MS), 'yyyy-MM-dd');
+        const day = jakartaDateKey(t.date);
         dailySpending[day] = (dailySpending[day] || 0) + t.amount;
       });
 
@@ -121,9 +121,10 @@ export async function GET(request: NextRequest) {
 
     // Average daily expense
     const daysInMonth = new Date(year, mon, 0).getDate();
-    const today = jakartaToday();
-    const currentDay = (today.getFullYear() === year && today.getMonth() + 1 === mon)
-      ? today.getDate()
+    // Use jakartaNowParts for TZ-independent day-of-month
+    const jp = jakartaNowParts();
+    const currentDay = (jp.year === year && jp.month === mon)
+      ? jp.day
       : daysInMonth;
     const avgDailyExpense = currentDay > 0 ? totalExpense / currentDay : 0;
 
