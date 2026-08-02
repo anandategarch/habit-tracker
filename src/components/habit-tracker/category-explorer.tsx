@@ -49,6 +49,7 @@ interface DailyData {
   day: number;
   date: string;
   label: string;
+  dateLabel: string; // full date for tooltip (e.g. "15 Jul")
   total: number;
   count: number;
   cumulative: number;
@@ -214,10 +215,16 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
       const data = dailyMap.get(d);
       cumulative += data?.total ?? 0;
       const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+      // Format label as "DD" for axis ticks (every 5 days), but full date
+      // for tooltip. Previously just showed bare day numbers (1, 5, 10...)
+      // without month context — confusing when switching between months.
+      const dateObj = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]) - 1, d);
+      const dayLabel = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
       chartData.push({
         day: d,
         date: dateStr,
         label: d % 5 === 0 || d === 1 ? String(d) : '',
+        dateLabel: dayLabel,
         total: data?.total ?? 0,
         count: data?.count ?? 0,
         cumulative,
@@ -494,8 +501,8 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => compactRupiahSafe(v)} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => compactRupiahSafe(v)} />
                 <RechartsTooltip
                   contentStyle={{
                     backgroundColor: 'var(--card)',
@@ -507,7 +514,11 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     formatRupiah(value),
                     name === 'total' ? 'Harian' : name === 'cumulative' ? 'Kumulatif' : name,
                   ]}
-                  labelFormatter={(label: string) => `Tgl ${label}`}
+                  labelFormatter={(_label: string, payload: any) => {
+                    // Use the full dateLabel from the data point for context
+                    const data = payload?.[0]?.payload;
+                    return data?.dateLabel || `Tgl ${_label}`;
+                  }}
                 />
                 <Bar dataKey="total" fill={primaryColor} radius={[3, 3, 0, 0]} maxBarSize={20} />
                 {/* E15: Average line — dashed reference showing daily average */}

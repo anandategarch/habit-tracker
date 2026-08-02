@@ -368,7 +368,7 @@ export default function TimeAnalysisDialog({
                             const m = v % 60;
                             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                           }}
-                          tick={{ fontSize: 10 }}
+                          tick={{ fontSize: 11 }}
                           tickLine={false}
                           axisLine={false}
                           width={45}
@@ -385,7 +385,7 @@ export default function TimeAnalysisDialog({
                             label={{
                               value: `Target ${data.habit.targetTime}`,
                               position: 'insideTopRight',
-                              fontSize: 10,
+                              fontSize: 11,
                               fill: primaryColor,
                             }}
                           />
