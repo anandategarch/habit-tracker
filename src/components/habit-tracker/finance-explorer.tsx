@@ -546,7 +546,7 @@ export default function FinanceExplorer({
               </BarChart>
             </ResponsiveContainer>
             )}
-            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik bar bulan untuk drill-down ke minggu →</p>
+            <p className="text-[11px] text-muted-foreground text-center mt-2">Klik bar bulan untuk drill-down ke minggu →</p>
           </div>
         )}
 
@@ -557,10 +557,10 @@ export default function FinanceExplorer({
               <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
               {budgetData && budgetData.suggestedTarget > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <button onClick={handleAutoSuggest} className="flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline" title="Set all weeks to suggested target">
+                  <button onClick={handleAutoSuggest} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Set all weeks to suggested target">
                     <Sparkles className="h-3 w-3" /> Auto
                   </button>
-                  <button onClick={handleSplit} className="flex items-center gap-0.5 text-[10px] font-medium text-primary hover:underline" title="Distribute evenly">
+                  <button onClick={handleSplit} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Distribute evenly">
                     <Copy className="h-3 w-3" /> Split
                   </button>
                 </div>
@@ -583,7 +583,7 @@ export default function FinanceExplorer({
                   >
                     {/* Value label */}
                     <div className="h-7 flex items-end justify-center shrink-0">
-                      <span className={cn('text-[10px] font-bold tabular-nums', isOver && 'text-red-500')}>{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
+                      <span className={cn('text-[11px] font-bold tabular-nums', isOver && 'text-red-500')}>{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
                     </div>
                     {/* Bar + target line */}
                     <div className="w-full flex-1 flex items-end min-h-0 relative">
@@ -612,11 +612,11 @@ export default function FinanceExplorer({
                     {/* Label + set target button */}
                     <div className="h-12 flex flex-col items-center justify-end shrink-0 gap-0.5">
                       <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
-                      <span className="text-[9px] text-muted-foreground">{w.dateRange}</span>
+                      <span className="text-[11px] text-muted-foreground">{w.dateRange}</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDialog(w.week); }}
                         className={cn(
-                          'flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-semibold transition-all',
+                          'flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all',
                           target > 0
                             ? isOver
                               ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
@@ -634,14 +634,14 @@ export default function FinanceExplorer({
             </div>
             {/* Legend */}
             <div className="flex items-center justify-center gap-4 mt-2">
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} /> Spent
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <span className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: '#8B5CF6' }} /> Target
               </span>
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-1">Klik minggu untuk drill-down ke hari · Klik target untuk edit →</p>
+            <p className="text-[11px] text-muted-foreground text-center mt-1">Klik minggu untuk drill-down ke hari · Klik target untuk edit →</p>
           </div>
         )}
 
@@ -666,7 +666,7 @@ export default function FinanceExplorer({
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="flex flex-col items-center w-10 shrink-0">
                           <span className="text-sm font-bold tabular-nums">{d.day}</span>
-                          <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.dayName.slice(0, 3)}</span>
+                          <span className="text-[11px] text-muted-foreground truncate w-full text-center">{d.dayName.slice(0, 3)}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-0.5">
@@ -687,7 +687,7 @@ export default function FinanceExplorer({
                 })}
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground text-center mt-2">Klik hari untuk lihat transaksi →</p>
+            <p className="text-[11px] text-muted-foreground text-center mt-2">Klik hari untuk lihat transaksi →</p>
           </div>
         )}
 
@@ -707,7 +707,7 @@ export default function FinanceExplorer({
                       <div className="fe-tx-logo">{meta.emoji}</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{tx.description || tx.category || 'Unknown'}</p>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                           <Clock className="h-2.5 w-2.5" />
                           {d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Unknown')}
                         </p>

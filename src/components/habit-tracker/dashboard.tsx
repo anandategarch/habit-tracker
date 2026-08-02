@@ -714,7 +714,7 @@ export default function Dashboard() {
                           ) : (
                             <div className="w-full rounded-sm bg-muted h-1" title={`${wt.day}: -`} />
                           )}
-                          <span className="text-[8px] text-muted-foreground leading-none">{wt.day.slice(0, 2)}</span>
+                          <span className="text-[11px] text-muted-foreground leading-none">{wt.day.slice(0, 2)}</span>
                         </div>
                       ))}
                     </div>

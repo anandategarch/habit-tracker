@@ -324,7 +324,7 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
           <div
             key={i}
             className={cn(
-              'flex-1 text-center text-[9px] tabular-nums leading-tight',
+              'flex-1 text-center text-[11px] tabular-nums leading-tight',
               d.isToday
                 ? 'font-bold text-[#7C6CFF]'
                 : 'text-muted-foreground'
@@ -407,7 +407,7 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
 
   if (!hasData) {
     return (
-      <div className="h-8 flex items-center justify-center text-[10px] text-muted-foreground italic">
+      <div className="h-8 flex items-center justify-center text-[11px] text-muted-foreground italic">
         Belum ada aktivitas
       </div>
     );
@@ -417,7 +417,7 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
     <div className="space-y-1">
       {/* Total spending label on top of the bars */}
       <div className="flex items-baseline justify-between">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</span>
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</span>
         <span className="text-xs font-bold tabular-nums text-foreground">{compactRupiahSafe(total)}</span>
       </div>
       <div className="flex items-end gap-[3px] h-10">
@@ -444,7 +444,7 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
           );
         })}
       </div>
-      <div className="flex justify-between text-[9px] text-muted-foreground px-0.5">
+      <div className="flex justify-between text-[11px] text-muted-foreground px-0.5">
         {HOUR_LABELS.map((h) => <span key={h}>{h}</span>)}
       </div>
     </div>
@@ -596,22 +596,22 @@ function CategoryInsightRow({ stats, pct, staggerIndex = 0 }: { stats: CategoryS
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
           <span className="text-sm shrink-0">{stats.emoji}</span>
           <span className="text-xs font-medium truncate">{stats.name}</span>
-          <span className="text-[10px] text-muted-foreground shrink-0">· {stats.todayCount}x</span>
-          <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">({pct}%)</span>
+          <span className="text-[11px] text-muted-foreground shrink-0">· {stats.todayCount}x</span>
+          <span className="text-[11px] text-muted-foreground/70 shrink-0 tabular-nums">({pct}%)</span>
         </div>
         <span className="text-xs font-bold tabular-nums shrink-0">
           {compactRupiahSafe(stats.todayAmount)}
         </span>
         <div className={cn('flex items-center gap-0.5 shrink-0 min-w-[60px] justify-end', deltaColorClass)}>
           <DeltaIcon className="h-3 w-3 shrink-0" />
-          <span className="text-[10px] font-medium tabular-nums">
+          <span className="text-[11px] font-medium tabular-nums">
             {isAtAvg ? 'at avg' : `${compactRupiahSafe(Math.abs(delta))}`}
           </span>
         </div>
       </div>
 
       {/* Row 2: mini-stats line — Max tx, Avg tx, Max/day, Avg/day */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[10px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[11px] text-muted-foreground">
         <span className="shrink-0">
           Max tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.maxTransaction)}</span>
         </span>
@@ -697,7 +697,7 @@ function StatTile({
         <Icon className="h-3 w-3" />
       </div>
       <div className="min-w-0">
-        <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+        <p className="text-[11px] sm:text-[11px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
         <p className={cn('text-xs sm:text-sm font-semibold truncate', valueClass)}>{value}</p>
       </div>
     </div>
@@ -787,7 +787,7 @@ export default function DailyRecap() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold">Gagal memuat rekap harian</p>
-            <p className="text-[10px] text-muted-foreground">Coba lagi dalam sejenak</p>
+            <p className="text-[11px] text-muted-foreground">Coba lagi dalam sejenak</p>
           </div>
           <Button
             variant="outline"
@@ -851,10 +851,10 @@ export default function DailyRecap() {
               >
                 <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={48}>
                   <div className="text-center">
-                    <p className="text-[9px] font-bold leading-none">{dailyBudget.percentage}%</p>
+                    <p className="text-[11px] font-bold leading-none">{dailyBudget.percentage}%</p>
                   </div>
                 </ProgressRing>
-                <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground text-center leading-tight">
+                <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground text-center leading-tight">
                   <span>dari {compactRupiahSafe(dailyBudget.target)}</span>
                   <Pencil className="h-2 w-2 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
                 </div>
@@ -869,7 +869,7 @@ export default function DailyRecap() {
                 <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
                   <Target className="h-4 w-4" />
                 </div>
-                <span className="text-[9px] text-muted-foreground group-hover:text-primary transition-colors">
+                <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
                   Set budget
                 </span>
               </button>
@@ -878,13 +878,13 @@ export default function DailyRecap() {
           <div className="text-center mt-3 pt-3 border-t border-border/40">
             <div className="text-2xl mb-1 anim-float-subtle">🌤️</div>
             <p className="text-xs font-medium">Belum ada aktivitas hari ini</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Catat transaksi pertama untuk mulai melacak insight harianmu
             </p>
             {patterns.personalityTag && (
               <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-background/60 backdrop-blur-sm border border-border/50">
                 <span className="text-xs">{patterns.personalityTag.emoji}</span>
-                <span className="text-[10px] font-medium">{patterns.personalityTag.tag}</span>
+                <span className="text-[11px] font-medium">{patterns.personalityTag.tag}</span>
               </div>
             )}
           </div>
@@ -915,7 +915,7 @@ export default function DailyRecap() {
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               <p className="text-xs text-muted-foreground font-medium">Hari Ini</p>
               {gamification.dailyBadge && (
-                <Badge variant="secondary" className="text-[10px] py-0 px-1.5 gap-0.5">
+                <Badge variant="secondary" className="text-[11px] py-0 px-1.5 gap-0.5">
                   <span>{gamification.dailyBadge.emoji}</span>
                   <span className="font-medium">{gamification.dailyBadge.name}</span>
                 </Badge>
@@ -943,10 +943,10 @@ export default function DailyRecap() {
             >
               <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={48}>
                 <div className="text-center">
-                  <p className="text-[9px] font-bold leading-none">{dailyBudget.percentage}%</p>
+                  <p className="text-[11px] font-bold leading-none">{dailyBudget.percentage}%</p>
                 </div>
               </ProgressRing>
-              <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground text-center leading-tight">
+              <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground text-center leading-tight">
                 <span>dari {compactRupiahSafe(dailyBudget.target)}</span>
                 <Pencil className="h-2 w-2 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
               </div>
@@ -961,7 +961,7 @@ export default function DailyRecap() {
               <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
                 <Target className="h-4 w-4" />
               </div>
-              <span className="text-[9px] text-muted-foreground group-hover:text-primary transition-colors">
+              <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
                 Set budget
               </span>
             </button>
@@ -1110,11 +1110,11 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-muted/30 p-2.5">
             <div className="flex items-center gap-1 mb-0.5">
               <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Proyeksi bulan</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Proyeksi bulan</span>
             </div>
             <p className="text-sm font-bold">{formatRupiah(predictions.monthEndProjection)}</p>
             {predictions.budgetETA && predictions.budgetETA.willExceed && (
-              <p className="text-[10px] text-red-500 mt-0.5">
+              <p className="text-[11px] text-red-500 mt-0.5">
                 ⚠️ Over {formatRupiah(predictions.budgetETA.projectedOver)}
               </p>
             )}
@@ -1122,11 +1122,11 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-muted/30 p-2.5">
             <div className="flex items-center gap-1 mb-0.5">
               <Zap className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Burn rate</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Burn rate</span>
             </div>
             <p className="text-sm font-bold">{formatRupiah(predictions.burnRate)}/hari</p>
             {predictions.smartCapTomorrow !== null && (
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-[11px] text-muted-foreground mt-0.5">
                 Sisa/hari {compactRupiahSafe(predictions.smartCapTomorrow)}
               </p>
             )}
@@ -1161,7 +1161,7 @@ export default function DailyRecap() {
           <div>
             <div className="flex items-center gap-1 mb-1">
               <Brain className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
             </div>
             <div className="rounded-lg bg-muted/20 px-2.5 py-0.5">
               {today.categoryStats.map((cat, idx) => {
@@ -1179,9 +1179,9 @@ export default function DailyRecap() {
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1">
               <Activity className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Aktivitas per jam</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Aktivitas per jam</span>
             </div>
-            <span className="text-[10px] text-muted-foreground">24 jam</span>
+            <span className="text-[11px] text-muted-foreground">24 jam</span>
           </div>
           <HourlyHeatmap hourly={today.hourlyBreakdown} />
         </div>
@@ -1251,7 +1251,7 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-muted/30 p-2.5">
             <div className="flex items-center gap-1 mb-0.5">
               <Activity className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Cash flow</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Cash flow</span>
             </div>
             <p className={cn(
               'text-sm font-bold',
@@ -1267,7 +1267,7 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-muted/30 p-2.5">
             <div className="flex items-center gap-1 mb-0.5">
               <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Savings rate</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Savings rate</span>
             </div>
             <p className={cn(
               'text-sm font-bold',
@@ -1285,7 +1285,7 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-2.5">
             <div className="flex items-center gap-1 mb-1">
               <AlertTriangle className="h-3 w-3 text-amber-500" />
-              <span className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wide font-medium">Anomali terdeteksi</span>
+              <span className="text-[11px] text-amber-700 dark:text-amber-400 uppercase tracking-wide font-medium">Anomali terdeteksi</span>
             </div>
             {patterns.categoryAnomaly.filter((c) => c.isAnomaly).map((c) => (
               <p key={c.category} className="text-xs text-amber-700 dark:text-amber-400">
@@ -1301,23 +1301,23 @@ export default function DailyRecap() {
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1">
                 <Clock className="h-3 w-3 text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Transaksi hari ini</span>
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Transaksi hari ini</span>
               </div>
               {today.transactionCount > today.transactions.length && (
-                <span className="text-[10px] text-muted-foreground">+{today.transactionCount - today.transactions.length} lainnya</span>
+                <span className="text-[11px] text-muted-foreground">+{today.transactionCount - today.transactions.length} lainnya</span>
               )}
             </div>
             <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar cv-auto">
               {today.transactions.map((tx) => (
                 <div key={tx.id} className="flex items-center gap-2 py-1 text-xs">
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-12">
+                  <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-12">
                     {formatTxTime(tx.date)}
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
                       {tx.description || tx.category}
                     </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
+                    <p className="text-[11px] text-muted-foreground truncate">
                       {tx.category} · {tx.source}
                     </p>
                   </div>

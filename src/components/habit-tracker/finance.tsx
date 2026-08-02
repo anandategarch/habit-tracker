@@ -752,7 +752,7 @@ export default function Finance() {
                   <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
                     <span className="text-lg">{cat.emoji}</span>
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
-                    {cat.trackLastDone && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
+                    {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -771,7 +771,7 @@ export default function Finance() {
                   <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
                     <span className="text-lg">{cat.emoji}</span>
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
-                    {cat.trackLastDone && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
+                    {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -794,7 +794,7 @@ export default function Finance() {
               <div><Label className="text-xs">Nama</Label><Input placeholder="Contoh: Makanan" value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} className="mt-1" /></div>
             </div>
             <div><Label className="text-xs">Warna</Label><Input type="color" value={catForm.color} onChange={e => setCatForm(f => ({ ...f, color: e.target.value }))} className="mt-1 h-10 w-16 cursor-pointer" /></div>
-            <div className="flex items-center gap-2"><input type="checkbox" id="trackLastDone" checked={catForm.trackLastDone} onChange={e => setCatForm(f => ({ ...f, trackLastDone: e.target.checked }))} className="rounded border-gray-300" /><Label htmlFor="trackLastDone" className="text-xs">Track terakhir transaksi</Label></div>
+            <div className="flex items-center gap-2"><input type="checkbox" id="trackLastDone" checked={catForm.trackLastDone} onChange={e => setCatForm(f => ({ ...f, trackLastDone: e.target.checked }))} className="rounded border-border" /><Label htmlFor="trackLastDone" className="text-xs">Track terakhir transaksi</Label></div>
             <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => setCatFormOpen(false)}>Batal</Button><Button className="flex-1" onClick={handleSubmitCat} disabled={submitting}>{submitting ? 'Menyimpan...' : editingCat ? 'Update' : 'Simpan'}</Button></div>
           </div>
         </DialogContent>

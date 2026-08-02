@@ -474,7 +474,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                 <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
                 Grafik Harian
               </h3>
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: primaryColor }} />
                   Harian
@@ -541,19 +541,19 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
         {/* Stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Card className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Rata²/tx</p>
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Rata²/tx</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(avgPerTx)}</p>
           </Card>
           <Card className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Rata²/hari</p>
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Rata²/hari</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(avgPerDay)}</p>
           </Card>
           <Card className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Tertinggi</p>
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Tertinggi</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(maxTx.amount)}</p>
           </Card>
           <Card className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Hari max</p>
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Hari max</p>
             <p className="text-sm font-bold tabular-nums mt-0.5">{maxDay.day > 0 ? `Tgl ${maxDay.day}` : '—'}</p>
           </Card>
         </div>
@@ -582,7 +582,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <div className="space-y-1.5">
               {Object.entries(timeOfDayMap).map(([key, slot]) => (
                 <div key={key} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-28 shrink-0 truncate">{slot.label}</span>
+                  <span className="text-[11px] text-muted-foreground w-28 shrink-0 truncate">{slot.label}</span>
                   <div className="flex-1 h-4 bg-muted/30 rounded-sm overflow-hidden">
                     <div
                       className={cn(
@@ -595,17 +595,17 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                       }}
                     />
                   </div>
-                  <span className="text-[10px] font-medium tabular-nums shrink-0 w-12 text-right">
+                  <span className="text-[11px] font-medium tabular-nums shrink-0 w-12 text-right">
                     {slot.count > 0 ? `${slot.count}×` : '—'}
                   </span>
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-16 text-right hidden sm:block">
+                  <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-16 text-right hidden sm:block">
                     {slot.total > 0 ? compactRupiahSafe(slot.total) : ''}
                   </span>
                 </div>
               ))}
             </div>
             {topTimeSlot.count > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-2">
+              <p className="text-[11px] text-muted-foreground mt-2">
                 💡 Dominan {topTimeSlot.label.toLowerCase()} — {topTimeSlot.count} dari {catTx.length} transaksi
               </p>
             )}
@@ -622,17 +622,17 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <div className="space-y-1.5">
               {sourceList.map((src) => (
                 <div key={src.name} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground flex-1 truncate">{src.name}</span>
+                  <span className="text-[11px] text-muted-foreground flex-1 truncate">{src.name}</span>
                   <div className="w-20 h-2 bg-muted/30 rounded-full overflow-hidden shrink-0">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${src.percentage}%`, backgroundColor: primaryColor }}
                     />
                   </div>
-                  <span className="text-[10px] font-medium tabular-nums shrink-0 w-16 text-right">
+                  <span className="text-[11px] font-medium tabular-nums shrink-0 w-16 text-right">
                     {compactRupiahSafe(src.total)}
                   </span>
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-8 text-right">
+                  <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-8 text-right">
                     {src.percentage}%
                   </span>
                 </div>
@@ -647,7 +647,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <span className="text-2xl shrink-0">{personalityTag.emoji}</span>
             <div className="min-w-0">
               <p className="text-xs font-bold text-primary">{personalityTag.tag}</p>
-              <p className="text-[10px] text-muted-foreground">{personalityTag.desc}</p>
+              <p className="text-[11px] text-muted-foreground">{personalityTag.desc}</p>
             </div>
           </Card>
         )}
@@ -662,7 +662,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <div className="flex items-end justify-between gap-1.5 h-20">
               {dowData.map((d, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <span className="text-[9px] font-medium tabular-nums shrink-0">
+                  <span className="text-[11px] font-medium tabular-nums shrink-0">
                     {d.total > 0 ? compactRupiahSafe(d.total) : ''}
                   </span>
                   <div className="w-full flex-1 flex items-end min-h-0">
@@ -679,7 +679,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     />
                   </div>
                   <span className={cn(
-                    'text-[9px] shrink-0',
+                    'text-[11px] shrink-0',
                     i === dowTop.idx && d.total > 0 ? 'font-bold text-foreground' : 'text-muted-foreground'
                   )}>
                     {d.day}
@@ -688,7 +688,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
               ))}
             </div>
             {dowTop.total > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-2">
+              <p className="text-[11px] text-muted-foreground mt-2">
                 💡 Paling boros di hari {DOW_NAMES[dowTop.idx]} — {compactRupiahSafe(dowTop.total)} ({dowTop.count}×)
               </p>
             )}
@@ -705,7 +705,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <div className="flex items-end justify-between gap-2 h-20">
               {histogram.map((b, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <span className="text-[9px] font-medium tabular-nums shrink-0">
+                  <span className="text-[11px] font-medium tabular-nums shrink-0">
                     {b.count > 0 ? `${b.count}×` : ''}
                   </span>
                   <div className="w-full flex-1 flex items-end min-h-0">
@@ -721,14 +721,14 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                       }}
                     />
                   </div>
-                  <span className="text-[8px] text-muted-foreground text-center leading-tight shrink-0 truncate w-full">
+                  <span className="text-[11px] text-muted-foreground text-center leading-tight shrink-0 truncate w-full">
                     {b.range}
                   </span>
                 </div>
               ))}
             </div>
             {dominantBucket.count > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-2">
+              <p className="text-[11px] text-muted-foreground mt-2">
                 💡 Mayoritas transaksi di range {dominantBucket.range} ({dominantBucket.count}×)
               </p>
             )}
@@ -750,7 +750,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     <p className="font-medium truncate">
                       {a.tx.description || a.tx.category}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {formatDateShort(jakartaDateKey(new Date(a.tx.date)))} · {formatTxTime(a.tx.date)}
                     </p>
                   </div>
@@ -758,7 +758,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     <p className="font-bold tabular-nums text-amber-600 dark:text-amber-400">
                       {compactRupiahSafe(a.tx.amount)}
                     </p>
-                    <p className="text-[9px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {a.zScore}σ di atas rata-rata ({compactRupiahSafe(a.mean)})
                     </p>
                   </div>
@@ -791,7 +791,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     <p className="text-xs font-medium truncate">
                       {tx.description || tx.category}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {formatDateShort(jakartaDateKey(new Date(tx.date)))} · {formatTxTime(tx.date)} · {tx.source}
                     </p>
                   </div>
@@ -825,7 +825,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
           </SelectContent>
         </Select>
         <div className="text-right">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</p>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</p>
           <p className="text-sm font-bold tabular-nums">{isLoading ? '...' : formatRupiah(grandTotal)}</p>
         </div>
       </div>
@@ -867,7 +867,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   {/* Name + count */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{cat.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {cat.count} transaksi · {cat.percentage}% dari total
                     </p>
                   </div>

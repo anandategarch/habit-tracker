@@ -1069,3 +1069,21 @@
 .contain-card {
   contain: layout style paint;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   TOUCH TARGET SAFETY — enforce minimum 44px on mobile
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* On touch devices, ensure all buttons have minimum 44×44px touch target.
+   This catches any button that slipped through the manual fixes. */
+@media (pointer: coarse) {
+  button[class*="h-7"], button[class*="h-6"], button[class*="h-4"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Icon-only buttons should still have 44px hit area even if visual is smaller */
+  button[size="icon"], button[class*="size-icon"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

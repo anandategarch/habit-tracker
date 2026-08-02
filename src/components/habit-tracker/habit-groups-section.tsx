@@ -147,10 +147,11 @@ export function HabitGroupsSection({
                     )}
                     <button
                       type="button"
-                      className="ml-0.5 h-4 w-4 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                      className="ml-0.5 h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
                       onClick={() => handleDeleteGroup(g.id)}
+                      aria-label={`Delete group ${g.name}`}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </button>
                   </span>
                 ))}

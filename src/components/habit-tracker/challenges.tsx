@@ -102,9 +102,9 @@ const STATUS_CONFIG: Record<
   },
   cancelled: {
     label: 'Cancelled',
-    color: 'text-gray-600',
-    bg: 'bg-gray-50',
-    border: 'border-gray-200',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted',
+    border: 'border-border',
   },
 };
 
@@ -356,7 +356,7 @@ export default function Challenges() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Challenges</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Challenges</h2>
           <p className="text-sm text-muted-foreground">
             {challenges.length} challenge{challenges.length !== 1 ? 's' : ''} &middot;{' '}
             {activeChallenges.length} active
@@ -487,7 +487,7 @@ export default function Challenges() {
               return (
                 <Card
                   key={challenge.id}
-                  className="group relative overflow-hidden border-primary/20 bg-white transition-shadow hover:shadow-md"
+                  className="group relative overflow-hidden border-primary/20 bg-card transition-shadow hover:shadow-md"
                 >
                   <CardContent className="p-5 space-y-4">
                     {/* Title Row */}
@@ -622,7 +622,7 @@ export default function Challenges() {
                       ? 'border-primary/20'
                       : challenge.status === 'failed'
                         ? 'border-red-100'
-                        : 'border-gray-100'
+                        : 'border-border'
                   )}
                 >
                   <CardContent className="p-5 space-y-3">
@@ -636,7 +636,7 @@ export default function Challenges() {
                                 ? 'text-primary'
                                 : challenge.status === 'failed'
                                   ? 'text-red-400'
-                                  : 'text-gray-400'
+                                  : 'text-muted-foreground'
                             )}
                           />
                           <h4 className="font-semibold text-sm leading-tight truncate">
