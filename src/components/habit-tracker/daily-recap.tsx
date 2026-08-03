@@ -1253,6 +1253,22 @@ export default function DailyRecap() {
         {/* Mixed tone: data-driven (numbers) + actionable (recommendations)
             + gamified (compliance %) + playful (confidence emoji) */}
         <div className="rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10 p-3 space-y-3">
+          {/* BUG-3 complete fix: when the user changes the category dropdown,
+              an optimistic update patches `projectionCategoryNames` +
+              `projectionIsFiltered` (so the dropdown updates instantly) and
+              `whatIfBase: 0` (so the slider hides). But the OTHER projection
+              fields (monthEndProjection, projectionBurnRate, projectionConfidence,
+              projectionFullProjection, topProjectedCategory, lastMonthAccuracy)
+              are STALE — they still reflect the old category basis until the
+              background refetch completes (300-800ms). Showing stale numbers
+              next to an updated dropdown is confusing ("I switched to Transport,
+              why does it still show Makanan's number?").
+
+              Fix: while `saveProjectionCategoriesMutation.isPending`, render
+              skeleton placeholders for the number + badges area. The dropdown
+              stays visible (optimistic on categoryNames). When refetch
+              completes, `isPending` flips to false and the real numbers
+              appear — consistent with the dropdown's selected category. */}
           {/* Header: proyeksi + confidence */}
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -1260,33 +1276,49 @@ export default function DailyRecap() {
                 <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">Proyeksi Akhir Bulan</span>
               </div>
-              <p className="text-lg font-bold tabular-nums">{formatRupiah(predictions.monthEndProjection)}</p>
-              <p className="text-[11px] text-muted-foreground">
-                rate {compactRupiahSafe(predictions.projectionBurnRate)}/hari
-                {/* "vs semua" comparison — only shown when the user has
-                    filtered to specific categories, so they can see how
-                    their selection compares to the all-categories projection. */}
-                {predictions.projectionIsFiltered && predictions.projectionFullProjection !== null && (
-                  <span className="ml-1.5 text-muted-foreground/70">
-                    · vs semua {compactRupiahSafe(predictions.projectionFullProjection)}
-                  </span>
-                )}
-              </p>
+              {saveProjectionCategoriesMutation.isPending ? (
+                <>
+                  <Skeleton className="h-6 w-36 rounded-md" />
+                  <Skeleton className="h-3 w-28 rounded-md mt-1" />
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-bold tabular-nums">{formatRupiah(predictions.monthEndProjection)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    rate {compactRupiahSafe(predictions.projectionBurnRate)}/hari
+                    {/* "vs semua" comparison — only shown when the user has
+                        filtered to specific categories, so they can see how
+                        their selection compares to the all-categories projection. */}
+                    {predictions.projectionIsFiltered && predictions.projectionFullProjection !== null && (
+                      <span className="ml-1.5 text-muted-foreground/70">
+                        · vs semua {compactRupiahSafe(predictions.projectionFullProjection)}
+                      </span>
+                    )}
+                  </p>
+                </>
+              )}
             </div>
             {/* Confidence badge + Accuracy badge (Fase 3) */}
             <div className="flex flex-col items-end gap-1 shrink-0">
-              {predictions.projectionConfidence && (
-                <div className={cn(
-                  'px-2 py-1 rounded-full text-[11px] font-medium border',
-                  predictions.projectionConfidence === 'high'
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900'
-                    : predictions.projectionConfidence === 'medium'
-                    ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
-                    : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
-                )}>
-                  {predictions.projectionConfidence === 'high' ? '🎯 Akurat' : predictions.projectionConfidence === 'medium' ? '⚖️ Cukup' : '🎲 Kasar'}
-                </div>
-              )}
+              {saveProjectionCategoriesMutation.isPending ? (
+                <>
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-3.5 w-20 rounded-full" />
+                </>
+              ) : (
+                <>
+                  {predictions.projectionConfidence && (
+                    <div className={cn(
+                      'px-2 py-1 rounded-full text-[11px] font-medium border',
+                      predictions.projectionConfidence === 'high'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900'
+                        : predictions.projectionConfidence === 'medium'
+                        ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
+                        : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
+                    )}>
+                      {predictions.projectionConfidence === 'high' ? '🎯 Akurat' : predictions.projectionConfidence === 'medium' ? '⚖️ Cukup' : '🎲 Kasar'}
+                    </div>
+                  )}
               {/* Accuracy badge (Fase 3) — shows how accurate last month's
                   projection was. tier: accurate (≤10% off), close (≤25%), off (>25%).
                   Only shown when lastMonthAccuracy is non-null (needs ≥3 days
@@ -1312,6 +1344,8 @@ export default function DailyRecap() {
                     </span>
                   )}
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>
@@ -1439,8 +1473,15 @@ export default function DailyRecap() {
             );
           })()}
 
-          {/* Budget compliance progress bar */}
-          {predictions.budgetCompliancePct !== null && dailyBudget && dailyBudget.target && (
+          {/* Budget compliance progress bar.
+              Audit fix: relaxed guard from `dailyBudget && dailyBudget.target`
+              to just `budgetCompliancePct !== null`. The API computes
+              budgetCompliancePct from BOTH daily budget AND weekly budgets
+              (whichever is set). Previously, users who only set weekly
+              budgets (no daily budget) never saw the compliance % even
+              though the server computed it every request. Now it shows
+              whenever there's any budget target (daily or weekly). */}
+          {predictions.budgetCompliancePct !== null && (
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] text-muted-foreground">Kemungkinan on budget</span>
@@ -1487,8 +1528,11 @@ export default function DailyRecap() {
             )}
           </div>
 
-          {/* Top projected category */}
-          {predictions.topProjectedCategory && (
+          {/* Top projected category — changes with the category filter, so
+              hide during the refetch window (stale value would be misleading).
+              The compliance bar / smart cap / countdown above are based on
+              OVERALL spending (not filtered), so they stay visible. */}
+          {!saveProjectionCategoriesMutation.isPending && predictions.topProjectedCategory && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/60">
               <span className="text-sm shrink-0">{predictions.topProjectedCategory.emoji}</span>
               <span className="text-[11px] text-muted-foreground">

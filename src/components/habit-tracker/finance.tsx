@@ -52,7 +52,7 @@ import {
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { jakartaDateKey } from '@/lib/timezone';
+import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 
@@ -337,8 +337,16 @@ export default function Finance() {
 
   const openNewTx = (type: 'income' | 'expense') => {
     setEditingTx(null);
-    const now = new Date();
-    setTxForm({ type, amount: '', category: '', description: '', date: format(now, 'yyyy-MM-dd'), time: format(now, 'HH:mm'), notes: '', source: 'Kas' });
+    // Audit fix: use Jakarta timezone for date + time prefill (was using
+    // date-fns `format(now, ...)` which uses the BROWSER's local TZ).
+    // On Vercel (UTC server) or for a traveler in Tokyo (UTC+9), the
+    // prefilled date/time would be wrong — e.g., a user in Tokyo opening
+    // the dialog at 14:30 local sees "14:30" prefilled, but the app is
+    // Jakarta-based so the transaction should be logged as 12:30 Jakarta.
+    // Now consistent with openEditTx() which already uses Jakarta TZ.
+    const p = jakartaNowParts();
+    const time = `${String(p.hours).padStart(2, '0')}:${String(p.minutes).padStart(2, '0')}`;
+    setTxForm({ type, amount: '', category: '', description: '', date: jakartaDateString(), time, notes: '', source: 'Kas' });
     setTxDialogOpen(true);
   };
 
@@ -371,10 +379,16 @@ export default function Finance() {
     if (!rawAmount || parseFloat(rawAmount) <= 0) { toast.error('Masukkan jumlah yang valid'); return; }
     if (!txForm.category) { toast.error('Pilih kategori'); return; }
     if (!txForm.date) { toast.error('Pilih tanggal'); return; }
-    // Combine date + time into full datetime string for accurate time storage
+    // Audit fix: parse date+time with explicit Jakarta offset (+07:00).
+    // Previously `new Date('2025-01-15T14:30:00')` (no offset) parsed as
+    // the BROWSER's local TZ — so a user in Tokyo (UTC+9) submitting "14:30"
+    // would store an epoch that corresponds to 12:30 Jakarta. Now the
+    // epoch always corresponds to the Jakarta wall-clock the user typed,
+    // regardless of their device timezone. Consistent with openNewTx/openEditTx
+    // which both prefill using Jakarta TZ.
     const fullDate = txForm.time
-      ? new Date(`${txForm.date}T${txForm.time}:00`)
-      : new Date(txForm.date);
+      ? new Date(`${txForm.date}T${txForm.time}:00+07:00`)
+      : new Date(`${txForm.date}T00:00:00+07:00`);
     const payload = { ...txForm, amount: rawAmount, date: fullDate.toISOString() };
     setSubmitting(true);
     try {

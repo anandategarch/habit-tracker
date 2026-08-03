@@ -300,8 +300,12 @@ export const updateSettingsSchema = z.object({
   // Array of expense category names to use as the basis for the Daily Recap
   // month-end projection. Empty array = use all expense categories (default).
   // The API serializes this to a JSON string before storing in the DB.
-  // Max 100 categories — sane upper bound (well above realistic usage).
-  projectionCategoryIds: z.array(z.string().min(1).max(100)).max(100).optional(),
+  // Max 1 category — the UI is a single-select dropdown (was multi-select
+  // chips in Fase 1 v1, but that caused lag + complexity). Tightening from
+  // .max(100) to .max(1) ensures the schema matches the UI: the client can
+  // never send more than 1 category, and legacy multi-category data gets
+  // rejected on the next PUT (which will overwrite with a single value).
+  projectionCategoryIds: z.array(z.string().min(1).max(100)).max(1).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

@@ -39,6 +39,13 @@ type SettingsBody = {
 // in the String column. We sort + dedupe the array for consistency so that
 // two PUTs with the same categories in different order don't cause spurious
 // invalidations / differ on the client.
+//
+// BUG-2 audit fix: truncate to AT MOST 1 category. The UI is a single-select
+// dropdown, and the daily-recap API also truncates to [0] when reading. If
+// we stored the full array here but only read [0] there, the DB would
+// contain stale multi-category data that never gets used but confuses
+// anyone inspecting the raw DB. Truncating here ensures the stored data
+// always matches what the daily-recap API actually uses.
 function buildData(body: SettingsBody) {
   const data: Record<string, unknown> = {};
   if (body.userName !== undefined) data.userName = body.userName;
@@ -51,7 +58,8 @@ function buildData(body: SettingsBody) {
   if (body.dailyBudgetTarget !== undefined) data.dailyBudgetTarget = body.dailyBudgetTarget;
   if (body.projectionCategoryIds !== undefined) {
     const deduped = Array.from(new Set(body.projectionCategoryIds)).sort();
-    data.projectionCategoryIds = JSON.stringify(deduped);
+    const truncated = deduped.length > 0 ? [deduped[0]] : [];
+    data.projectionCategoryIds = JSON.stringify(truncated);
   }
   return data;
 }
