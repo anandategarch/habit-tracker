@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { HelpInfoButton } from './help-calculation';
+import { useAppStore } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -797,6 +799,7 @@ function StatTile({
 
 export default function DailyRecap() {
   const queryClient = useQueryClient();
+  const openHelp = useAppStore((s) => s.openHelp);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   // What-if slider state: 0-50% spending reduction for the rest of the month.
@@ -1092,6 +1095,19 @@ export default function DailyRecap() {
     <Card className="overflow-hidden anim-stagger contain-card">
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
       <div className="relative bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
+        {/* Help button — top-right corner, opens the "Cara Hitung" modal.
+            Small + muted so it doesn't compete with the main content. */}
+        <button
+          type="button"
+          onClick={() => openHelp()}
+          className="absolute top-2 right-2 inline-flex items-center justify-center w-6 h-6 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors z-10"
+          aria-label="Bantuan perhitungan"
+          title="Cara hitung aplikasi"
+        >
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+            <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 3a5 5 0 110 10 5 5 0 010-10zm0 1.75a.85.85 0 00-.85.85v3.2a.85.85 0 001.7 0v-3.2A.85.85 0 008 4.75zm0 5.9a1 1 0 100 2 1 1 0 000-2z"/>
+          </svg>
+        </button>
         {/* Top row: label + date + budget ring */}
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
@@ -1314,6 +1330,7 @@ export default function DailyRecap() {
               <div className="flex items-center gap-1.5 mb-0.5">
                 <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">Proyeksi Akhir Bulan</span>
+                <HelpInfoButton section="proyeksi" label="Proyeksi" />
               </div>
               {saveProjectionCategoriesMutation.isPending ? (
                 <>
@@ -1627,6 +1644,7 @@ export default function DailyRecap() {
               <div className="flex items-center gap-1">
                 <Brain className="h-3 w-3 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
+                <HelpInfoButton section="insight" label="Insight per kategori" />
               </div>
               {/* Period tab switcher — 2 compact pill buttons.
                   Global state (all rows show same period). Default 'month'. */}
@@ -1674,8 +1692,9 @@ export default function DailyRecap() {
             <div className="flex items-center gap-1">
               <Activity className="h-3 w-3 text-muted-foreground" />
               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Aktivitas per jam</span>
+              <HelpInfoButton section="heatmap" label="Aktivitas per jam" />
             </div>
-            <span className="text-[11px] text-muted-foreground">24 jam</span>
+            <span className="text-[11px] text-muted-foreground">48×30menit</span>
           </div>
           <HourlyHeatmap hourly={today.hourlyBreakdown} />
         </div>
@@ -1746,6 +1765,7 @@ export default function DailyRecap() {
             <div className="flex items-center gap-1 mb-0.5">
               <Activity className="h-3 w-3 text-muted-foreground" />
               <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Cash flow</span>
+              <HelpInfoButton section="cashflow" label="Cash flow" />
             </div>
             <p className={cn(
               'text-sm font-bold',
