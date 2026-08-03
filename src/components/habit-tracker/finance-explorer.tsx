@@ -710,7 +710,7 @@ export default function FinanceExplorer({
                         <p className="text-sm font-medium truncate">{tx.description || tx.category || 'Unknown'}</p>
                         <p className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                           <Clock className="h-2.5 w-2.5" />
-                          {d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Unknown')}
+                          {d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Unknown')}
                         </p>
                       </div>
                       <span className="text-sm font-bold tabular-nums">{formatRupiah(tx.amount || 0)}</span>

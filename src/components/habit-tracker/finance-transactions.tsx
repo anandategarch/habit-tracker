@@ -62,11 +62,21 @@ export default function FinanceTransactions({
     .filter(t => jakartaDateKey(new Date(t.date)) === today && t.type === 'expense')
     .reduce((s, t) => s + (t.amount ?? 0), 0);
 
-  // Format time from transaction date
+  // Format time from transaction date.
+  // MUST use timeZone: 'Asia/Jakarta' explicitly — without it, toLocaleTimeString
+  // uses the runtime's default timezone (UTC on Vercel serverless, or the
+  // user's browser TZ locally). This caused the time shown here to disagree
+  // with the time shown in the Daily Recap's hourly heatmap + transactions
+  // list (which both use timeZone: 'Asia/Jakarta'). Same code path as
+  // daily-recap.tsx's formatTxTime() — keep them in sync.
   const formatTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleTimeString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
     } catch {
       return '';
     }
