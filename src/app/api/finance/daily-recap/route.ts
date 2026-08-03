@@ -137,6 +137,33 @@ interface DailyRecapResponse {
     // Used by the Daily Recap UI to render the toggle chips without a
     // separate fetch to /api/finance/categories.
     availableExpenseCategories: Array<{ name: string; emoji: string; color: string }>;
+    // ── What-if scenario support (Fase 3) ───────────────────────────
+    // Raw numbers needed for client-side what-if slider computation.
+    // The slider lets the user ask "if I cut spending by X% for the rest
+    // of the month, what's my new projection?". Computed client-side for
+    // instant feedback (no refetch on every slider drag).
+    //   whatIfBase = month-to-date spend of the CURRENT basis (filtered
+    //     or all — matches the projection number shown above).
+    //   whatIfDaysElapsed = day of month (1-31). Same as daysElapsed.
+    //   whatIfDaysRemaining = days STRICTLY AFTER today (not counting
+    //     today, since today's spend is already in whatIfBase).
+    // Formula: adjustedProjection = whatIfBase + (whatIfBase / whatIfDaysElapsed)
+    //          × (1 - reductionPct/100) × whatIfDaysRemaining
+    whatIfBase: number;
+    whatIfDaysElapsed: number;
+    whatIfDaysRemaining: number;
+    // ── Accuracy badge (Fase 3) ─────────────────────────────────────
+    // How accurate was last month's projection (computed at the same day
+    // of month as today)? Compares the projection that WOULD have been
+    // made on this day last month vs the actual total for last month.
+    // null if insufficient data (no last-month transactions, or
+    // daysElapsed < 7 → projection too volatile to be meaningful).
+    lastMonthAccuracy: {
+      projected: number; // what the projection was on this day last month
+      actual: number; // actual total spending for last month
+      deviationPct: number; // |projected - actual| / actual × 100
+      tier: 'accurate' | 'close' | 'off'; // ≤10% accurate, ≤25% close, else off
+    } | null;
   };
   alerts: Alert[];
   patterns: {
@@ -1088,6 +1115,99 @@ export async function GET() {
       }
     }
 
+    // ── What-if scenario raw numbers (Fase 3) ─────────────────────────
+    // Expose the month-to-date spend + day counts so the client can compute
+    // "if I cut spending by X% for the rest of the month" instantly via a
+    // slider, without a server round-trip on every drag.
+    //   whatIfBase = the CURRENT basis's month-to-date spend (filtered if
+    //     categories are selected, else all expense). Matches the number
+    //     the projection above is based on.
+    //   whatIfDaysElapsed = today's day of month (1-31). Same as daysElapsed.
+    //   whatIfDaysRemaining = daysInMonth - daysElapsed (strictly AFTER
+    //     today — today's spend is already in whatIfBase).
+    const whatIfBase = projectionIsFiltered ? projectionMonthExpenseSoFar : monthExpenseSoFar;
+    const whatIfDaysElapsed = daysElapsed;
+    const whatIfDaysRemaining = daysInMonth - daysElapsed;
+
+    // ── Last month accuracy badge (Fase 3) ────────────────────────────
+    // Compares the projection that WOULD have been made on this same day
+    // last month vs the ACTUAL total spending for last month. If the
+    // projection was within ±10%, the user gets a "Proyektor Andal" badge.
+    //
+    // We fetch last month's expense transactions separately (the main
+    // `allRecentTx` only covers 30 days, which may not include all of last
+    // month if today is late in the current month). Small payload — we
+    // only need amount + date + category per tx.
+    //
+    // Edge cases:
+    //   - daysElapsed < 3 → too few days for even a noisy projection,
+    //     don't show the badge. Return null.
+    //   - No last-month transactions → return null.
+    //   - If the user has filtered to specific categories, the accuracy is
+    //     computed on the FILTERED set (same basis as the current projection).
+    let lastMonthAccuracy: DailyRecapResponse['predictions']['lastMonthAccuracy'] = null;
+    if (daysElapsed >= 3) {
+      // Compute last month key (handles January → December rollover).
+      const lastMonthDate = new Date(yy, mm - 2, 1); // mm is 1-based; mm-2 = last month's Date
+      const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+      const daysInLastMonth = new Date(yy, mm - 1, 0).getDate();
+
+      // Fetch last month's expense transactions. Use a date range that
+      // covers the entire last month with a small buffer for timezone
+      // (Jakarta is UTC+7, so transactions on the 1st of last month between
+      // 00:00-06:59 Jakarta time have UTC epochs on the last day of the
+      // month before — we subtract 1 day from the start to catch those).
+      const lastMonthStart = new Date(yy, mm - 2, 1); // first day of last month (local)
+      const lastMonthStartEpoch = lastMonthStart.getTime() - 24 * 60 * 60 * 1000; // -1 day buffer
+      const lastMonthEnd = new Date(yy, mm - 1, 1); // first day of current month (local)
+      const lastMonthTxRaw = await db.transaction.findMany({
+        where: {
+          date: { gte: new Date(lastMonthStartEpoch), lt: lastMonthEnd },
+          type: 'expense',
+        },
+        select: { amount: true, date: true, category: true },
+      });
+      // Filter to last month by Jakarta date key (timezone-correct).
+      let lastMonthTx = lastMonthTxRaw.filter(
+        (t) => jakartaDateKey(t.date).slice(0, 7) === lastMonthKey
+      );
+      // If filtered, only count selected categories (same basis as current).
+      if (projectionIsFiltered) {
+        lastMonthTx = lastMonthTx.filter((t) => projectionCategorySet.has(t.category));
+      }
+
+      if (lastMonthTx.length > 0) {
+        // Last month's spend up to the SAME day of month as today.
+        // E.g., if today is Aug 15, we sum last month's (July) expenses
+        // from July 1 to July 15 (inclusive) — same cutoff as the current
+        // month's projection uses.
+        const lastMonthUpToSameDay = lastMonthTx
+          .filter((t) => {
+            const day = parseInt(jakartaDateKey(t.date).slice(8, 10), 10);
+            return day <= daysElapsed;
+          })
+          .reduce((s, t) => s + t.amount, 0);
+        const lastMonthActual = lastMonthTx.reduce((s, t) => s + t.amount, 0);
+
+        if (lastMonthActual > 0 && lastMonthUpToSameDay > 0) {
+          const lastMonthProjected = Math.round(
+            (lastMonthUpToSameDay / daysElapsed) * daysInLastMonth
+          );
+          const deviationPct = Math.round(
+            (Math.abs(lastMonthProjected - lastMonthActual) / lastMonthActual) * 100
+          );
+          const tier: 'accurate' | 'close' | 'off' =
+            deviationPct <= 10 ? 'accurate' : deviationPct <= 25 ? 'close' : 'off';
+          lastMonthAccuracy = {
+            projected: lastMonthProjected,
+            actual: lastMonthActual,
+            deviationPct,
+            tier,
+          };
+        }
+      }
+    }
+
     // ── Build response ───────────────────────────────────────────────
     const response: DailyRecapResponse = {
       date: todayStr,
@@ -1141,6 +1261,12 @@ export async function GET() {
         projectionBurnRate: projectionIsFiltered ? projectionBurnRate : burnRate,
         projectionFullProjection: projectionIsFiltered ? monthEndProjectionAll : null,
         availableExpenseCategories,
+        // ── What-if scenario raw numbers (Fase 3) ──
+        whatIfBase,
+        whatIfDaysElapsed,
+        whatIfDaysRemaining,
+        // ── Last month accuracy badge (Fase 3) ──
+        lastMonthAccuracy,
       },
       alerts,
       patterns: {
