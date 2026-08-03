@@ -595,13 +595,19 @@ export async function GET() {
       projectionBurnRate = Math.round(sum7d / 7);
     }
 
-    // Available expense categories for the UI chip selector.
-    // Sorted by name for stable display order. We pull from the
-    // financeCategoryMap (already fetched) and include the resolved
-    // emoji/color via metaFor() so default-named categories get their
-    // fallback emoji even if the DB row still has the 📦 placeholder.
+    // Available expense categories for the UI dropdown selector.
+    // ONLY includes categories that have at least one expense transaction
+    // in the last 30 days — no point showing a category the user has never
+    // spent on (it would produce a 0 projection). Sorted by name for
+    // stable display order. Emoji/color resolved via metaFor() so default-
+    // named categories get their fallback emoji even if the DB row still
+    // has the 📦 placeholder.
+    const categoriesWithTransactions = new Set<string>();
+    for (const tx of allRecentTx) {
+      if (tx.type === 'expense') categoriesWithTransactions.add(tx.category);
+    }
     const availableExpenseCategories = financeCategories
-      .filter((c) => c.type === 'expense')
+      .filter((c) => c.type === 'expense' && categoriesWithTransactions.has(c.name))
       .map((c) => {
         const meta = metaFor(c.name);
         return { name: c.name, emoji: meta.emoji, color: meta.color };

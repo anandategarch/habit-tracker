@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -763,9 +764,16 @@ export default function DailyRecap() {
 
   // Mutation: save projection category selection via PUT /api/settings.
   // Sends the full array of selected category names (empty = all categories).
-  // The API dedupes/sorts before storing, so we just send the raw toggle
-  // result. On success, invalidate daily-recap so the projection recomputes
-  // with the new category basis.
+  // The API dedupes/sorts before storing, so we just send the raw selection.
+  //
+  // OPTIMISTIC UPDATE: the daily-recap query is heavy (30-day transaction
+  // fetch + 15 metric computations). Without optimistic update, each dropdown
+  // change caused a visible lag — the dropdown value wouldn't update until
+  // the PUT + refetch round-trip completed (300-800ms). Now we immediately
+  // patch the cached daily-recap's `projectionCategoryNames` so the dropdown
+  // reflects the new selection instantly; the actual projection NUMBER
+  // updates when the refetch completes (still server-side, still accurate).
+  // On error, we roll back to the previous value.
   const saveProjectionCategoriesMutation = useMutation({
     mutationFn: async (categoryNames: string[]) => {
       const res = await fetch('/api/settings', {
@@ -776,43 +784,52 @@ export default function DailyRecap() {
       if (!res.ok) throw new Error('Failed to save projection categories');
       return res.json();
     },
+    onMutate: async (categoryNames: string[]) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic
+      // update.
+      await queryClient.cancelQueries({ queryKey: ['finance', 'daily-recap'] });
+      // Snapshot the previous value for rollback.
+      const previousRecap = queryClient.getQueryData<DailyRecap>(['finance', 'daily-recap']);
+      // Optimistically patch the cached recap's projectionCategoryNames +
+      // projectionIsFiltered so the dropdown updates instantly.
+      if (previousRecap) {
+        queryClient.setQueryData<DailyRecap>(['finance', 'daily-recap'], {
+          ...previousRecap,
+          predictions: {
+            ...previousRecap.predictions,
+            projectionCategoryNames: categoryNames,
+            projectionIsFiltered: categoryNames.length > 0,
+          },
+        });
+      }
+      return { previousRecap };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      // Roll back to the previous cached value on error.
+      if (context?.previousRecap) {
+        queryClient.setQueryData(['finance', 'daily-recap'], context.previousRecap);
+      }
       toast.error('Gagal menyimpan pilihan kategori');
     },
   });
 
   /**
-   * Toggle a category in the projection basis selection.
-   * - If the category is currently selected → remove it.
-   * - If it's not selected → add it.
-   * - If the user deselects the LAST category, the array becomes empty,
-   *   which the API treats as "use all categories" (the default). This is
-   *   the intended UX — no "zero categories" state.
+   * Set the projection basis to a SINGLE category (single-select dropdown).
+   * - Empty string = use all categories (default, "Semua" option).
+   * - Non-empty = project based on that one category only.
    *
-   * We pass the current selection from `recap.predictions.projectionCategoryNames`
-   * (the server's source of truth) rather than keeping local state, so the
-   * toggle always reflects what's persisted. The mutation fires immediately;
-   * TanStack Query's optimistic update isn't needed because the recap refetch
-   * is fast (staleTime 30s, but invalidate forces a fresh fetch).
+   * Single-select per the user's request — multi-select chips caused lag
+   * (each toggle = PUT + heavy refetch) and were overkill for the use case
+   * ("what's my month-end projection if I only consider Food spending?").
    */
-  function toggleProjectionCategory(categoryName: string) {
+  function setProjectionCategory(categoryName: string) {
     if (saveProjectionCategoriesMutation.isPending) return;
-    const current = recap?.predictions.projectionCategoryNames ?? [];
-    const isSelected = current.includes(categoryName);
-    const next = isSelected
-      ? current.filter((c) => c !== categoryName)
-      : [...current, categoryName];
+    const next = categoryName ? [categoryName] : [];
     saveProjectionCategoriesMutation.mutate(next);
-  }
-
-  /** Reset to all categories (clear the selection). */
-  function resetProjectionCategories() {
-    if (saveProjectionCategoriesMutation.isPending) return;
-    saveProjectionCategoriesMutation.mutate([]);
   }
 
   /** Open the budget dialog, pre-filling the input with the current target. */
@@ -1214,75 +1231,45 @@ export default function DailyRecap() {
             )}
           </div>
 
-          {/* ── Category basis chips (Fase 1) ─────────────────────────── */}
-          {/* Lets the user pick which expense categories feed the projection.
-              "Semua" chip = use all categories (default). Individual chips
-              toggle specific categories on/off. Empty selection snaps back
-              to "Semua" (the API treats [] as all). Persisted to AppSettings
-              via PUT /api/settings so it survives across devices. */}
+          {/* ── Category basis dropdown (single-select) ────────────────── */}
+          {/* Lets the user pick ONE expense category to base the projection on,
+              or "Semua" for all categories (default). Single-select dropdown
+              per user request — multi-select chips caused lag (each toggle =
+              PUT + heavy refetch) and were overkill for the use case.
+              Only categories WITH transactions are listed (the API filters
+              out empty categories). Persisted to AppSettings via PUT
+              /api/settings. Optimistic update on the cached daily-recap
+              makes the dropdown feel instant (projection NUMBER updates
+              when the background refetch completes).
+              NOTE: Radix Select doesn't support empty string "" as a value
+              (treats it as undefined → shows placeholder). So we use the
+              sentinel "__all__" for the "Semua kategori" option and convert
+              to/from an empty array in the handler. */}
           {predictions.availableExpenseCategories.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">
-                  {predictions.projectionIsFiltered
-                    ? `${predictions.projectionCategoryNames.length} kategori dipilih`
-                    : 'Semua kategori'}
-                </span>
-                {predictions.projectionIsFiltered && (
-                  <button
-                    type="button"
-                    onClick={resetProjectionCategories}
-                    disabled={saveProjectionCategoriesMutation.isPending}
-                    className="text-[10px] text-primary hover:underline disabled:opacity-50 shrink-0"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-              {/* Chips row — wraps on mobile, scrollable if many categories.
-                  max-h with overflow-y-auto per UI rules for long lists. */}
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar -mx-0.5 px-0.5">
-                {/* "Semua" chip — active when NOT filtered (all categories) */}
-                <button
-                  type="button"
-                  onClick={resetProjectionCategories}
-                  disabled={saveProjectionCategoriesMutation.isPending}
-                  className={cn(
-                    'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors shrink-0',
-                    !predictions.projectionIsFiltered
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background/60 text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
-                  )}
-                >
-                  Semua
-                </button>
-                {predictions.availableExpenseCategories.map((cat) => {
-                  const isSelected = predictions.projectionCategoryNames.includes(cat.name);
-                  return (
-                    <button
-                      key={cat.name}
-                      type="button"
-                      onClick={() => toggleProjectionCategory(cat.name)}
-                      disabled={saveProjectionCategoriesMutation.isPending}
-                      className={cn(
-                        'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors shrink-0',
-                        isSelected
-                          ? 'text-white border-transparent'
-                          : 'bg-background/60 text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
-                      )}
-                      style={isSelected ? { backgroundColor: cat.color } : undefined}
-                      aria-pressed={isSelected}
-                    >
-                      <span className="text-[11px] leading-none">{cat.emoji}</span>
-                      <span className="truncate max-w-[80px] leading-tight">{cat.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {/* Saving indicator — subtle, no toast spam on every toggle */}
-              {saveProjectionCategoriesMutation.isPending && (
-                <p className="text-[10px] text-muted-foreground/60 italic">Menyimpan…</p>
-              )}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">
+                Dasar
+              </span>
+              <Select
+                value={predictions.projectionCategoryNames[0] ?? '__all__'}
+                onValueChange={(v) => setProjectionCategory(v === '__all__' ? '' : v)}
+                disabled={saveProjectionCategoriesMutation.isPending}
+              >
+                <SelectTrigger className="h-7 text-[11px] px-2 py-0 min-w-0 flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__" className="text-[11px]">
+                    <span className="font-medium">Semua kategori</span>
+                  </SelectItem>
+                  {predictions.availableExpenseCategories.map((cat) => (
+                    <SelectItem key={cat.name} value={cat.name} className="text-[11px]">
+                      <span className="mr-1">{cat.emoji}</span>
+                      <span className="truncate">{cat.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
