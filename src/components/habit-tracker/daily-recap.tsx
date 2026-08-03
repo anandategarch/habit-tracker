@@ -808,6 +808,15 @@ export default function DailyRecap() {
       const previousRecap = queryClient.getQueryData<DailyRecap>(['finance', 'daily-recap']);
       // Optimistically patch the cached recap's projectionCategoryNames +
       // projectionIsFiltered so the dropdown updates instantly.
+      //
+      // BUG-3 fix: Also reset whatIfBase to 0. The what-if slider computes
+      // its result from `whatIfBase` (month-to-date spend of the CURRENT
+      // basis). Without resetting it, the slider would use the STALE
+      // whatIfBase (from the old filter) for 300-800ms until the refetch
+      // completes — producing wrong numbers. Setting whatIfBase to 0
+      // hides the slider via its `whatIfBase > 0` guard, so the user sees
+      // a clean "loading" state instead of wrong numbers. The slider
+      // reappears with the correct whatIfBase once the refetch completes.
       if (previousRecap) {
         queryClient.setQueryData<DailyRecap>(['finance', 'daily-recap'], {
           ...previousRecap,
@@ -815,6 +824,7 @@ export default function DailyRecap() {
             ...previousRecap.predictions,
             projectionCategoryNames: categoryNames,
             projectionIsFiltered: categoryNames.length > 0,
+            whatIfBase: 0,
           },
         });
       }
@@ -841,10 +851,15 @@ export default function DailyRecap() {
    * Single-select per the user's request — multi-select chips caused lag
    * (each toggle = PUT + heavy refetch) and were overkill for the use case
    * ("what's my month-end projection if I only consider Food spending?").
+   *
+   * BUG-3 fix: Reset whatIfReduction to 0 so the slider starts fresh on
+   * the new basis. Without this, the slider would show a stale reduction
+   * percentage (e.g., 20%) applied to the new basis — confusing.
    */
   function setProjectionCategory(categoryName: string) {
     if (saveProjectionCategoriesMutation.isPending) return;
     const next = categoryName ? [categoryName] : [];
+    setWhatIfReduction(0);
     saveProjectionCategoriesMutation.mutate(next);
   }
 
@@ -1312,6 +1327,31 @@ export default function DailyRecap() {
                       <span className="truncate">{cat.name}</span>
                     </SelectItem>
                   ))}
+                  {/* BUG-4 fix: Fallback SelectItem for a saved category that
+                      is NOT in availableExpenseCategories. This happens when:
+                      (a) the category was deleted from the FinanceCategory
+                      table, or (b) the category has no transactions in the
+                      last 30 days (so the API filtered it out). Without this
+                      fallback, the dropdown value wouldn't match any option
+                      and Radix Select would render blank — the user couldn't
+                      see or reset their stale selection. We render it with a
+                      "(no tx)" badge so the user knows it's inactive and can
+                      switch to "Semua" or another category. */}
+                  {(() => {
+                    const saved = predictions.projectionCategoryNames[0];
+                    if (!saved) return null;
+                    const isInList = predictions.availableExpenseCategories.some(
+                      (c) => c.name === saved
+                    );
+                    if (isInList) return null;
+                    return (
+                      <SelectItem value={saved} className="text-[11px]">
+                        <span className="mr-1">📦</span>
+                        <span className="truncate">{saved}</span>
+                        <span className="ml-1 text-[9px] text-muted-foreground italic">(no tx)</span>
+                      </SelectItem>
+                    );
+                  })()}
                 </SelectContent>
               </Select>
             </div>
