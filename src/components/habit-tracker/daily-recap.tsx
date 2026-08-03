@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -92,6 +93,17 @@ interface DailyRecap {
     projectionBurnRate: number;
     projectionFullProjection: number | null;
     availableExpenseCategories: Array<{ name: string; emoji: string; color: string }>;
+    // ── What-if scenario (Fase 3) ──
+    whatIfBase: number;
+    whatIfDaysElapsed: number;
+    whatIfDaysRemaining: number;
+    // ── Accuracy badge (Fase 3) ──
+    lastMonthAccuracy: {
+      projected: number;
+      actual: number;
+      deviationPct: number;
+      tier: 'accurate' | 'close' | 'off';
+    } | null;
   };
   alerts: Array<{
     type: string;
@@ -727,6 +739,10 @@ export default function DailyRecap() {
   const queryClient = useQueryClient();
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
+  // What-if slider state: 0-50% spending reduction for the rest of the month.
+  // Local state (not persisted) — resets on page load. Computed client-side
+  // from whatIfBase/daysElapsed/daysRemaining so there's no lag on drag.
+  const [whatIfReduction, setWhatIfReduction] = useState(0);
 
   const { data: recap, isLoading, isError, refetch } = useQuery<DailyRecap>({
     queryKey: ['finance', 'daily-recap'],
@@ -1216,19 +1232,47 @@ export default function DailyRecap() {
                 )}
               </p>
             </div>
-            {/* Confidence badge */}
-            {predictions.projectionConfidence && (
-              <div className={cn(
-                'shrink-0 px-2 py-1 rounded-full text-[11px] font-medium border',
-                predictions.projectionConfidence === 'high'
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900'
-                  : predictions.projectionConfidence === 'medium'
-                  ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
-                  : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
-              )}>
-                {predictions.projectionConfidence === 'high' ? '🎯 Akurat' : predictions.projectionConfidence === 'medium' ? '⚖️ Cukup' : '🎲 Kasar'}
-              </div>
-            )}
+            {/* Confidence badge + Accuracy badge (Fase 3) */}
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              {predictions.projectionConfidence && (
+                <div className={cn(
+                  'px-2 py-1 rounded-full text-[11px] font-medium border',
+                  predictions.projectionConfidence === 'high'
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900'
+                    : predictions.projectionConfidence === 'medium'
+                    ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
+                    : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
+                )}>
+                  {predictions.projectionConfidence === 'high' ? '🎯 Akurat' : predictions.projectionConfidence === 'medium' ? '⚖️ Cukup' : '🎲 Kasar'}
+                </div>
+              )}
+              {/* Accuracy badge (Fase 3) — shows how accurate last month's
+                  projection was. tier: accurate (≤10% off), close (≤25%), off (>25%).
+                  Only shown when lastMonthAccuracy is non-null (needs ≥3 days
+                  elapsed + last-month transaction data). */}
+              {predictions.lastMonthAccuracy && (
+                <div
+                  className="px-1.5 py-0.5 rounded-full text-[9px] font-medium border flex items-center gap-0.5"
+                  title={`Bulan lalu: proyeksi ${compactRupiahSafe(predictions.lastMonthAccuracy.projected)} vs aktual ${compactRupiahSafe(predictions.lastMonthAccuracy.actual)} (selisih ${predictions.lastMonthAccuracy.deviationPct}%)`}
+                >
+                  {predictions.lastMonthAccuracy.tier === 'accurate' && (
+                    <span className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 inline-flex items-center gap-0.5">
+                      <Award className="h-2.5 w-2.5" /> Proyektor Andal
+                    </span>
+                  )}
+                  {predictions.lastMonthAccuracy.tier === 'close' && (
+                    <span className="text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900">
+                      ±{predictions.lastMonthAccuracy.deviationPct}% bulan lalu
+                    </span>
+                  )}
+                  {predictions.lastMonthAccuracy.tier === 'off' && (
+                    <span className="text-muted-foreground border-border">
+                      ±{predictions.lastMonthAccuracy.deviationPct}% bulan lalu
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ── Category basis dropdown (single-select) ────────────────── */}
@@ -1272,6 +1316,62 @@ export default function DailyRecap() {
               </Select>
             </div>
           )}
+
+          {/* ── What-if slider (Fase 3) ────────────────────────────────── */}
+          {/* Lets the user ask "if I cut spending by X% for the rest of the
+              month, what's my new projection?". Computed CLIENT-SIDE from
+              whatIfBase/daysElapsed/daysRemaining for instant feedback (no
+              refetch on every slider drag). Only shown when there are
+              remaining days in the month (on the last day, no what-if needed). */}
+          {predictions.whatIfDaysRemaining > 0 && predictions.whatIfDaysElapsed > 0 && predictions.whatIfBase > 0 && (() => {
+            // Compute the adjusted projection for the current slider value.
+            // Formula: base + (base / daysElapsed) × (1 - reduction/100) × daysRemaining
+            // = what the projection becomes if the user cuts the daily rate
+            //   by `reduction`% for the rest of the month.
+            const dailyRate = predictions.whatIfBase / predictions.whatIfDaysElapsed;
+            const currentProjection = predictions.whatIfBase + dailyRate * predictions.whatIfDaysRemaining;
+            const adjustedProjection = predictions.whatIfBase + dailyRate * (1 - whatIfReduction / 100) * predictions.whatIfDaysRemaining;
+            const savings = Math.round(currentProjection - adjustedProjection);
+            const adjustedRounded = Math.round(adjustedProjection);
+            return (
+              <div className="rounded-lg bg-background/60 px-2.5 py-2 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0 flex items-center gap-0.5">
+                    <Sparkles className="h-2.5 w-2.5" /> What if
+                  </span>
+                  <span className="text-[10px] font-medium tabular-nums text-muted-foreground shrink-0">
+                    Hemat {whatIfReduction}%
+                  </span>
+                </div>
+                <Slider
+                  value={[whatIfReduction]}
+                  onValueChange={(v) => setWhatIfReduction(v[0] ?? 0)}
+                  min={0}
+                  max={50}
+                  step={5}
+                  className="py-1"
+                  aria-label="What-if spending reduction percentage"
+                />
+                {/* Result: only show the adjusted number when reduction > 0
+                    (at 0%, it would just repeat the current projection). */}
+                {whatIfReduction > 0 ? (
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground">Proyeksi jadi</span>
+                    <span className="text-sm font-bold tabular-nums text-primary">
+                      {formatRupiah(adjustedRounded)}
+                    </span>
+                    <span className="text-[10px] text-emerald-500 font-medium shrink-0 ml-auto">
+                      −{compactRupiahSafe(savings)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground/60 italic">
+                    Geser untuk simulasi hemat sisa {predictions.whatIfDaysRemaining} hari
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Budget compliance progress bar */}
           {predictions.budgetCompliancePct !== null && dailyBudget && dailyBudget.target && (
