@@ -297,6 +297,11 @@ export const updateSettingsSchema = z.object({
   // Daily budget target in whole rupiah. 0 = unset (ring hidden in UI).
   // Max 100jt as a sane upper bound.
   dailyBudgetTarget: z.number().int().min(0).max(100_000_000).optional(),
+  // Array of expense category names to use as the basis for the Daily Recap
+  // month-end projection. Empty array = use all expense categories (default).
+  // The API serializes this to a JSON string before storing in the DB.
+  // Max 100 categories — sane upper bound (well above realistic usage).
+  projectionCategoryIds: z.array(z.string().min(1).max(100)).max(100).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

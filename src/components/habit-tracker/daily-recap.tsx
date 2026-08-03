@@ -85,6 +85,12 @@ interface DailyRecap {
     budgetCompliancePct: number | null;
     daysUntilBudgetOut: number | null;
     topProjectedCategory: { name: string; emoji: string; projected: number; pct: number } | null;
+    // ── Category-basis selection (Fase 1) ──
+    projectionCategoryNames: string[];
+    projectionIsFiltered: boolean;
+    projectionBurnRate: number;
+    projectionFullProjection: number | null;
+    availableExpenseCategories: Array<{ name: string; emoji: string; color: string }>;
   };
   alerts: Array<{
     type: string;
@@ -755,6 +761,60 @@ export default function DailyRecap() {
     },
   });
 
+  // Mutation: save projection category selection via PUT /api/settings.
+  // Sends the full array of selected category names (empty = all categories).
+  // The API dedupes/sorts before storing, so we just send the raw toggle
+  // result. On success, invalidate daily-recap so the projection recomputes
+  // with the new category basis.
+  const saveProjectionCategoriesMutation = useMutation({
+    mutationFn: async (categoryNames: string[]) => {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectionCategoryIds: categoryNames }),
+      });
+      if (!res.ok) throw new Error('Failed to save projection categories');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: () => {
+      toast.error('Gagal menyimpan pilihan kategori');
+    },
+  });
+
+  /**
+   * Toggle a category in the projection basis selection.
+   * - If the category is currently selected → remove it.
+   * - If it's not selected → add it.
+   * - If the user deselects the LAST category, the array becomes empty,
+   *   which the API treats as "use all categories" (the default). This is
+   *   the intended UX — no "zero categories" state.
+   *
+   * We pass the current selection from `recap.predictions.projectionCategoryNames`
+   * (the server's source of truth) rather than keeping local state, so the
+   * toggle always reflects what's persisted. The mutation fires immediately;
+   * TanStack Query's optimistic update isn't needed because the recap refetch
+   * is fast (staleTime 30s, but invalidate forces a fresh fetch).
+   */
+  function toggleProjectionCategory(categoryName: string) {
+    if (saveProjectionCategoriesMutation.isPending) return;
+    const current = recap?.predictions.projectionCategoryNames ?? [];
+    const isSelected = current.includes(categoryName);
+    const next = isSelected
+      ? current.filter((c) => c !== categoryName)
+      : [...current, categoryName];
+    saveProjectionCategoriesMutation.mutate(next);
+  }
+
+  /** Reset to all categories (clear the selection). */
+  function resetProjectionCategories() {
+    if (saveProjectionCategoriesMutation.isPending) return;
+    saveProjectionCategoriesMutation.mutate([]);
+  }
+
   /** Open the budget dialog, pre-filling the input with the current target. */
   function openBudgetDialog(currentTarget: number | null) {
     // Format with thousand separators so the prefill matches what the
@@ -1128,7 +1188,15 @@ export default function DailyRecap() {
               </div>
               <p className="text-lg font-bold tabular-nums">{formatRupiah(predictions.monthEndProjection)}</p>
               <p className="text-[11px] text-muted-foreground">
-                rate {compactRupiahSafe(predictions.burnRate)}/hari
+                rate {compactRupiahSafe(predictions.projectionBurnRate)}/hari
+                {/* "vs semua" comparison — only shown when the user has
+                    filtered to specific categories, so they can see how
+                    their selection compares to the all-categories projection. */}
+                {predictions.projectionIsFiltered && predictions.projectionFullProjection !== null && (
+                  <span className="ml-1.5 text-muted-foreground/70">
+                    · vs semua {compactRupiahSafe(predictions.projectionFullProjection)}
+                  </span>
+                )}
               </p>
             </div>
             {/* Confidence badge */}
@@ -1145,6 +1213,78 @@ export default function DailyRecap() {
               </div>
             )}
           </div>
+
+          {/* ── Category basis chips (Fase 1) ─────────────────────────── */}
+          {/* Lets the user pick which expense categories feed the projection.
+              "Semua" chip = use all categories (default). Individual chips
+              toggle specific categories on/off. Empty selection snaps back
+              to "Semua" (the API treats [] as all). Persisted to AppSettings
+              via PUT /api/settings so it survives across devices. */}
+          {predictions.availableExpenseCategories.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">
+                  {predictions.projectionIsFiltered
+                    ? `${predictions.projectionCategoryNames.length} kategori dipilih`
+                    : 'Semua kategori'}
+                </span>
+                {predictions.projectionIsFiltered && (
+                  <button
+                    type="button"
+                    onClick={resetProjectionCategories}
+                    disabled={saveProjectionCategoriesMutation.isPending}
+                    className="text-[10px] text-primary hover:underline disabled:opacity-50 shrink-0"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              {/* Chips row — wraps on mobile, scrollable if many categories.
+                  max-h with overflow-y-auto per UI rules for long lists. */}
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar -mx-0.5 px-0.5">
+                {/* "Semua" chip — active when NOT filtered (all categories) */}
+                <button
+                  type="button"
+                  onClick={resetProjectionCategories}
+                  disabled={saveProjectionCategoriesMutation.isPending}
+                  className={cn(
+                    'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors shrink-0',
+                    !predictions.projectionIsFiltered
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background/60 text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
+                  )}
+                >
+                  Semua
+                </button>
+                {predictions.availableExpenseCategories.map((cat) => {
+                  const isSelected = predictions.projectionCategoryNames.includes(cat.name);
+                  return (
+                    <button
+                      key={cat.name}
+                      type="button"
+                      onClick={() => toggleProjectionCategory(cat.name)}
+                      disabled={saveProjectionCategoriesMutation.isPending}
+                      className={cn(
+                        'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors shrink-0',
+                        isSelected
+                          ? 'text-white border-transparent'
+                          : 'bg-background/60 text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
+                      )}
+                      style={isSelected ? { backgroundColor: cat.color } : undefined}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="text-[11px] leading-none">{cat.emoji}</span>
+                      <span className="truncate max-w-[80px] leading-tight">{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Saving indicator — subtle, no toast spam on every toggle */}
+              {saveProjectionCategoriesMutation.isPending && (
+                <p className="text-[10px] text-muted-foreground/60 italic">Menyimpan…</p>
+              )}
+            </div>
+          )}
 
           {/* Budget compliance progress bar */}
           {predictions.budgetCompliancePct !== null && dailyBudget && dailyBudget.target && (
