@@ -252,6 +252,16 @@ model AppSettings {
   // User-set via the progress ring tap → dialog in Daily Recap. Applies to
   // all days (single value, no per-day override).
   dailyBudgetTarget Int     @default(0)
+  // JSON-encoded array of expense category NAMES selected as the basis for
+  // the Daily Recap month-end projection. "[]" (empty) = use ALL expense
+  // categories (default behaviour). Non-empty = only those categories are
+  // counted when computing monthEndProjection / topProjectedCategory /
+  // projectionConfidence. Stored as a JSON string because SQLite does not
+  // support array columns. Category names (not IDs) are stored because
+  // Transaction.category is a name string — this keeps the filter a simple
+  // string match with no join needed. If a category is renamed or deleted,
+  // its stale name simply won't match any transaction and is ignored.
+  projectionCategoryIds String @default("[]")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

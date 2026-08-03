@@ -116,6 +116,27 @@ interface DailyRecapResponse {
     budgetCompliancePct: number | null; // 0-100, probability of staying on budget
     daysUntilBudgetOut: number | null; // countdown days until budget runs out
     topProjectedCategory: { name: string; emoji: string; projected: number; pct: number } | null;
+    // ── Category-basis selection (Fase 1) ───────────────────────────
+    // The user can pick which expense categories feed the projection.
+    // Empty array = all expense categories (default, pre-feature behaviour).
+    // Non-empty = only those categories are counted in monthEndProjection,
+    // projectionBurnRate, projectionConfidence, and topProjectedCategory.
+    projectionCategoryNames: string[];
+    projectionIsFiltered: boolean;
+    // The burn rate used for the "rate X/hari" label under the projection.
+    // When filtered, this is the avg daily spend of SELECTED categories only
+    // (so the label stays consistent with the filtered projection number).
+    // When unfiltered, equals burnRate.
+    projectionBurnRate: number;
+    // The all-categories projection, for the "vs semua" comparison label.
+    // Null when not filtered (no comparison needed). Non-null only when the
+    // user has selected specific categories — lets the UI show
+    // "vs semua: Rp Y" so the user sees the delta their selection makes.
+    projectionFullProjection: number | null;
+    // All expense categories available for selection (name + emoji + color).
+    // Used by the Daily Recap UI to render the toggle chips without a
+    // separate fetch to /api/finance/categories.
+    availableExpenseCategories: Array<{ name: string; emoji: string; color: string }>;
   };
   alerts: Alert[];
   patterns: {
@@ -229,6 +250,24 @@ function resolveCategoryMeta(
   if (fallback) return fallback;
   if (dbRow) return { emoji: dbRow.emoji || DEFAULT_EMOJI, color: dbRow.color || DEFAULT_COLOR };
   return { emoji: DEFAULT_EMOJI, color: DEFAULT_COLOR };
+}
+
+/**
+ * Parse the projectionCategoryIds JSON string from AppSettings into an
+ * array of category names. Returns [] on any failure — empty means
+ * "use all expense categories" (the default, pre-feature behaviour).
+ * Duplicates are removed so downstream Set lookups stay cheap.
+ */
+function parseProjectionCategoryNames(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const names = parsed.filter((v): v is string => typeof v === 'string' && v.length > 0);
+    return Array.from(new Set(names));
+  } catch {
+    return [];
+  }
 }
 
 // ── Main Handler ─────────────────────────────────────────────────────────
@@ -503,11 +542,102 @@ export async function GET() {
       .reduce((s, t) => s + t.amount, 0);
     const daysInMonth = new Date(yy, mm, 0).getDate();
     const daysElapsed = todayParts.day; // day of month = days elapsed
-    const monthEndProjection = daysElapsed > 0
+    const monthEndProjectionAll = daysElapsed > 0
       ? Math.round((monthExpenseSoFar / daysElapsed) * daysInMonth)
       : 0;
 
-    // Burn rate = avg 7d
+    // ── Category-basis selection (Fase 1) ────────────────────────────
+    // The user can pick which expense categories feed the projection.
+    // Empty selection = all expense categories (default, pre-feature).
+    // Non-empty = only those categories are counted in monthEndProjection,
+    // projectionBurnRate, projectionConfidence, and topProjectedCategory.
+    //
+    // We compute BOTH the all-categories and filtered projections so the UI
+    // can show a "vs semua: Rp Y" comparison when the user has filtered.
+    const projectionCategoryNames = parseProjectionCategoryNames(
+      appSettings?.projectionCategoryIds
+    );
+    const projectionIsFiltered = projectionCategoryNames.length > 0;
+    const projectionCategorySet = new Set(projectionCategoryNames);
+
+    // Filter this month's transactions to selected categories (if filtered).
+    // When unfiltered, projectionMonthTx === monthTx (no copy needed).
+    const projectionMonthTx = projectionIsFiltered
+      ? monthTx.filter((t) => t.type === 'expense' && projectionCategorySet.has(t.category))
+      : monthTx.filter((t) => t.type === 'expense');
+    const projectionMonthExpenseSoFar = projectionMonthTx
+      .reduce((s, t) => s + t.amount, 0);
+    const projectionMonthEndProjection = daysElapsed > 0
+      ? Math.round((projectionMonthExpenseSoFar / daysElapsed) * daysInMonth)
+      : 0;
+
+    // The main projection number the user sees: filtered if categories are
+    // selected, otherwise the all-categories projection.
+    const monthEndProjection = projectionIsFiltered
+      ? projectionMonthEndProjection
+      : monthEndProjectionAll;
+
+    // Filtered 7-day burn rate (avg daily spend of SELECTED categories over
+    // the last 7 days). Used for the "rate X/hari" label under the projection
+    // so it stays consistent with the filtered projection number. When
+    // unfiltered, equals burnRate (computed below).
+    let projectionBurnRate = 0;
+    if (projectionIsFiltered) {
+      let sum7d = 0;
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        const key = jakartaDateKey(d);
+        const dayTx = txByDate.get(key) ?? [];
+        sum7d += dayTx
+          .filter((t) => t.type === 'expense' && projectionCategorySet.has(t.category))
+          .reduce((s, t) => s + t.amount, 0);
+      }
+      projectionBurnRate = Math.round(sum7d / 7);
+    }
+
+    // Available expense categories for the UI chip selector.
+    // Sorted by name for stable display order. We pull from the
+    // financeCategoryMap (already fetched) and include the resolved
+    // emoji/color via metaFor() so default-named categories get their
+    // fallback emoji even if the DB row still has the 📦 placeholder.
+    const availableExpenseCategories = financeCategories
+      .filter((c) => c.type === 'expense')
+      .map((c) => {
+        const meta = metaFor(c.name);
+        return { name: c.name, emoji: meta.emoji, color: meta.color };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // Filtered per-day totals (this month, selected categories only).
+    // Used for projectionConfidence when filtered. When unfiltered, we
+    // reuse the all-categories monthDailyTotals computed later (no
+    // duplicated work). Computed here because projectionMonthTx is in
+    // scope; monthDailyTotals isn't populated yet at this point.
+    const projectionMonthDailyTotals = new Map<string, number>();
+    if (projectionIsFiltered) {
+      for (const tx of projectionMonthTx) {
+        const key = jakartaDateKey(tx.date);
+        projectionMonthDailyTotals.set(key, (projectionMonthDailyTotals.get(key) ?? 0) + tx.amount);
+      }
+    }
+
+    // Filtered per-category month-to-date totals (selected categories only).
+    // Used for topProjectedCategory when filtered — projects each selected
+    // category's month-to-date spend to the full month. When unfiltered,
+    // the existing categoryStats-based logic is used (unchanged).
+    const projectionCategoryMonthTotals = new Map<string, number>();
+    if (projectionIsFiltered) {
+      for (const tx of projectionMonthTx) {
+        projectionCategoryMonthTotals.set(
+          tx.category,
+          (projectionCategoryMonthTotals.get(tx.category) ?? 0) + tx.amount
+        );
+      }
+    }
+
+    // Burn rate = avg 7d (overall — used by budgetETA, smartCapTomorrow,
+    // daysUntilBudgetOut which are about the OVERALL budget, not the
+    // filtered projection)
     const burnRate = Math.round(avg7d);
 
     // Trend direction (7-day expense slope)
@@ -871,7 +1001,14 @@ export async function GET() {
 
     // ── NEW: Projection enrichment (computed after monthDailyTotals + categoryStats) ──
     // Confidence: based on coefficient of variation (CV) of daily spending.
-    const dailyExpenseValues = Array.from(monthDailyTotals.values());
+    // When the user has selected specific categories, we compute CV from the
+    // filtered daily totals (so the confidence reflects the stability of the
+    // SELECTED categories' spending, not all spending). When unfiltered, we
+    // use the all-categories monthDailyTotals (unchanged from pre-feature).
+    const confidenceSource = projectionIsFiltered
+      ? projectionMonthDailyTotals
+      : monthDailyTotals;
+    const dailyExpenseValues = Array.from(confidenceSource.values());
     const expenseMean = dailyExpenseValues.length > 0
       ? dailyExpenseValues.reduce((a, b) => a + b, 0) / dailyExpenseValues.length
       : 0;
@@ -883,21 +1020,52 @@ export async function GET() {
     const projectionConfidence: 'high' | 'medium' | 'low' =
       cv < 0.4 ? 'high' : cv < 0.8 ? 'medium' : 'low';
 
-    // Budget compliance probability
+    // Budget compliance probability — ALWAYS based on the ALL-categories
+    // projection vs the OVERALL monthly budget target. The budget applies to
+    // total spending, so filtering categories must not inflate the compliance
+    // percentage (which would falsely reassure the user). Previously used
+    // `monthEndProjection` which is now the filtered value when categories
+    // are selected — that was a bug; fixed to use `monthEndProjectionAll`.
     const budgetCompliancePct = totalMonthlyTarget > 0
-      ? Math.max(0, Math.min(100, Math.round(100 - ((monthEndProjection - totalMonthlyTarget) / totalMonthlyTarget) * 200)))
+      ? Math.max(0, Math.min(100, Math.round(100 - ((monthEndProjectionAll - totalMonthlyTarget) / totalMonthlyTarget) * 200)))
       : null;
 
-    // Days until budget runs out
+    // Days until budget runs out — always based on OVERALL spending/burn rate
+    // (budget applies to all spending, not the filtered subset).
     let daysUntilBudgetOut: number | null = null;
     if (totalMonthlyTarget > 0 && burnRate > 0) {
       const remBudget = totalMonthlyTarget - monthExpenseSoFar;
       daysUntilBudgetOut = remBudget > 0 ? Math.ceil(remBudget / burnRate) : 0;
     }
 
-    // Top projected category
+    // Top projected category.
+    // When FILTERED: project each SELECTED category's month-to-date spend to
+    //   the full month (more accurate than the todayAmount-based formula).
+    //   Pct is relative to the filtered monthEndProjection.
+    // When UNFILTERED: use the existing categoryStats-based logic (projects
+    //   todayAmount to the month — unchanged from pre-feature behaviour).
     let topProjectedCategory: { name: string; emoji: string; projected: number; pct: number } | null = null;
-    if (daysElapsed > 0 && categoryStats.length > 0) {
+    if (projectionIsFiltered) {
+      if (daysElapsed > 0 && projectionCategoryMonthTotals.size > 0) {
+        const projected = Array.from(projectionCategoryMonthTotals.entries())
+          .map(([name, monthToDate]) => {
+            const meta = metaFor(name);
+            return {
+              name,
+              emoji: meta.emoji,
+              projected: Math.round((monthToDate / daysElapsed) * daysInMonth),
+            };
+          })
+          .filter((c) => c.projected > 0)
+          .sort((a, b) => b.projected - a.projected);
+        if (projected.length > 0) {
+          topProjectedCategory = {
+            ...projected[0],
+            pct: monthEndProjection > 0 ? Math.round((projected[0].projected / monthEndProjection) * 100) : 0,
+          };
+        }
+      }
+    } else if (daysElapsed > 0 && categoryStats.length > 0) {
       const projected = categoryStats
         .map((c) => ({
           name: c.name,
@@ -958,6 +1126,15 @@ export async function GET() {
         budgetCompliancePct,
         daysUntilBudgetOut,
         topProjectedCategory,
+        // ── Category-basis selection (Fase 1) ──
+        projectionCategoryNames,
+        projectionIsFiltered,
+        // When unfiltered, projectionBurnRate === burnRate (same value,
+        // kept separate so the UI label always reads consistently with
+        // the projection number above it).
+        projectionBurnRate: projectionIsFiltered ? projectionBurnRate : burnRate,
+        projectionFullProjection: projectionIsFiltered ? monthEndProjectionAll : null,
+        availableExpenseCategories,
       },
       alerts,
       patterns: {
