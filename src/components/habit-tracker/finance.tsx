@@ -52,6 +52,7 @@ import {
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { jakartaDateKey } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 
@@ -344,10 +345,22 @@ export default function Finance() {
   const openEditTx = (tx: Transaction) => {
     setEditingTx(tx);
     const txDate = new Date(tx.date);
+    // Bug fix: use Jakarta timezone for BOTH date and time prefill.
+    // Previously `format(txDate, 'yyyy-MM-dd')` and `toLocaleTimeString()`
+    // without timeZone used the runtime's local TZ (UTC on Vercel), so
+    // transactions near midnight Jakarta time got prefilled with the wrong
+    // date/time in the edit dialog. Now matches the display in Transactions
+    // tab + Daily Recap (all use Asia/Jakarta).
+    const jakartaTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(txDate);
     setTxForm({
       type: tx.type, amount: formatNominalInput(String(tx.amount)), category: tx.category,
-      description: tx.description || '', date: format(txDate, 'yyyy-MM-dd'),
-      time: txDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      description: tx.description || '', date: jakartaDateKey(txDate),
+      time: jakartaTime,
       notes: tx.notes || '', source: tx.source || 'Kas',
     });
     setTxDialogOpen(true);
