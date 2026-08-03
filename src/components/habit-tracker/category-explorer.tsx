@@ -53,6 +53,7 @@ interface DailyData {
   total: number;
   count: number;
   cumulative: number;
+  movingAvg: number; // 7-day rolling average for fluctuation trend
 }
 
 interface CategoryExplorerProps {
@@ -211,19 +212,27 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
 
     let cumulative = 0;
     const chartData: DailyData[] = [];
+    // Build raw daily totals first for moving average calculation
+    const rawTotals: number[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const data = dailyMap.get(d);
+      rawTotals.push(data?.total ?? 0);
+    }
     for (let d = 1; d <= daysInMonth; d++) {
       const data = dailyMap.get(d);
       cumulative += data?.total ?? 0;
       const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
-      // Format label as "DD" for axis ticks (every 5 days), but full date
-      // for tooltip. Previously just showed bare day numbers (1, 5, 10...)
-      // without month context — confusing when switching between months.
       const dateObj = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]) - 1, d);
       const dayLabel = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-      // XAxis label: show "DD Mon" for tick days (every 5), empty otherwise.
-      // Previously just showed bare day numbers (1, 5, 10...) without month —
-      // user couldn't tell which month they're looking at.
       const axisLabel = d % 5 === 0 || d === 1 ? dayLabel : '';
+      // 7-day moving average centered on current day (3 days before + current + 3 after)
+      // Shows fluctuation trend instead of cumulative (which always goes up).
+      const windowStart = Math.max(0, d - 4); // 0-indexed, 3 days before
+      const windowEnd = Math.min(daysInMonth, d + 3); // 3 days after
+      const window = rawTotals.slice(windowStart, windowEnd);
+      const movingAvg = window.length > 0
+        ? Math.round(window.reduce((s, v) => s + v, 0) / window.length)
+        : 0;
       chartData.push({
         day: d,
         date: dateStr,
@@ -232,6 +241,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
         total: data?.total ?? 0,
         count: data?.count ?? 0,
         cumulative,
+        movingAvg,
       });
     }
 
@@ -477,7 +487,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
           </div>
         </Card>
 
-        {/* Combination chart: bars (daily) + line (cumulative) */}
+        {/* Combination chart: bars (daily) + line (7-day moving average) */}
         <Card className="overflow-hidden anim-stagger contain-card">
           <div className="px-4 py-3 sm:px-6">
             <div className="flex items-center justify-between mb-3">
@@ -492,7 +502,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-4 h-0.5" style={{ backgroundColor: '#7C6CFF' }} />
-                  Kumulatif
+                  Rata² 7 hari
                 </span>
                 {dailyAverage > 0 && (
                   <span className="flex items-center gap-1">
@@ -516,16 +526,14 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   }}
                   formatter={(value: number, name: string) => [
                     formatRupiah(value),
-                    name === 'total' ? 'Harian' : name === 'cumulative' ? 'Kumulatif' : name,
+                    name === 'total' ? 'Harian' : name === 'movingAvg' ? 'Rata² 7 hari' : name,
                   ]}
                   labelFormatter={(_label: string, payload: any) => {
-                    // Use the full dateLabel from the data point for context
                     const data = payload?.[0]?.payload;
                     return data?.dateLabel || `Tgl ${_label}`;
                   }}
                 />
                 <Bar dataKey="total" fill={primaryColor} radius={[3, 3, 0, 0]} maxBarSize={20} />
-                {/* E15: Average line — dashed reference showing daily average */}
                 {dailyAverage > 0 && (
                   <ReferenceLine
                     y={dailyAverage}
@@ -534,15 +542,15 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     strokeDasharray="5 3"
                     label={{
                       value: `Avg ${compactRupiahSafe(dailyAverage)}`,
-                      position: 'right',
+                      position: 'insideTopRight',
                       fill: '#f59e0b',
-                      fontSize: 9,
+                      fontSize: 11,
                     }}
                   />
                 )}
                 <Line
                   type="monotone"
-                  dataKey="cumulative"
+                  dataKey="movingAvg"
                   stroke="#7C6CFF"
                   strokeWidth={2}
                   dot={false}
@@ -667,14 +675,14 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
           </Card>
         )}
 
-        {/* A1: Day-of-week breakdown */}
+        {/* A1: Day-of-week breakdown — taller, rounded bars, with amount labels */}
         {catTx.length > 0 && (
           <Card className="p-3">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 text-muted-foreground" />
               Pola per Hari
             </h3>
-            <div className="flex items-end justify-between gap-1.5 h-20">
+            <div className="flex items-end justify-between gap-1.5 h-24">
               {dowData.map((d, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
                   <span className="text-[11px] font-medium tabular-nums shrink-0">
@@ -683,7 +691,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   <div className="w-full flex-1 flex items-end min-h-0">
                     <div
                       className={cn(
-                        'w-full rounded-t-sm transition-all duration-500',
+                        'w-full rounded-t-md transition-all duration-500',
                         i === dowTop.idx && d.total > 0 && 'ring-1 ring-foreground/20'
                       )}
                       style={{
@@ -710,14 +718,14 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
           </Card>
         )}
 
-        {/* C8: Amount distribution histogram */}
+        {/* C8: Amount distribution histogram — shorter, sharper bars, count labels */}
         {histogram.length > 0 && catTx.length >= 3 && (
           <Card className="p-3">
             <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
               <Receipt className="h-3 w-3 text-muted-foreground" />
               Distribusi Nominal
             </h3>
-            <div className="flex items-end justify-between gap-2 h-20">
+            <div className="flex items-end justify-between gap-2 h-16">
               {histogram.map((b, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
                   <span className="text-[11px] font-medium tabular-nums shrink-0">
@@ -731,8 +739,8 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                       )}
                       style={{
                         height: b.count > 0 ? `${(b.count / histMaxCount) * 100}%` : '2px',
-                        minHeight: b.count > 0 ? '8px' : '2px',
-                        backgroundColor: i === dominantBucket.idx ? primaryColor : `${primaryColor}50`,
+                        minHeight: b.count > 0 ? '6px' : '2px',
+                        backgroundColor: i === dominantBucket.idx ? primaryColor : `${primaryColor}40`,
                       }}
                     />
                   </div>
