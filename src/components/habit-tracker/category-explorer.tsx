@@ -60,6 +60,181 @@ interface CategoryExplorerProps {
   getCategoryMeta: (cat: string) => { emoji: string; color: string };
 }
 
+// ── DowLineChart: smooth line/area chart for day-of-week pattern ────────
+// Custom SVG chart — no Recharts overhead. Shows 7 data points with
+// smooth Catmull-Rom curve, gradient area fill, nodes with amount labels,
+// and highlighted top day.
+
+function DowLineChart({
+  data,
+  topIdx,
+  color,
+}: {
+  data: Array<{ day: string; total: number; count: number }>;
+  topIdx: number;
+  color: string;
+}) {
+  if (data.length === 0) return null;
+
+  const W = 280, H = 100;
+  const padding = { top: 20, bottom: 18, left: 4, right: 4 };
+  const chartW = W - padding.left - padding.right;
+  const chartH = H - padding.top - padding.bottom;
+  const step = chartW / (data.length - 1 || 1);
+  const maxVal = Math.max(...data.map((d) => d.total), 1);
+
+  const points = data.map((d, i) => ({
+    x: padding.left + i * step,
+    y: padding.top + chartH - (d.total / maxVal) * chartH,
+    ...d,
+  }));
+
+  // Catmull-Rom → Bezier for smooth curve
+  let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  const areaPath = `${path} L ${points[points.length - 1].x.toFixed(1)} ${padding.top + chartH} L ${points[0].x.toFixed(1)} ${padding.top + chartH} Z`;
+  const gradId = `dow-grad-${color.replace('#', '')}`;
+  const topPoint = points[topIdx];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[100px]" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Area fill */}
+      <path d={areaPath} fill={`url(#${gradId})`} />
+      {/* Smooth line */}
+      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Nodes + labels */}
+      {points.map((p, i) => {
+        const isTop = i === topIdx && p.total > 0;
+        return (
+          <g key={i}>
+            {/* Highlight area for top day */}
+            {isTop && (
+              <circle cx={p.x} cy={p.y} r="12" fill={color} opacity="0.08" />
+            )}
+            {/* Node */}
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={isTop ? 4 : 2.5}
+              fill={isTop ? color : '#fff'}
+              stroke={color}
+              strokeWidth={isTop ? 2 : 1.5}
+            />
+            {/* Amount label above node */}
+            {p.total > 0 && (
+              <text
+                x={p.x}
+                y={p.y - 8}
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight={isTop ? '700' : '500'}
+                fill={isTop ? color : '#94a3b8'}
+              >
+                {compactRupiahSafe(p.total)}
+              </text>
+            )}
+            {/* Day label below */}
+            <text
+              x={p.x}
+              y={H - 4}
+              textAnchor="middle"
+              fontSize="10"
+              fontWeight={isTop ? '700' : '400'}
+              fill={isTop ? '#0f172a' : '#94a3b8'}
+            >
+              {p.day}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ── MiniProgressRing: circular progress ring for histogram ──────────────
+
+function MiniProgressRing({
+  percentage,
+  size = 48,
+  strokeWidth = 3.5,
+  color,
+  isHighlighted = false,
+  children,
+}: {
+  percentage: number;
+  size?: number;
+  strokeWidth?: number;
+  color: string;
+  isHighlighted?: boolean;
+  children?: React.ReactNode;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clampedPct = Math.min(Math.max(percentage, 0), 100);
+  const offset = circumference - (clampedPct / 100) * circumference;
+
+  return (
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-muted/20"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-700 ease-out"
+          opacity={isHighlighted ? 1 : 0.5}
+        />
+      </svg>
+      {isHighlighted && (
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius + 1}
+          fill="none"
+          stroke={color}
+          strokeWidth="1"
+          opacity="0.2"
+          className="absolute"
+          style={{ width: size, height: size }}
+        />
+      )}
+      <div className="absolute inset-0 flex items-center justify-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function monthLabel(ym: string): string {
@@ -675,85 +850,71 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
           </Card>
         )}
 
-        {/* A1: Day-of-week breakdown — taller, rounded bars, with amount labels */}
+        {/* A1: Pola per Hari — smooth line/area chart dengan nodes */}
         {catTx.length > 0 && (
           <Card className="p-3">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 text-muted-foreground" />
               Pola per Hari
             </h3>
-            <div className="flex items-end justify-between gap-1.5 h-24">
-              {dowData.map((d, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <span className="text-[11px] font-medium tabular-nums shrink-0">
-                    {d.total > 0 ? compactRupiahSafe(d.total) : ''}
-                  </span>
-                  <div className="w-full flex-1 flex items-end min-h-0">
-                    <div
-                      className={cn(
-                        'w-full rounded-t-md transition-all duration-500',
-                        i === dowTop.idx && d.total > 0 && 'ring-1 ring-foreground/20'
-                      )}
-                      style={{
-                        height: d.total > 0 ? `${(d.total / dowMaxTotal) * 100}%` : '2px',
-                        minHeight: d.total > 0 ? '8px' : '2px',
-                        backgroundColor: i === dowTop.idx ? primaryColor : `${primaryColor}50`,
-                      }}
-                    />
-                  </div>
-                  <span className={cn(
-                    'text-[11px] shrink-0',
-                    i === dowTop.idx && d.total > 0 ? 'font-bold text-foreground' : 'text-muted-foreground'
-                  )}>
-                    {d.day}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <DowLineChart data={dowData} topIdx={dowTop.idx} color={primaryColor} />
             {dowTop.total > 0 && (
-              <p className="text-[11px] text-muted-foreground mt-2">
-                💡 Paling boros di hari {DOW_NAMES[dowTop.idx]} — {compactRupiahSafe(dowTop.total)} ({dowTop.count}×)
-              </p>
+              <div className="mt-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                <span className="text-[11px]">💡</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Paling boros di hari <span className="font-semibold text-foreground">{DOW_NAMES[dowTop.idx]}</span> —{' '}
+                  <span className="font-semibold text-foreground">{compactRupiahSafe(dowTop.total)}</span> ({dowTop.count}×)
+                </span>
+              </div>
             )}
           </Card>
         )}
 
-        {/* C8: Amount distribution histogram — shorter, sharper bars, count labels */}
+        {/* C8: Distribusi Nominal — 5 circular progress rings */}
         {histogram.length > 0 && catTx.length >= 3 && (
           <Card className="p-3">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
               <Receipt className="h-3 w-3 text-muted-foreground" />
               Distribusi Nominal
             </h3>
-            <div className="flex items-end justify-between gap-2 h-16">
-              {histogram.map((b, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <span className="text-[11px] font-medium tabular-nums shrink-0">
-                    {b.count > 0 ? `${b.count}×` : ''}
-                  </span>
-                  <div className="w-full flex-1 flex items-end min-h-0">
-                    <div
-                      className={cn(
-                        'w-full rounded-t-sm transition-all duration-500',
-                        i === dominantBucket.idx && b.count > 0 && 'ring-1 ring-foreground/20'
-                      )}
-                      style={{
-                        height: b.count > 0 ? `${(b.count / histMaxCount) * 100}%` : '2px',
-                        minHeight: b.count > 0 ? '6px' : '2px',
-                        backgroundColor: i === dominantBucket.idx ? primaryColor : `${primaryColor}40`,
-                      }}
-                    />
+            <div className="flex items-start justify-between gap-1 sm:gap-2">
+              {histogram.map((b, i) => {
+                const pct = histMaxCount > 0 ? Math.round((b.count / histMaxCount) * 100) : 0;
+                const isDominant = i === dominantBucket.idx && b.count > 0;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                    <MiniProgressRing
+                      percentage={pct}
+                      size={48}
+                      strokeWidth={3.5}
+                      color={primaryColor}
+                      isHighlighted={isDominant}
+                    >
+                      <span className={cn(
+                        'text-[11px] font-bold tabular-nums',
+                        isDominant ? 'text-foreground' : 'text-muted-foreground'
+                      )}>
+                        {b.count > 0 ? `${b.count}×` : '—'}
+                      </span>
+                    </MiniProgressRing>
+                    <span className={cn(
+                      'text-[10px] text-center leading-tight shrink-0 truncate w-full',
+                      isDominant ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                    )}>
+                      {b.range}
+                    </span>
                   </div>
-                  <span className="text-[11px] text-muted-foreground text-center leading-tight shrink-0 truncate w-full">
-                    {b.range}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {dominantBucket.count > 0 && (
-              <p className="text-[11px] text-muted-foreground mt-2">
-                💡 Mayoritas transaksi di range {dominantBucket.range} ({dominantBucket.count}×)
-              </p>
+              <div className="mt-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                <span className="text-[11px]">💡</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Mayoritas transaksi di range{' '}
+                  <span className="font-semibold text-foreground">{dominantBucket.range}</span> ({dominantBucket.count}×)
+                </span>
+              </div>
             )}
           </Card>
         )}
