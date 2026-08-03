@@ -81,6 +81,10 @@ interface DailyRecap {
     trendDirection: { slope: number; direction: string };
     budgetETA: { daysLeft: number; willExceed: boolean; projectedOver: number } | null;
     smartCapTomorrow: number | null;
+    projectionConfidence: 'high' | 'medium' | 'low';
+    budgetCompliancePct: number | null;
+    daysUntilBudgetOut: number | null;
+    topProjectedCategory: { name: string; emoji: string; projected: number; pct: number } | null;
   };
   alerts: Array<{
     type: string;
@@ -1111,32 +1115,106 @@ export default function DailyRecap() {
           {patterns.personalityTag.description}
         </p>
 
-        {/* Predictions row */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-muted/30 p-2.5">
-            <div className="flex items-center gap-1 mb-0.5">
-              <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Proyeksi bulan</span>
-            </div>
-            <p className="text-sm font-bold">{formatRupiah(predictions.monthEndProjection)}</p>
-            {predictions.budgetETA && predictions.budgetETA.willExceed && (
-              <p className="text-[11px] text-red-500 mt-0.5">
-                ⚠️ Over {formatRupiah(predictions.budgetETA.projectedOver)}
+        {/* ── PROYEKSI SECTION (enriched) ──────────────────────────────── */}
+        {/* Mixed tone: data-driven (numbers) + actionable (recommendations)
+            + gamified (compliance %) + playful (confidence emoji) */}
+        <div className="rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10 p-3 space-y-3">
+          {/* Header: proyeksi + confidence */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">Proyeksi Akhir Bulan</span>
+              </div>
+              <p className="text-lg font-bold tabular-nums">{formatRupiah(predictions.monthEndProjection)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                rate {compactRupiahSafe(predictions.burnRate)}/hari
               </p>
+            </div>
+            {/* Confidence badge */}
+            {predictions.projectionConfidence && (
+              <div className={cn(
+                'shrink-0 px-2 py-1 rounded-full text-[11px] font-medium border',
+                predictions.projectionConfidence === 'high'
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900'
+                  : predictions.projectionConfidence === 'medium'
+                  ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
+                  : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
+              )}>
+                {predictions.projectionConfidence === 'high' ? '🎯 Akurat' : predictions.projectionConfidence === 'medium' ? '⚖️ Cukup' : '🎲 Kasar'}
+              </div>
             )}
           </div>
-          <div className="rounded-lg bg-muted/30 p-2.5">
-            <div className="flex items-center gap-1 mb-0.5">
-              <Zap className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Burn rate</span>
+
+          {/* Budget compliance progress bar */}
+          {predictions.budgetCompliancePct !== null && dailyBudget && dailyBudget.target && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-muted-foreground">Kemungkinan on budget</span>
+                <span className={cn(
+                  'text-[11px] font-bold tabular-nums',
+                  predictions.budgetCompliancePct >= 70 ? 'text-emerald-500'
+                  : predictions.budgetCompliancePct >= 40 ? 'text-amber-500'
+                  : 'text-red-500'
+                )}>
+                  {predictions.budgetCompliancePct}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all duration-700',
+                    predictions.budgetCompliancePct >= 70 ? 'bg-emerald-500'
+                    : predictions.budgetCompliancePct >= 40 ? 'bg-amber-500'
+                    : 'bg-red-500'
+                  )}
+                  style={{ width: `${predictions.budgetCompliancePct}%` }}
+                />
+              </div>
             </div>
-            <p className="text-sm font-bold">{formatRupiah(predictions.burnRate)}/hari</p>
+          )}
+
+          {/* Smart recommendation + countdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {predictions.smartCapTomorrow !== null && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Sisa/hari {compactRupiahSafe(predictions.smartCapTomorrow)}
-              </p>
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/60">
+                <Target className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-[11px] text-muted-foreground">
+                  Besok max <span className="font-semibold text-foreground">{compactRupiahSafe(predictions.smartCapTomorrow)}</span>
+                </span>
+              </div>
+            )}
+            {predictions.daysUntilBudgetOut !== null && predictions.daysUntilBudgetOut > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/60">
+                <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span className="text-[11px] text-muted-foreground">
+                  Budget habis dalam <span className="font-semibold text-foreground">{predictions.daysUntilBudgetOut} hari</span>
+                </span>
+              </div>
             )}
           </div>
+
+          {/* Top projected category */}
+          {predictions.topProjectedCategory && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/60">
+              <span className="text-sm shrink-0">{predictions.topProjectedCategory.emoji}</span>
+              <span className="text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">{predictions.topProjectedCategory.name}</span> proyeksi{' '}
+                <span className="font-semibold text-foreground">{compactRupiahSafe(predictions.topProjectedCategory.projected)}</span>
+                {' '}({predictions.topProjectedCategory.pct}% dari total)
+              </span>
+            </div>
+          )}
+
+          {/* Over budget warning */}
+          {predictions.budgetETA && predictions.budgetETA.willExceed && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50">
+              <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+              <span className="text-[11px] text-red-600 dark:text-red-400">
+                Over budget <span className="font-bold">{formatRupiah(predictions.budgetETA.projectedOver)}</span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Top transaction (largest single expense today) — kept per user request.

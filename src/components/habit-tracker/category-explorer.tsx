@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
-import { jakartaMonthString, jakartaDateKey } from '@/lib/timezone';
+import { jakartaMonthString, jakartaDateKey, jakartaNowParts } from '@/lib/timezone';
 import { format as formatDate, subMonths } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -1065,12 +1065,32 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     {cat.emoji}
                   </div>
 
-                  {/* Name + count */}
+                  {/* Name + count + proyeksi */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{cat.name}</p>
                     <p className="text-[11px] text-muted-foreground">
                       {cat.count} transaksi · {cat.percentage}% dari total
                     </p>
+                    {/* Proyeksi akhir bulan per kategori */}
+                    {(() => {
+                      const [y, m] = selectedMonth.split('-').map(Number);
+                      const daysInMonth = new Date(y, m, 0).getDate();
+                      const jp = jakartaNowParts();
+                      const daysElapsed = (jp.year === y && jp.month === m) ? jp.day : daysInMonth;
+                      if (daysElapsed > 0 && cat.total > 0) {
+                        const projection = Math.round((cat.total / daysElapsed) * daysInMonth);
+                        const delta = projection - cat.total;
+                        if (delta > 0) {
+                          return (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              ↗ proyeksi <span className="font-medium text-foreground">{compactRupiahSafe(projection)}</span>
+                              <span className="text-muted-foreground/70"> (+{compactRupiahSafe(delta)})</span>
+                            </p>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   {/* Total */}
