@@ -12,6 +12,19 @@ export type TabId =
   | 'finance'
   | 'settings';
 
+// Help modal section IDs — match the keys used in help-calculation.tsx.
+// When opening the modal from an info icon on a specific section, pass
+// the section ID so the modal auto-scrolls to that section.
+export type HelpSectionId =
+  | 'proyeksi'
+  | 'insight'
+  | 'gamifikasi'
+  | 'cashflow'
+  | 'patterns'
+  | 'heatmap'
+  | 'overview'
+  | 'budget';
+
 interface AppState {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
@@ -23,6 +36,13 @@ interface AppState {
   setSelectedMonth: (month: string) => void;
   refreshKey: number;
   triggerRefresh: () => void;
+  // Help modal state — can be opened from anywhere (Daily Recap header,
+  // Settings page, or info icons on section headers). defaultSection
+  // controls which section the modal auto-scrolls to on open.
+  helpOpen: boolean;
+  helpDefaultSection: HelpSectionId | null;
+  openHelp: (section?: HelpSectionId) => void;
+  closeHelp: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -38,4 +58,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedMonth: (month) => set({ selectedMonth: month }),
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),
+  helpOpen: false,
+  helpDefaultSection: null,
+  openHelp: (section) => set({ helpOpen: true, helpDefaultSection: section ?? null }),
+  closeHelp: () => set({ helpOpen: false, helpDefaultSection: null }),
 }));
