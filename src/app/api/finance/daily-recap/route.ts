@@ -111,6 +111,11 @@ interface DailyRecapResponse {
     trendDirection: { slope: number; direction: 'up' | 'down' | 'flat' };
     budgetETA: { daysLeft: number; willExceed: boolean; projectedOver: number } | null;
     smartCapTomorrow: number | null;
+    // NEW: projection enrichment
+    projectionConfidence: 'high' | 'medium' | 'low';
+    budgetCompliancePct: number | null; // 0-100, probability of staying on budget
+    daysUntilBudgetOut: number | null; // countdown days until budget runs out
+    topProjectedCategory: { name: string; emoji: string; projected: number; pct: number } | null;
   };
   alerts: Alert[];
   patterns: {
@@ -864,6 +869,51 @@ export async function GET() {
     const isTodayLowest = todayExpense > 0 && sorted7d[0].isToday;
     const isTodayHighest = todayExpense > 0 && sorted7d[sorted7d.length - 1].isToday;
 
+    // ── NEW: Projection enrichment (computed after monthDailyTotals + categoryStats) ──
+    // Confidence: based on coefficient of variation (CV) of daily spending.
+    const dailyExpenseValues = Array.from(monthDailyTotals.values());
+    const expenseMean = dailyExpenseValues.length > 0
+      ? dailyExpenseValues.reduce((a, b) => a + b, 0) / dailyExpenseValues.length
+      : 0;
+    const expenseVariance = dailyExpenseValues.length > 0
+      ? dailyExpenseValues.reduce((s, v) => s + (v - expenseMean) ** 2, 0) / dailyExpenseValues.length
+      : 0;
+    const expenseSD = Math.sqrt(expenseVariance);
+    const cv = expenseMean > 0 ? expenseSD / expenseMean : 1;
+    const projectionConfidence: 'high' | 'medium' | 'low' =
+      cv < 0.4 ? 'high' : cv < 0.8 ? 'medium' : 'low';
+
+    // Budget compliance probability
+    const budgetCompliancePct = totalMonthlyTarget > 0
+      ? Math.max(0, Math.min(100, Math.round(100 - ((monthEndProjection - totalMonthlyTarget) / totalMonthlyTarget) * 200)))
+      : null;
+
+    // Days until budget runs out
+    let daysUntilBudgetOut: number | null = null;
+    if (totalMonthlyTarget > 0 && burnRate > 0) {
+      const remBudget = totalMonthlyTarget - monthExpenseSoFar;
+      daysUntilBudgetOut = remBudget > 0 ? Math.ceil(remBudget / burnRate) : 0;
+    }
+
+    // Top projected category
+    let topProjectedCategory: { name: string; emoji: string; projected: number; pct: number } | null = null;
+    if (daysElapsed > 0 && categoryStats.length > 0) {
+      const projected = categoryStats
+        .map((c) => ({
+          name: c.name,
+          emoji: c.emoji,
+          projected: Math.round((c.todayAmount / daysElapsed) * daysInMonth),
+        }))
+        .filter((c) => c.projected > 0)
+        .sort((a, b) => b.projected - a.projected);
+      if (projected.length > 0) {
+        topProjectedCategory = {
+          ...projected[0],
+          pct: monthEndProjection > 0 ? Math.round((projected[0].projected / monthEndProjection) * 100) : 0,
+        };
+      }
+    }
+
     // ── Build response ───────────────────────────────────────────────
     const response: DailyRecapResponse = {
       date: todayStr,
@@ -904,6 +954,10 @@ export async function GET() {
         trendDirection: trend,
         budgetETA,
         smartCapTomorrow,
+        projectionConfidence,
+        budgetCompliancePct,
+        daysUntilBudgetOut,
+        topProjectedCategory,
       },
       alerts,
       patterns: {
