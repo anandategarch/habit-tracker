@@ -33,7 +33,6 @@ const Rewards = dynamic(() => import('@/components/habit-tracker/rewards'), { ss
 const Badges = dynamic(() => import('@/components/habit-tracker/badges'), { ssr: false });
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false });
-const HelpCalculationModal = dynamic(() => import('@/components/habit-tracker/help-calculation').then(m => ({ default: m.HelpCalculationModal })), { ssr: false });
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -271,11 +270,6 @@ export default function Home() {
           })}
         </nav>
       </div>
-
-      {/* Help modal — global, triggered from Daily Recap header, Settings
-          page, or info icons on section headers. Zustand store controls
-          open state + which section to auto-scroll to. */}
-      <HelpCalculationModal />
     </TooltipProvider>
   );
 }

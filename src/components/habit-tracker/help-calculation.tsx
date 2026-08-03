@@ -1,30 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAppStore, type HelpSectionId } from '@/store/app-store';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-
-// ── Small reusable info icon button ──────────────────────────────────────
-// Used in section headers across Daily Recap. Clicking it opens the help
-// modal auto-scrolled to the matching section. Kept tiny + muted so it
-// doesn't compete with the section title.
-export function HelpInfoButton({ section, label }: { section: HelpSectionId; label?: string }) {
-  const openHelp = useAppStore((s) => s.openHelp);
-  return (
-    <button
-      type="button"
-      onClick={() => openHelp(section)}
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
-      aria-label={label ? `Bantuan: ${label}` : 'Bantuan perhitungan'}
-      title="Lihat cara hitung"
-    >
-      <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor" aria-hidden="true">
-        <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 3a5 5 0 110 10 5 5 0 010-10zm0 1.75a.85.85 0 00-.85.85v3.2a.85.85 0 001.7 0v-3.2A.85.85 0 008 4.75zm0 5.9a1 1 0 100 2 1 1 0 000-2z"/>
-      </svg>
-    </button>
-  );
-}
 
 // ── Section content type ────────────────────────────────────────────────
 interface Metric {
@@ -41,13 +18,29 @@ interface HelpSection {
   metrics: Metric[];
 }
 
+// Section IDs — used by HelpInfoButton to pick the right content.
+// Keep in sync with the SECTIONS array below.
+export type HelpSectionId =
+  | 'proyeksi'
+  | 'insight'
+  | 'gamifikasi'
+  | 'cashflow'
+  | 'patterns'
+  | 'heatmap'
+  | 'overview'
+  | 'budget';
+
 // ── All help content (Bahasa Indonesia, non-technical) ──────────────────
+// Each section is shown INDEPENDENTLY in a small popover anchored to the
+// info icon on that section's header. This is more contextual than a
+// single big modal — the user only sees help for the section they're
+// currently looking at, no cognitive overload from unrelated metrics.
 const SECTIONS: HelpSection[] = [
   {
     id: 'proyeksi',
     emoji: '📈',
     title: 'Proyeksi Akhir Bulan',
-    intro: 'Bagian ini memperkirakan total pengeluaran kamu sampai akhir bulan, berdasarkan pola belanja saat ini.',
+    intro: 'Memperkirakan total pengeluaran sampai akhir bulan, berdasarkan pola belanja saat ini.',
     metrics: [
       {
         name: 'Proyeksi Akhir Bulan',
@@ -57,7 +50,7 @@ const SECTIONS: HelpSection[] = [
       {
         name: 'Rate/hari',
         formula: 'pengeluaran bulan ini ÷ hari yang sudah lewat',
-        source: 'Sama seperti proyeksi — bulan berjalan, bukan rata-rata 7 hari. Jadi rate × total hari = proyeksi (konsisten).',
+        source: 'Bulan berjalan, bukan rata-rata 7 hari. Jadi rate × total hari = proyeksi (konsisten).',
       },
       {
         name: 'vs semua Rp Y',
@@ -157,8 +150,8 @@ const SECTIONS: HelpSection[] = [
   {
     id: 'heatmap',
     emoji: '📊',
-    title: 'Aktivitas per Jam (Heatmap)',
-    intro: '48 bar — 1 bar = 30 menit. Tip: hover bar untuk lihat jam + nominal tepat.',
+    title: 'Aktivitas per Jam',
+    intro: '48 bar — 1 bar = 30 menit. Hover bar untuk lihat jam + nominal tepat.',
     metrics: [
       {
         name: '48 Bar (30-menit granularity)',
@@ -344,116 +337,72 @@ const SECTIONS: HelpSection[] = [
   },
 ];
 
-// ── Main Help Modal Component ───────────────────────────────────────────
-export function HelpCalculationModal() {
-  const { helpOpen, helpDefaultSection, closeHelp } = useAppStore();
-  const scrollRef = useRef<HTMLDivElement>(null);
+// Lookup map for O(1) section find by ID.
+const SECTION_MAP = new Map<HelpSectionId, HelpSection>(SECTIONS.map((s) => [s.id, s]));
 
-  // Auto-scroll to the section that triggered the open (if any).
-  // Radix Dialog mounts DialogContent via portal AFTER open becomes true,
-  // so scrollRef is null on first render. We retry a few times with
-  // increasing delay until the container + target are both mounted.
-  useEffect(() => {
-    if (!helpOpen) return;
-    let cancelled = false;
-    const tryScroll = (attempt: number) => {
-      if (cancelled) return;
-      const container = scrollRef.current;
-      if (!container) {
-        // Container not mounted yet — retry
-        if (attempt < 10) setTimeout(() => tryScroll(attempt + 1), 80);
-        return;
-      }
-      if (helpDefaultSection) {
-        const target = container.querySelector(`[data-help-section="${helpDefaultSection}"]`) as HTMLElement | null;
-        if (!target) {
-          // Target not mounted yet — retry
-          if (attempt < 10) setTimeout(() => tryScroll(attempt + 1), 80);
-          return;
-        }
-        container.scrollTo({
-          top: Math.max(0, target.offsetTop - 8),
-          behavior: 'smooth',
-        });
-        return;
-      }
-      // No specific section — scroll to top
-      container.scrollTo({ top: 0, behavior: 'auto' });
-    };
-    // Initial attempt after a short delay to let the dialog open transition start
-    setTimeout(() => tryScroll(0), 100);
-    return () => { cancelled = true; };
-  }, [helpOpen, helpDefaultSection]);
+// ── HelpInfoButton — inline popover help per section ────────────────────
+// Renders a small ℹ️ icon button. Click opens a Popover anchored to the
+// icon showing ONLY the help content for that section (not all sections).
+// This is more contextual than a big modal — the user sees help for
+// exactly what they're looking at, no cognitive overload.
+//
+// Props:
+//   section — which help section to show (matches SECTIONS[].id)
+//   label   — aria-label fallback (defaults to "Bantuan: <section title>")
+export function HelpInfoButton({ section, label }: { section: HelpSectionId; label?: string }) {
+  const data = SECTION_MAP.get(section);
+  if (!data) return null; // unknown section — render nothing
 
   return (
-    <Dialog open={helpOpen} onOpenChange={(open) => { if (!open) closeHelp(); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0 flex flex-col">
-        <DialogHeader className="px-5 py-4 border-b border-border shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <span className="text-lg">📖</span>
-            <span>Cara Hitung Aplikasi</span>
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Penjelasan singkat semua perhitungan di Daily Recap, Finance, dan Budget. Bahasa Indonesia, non-teknis.
-          </p>
-        </DialogHeader>
-
-        {/* Scrollable content area.
-            `relative` + `overflow-y-auto` makes this the offsetParent for
-            children's offsetTop, so we can compute scroll targets reliably. */}
-        <div ref={scrollRef} className="relative overflow-y-auto custom-scrollbar px-5 py-4 space-y-5 flex-1 min-h-0">
-
-          {SECTIONS.map((section) => (
-            <section
-              key={section.id}
-              data-help-section={section.id}
-              className="scroll-mt-4"
-            >
-              {/* Section header */}
-              <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background/95 backdrop-blur-sm py-1 -mx-1 px-1 z-10">
-                <span className="text-base">{section.emoji}</span>
-                <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-              </div>
-
-              {/* Section intro */}
-              {section.intro && (
-                <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
-                  {section.intro}
-                </p>
-              )}
-
-              {/* Metrics list */}
-              <div className="space-y-2">
-                {section.metrics.map((metric, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-lg border border-border/60 bg-muted/20 p-2.5"
-                  >
-                    <p className="text-xs font-semibold text-foreground mb-1">{metric.name}</p>
-                    <div className="space-y-0.5">
-                      <p className="text-[11px] text-foreground/80 leading-relaxed">
-                        <span className="text-muted-foreground font-medium">Rumus: </span>
-                        {metric.formula}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        <span className="font-medium">Data: </span>
-                        {metric.source}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-
-          {/* Footer note */}
-          <div className="pt-2 border-t border-border">
-            <p className="text-[11px] text-muted-foreground/70 italic leading-relaxed">
-              💡 Semua perhitungan pakai timezone Asia/Jakarta (WIB). Transaksi yang kamu catat dengan jam lokal akan otomatis dikonversi ke WIB untuk konsistensi.
-            </p>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+          aria-label={label ?? `Bantuan: ${data.title}`}
+          title={`Cara hitung: ${data.title}`}
+        >
+          <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor" aria-hidden="true">
+            <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 3a5 5 0 110 10 5 5 0 010-10zm0 1.75a.85.85 0 00-.85.85v3.2a.85.85 0 001.7 0v-3.2A.85.85 0 008 4.75zm0 5.9a1 1 0 100 2 1 1 0 000-2z"/>
+          </svg>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="start"
+        sideOffset={4}
+        className="w-80 sm:w-96 max-h-[60vh] overflow-y-auto custom-scrollbar p-0"
+      >
+        {/* Header — section emoji + title */}
+        <div className="sticky top-0 bg-background/95 backdrop-blur-sm px-3 py-2 border-b border-border z-10">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">{data.emoji}</span>
+            <p className="text-xs font-semibold text-foreground">{data.title}</p>
           </div>
+          {data.intro && (
+            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+              {data.intro}
+            </p>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Metrics list — only this section's metrics */}
+        <div className="px-3 py-2 space-y-2">
+          {data.metrics.map((metric, idx) => (
+            <div key={idx} className="rounded-md border border-border/60 bg-muted/20 p-2">
+              <p className="text-[11px] font-semibold text-foreground mb-0.5">{metric.name}</p>
+              <p className="text-[10px] text-foreground/80 leading-relaxed mb-0.5">
+                <span className="text-muted-foreground font-medium">Rumus: </span>
+                {metric.formula}
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                <span className="font-medium">Data: </span>
+                {metric.source}
+              </p>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

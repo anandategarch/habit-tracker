@@ -49,7 +49,6 @@ import {
   HardDriveDownload,
   Check,
   ListChecks,
-  HelpCircle,
 } from 'lucide-react';
 import {
   applyThemeColors,
@@ -152,7 +151,6 @@ function previewTheme(primary: string, secondary: string, theme: string) {
 
 export default function Settings() {
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
-  const openHelp = useAppStore(s => s.openHelp);
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<'umum' | 'habits' | 'data'>('umum');
   const [saving, setSaving] = useState(false);
@@ -788,30 +786,6 @@ export default function Settings() {
           </div>
         </SectionCard>
       )}
-
-      {/* Bantuan section — always visible regardless of active sub-tab.
-          Opens the global "Cara Hitung Aplikasi" modal with all formula
-          explanations (Bahasa Indonesia, non-technical). Entry point for
-          users who want to understand how each metric is computed. */}
-      <SectionCard icon={HelpCircle} title="Bantuan">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-0.5 min-w-0">
-            <p className="text-sm font-medium">Cara Hitung Aplikasi</p>
-            <p className="text-xs text-muted-foreground">
-              Lihat rumus & sumber data semua perhitungan: proyeksi, insight, gamifikasi, cash flow, budget, dan lainnya.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => openHelp()}
-            className="shrink-0"
-          >
-            <HelpCircle className="h-4 w-4 mr-1.5" />
-            Lihat Penjelasan
-          </Button>
-        </div>
-      </SectionCard>
     </div>
   );
 }

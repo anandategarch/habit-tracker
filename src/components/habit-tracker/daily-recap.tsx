@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { HelpInfoButton } from './help-calculation';
-import { useAppStore } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -647,11 +646,13 @@ function CategoryInsightRow({
   stats,
   pct,
   period,
+  allTimeLoading = false,
   staggerIndex = 0,
 }: {
   stats: CategoryStats;
   pct: number;
   period: 'month' | 'alltime';
+  allTimeLoading?: boolean;
   staggerIndex?: number;
 }) {
   const delta = stats.deltaVsAvgDaily;
@@ -700,24 +701,30 @@ function CategoryInsightRow({
 
       {/* Row 2: mini-stats line — Max tx, Avg tx, Max/day, Avg/day
           Shows the active period's metrics (month or all-time).
-          The period label is shown once at the section header (not per row)
-          to avoid repetition. */}
+          When all-time data is loading (lazy fetch in progress), show
+          "Memuat..." instead of 0s to avoid confusion. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[11px] text-muted-foreground">
-        <span className="shrink-0">
-          Max tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(maxTx)}</span>
-        </span>
-        <span className="shrink-0 text-muted-foreground/50">·</span>
-        <span className="shrink-0">
-          Avg tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(avgTx)}</span>
-        </span>
-        <span className="shrink-0 text-muted-foreground/50">·</span>
-        <span className="shrink-0">
-          Max/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(maxDay)}</span>
-        </span>
-        <span className="shrink-0 text-muted-foreground/50">·</span>
-        <span className="shrink-0">
-          Avg/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(avgDay)}</span>
-        </span>
+        {allTimeLoading ? (
+          <span className="italic text-muted-foreground/50">Memuat data all-time…</span>
+        ) : (
+          <>
+            <span className="shrink-0">
+              Max tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(maxTx)}</span>
+            </span>
+            <span className="shrink-0 text-muted-foreground/50">·</span>
+            <span className="shrink-0">
+              Avg tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(avgTx)}</span>
+            </span>
+            <span className="shrink-0 text-muted-foreground/50">·</span>
+            <span className="shrink-0">
+              Max/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(maxDay)}</span>
+            </span>
+            <span className="shrink-0 text-muted-foreground/50">·</span>
+            <span className="shrink-0">
+              Avg/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(avgDay)}</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -799,7 +806,6 @@ function StatTile({
 
 export default function DailyRecap() {
   const queryClient = useQueryClient();
-  const openHelp = useAppStore((s) => s.openHelp);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   // What-if slider state: 0-50% spending reduction for the rest of the month.
@@ -821,6 +827,29 @@ export default function DailyRecap() {
     },
     staleTime: 30_000,
     retry: 1,
+  });
+
+  // Lazy-load all-time per-category stats — ONLY fires when the user
+  // switches to the "All-time" tab. This was moved out of the daily-recap
+  // API for performance: the all-time query fetches ALL expense transactions
+  // (potentially thousands), which was slowing down initial page load on
+  // mobile/production. Now it loads on-demand.
+  // The query is keyed by the category names (so it refetches if today's
+  // categories change). staleTime 5min — all-time data doesn't change often.
+  const allTimeCategories = recap?.today.categoryStats.map((c) => c.name) ?? [];
+  const { data: allTimeStats } = useQuery<Record<string, { maxTransaction: number; avgTransaction: number; maxDaily: number; avgDaily: number }>>({
+    queryKey: ['finance', 'category-alltime', allTimeCategories],
+    queryFn: async () => {
+      const res = await fetch('/api/finance/category-alltime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: allTimeCategories }),
+      });
+      if (!res.ok) throw new Error('Failed to load all-time stats');
+      return res.json();
+    },
+    enabled: insightPeriod === 'alltime' && allTimeCategories.length > 0,
+    staleTime: 5 * 60_000, // 5 min — all-time data is stable
   });
 
   // Mutation: save daily budget target via PUT /api/settings
@@ -1095,19 +1124,6 @@ export default function DailyRecap() {
     <Card className="overflow-hidden anim-stagger contain-card">
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
       <div className="relative bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
-        {/* Help button — top-right corner, opens the "Cara Hitung" modal.
-            Small + muted so it doesn't compete with the main content. */}
-        <button
-          type="button"
-          onClick={() => openHelp()}
-          className="absolute top-2 right-2 inline-flex items-center justify-center w-6 h-6 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors z-10"
-          aria-label="Bantuan perhitungan"
-          title="Cara hitung aplikasi"
-        >
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
-            <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 3a5 5 0 110 10 5 5 0 010-10zm0 1.75a.85.85 0 00-.85.85v3.2a.85.85 0 001.7 0v-3.2A.85.85 0 008 4.75zm0 5.9a1 1 0 100 2 1 1 0 000-2z"/>
-          </svg>
-        </button>
         {/* Top row: label + date + budget ring */}
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
@@ -1678,8 +1694,29 @@ export default function DailyRecap() {
             <div className="rounded-lg bg-muted/20 px-2.5 py-0.5">
               {today.categoryStats.map((cat, idx) => {
                 const pct = today.expense > 0 ? Math.round((cat.todayAmount / today.expense) * 100) : 0;
+                // Merge lazy-loaded all-time stats into the category stats.
+                // When insightPeriod === 'alltime' and allTimeStats has loaded,
+                // replace the 0 placeholders with real data. Until loaded,
+                // the row shows 0s (which the user sees briefly as a loading state).
+                const allTime = allTimeStats?.[cat.name];
+                const mergedStats = allTime
+                  ? {
+                      ...cat,
+                      allTimeMaxTransaction: allTime.maxTransaction,
+                      allTimeAvgTransaction: allTime.avgTransaction,
+                      allTimeMaxDaily: allTime.maxDaily,
+                      allTimeAvgDaily: allTime.avgDaily,
+                    }
+                  : cat;
                 return (
-                  <CategoryInsightRow key={cat.name} stats={cat} pct={pct} period={insightPeriod} staggerIndex={idx} />
+                  <CategoryInsightRow
+                    key={cat.name}
+                    stats={mergedStats}
+                    pct={pct}
+                    period={insightPeriod}
+                    allTimeLoading={insightPeriod === 'alltime' && !allTimeStats}
+                    staggerIndex={idx}
+                  />
                 );
               })}
             </div>
