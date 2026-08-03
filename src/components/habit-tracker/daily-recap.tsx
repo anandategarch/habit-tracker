@@ -647,12 +647,16 @@ function CategoryInsightRow({
   pct,
   period,
   allTimeLoading = false,
+  allTimeError = false,
+  onRetryAllTime,
   staggerIndex = 0,
 }: {
   stats: CategoryStats;
   pct: number;
   period: 'month' | 'alltime';
   allTimeLoading?: boolean;
+  allTimeError?: boolean;
+  onRetryAllTime?: () => void;
   staggerIndex?: number;
 }) {
   const delta = stats.deltaVsAvgDaily;
@@ -701,10 +705,28 @@ function CategoryInsightRow({
 
       {/* Row 2: mini-stats line — Max tx, Avg tx, Max/day, Avg/day
           Shows the active period's metrics (month or all-time).
-          When all-time data is loading (lazy fetch in progress), show
-          "Memuat..." instead of 0s to avoid confusion. */}
+          - When all-time data is loading (lazy fetch in progress), show
+            "Memuat..." instead of 0s to avoid confusion.
+          - BUG-2 fix: when all-time fetch failed, show "Gagal memuat" with
+            a retry button instead of getting stuck on "Memuat…" forever. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[11px] text-muted-foreground">
-        {allTimeLoading ? (
+        {allTimeError ? (
+          <span className="inline-flex items-center gap-1 text-red-500">
+            <span>Gagal memuat</span>
+            {onRetryAllTime && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetryAllTime();
+                }}
+                className="text-primary hover:underline font-medium"
+              >
+                Coba lagi
+              </button>
+            )}
+          </span>
+        ) : allTimeLoading ? (
           <span className="italic text-muted-foreground/50">Memuat data all-time…</span>
         ) : (
           <>
@@ -836,8 +858,16 @@ export default function DailyRecap() {
   // mobile/production. Now it loads on-demand.
   // The query is keyed by the category names (so it refetches if today's
   // categories change). staleTime 5min — all-time data doesn't change often.
+  //
+  // BUG-2 fix: capture isError + refetch so the UI can show an error state
+  // with a retry button instead of getting stuck on "Memuat…" forever if
+  // the POST fails (network error, 500, etc.).
   const allTimeCategories = recap?.today.categoryStats.map((c) => c.name) ?? [];
-  const { data: allTimeStats } = useQuery<Record<string, { maxTransaction: number; avgTransaction: number; maxDaily: number; avgDaily: number }>>({
+  const {
+    data: allTimeStats,
+    isError: allTimeIsError,
+    refetch: refetchAllTime,
+  } = useQuery<Record<string, { maxTransaction: number; avgTransaction: number; maxDaily: number; avgDaily: number }>>({
     queryKey: ['finance', 'category-alltime', allTimeCategories],
     queryFn: async () => {
       const res = await fetch('/api/finance/category-alltime', {
@@ -850,6 +880,7 @@ export default function DailyRecap() {
     },
     enabled: insightPeriod === 'alltime' && allTimeCategories.length > 0,
     staleTime: 5 * 60_000, // 5 min — all-time data is stable
+    retry: 1,
   });
 
   // Mutation: save daily budget target via PUT /api/settings
@@ -1697,7 +1728,7 @@ export default function DailyRecap() {
                 // Merge lazy-loaded all-time stats into the category stats.
                 // When insightPeriod === 'alltime' and allTimeStats has loaded,
                 // replace the 0 placeholders with real data. Until loaded,
-                // the row shows 0s (which the user sees briefly as a loading state).
+                // the row shows a loading state.
                 const allTime = allTimeStats?.[cat.name];
                 const mergedStats = allTime
                   ? {
@@ -1714,7 +1745,9 @@ export default function DailyRecap() {
                     stats={mergedStats}
                     pct={pct}
                     period={insightPeriod}
-                    allTimeLoading={insightPeriod === 'alltime' && !allTimeStats}
+                    allTimeLoading={insightPeriod === 'alltime' && !allTimeStats && !allTimeIsError}
+                    allTimeError={insightPeriod === 'alltime' && allTimeIsError}
+                    onRetryAllTime={refetchAllTime}
                     staggerIndex={idx}
                   />
                 );

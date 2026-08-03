@@ -365,12 +365,19 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
 
-  // Close on scroll — when the user scrolls the page, the popover/drawer
-  // should close so it doesn't float over wrong content. This is especially
-  // important on mobile where the popover can cover content during scroll.
-  // We use a passive listener + close via setOpen(false). The listener is
-  // only active while open (added/removed on open change) to avoid
-  // unnecessary overhead when help is closed.
+  // Close on PAGE scroll — when the user scrolls the underlying page, the
+  // popover/drawer should close so it doesn't float over wrong content.
+  //
+  // BUG-1 fix: previously used `capture: true` which caught scroll events
+  // from ALL containers — including the help panel's own `overflow-y-auto`
+  // div. This meant scrolling to read the bottom metrics immediately closed
+  // the help, making long sections (Proyeksi, Insight, etc.) unreadable.
+  //
+  // Fix: only close on window/document-level scroll (no capture). Scroll
+  // events from nested containers (the help panel itself) do NOT bubble to
+  // window in most browsers, so they won't trigger the close. This is the
+  // desired behavior — the user can scroll inside the help without closing
+  // it, but scrolling the page behind it closes it.
   useEffect(() => {
     if (!open) return;
     let scrolled = false;
@@ -380,11 +387,11 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
       scrolled = true;
       setOpen(false);
     };
-    // Use capture: true so we catch scroll events on nested scroll containers
-    // (not just window). passive: true for performance.
-    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    // No capture: true — only window-level scroll triggers close.
+    // passive: true for performance.
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      window.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, [open]);
 

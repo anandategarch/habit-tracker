@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import { jakartaMonthString, jakartaDateKey, jakartaNowParts } from '@/lib/timezone';
-import { format as formatDate, subMonths } from 'date-fns';
+import { format as formatDate } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -276,16 +276,38 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(jakartaMonthString());
 
-  // Month options (last 12 months)
+  // Month options (last 12 months).
+  // BUG-3 fix: previously used `new Date()` + date-fns `subMonths`/`format`
+  // which read the BROWSER's local timezone. For users in timezones behind
+  // Jakarta (e.g., US/Pacific = UTC-8), on the 1st of a Jakarta month at
+  // 00:30 Jakarta time, the browser-local time is still the previous month.
+  // This caused `selectedMonth` (Jakarta-based) to NOT match any option in
+  // the list (browser-local based) → the month picker showed empty.
+  //
+  // Fix: use `jakartaNowParts()` to get Jakarta wall-clock components, then
+  // build month options by decrementing the month counter (handling
+  // year rollover). This ensures the options list aligns with the
+  // Jakarta-based initial `selectedMonth`.
   const monthOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
-    const now = new Date();
+    const jp = jakartaNowParts();
+    // Indonesian month names for label
+    const monthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    let y = jp.year;
+    let m = jp.month; // 1-12
     for (let i = 0; i <= 11; i++) {
-      const d = subMonths(now, i);
-      opts.push({
-        value: formatDate(d, 'yyyy-MM'),
-        label: formatDate(d, 'MMMM yyyy', { locale: idLocale }),
-      });
+      const value = `${y}-${String(m).padStart(2, '0')}`;
+      const label = `${monthNames[m - 1]} ${y}`;
+      opts.push({ value, label });
+      // Decrement month (handle January → December rollover)
+      m -= 1;
+      if (m < 1) {
+        m = 12;
+        y -= 1;
+      }
     }
     return opts;
   }, []);
