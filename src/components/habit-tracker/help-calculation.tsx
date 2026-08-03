@@ -1,6 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { X } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
 // ── Section content type ────────────────────────────────────────────────
@@ -340,68 +344,150 @@ const SECTIONS: HelpSection[] = [
 // Lookup map for O(1) section find by ID.
 const SECTION_MAP = new Map<HelpSectionId, HelpSection>(SECTIONS.map((s) => [s.id, s]));
 
-// ── HelpInfoButton — inline popover help per section ────────────────────
-// Renders a small ℹ️ icon button. Click opens a Popover anchored to the
-// icon showing ONLY the help content for that section (not all sections).
-// This is more contextual than a big modal — the user sees help for
-// exactly what they're looking at, no cognitive overload.
+// ── HelpInfoButton — inline contextual help per section ─────────────────
+// Renders a small ℹ️ icon button. Click opens help for THAT section only.
+//
+// Mobile: uses a bottom-sheet Drawer (easier to reach, better for long
+//   content, natural swipe-down to dismiss).
+// Desktop: uses a Popover anchored to the icon (compact, stays in context).
+//
+// Both close on:
+//   - Scroll (page scroll closes the help — prevents the popover from
+//     floating over wrong content as the user scrolls)
+//   - Explicit × button in the header
+//   - Click outside / Esc (Radix default)
 //
 // Props:
 //   section — which help section to show (matches SECTIONS[].id)
 //   label   — aria-label fallback (defaults to "Bantuan: <section title>")
 export function HelpInfoButton({ section, label }: { section: HelpSectionId; label?: string }) {
   const data = SECTION_MAP.get(section);
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+
+  // Close on scroll — when the user scrolls the page, the popover/drawer
+  // should close so it doesn't float over wrong content. This is especially
+  // important on mobile where the popover can cover content during scroll.
+  // We use a passive listener + close via setOpen(false). The listener is
+  // only active while open (added/removed on open change) to avoid
+  // unnecessary overhead when help is closed.
+  useEffect(() => {
+    if (!open) return;
+    let scrolled = false;
+    const handleScroll = () => {
+      // Debounce — only close once per scroll gesture, not on every pixel
+      if (scrolled) return;
+      scrolled = true;
+      setOpen(false);
+    };
+    // Use capture: true so we catch scroll events on nested scroll containers
+    // (not just window). passive: true for performance.
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
+    };
+  }, [open]);
+
   if (!data) return null; // unknown section — render nothing
 
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
+  // Shared content — used by both Popover (desktop) and Drawer (mobile)
+  const helpContent = (
+    <>
+      {/* Header — emoji + title + close button */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-background sticky top-0 z-10">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm shrink-0">{data.emoji}</span>
+          <p className="text-xs font-semibold text-foreground truncate">{data.title}</p>
+        </div>
         <button
           type="button"
-          className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
-          aria-label={label ?? `Bantuan: ${data.title}`}
-          title={`Cara hitung: ${data.title}`}
+          onClick={() => setOpen(false)}
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+          aria-label="Tutup bantuan"
         >
-          <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor" aria-hidden="true">
-            <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 3a5 5 0 110 10 5 5 0 010-10zm0 1.75a.85.85 0 00-.85.85v3.2a.85.85 0 001.7 0v-3.2A.85.85 0 008 4.75zm0 5.9a1 1 0 100 2 1 1 0 000-2z"/>
-          </svg>
+          <X className="h-3.5 w-3.5" />
         </button>
+      </div>
+
+      {/* Intro */}
+      {data.intro && (
+        <p className="text-[11px] text-muted-foreground px-3 pt-2 leading-relaxed">
+          {data.intro}
+        </p>
+      )}
+
+      {/* Metrics list — only this section's metrics */}
+      <div className="px-3 py-2 space-y-2">
+        {data.metrics.map((metric, idx) => (
+          <div key={idx} className="rounded-md border border-border/60 bg-muted/20 p-2">
+            <p className="text-[11px] font-semibold text-foreground mb-0.5">{metric.name}</p>
+            <p className="text-[10px] text-foreground/80 leading-relaxed mb-0.5">
+              <span className="text-muted-foreground font-medium">Rumus: </span>
+              {metric.formula}
+            </p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              <span className="font-medium">Data: </span>
+              {metric.source}
+            </p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  // Trigger button — shared between Popover and Drawer
+  const triggerButton = (
+    <button
+      type="button"
+      className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+      aria-label={label ?? `Bantuan: ${data.title}`}
+      title={`Cara hitung: ${data.title}`}
+    >
+      <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor" aria-hidden="true">
+        <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 3a5 5 0 110 10 5 5 0 010-10zm0 1.75a.85.85 0 00-.85.85v3.2a.85.85 0 001.7 0v-3.2A.85.85 0 008 4.75zm0 5.9a1 1 0 100 2 1 1 0 000-2z"/>
+      </svg>
+    </button>
+  );
+
+  // Mobile: bottom-sheet Drawer — easier to reach, natural swipe-down dismiss,
+  // doesn't cover content while reading. Max height 70vh so user can still
+  // see the section they're learning about.
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <div onClick={() => setOpen(true)} className="inline-flex">
+          {triggerButton}
+        </div>
+        <DrawerContent className="max-h-[75vh]">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="flex items-center gap-1.5 text-sm">
+              <span>{data.emoji}</span>
+              <span>Cara Hitung: {data.title}</span>
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto custom-scrollbar px-1 pb-4">
+            {helpContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  // Desktop: Popover anchored to the icon — compact, stays in context.
+  // collisionPadding prevents the popover from going off-screen edges.
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {triggerButton}
       </PopoverTrigger>
       <PopoverContent
         side="bottom"
         align="start"
-        sideOffset={4}
-        className="w-80 sm:w-96 max-h-[60vh] overflow-y-auto custom-scrollbar p-0"
+        sideOffset={8}
+        collisionPadding={16}
+        className="w-96 max-h-[60vh] overflow-y-auto custom-scrollbar p-0"
       >
-        {/* Header — section emoji + title */}
-        <div className="sticky top-0 bg-background/95 backdrop-blur-sm px-3 py-2 border-b border-border z-10">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">{data.emoji}</span>
-            <p className="text-xs font-semibold text-foreground">{data.title}</p>
-          </div>
-          {data.intro && (
-            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-              {data.intro}
-            </p>
-          )}
-        </div>
-
-        {/* Metrics list — only this section's metrics */}
-        <div className="px-3 py-2 space-y-2">
-          {data.metrics.map((metric, idx) => (
-            <div key={idx} className="rounded-md border border-border/60 bg-muted/20 p-2">
-              <p className="text-[11px] font-semibold text-foreground mb-0.5">{metric.name}</p>
-              <p className="text-[10px] text-foreground/80 leading-relaxed mb-0.5">
-                <span className="text-muted-foreground font-medium">Rumus: </span>
-                {metric.formula}
-              </p>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                <span className="font-medium">Data: </span>
-                {metric.source}
-              </p>
-            </div>
-          ))}
-        </div>
+        {helpContent}
       </PopoverContent>
     </Popover>
   );
