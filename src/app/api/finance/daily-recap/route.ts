@@ -284,6 +284,14 @@ function resolveCategoryMeta(
  * array of category names. Returns [] on any failure — empty means
  * "use all expense categories" (the default, pre-feature behaviour).
  * Duplicates are removed so downstream Set lookups stay cheap.
+ *
+ * BUG-1 fix: Truncate to AT MOST ONE category. Fase 1 was originally
+ * multi-select chips (could store ["A","B","C"]), but the UI is now a
+ * single-select dropdown. Without truncation, legacy multi-category data
+ * would make the dropdown show only the first category while the API
+ * silently filtered by all of them — inconsistent and confusing. We
+ * truncate to [first] so the dropdown always reflects the actual filter.
+ * Empty array (all categories) passes through unchanged.
  */
 function parseProjectionCategoryNames(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -291,7 +299,8 @@ function parseProjectionCategoryNames(raw: string | null | undefined): string[] 
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const names = parsed.filter((v): v is string => typeof v === 'string' && v.length > 0);
-    return Array.from(new Set(names));
+    const unique = Array.from(new Set(names));
+    return unique.length > 0 ? [unique[0]] : [];
   } catch {
     return [];
   }
@@ -604,23 +613,20 @@ export async function GET() {
       ? projectionMonthEndProjection
       : monthEndProjectionAll;
 
-    // Filtered 7-day burn rate (avg daily spend of SELECTED categories over
-    // the last 7 days). Used for the "rate X/hari" label under the projection
-    // so it stays consistent with the filtered projection number. When
-    // unfiltered, equals burnRate (computed below).
-    let projectionBurnRate = 0;
-    if (projectionIsFiltered) {
-      let sum7d = 0;
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-        const key = jakartaDateKey(d);
-        const dayTx = txByDate.get(key) ?? [];
-        sum7d += dayTx
-          .filter((t) => t.type === 'expense' && projectionCategorySet.has(t.category))
-          .reduce((s, t) => s + t.amount, 0);
-      }
-      projectionBurnRate = Math.round(sum7d / 7);
-    }
+    // BUG-2 fix: projectionBurnRate is now the MONTH-TO-DATE daily rate
+    // (= monthExpenseSoFar / daysElapsed), NOT the 7-day average. This
+    // makes the "rate X/hari" label consistent with the projection number:
+    //   projectionBurnRate × daysInMonth ≈ monthEndProjection
+    // Previously used the 7-day avg, which could differ wildly from the
+    // MTD rate (e.g., label "68k/hari" × 31 days = 2.1M, but projection
+    // showed 3.2M — confusing). The 7-day burnRate is still computed
+    // separately below for budgetETA / smartCapTomorrow / daysUntilBudgetOut
+    // (those are about recent spending behaviour, not the projection).
+    const projectionBurnRate = daysElapsed > 0
+      ? Math.round(
+          (projectionIsFiltered ? projectionMonthExpenseSoFar : monthExpenseSoFar) / daysElapsed
+        )
+      : 0;
 
     // Available expense categories for the UI dropdown selector.
     // ONLY includes categories that have at least one expense transaction
@@ -1142,14 +1148,22 @@ export async function GET() {
     // Edge cases:
     //   - daysElapsed < 3 → too few days for even a noisy projection,
     //     don't show the badge. Return null.
-    //   - No last-month transactions → return null.
+    //   - No last-month transactions at all → return null.
+    //   - BUG-5: Has last-month transactions BUT none in days 1-N of last
+    //     month (lastMonthUpToSameDay = 0) → return null. Can't meaningfully
+    //     compare a 0 baseline to actual spending (would show 100% deviation,
+    //     which is misleading). This happens for users who start spending
+    //     mid-month; the badge will appear once they're past their typical
+    //     "start day" (e.g., if they usually start spending on the 10th,
+    //     the badge appears from day 10 onwards).
     //   - If the user has filtered to specific categories, the accuracy is
     //     computed on the FILTERED set (same basis as the current projection).
     let lastMonthAccuracy: DailyRecapResponse['predictions']['lastMonthAccuracy'] = null;
     if (daysElapsed >= 3) {
-      // Compute last month key (handles January → December rollover).
-      const lastMonthDate = new Date(yy, mm - 2, 1); // mm is 1-based; mm-2 = last month's Date
-      const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+      // BUG-7 fix: dedupe — lastMonthDate and lastMonthStart computed the
+      // same expression (`new Date(yy, mm - 2, 1)`) twice. Use one var.
+      const lastMonthStart = new Date(yy, mm - 2, 1); // first day of last month (local); mm is 1-based, mm-2 = last month
+      const lastMonthKey = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}`;
       const daysInLastMonth = new Date(yy, mm - 1, 0).getDate();
 
       // Fetch last month's expense transactions. Use a date range that
@@ -1157,7 +1171,6 @@ export async function GET() {
       // (Jakarta is UTC+7, so transactions on the 1st of last month between
       // 00:00-06:59 Jakarta time have UTC epochs on the last day of the
       // month before — we subtract 1 day from the start to catch those).
-      const lastMonthStart = new Date(yy, mm - 2, 1); // first day of last month (local)
       const lastMonthStartEpoch = lastMonthStart.getTime() - 24 * 60 * 60 * 1000; // -1 day buffer
       const lastMonthEnd = new Date(yy, mm - 1, 1); // first day of current month (local)
       const lastMonthTxRaw = await db.transaction.findMany({
@@ -1177,21 +1190,32 @@ export async function GET() {
       }
 
       if (lastMonthTx.length > 0) {
-        // Last month's spend up to the SAME day of month as today.
-        // E.g., if today is Aug 15, we sum last month's (July) expenses
-        // from July 1 to July 15 (inclusive) — same cutoff as the current
-        // month's projection uses.
+        // BUG-6 fix: Cap daysElapsed to daysInLastMonth. When today's
+        // day-of-month exceeds last month's total days (e.g., today is
+        // Mar 31, last month Feb has 28 days), using raw daysElapsed as
+        // the divisor would understate the projection — all of last
+        // month's tx get summed (because every day ≤ 28 ≤ 31), but
+        // divided by 31 instead of 28. Capping to daysInLastMonth makes
+        // the divisor match the actual cutoff day, so the projection is
+        // computed correctly (and equals the actual total when today's
+        // day ≥ daysInLastMonth, giving 0% deviation as expected).
+        const effectiveDaysElapsed = Math.min(daysElapsed, daysInLastMonth);
+
+        // Last month's spend up to the SAME day of month as today
+        // (capped to daysInLastMonth). E.g., if today is Aug 15, we sum
+        // last month's (July) expenses from July 1 to July 15 (inclusive)
+        // — same cutoff as the current month's projection uses.
         const lastMonthUpToSameDay = lastMonthTx
           .filter((t) => {
             const day = parseInt(jakartaDateKey(t.date).slice(8, 10), 10);
-            return day <= daysElapsed;
+            return day <= effectiveDaysElapsed;
           })
           .reduce((s, t) => s + t.amount, 0);
         const lastMonthActual = lastMonthTx.reduce((s, t) => s + t.amount, 0);
 
         if (lastMonthActual > 0 && lastMonthUpToSameDay > 0) {
           const lastMonthProjected = Math.round(
-            (lastMonthUpToSameDay / daysElapsed) * daysInLastMonth
+            (lastMonthUpToSameDay / effectiveDaysElapsed) * daysInLastMonth
           );
           const deviationPct = Math.round(
             (Math.abs(lastMonthProjected - lastMonthActual) / lastMonthActual) * 100
@@ -1255,10 +1279,10 @@ export async function GET() {
         // ── Category-basis selection (Fase 1) ──
         projectionCategoryNames,
         projectionIsFiltered,
-        // When unfiltered, projectionBurnRate === burnRate (same value,
-        // kept separate so the UI label always reads consistently with
-        // the projection number above it).
-        projectionBurnRate: projectionIsFiltered ? projectionBurnRate : burnRate,
+        // BUG-2 fix: projectionBurnRate is now the MTD rate for both
+        // filtered and unfiltered cases (computed above). No longer falls
+        // back to the 7-day burnRate — that's only for budget ETA metrics.
+        projectionBurnRate,
         projectionFullProjection: projectionIsFiltered ? monthEndProjectionAll : null,
         availableExpenseCategories,
         // ── What-if scenario raw numbers (Fase 3) ──
