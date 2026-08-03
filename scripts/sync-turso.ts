@@ -123,8 +123,13 @@ function parseSchema(schemaText: string): PrismaModel[] {
       // (one-to-many), or type ending with ? (one-to-one optional relation).
       // Without this skip, sync would emit `habits TEXT NOT NULL` columns
       // that break Prisma inserts (it never sends relation fields).
+      //
+      // BUG FIX: previously used `attrs.includes('[]')` which falsely matched
+      // `@default("[]")` (a JSON array string default). Now we check the TYPE
+      // field (not attrs) for a trailing `[]` — that's the actual one-to-many
+      // relation syntax (`habits Habit[]`).
       if (attrs.includes('@relation')) continue;
-      if (attrs.includes('[]')) continue; // one-to-many: `habits Habit[]`
+      if (type.endsWith('[]')) continue; // one-to-many: `habits Habit[]`
 
       const isId = attrs.includes('@id');
       const isUnique = attrs.includes('@unique');
