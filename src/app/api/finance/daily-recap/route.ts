@@ -84,7 +84,7 @@ interface DailyRecapResponse {
     categories: CategoryBreakdown[];
     categoryStats: CategoryStats[];
     sources: SourceBreakdown[];
-    hourlyBreakdown: number[]; // 24 elements, expense per hour
+    hourlyBreakdown: number[]; // 48 elements, expense per 30-min bucket (index = hour*2 + (min>=30?1:0))
     peakHour: { hour: number; amount: number } | null;
     topTransaction: TodayTransaction | null;
   };
@@ -369,29 +369,41 @@ export async function GET() {
     let todayIncome = 0, todayExpense = 0;
     const todayCategoryMap = new Map<string, { amount: number; count: number }>();
     const todaySourceMap = new Map<string, number>();
-    const hourlyBreakdown = new Array(24).fill(0);
+    // 48-element array: each bucket = 30 minutes.
+    //   index 0  = 00:00–00:29
+    //   index 1  = 00:30–00:59
+    //   index 2  = 01:00–01:29
+    //   ...
+    //   index 47 = 23:30–23:59
+    // Bucket = hour*2 + (minute >= 30 ? 1 : 0).
+    // Previously used 24 buckets (per hour), which rounded 08.30 down to
+    // "08:00" in the heatmap — misleading. 30-minute granularity gives the
+    // user a more accurate picture of when they actually spent (a 08.30
+    // coffee now shows in its own bar, not lumped into "08:00").
+    const hourlyBreakdown = new Array(48).fill(0);
     const todayTransactions: TodayTransaction[] = [];
 
     for (const tx of todayTx) {
-      // Extract Jakarta hour for the hourly heatmap bucket (0-23). We keep
-      // this as an integer for the heatmap array index. The actual display
-      // time (with minutes) comes from `tx.date.toISOString()` below, which
-      // the client formats to Jakarta wall-clock — same path as the
-      // Transactions tab uses, so the two always agree.
-      const hour = parseInt(
-        new Intl.DateTimeFormat('en-GB', {
-          timeZone: 'Asia/Jakarta',
-          hour: '2-digit',
-          hour12: false,
-        }).format(tx.date),
-        10
-      ) % 24;
+      // Extract Jakarta hour + minute for the 30-min heatmap bucket.
+      // We use Intl.DateTimeFormat to get timezone-correct components
+      // (Asia/Jakarta), then compute bucket = hour*2 + (minute >= 30 ? 1 : 0).
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(tx.date);
+      const hourStr = parts.find((p) => p.type === 'hour')?.value ?? '0';
+      const minStr = parts.find((p) => p.type === 'minute')?.value ?? '0';
+      const hour = parseInt(hourStr, 10) % 24;
+      const minute = parseInt(minStr, 10);
+      const bucket = hour * 2 + (minute >= 30 ? 1 : 0);
 
       if (tx.type === 'income') {
         todayIncome += tx.amount;
       } else {
         todayExpense += tx.amount;
-        hourlyBreakdown[hour] += tx.amount;
+        hourlyBreakdown[bucket] += tx.amount;
         const cat = todayCategoryMap.get(tx.category) ?? { amount: 0, count: 0 };
         cat.amount += tx.amount;
         cat.count += 1;
@@ -426,11 +438,15 @@ export async function GET() {
       .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount);
 
-    // Peak hour
+    // Peak hour — find the 30-min bucket with the highest spend, then
+    // derive the actual hour (0-23) from it. `peakHour` is not currently
+    // displayed in the UI (the heatmap visualizes peak activity), but we
+    // keep it in the response for potential future use. Now scans all 48
+    // buckets (was 24) since hourlyBreakdown is 48-element.
     let peakHour: { hour: number; amount: number } | null = null;
-    for (let h = 0; h < 24; h++) {
-      if (hourlyBreakdown[h] > 0 && (!peakHour || hourlyBreakdown[h] > peakHour.amount)) {
-        peakHour = { hour: h, amount: hourlyBreakdown[h] };
+    for (let b = 0; b < 48; b++) {
+      if (hourlyBreakdown[b] > 0 && (!peakHour || hourlyBreakdown[b] > peakHour.amount)) {
+        peakHour = { hour: Math.floor(b / 2), amount: hourlyBreakdown[b] };
       }
     }
 

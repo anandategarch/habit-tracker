@@ -64,7 +64,7 @@ interface DailyRecap {
     categories: Array<{ name: string; amount: number; count: number; emoji: string; color: string }>;
     categoryStats: CategoryStats[];
     sources: Array<{ name: string; amount: number }>;
-    hourlyBreakdown: number[];
+    hourlyBreakdown: number[]; // 48 elements, expense per 30-min bucket
     peakHour: { hour: number; amount: number } | null;
     topTransaction: TodayTransaction | null;
   };
@@ -142,7 +142,12 @@ interface DailyRecap {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-const HOUR_LABELS = ['00', '03', '06', '09', '12', '15', '18', '21'];
+// Axis labels for the 48-bucket (30-min) heatmap.
+// With 48 bars, we label every 6 hours (5 labels): '00', '06', '12', '18', '24'.
+// '24' at the right edge represents end-of-day (23:30–24:00 bucket).
+// Using `justify-between`, these 5 labels align to: bar 0, bar 12, bar 24,
+// bar 36, bar 47 — which is exactly 00:00, 06:00, 12:00, 18:00, 24:00.
+const HOUR_LABELS = ['00', '06', '12', '18', '24'];
 
 /**
  * Format a transaction's ISO date string to a Jakarta wall-clock time.
@@ -166,9 +171,19 @@ function formatTxTime(isoDate: string): string {
   }
 }
 
-/** Format an integer hour (0-23) as "HH:00" for the peak-hour label. */
-function formatHourLabel(h: number): string {
-  return `${String(h).padStart(2, '0')}:00`;
+/**
+ * Format a 30-min bucket index (0-47) as "HH.MM" for the heatmap tooltip.
+ *   bucket 0  → "00.00"  (00:00–00:29)
+ *   bucket 1  → "00.30"  (00:30–00:59)
+ *   bucket 16 → "08.00"  (08:00–08:29)
+ *   bucket 17 → "08.30"  (08:30–08:59)  ← a 08.30 coffee lands here
+ *   bucket 47 → "23.30"  (23:30–23:59)
+ * Uses dot separator (Indonesian format) to match formatTxTime().
+ */
+function formatSlotLabel(bucket: number): string {
+  const hour = Math.floor(bucket / 2);
+  const minute = bucket % 2 === 0 ? 0 : 30;
+  return `${String(hour).padStart(2, '0')}.${String(minute).padStart(2, '0')}`;
 }
 
 /** Format a YYYY-MM-DD date as "DD-Www" (e.g. "31-Mon", "30-Sun") for chart axis labels.
@@ -425,9 +440,11 @@ function ProgressRing({
   );
 }
 
-// ── Hourly Heatmap (24-bar mini viz, premium) ────────────────────────────
-// Shows total spending for the day as a label above the bars, then the 24-bar
-// heatmap below, then the hour axis labels at the bottom.
+// ── Hourly Heatmap (48-bar mini viz, 30-min granularity) ────────────────
+// Shows total spending for the day as a label above the bars, then the 48-bar
+// heatmap (each bar = 30 minutes) below, then the hour axis labels at the
+// bottom. 30-min granularity means a 08.30 coffee shows in its own bar
+// (bucket 17 = "08.30"), not rounded down to "08:00" (bucket 16).
 
 function HourlyHeatmap({ hourly }: { hourly: number[] }) {
   const max = Math.max(...hourly, 1);
@@ -449,26 +466,35 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
         <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</span>
         <span className="text-xs font-bold tabular-nums text-foreground">{compactRupiahSafe(total)}</span>
       </div>
-      <div className="flex items-end gap-[3px] h-10">
-        {hourly.map((amt, h) => {
+      {/* 48 bars: gap reduced from 3px to 1px so all bars fit on mobile
+          (48 bars × 4px min-width + 47 × 1px gap = 239px — fits 375px
+          viewport with room to spare). Each bar is flex-1 so it grows
+          to fill available width on wider screens. */}
+      <div className="flex items-end gap-[1px] h-10">
+        {hourly.map((amt, bucket) => {
           const hRatio = amt / max;
-          const isLateNight = h >= 22 || h < 5;
-          const isMorning = h >= 5 && h < 12;
-          const isAfternoon = h >= 12 && h < 18;
+          // Derive the actual hour (0-23) from the 30-min bucket for
+          // color coding. bucket 0,1 → hour 0; bucket 2,3 → hour 1; etc.
+          const hour = Math.floor(bucket / 2);
+          const isLateNight = hour >= 22 || hour < 5;
+          const isMorning = hour >= 5 && hour < 12;
+          const isAfternoon = hour >= 12 && hour < 18;
           const color = amt === 0 ? 'bg-muted/30'
             : isLateNight ? 'bg-purple-400 dark:bg-purple-500'
             : isMorning ? 'bg-amber-400 dark:bg-amber-500'
             : isAfternoon ? 'bg-primary'
             : 'bg-blue-400 dark:bg-blue-500';
           // Use native title attribute instead of Tooltip component.
-          // 24 Tooltip wrappers = 24 event listeners + 24 React state
+          // 48 Tooltip wrappers = 48 event listeners + 48 React state
           // instances = heavy. Native title is zero-JS, zero-cost.
+          // Tooltip shows the precise 30-min slot label (e.g., "08.30")
+          // so the user knows exactly which half-hour bucket they're hovering.
           return (
             <div
-              key={h}
-              className={cn('flex-1 min-w-[4px] rounded-sm transition-all hover:opacity-80 cursor-default', color)}
+              key={bucket}
+              className={cn('flex-1 min-w-[2px] rounded-sm transition-all hover:opacity-80 cursor-default', color)}
               style={{ height: amt === 0 ? '3px' : `${Math.max(10, hRatio * 100)}%` }}
-              title={`${formatHourLabel(h)} · ${amt > 0 ? formatRupiah(amt) : '—'}`}
+              title={`${formatSlotLabel(bucket)} · ${amt > 0 ? formatRupiah(amt) : '—'}`}
             />
           );
         })}
