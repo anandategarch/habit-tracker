@@ -77,11 +77,9 @@ function DowLineChart({
   if (data.length === 0) return null;
 
   // Use a wide viewBox so the chart scales proportionally on all screens.
-  // preserveAspectRatio="none" was causing text/nodes to stretch/distort
-  // on screens wider than 280px. Now we use "xMidYMid meet" (default) so
-  // the SVG scales uniformly.
-  const W = 320, H = 110;
-  const padding = { top: 22, bottom: 20, left: 8, right: 8 };
+  // Wider viewBox (340) gives more horizontal room for 7 labels.
+  const W = 340, H = 120;
+  const padding = { top: 24, bottom: 22, left: 10, right: 10 };
   const chartW = W - padding.left - padding.right;
   const chartH = H - padding.top - padding.bottom;
   const step = chartW / (data.length - 1 || 1);
@@ -110,7 +108,7 @@ function DowLineChart({
   const gradId = `dow-grad-${color.replace('#', '')}`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'auto', maxHeight: '120px' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: 'auto', maxHeight: '130px' }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.2" />
@@ -883,16 +881,18 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
               <Receipt className="h-3 w-3 text-muted-foreground" />
               Distribusi Nominal
             </h3>
-            <div className="flex items-start justify-between gap-1 sm:gap-2">
+            <div className="flex items-start justify-between gap-0.5 sm:gap-2">
               {histogram.map((b, i) => {
                 const pct = histMaxCount > 0 ? Math.round((b.count / histMaxCount) * 100) : 0;
                 const isDominant = i === dominantBucket.idx && b.count > 0;
+                // Parse range into min/max for 2-line display on mobile
+                const rangeParts = b.range.split('-');
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
                     <MiniProgressRing
                       percentage={pct}
-                      size={48}
-                      strokeWidth={3.5}
+                      size={44}
+                      strokeWidth={3}
                       color={primaryColor}
                       isHighlighted={isDominant}
                     >
@@ -903,12 +903,23 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                         {b.count > 0 ? `${b.count}×` : '—'}
                       </span>
                     </MiniProgressRing>
-                    <span className={cn(
-                      'text-[10px] text-center leading-tight shrink-0 truncate w-full',
-                      isDominant ? 'font-semibold text-foreground' : 'text-muted-foreground'
-                    )}>
-                      {b.range}
-                    </span>
+                    {/* Range: 2-line on mobile (min / max), single-line on sm+ */}
+                    <div className="text-center shrink-0">
+                      <div className={cn(
+                        'text-[10px] leading-tight',
+                        isDominant ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                      )}>
+                        {rangeParts[0]}
+                      </div>
+                      {rangeParts[1] && (
+                        <div className={cn(
+                          'text-[10px] leading-tight',
+                          isDominant ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                        )}>
+                          {rangeParts[1]}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
