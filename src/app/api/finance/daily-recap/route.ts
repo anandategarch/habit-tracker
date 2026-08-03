@@ -1025,29 +1025,17 @@ export async function GET() {
       dm.set(dk, (dm.get(dk) ?? 0) + tx.amount);
     }
 
-    // ── All-time per-category stats (new — for "All-time" tab) ────────
-    // Single query for ALL expense transactions ever recorded. This is
-    // heavier than the 30-day query, but only runs once per daily-recap
-    // request and the payload is small (amount + date + category only).
-    // For users with thousands of txs over years, this could be optimized
-    // with a cached CategoryStats table updated on mutation — but for now
-    // (personal app, <1000 txs) the direct query is fine.
-    const allTimeTxRaw = await db.transaction.findMany({
-      where: { type: 'expense' },
-      select: { amount: true, date: true, category: true },
-    });
-    const allTimeCatTxAmounts = new Map<string, number[]>();
-    const allTimeCatDayTotals = new Map<string, Map<string, number>>();
-    for (const tx of allTimeTxRaw) {
-      if (!allTimeCatTxAmounts.has(tx.category)) {
-        allTimeCatTxAmounts.set(tx.category, []);
-        allTimeCatDayTotals.set(tx.category, new Map());
-      }
-      allTimeCatTxAmounts.get(tx.category)!.push(tx.amount);
-      const dk = jakartaDateKey(tx.date);
-      const dm = allTimeCatDayTotals.get(tx.category)!;
-      dm.set(dk, (dm.get(dk) ?? 0) + tx.amount);
-    }
+    // ── All-time per-category stats — LAZY LOADED ─────────────────────
+    // Performance fix: the all-time query (fetches ALL expense transactions
+    // ever recorded) was causing slow initial page load on mobile/production
+    // (Turso remote DB round-trip for potentially thousands of rows).
+    // Now the all-time stats are loaded LAZILY via a separate endpoint
+    // (/api/finance/category-alltime) ONLY when the user clicks the
+    // "All-time" tab in the Insight section. Initial daily-recap load
+    // returns 0 for all-time fields — the UI merges the lazy data when
+    // it arrives.
+    // The month fields are still computed here (cheap — reuses monthTx
+    // which is already fetched above).
 
     const categoryStats: CategoryStats[] = [];
     for (const [cat, dayMap] of catDayTotals.entries()) {
@@ -1077,18 +1065,9 @@ export async function GET() {
         ? Math.round(monthDayTots.reduce((a, b) => a + b, 0) / monthDayTots.length)
         : 0;
 
-      // All-time stats
-      const allTimeTxAmts = allTimeCatTxAmounts.get(cat) ?? [];
-      const allTimeDayTots = Array.from((allTimeCatDayTotals.get(cat) ?? new Map()).values());
-      const allTimeMaxTransaction = allTimeTxAmts.length > 0 ? Math.max(...allTimeTxAmts) : 0;
-      const allTimeAvgTransaction = allTimeTxAmts.length > 0
-        ? Math.round(allTimeTxAmts.reduce((a, b) => a + b, 0) / allTimeTxAmts.length)
-        : 0;
-      const allTimeMaxDaily = allTimeDayTots.length > 0 ? Math.max(...allTimeDayTots) : 0;
-      const allTimeAvgDaily = allTimeDayTots.length > 0
-        ? Math.round(allTimeDayTots.reduce((a, b) => a + b, 0) / allTimeDayTots.length)
-        : 0;
-
+      // All-time stats: set to 0 here — loaded LAZILY via separate endpoint
+      // when user switches to "All-time" tab. See category-alltime/route.ts.
+      // The UI merges the lazy data into categoryStats when it arrives.
       categoryStats.push({
         name: cat,
         todayAmount: todayEntry.amount,
@@ -1104,10 +1083,10 @@ export async function GET() {
         monthAvgTransaction,
         monthMaxDaily,
         monthAvgDaily,
-        allTimeMaxTransaction,
-        allTimeAvgTransaction,
-        allTimeMaxDaily,
-        allTimeAvgDaily,
+        allTimeMaxTransaction: 0,
+        allTimeAvgTransaction: 0,
+        allTimeMaxDaily: 0,
+        allTimeAvgDaily: 0,
       });
     }
     // Sort by todayAmount desc — biggest spending today first.
