@@ -76,8 +76,12 @@ function DowLineChart({
 }) {
   if (data.length === 0) return null;
 
-  const W = 280, H = 100;
-  const padding = { top: 20, bottom: 18, left: 4, right: 4 };
+  // Use a wide viewBox so the chart scales proportionally on all screens.
+  // preserveAspectRatio="none" was causing text/nodes to stretch/distort
+  // on screens wider than 280px. Now we use "xMidYMid meet" (default) so
+  // the SVG scales uniformly.
+  const W = 320, H = 110;
+  const padding = { top: 22, bottom: 20, left: 8, right: 8 };
   const chartW = W - padding.left - padding.right;
   const chartH = H - padding.top - padding.bottom;
   const step = chartW / (data.length - 1 || 1);
@@ -104,10 +108,9 @@ function DowLineChart({
   }
   const areaPath = `${path} L ${points[points.length - 1].x.toFixed(1)} ${padding.top + chartH} L ${points[0].x.toFixed(1)} ${padding.top + chartH} Z`;
   const gradId = `dow-grad-${color.replace('#', '')}`;
-  const topPoint = points[topIdx];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[100px]" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'auto', maxHeight: '120px' }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.2" />
@@ -117,7 +120,7 @@ function DowLineChart({
       {/* Area fill */}
       <path d={areaPath} fill={`url(#${gradId})`} />
       {/* Smooth line */}
-      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       {/* Nodes + labels */}
       {points.map((p, i) => {
         const isTop = i === topIdx && p.total > 0;
@@ -125,14 +128,14 @@ function DowLineChart({
           <g key={i}>
             {/* Highlight area for top day */}
             {isTop && (
-              <circle cx={p.x} cy={p.y} r="12" fill={color} opacity="0.08" />
+              <circle cx={p.x} cy={p.y} r="14" fill={color} opacity="0.08" />
             )}
             {/* Node */}
             <circle
               cx={p.x}
               cy={p.y}
-              r={isTop ? 4 : 2.5}
-              fill={isTop ? color : '#fff'}
+              r={isTop ? 4.5 : 3}
+              fill={isTop ? color : 'var(--card)'}
               stroke={color}
               strokeWidth={isTop ? 2 : 1.5}
             />
@@ -140,11 +143,12 @@ function DowLineChart({
             {p.total > 0 && (
               <text
                 x={p.x}
-                y={p.y - 8}
+                y={p.y - 10}
                 textAnchor="middle"
-                fontSize="9"
+                fontSize="10"
                 fontWeight={isTop ? '700' : '500'}
-                fill={isTop ? color : '#94a3b8'}
+                fill={isTop ? color : 'currentColor'}
+                className={isTop ? '' : 'text-muted-foreground'}
               >
                 {compactRupiahSafe(p.total)}
               </text>
@@ -152,11 +156,12 @@ function DowLineChart({
             {/* Day label below */}
             <text
               x={p.x}
-              y={H - 4}
+              y={H - 5}
               textAnchor="middle"
-              fontSize="10"
+              fontSize="11"
               fontWeight={isTop ? '700' : '400'}
-              fill={isTop ? '#0f172a' : '#94a3b8'}
+              fill={isTop ? 'currentColor' : 'currentColor'}
+              className={isTop ? 'text-foreground font-bold' : 'text-muted-foreground'}
             >
               {p.day}
             </text>
@@ -192,6 +197,19 @@ function MiniProgressRing({
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
+        {/* Highlight glow ring for dominant bucket */}
+        {isHighlighted && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius + 1.5}
+            fill="none"
+            stroke={color}
+            strokeWidth="1"
+            opacity="0.2"
+          />
+        )}
+        {/* Background track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -201,6 +219,7 @@ function MiniProgressRing({
           strokeWidth={strokeWidth}
           className="text-muted/20"
         />
+        {/* Progress arc */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -215,19 +234,6 @@ function MiniProgressRing({
           opacity={isHighlighted ? 1 : 0.5}
         />
       </svg>
-      {isHighlighted && (
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius + 1}
-          fill="none"
-          stroke={color}
-          strokeWidth="1"
-          opacity="0.2"
-          className="absolute"
-          style={{ width: size, height: size }}
-        />
-      )}
       <div className="absolute inset-0 flex items-center justify-center">
         {children}
       </div>
