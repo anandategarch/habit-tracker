@@ -43,6 +43,7 @@ interface CategoryStats {
   name: string;
   todayAmount: number;
   todayCount: number;
+  // 30-day window (powers delta badge + anomaly z-score)
   maxTransaction: number;
   avgTransaction: number;
   maxDaily: number;
@@ -50,6 +51,16 @@ interface CategoryStats {
   deltaVsAvgDaily: number;
   emoji: string;
   color: string;
+  // Current month window (for "Bulan ini" tab)
+  monthMaxTransaction: number;
+  monthAvgTransaction: number;
+  monthMaxDaily: number;
+  monthAvgDaily: number;
+  // All-time window (for "All-time" tab)
+  allTimeMaxTransaction: number;
+  allTimeAvgTransaction: number;
+  allTimeMaxDaily: number;
+  allTimeAvgDaily: number;
 }
 
 interface DailyRecap {
@@ -630,7 +641,17 @@ function BudgetDialog({
   );
 }
 
-function CategoryInsightRow({ stats, pct, staggerIndex = 0 }: { stats: CategoryStats; pct: number; staggerIndex?: number }) {
+function CategoryInsightRow({
+  stats,
+  pct,
+  period,
+  staggerIndex = 0,
+}: {
+  stats: CategoryStats;
+  pct: number;
+  period: 'month' | 'alltime';
+  staggerIndex?: number;
+}) {
   const delta = stats.deltaVsAvgDaily;
   const isBelow = delta < 0;
   const isAbove = delta > 0;
@@ -640,6 +661,16 @@ function CategoryInsightRow({ stats, pct, staggerIndex = 0 }: { stats: CategoryS
     : isBelow ? 'text-emerald-600 dark:text-emerald-400'
     : 'text-red-600 dark:text-red-400';
   const DeltaIcon = isAtAvg ? Minus : isBelow ? TrendingDown : TrendingUp;
+
+  // Select the 4 metrics based on the active period tab.
+  // 'month' = current Jakarta month stats, 'alltime' = all-time stats.
+  // The 30-day stats (maxTransaction etc.) are NOT shown in the tab UI —
+  // they only power the delta badge above (today vs 30-day avg) and the
+  // anomaly z-score. This keeps the tab UI focused on 2 comparable periods.
+  const maxTx = period === 'month' ? stats.monthMaxTransaction : stats.allTimeMaxTransaction;
+  const avgTx = period === 'month' ? stats.monthAvgTransaction : stats.allTimeAvgTransaction;
+  const maxDay = period === 'month' ? stats.monthMaxDaily : stats.allTimeMaxDaily;
+  const avgDay = period === 'month' ? stats.monthAvgDaily : stats.allTimeAvgDaily;
 
   return (
     <div
@@ -665,22 +696,25 @@ function CategoryInsightRow({ stats, pct, staggerIndex = 0 }: { stats: CategoryS
         </div>
       </div>
 
-      {/* Row 2: mini-stats line — Max tx, Avg tx, Max/day, Avg/day */}
+      {/* Row 2: mini-stats line — Max tx, Avg tx, Max/day, Avg/day
+          Shows the active period's metrics (month or all-time).
+          The period label is shown once at the section header (not per row)
+          to avoid repetition. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[11px] text-muted-foreground">
         <span className="shrink-0">
-          Max tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.maxTransaction)}</span>
+          Max tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(maxTx)}</span>
         </span>
         <span className="shrink-0 text-muted-foreground/50">·</span>
         <span className="shrink-0">
-          Avg tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.avgTransaction)}</span>
+          Avg tx <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(avgTx)}</span>
         </span>
         <span className="shrink-0 text-muted-foreground/50">·</span>
         <span className="shrink-0">
-          Max/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.maxDaily)}</span>
+          Max/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(maxDay)}</span>
         </span>
         <span className="shrink-0 text-muted-foreground/50">·</span>
         <span className="shrink-0">
-          Avg/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(stats.avgDaily)}</span>
+          Avg/day <span className="font-medium text-foreground/80 tabular-nums">{compactRupiahSafe(avgDay)}</span>
         </span>
       </div>
     </div>
@@ -769,6 +803,11 @@ export default function DailyRecap() {
   // Local state (not persisted) — resets on page load. Computed client-side
   // from whatIfBase/daysElapsed/daysRemaining so there's no lag on drag.
   const [whatIfReduction, setWhatIfReduction] = useState(0);
+  // Insight per kategori period tab: 'month' (current month) or 'alltime'.
+  // Global state — all category rows show the same period. Default 'month'
+  // because it's most relevant for daily context ("how am I doing this month?").
+  // Local state (not persisted) — resets on page load.
+  const [insightPeriod, setInsightPeriod] = useState<'month' | 'alltime'>('month');
 
   const { data: recap, isLoading, isError, refetch } = useQuery<DailyRecap>({
     queryKey: ['finance', 'daily-recap'],
@@ -1576,19 +1615,53 @@ export default function DailyRecap() {
 
         {/* Per-category deep insights — only categories with transactions today.
             Shows today's amount + delta vs avg daily, plus max/avg per-tx and
-            per-day stats from the last 30 days. Placed above the hourly heatmap
-            because it's more actionable (category-level pattern vs time-of-day). */}
+            per-day stats. Two period tabs: "Bulan ini" (current month) and
+            "All-time" (all transactions ever). The 30-day stats still power
+            the delta badge + anomaly z-score internally but aren't shown in
+            the tab UI (redundant with "Bulan ini" for early-month users).
+            Placed above the hourly heatmap because it's more actionable
+            (category-level pattern vs time-of-day). */}
         {today.categoryStats.length > 0 && (
           <div>
-            <div className="flex items-center gap-1 mb-1">
-              <Brain className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="flex items-center gap-1">
+                <Brain className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Insight per kategori</span>
+              </div>
+              {/* Period tab switcher — 2 compact pill buttons.
+                  Global state (all rows show same period). Default 'month'. */}
+              <div className="flex items-center gap-0.5 bg-muted/40 rounded-full p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setInsightPeriod('month')}
+                  className={cn(
+                    'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+                    insightPeriod === 'month'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Bulan ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInsightPeriod('alltime')}
+                  className={cn(
+                    'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+                    insightPeriod === 'alltime'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  All-time
+                </button>
+              </div>
             </div>
             <div className="rounded-lg bg-muted/20 px-2.5 py-0.5">
               {today.categoryStats.map((cat, idx) => {
                 const pct = today.expense > 0 ? Math.round((cat.todayAmount / today.expense) * 100) : 0;
                 return (
-                  <CategoryInsightRow key={cat.name} stats={cat} pct={pct} staggerIndex={idx} />
+                  <CategoryInsightRow key={cat.name} stats={cat} pct={pct} period={insightPeriod} staggerIndex={idx} />
                 );
               })}
             </div>

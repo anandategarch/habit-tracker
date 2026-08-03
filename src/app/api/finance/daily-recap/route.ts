@@ -30,19 +30,31 @@ interface CategoryBreakdown {
 
 /**
  * Per-category deep stats for categories that have transactions today.
- * Computed from the last 30 days of history — gives the user a sense of
- * how today's spending in each category compares to their usual pattern.
+ * Computed from THREE time windows so the user can compare:
  *
- * Two dimensions are computed:
- *   - Per-transaction (maxTransaction / avgTransaction): the largest single
- *     tx in this category over 30 days, and the average nominal per tx.
- *   - Per-day (maxDaily / avgDaily): the largest day-total in this category
- *     over 30 days, and the average daily total (only counting days that
- *     have at least one tx in this category — so the avg isn't diluted by
- *     no-activity days).
+ *   - 30-day (maxTransaction / avgTransaction / maxDaily / avgDaily):
+ *     the original window. Still powers deltaVsAvgDaily (today vs 30-day
+ *     avg) and the categoryAnomaly z-score. Kept for backwards compat.
+ *   - Current month (monthMaxTransaction / monthAvgTransaction / ...):
+ *     stats scoped to the current Jakarta month. More relevant for "how
+ *     am I doing this month?" vs the 30-day rolling window.
+ *   - All-time (allTimeMaxTransaction / allTimeAvgTransaction / ...):
+ *     stats across ALL transactions ever recorded. Shows the historical
+ *     peak — useful for "have I ever spent more than today in this category?"
  *
- * deltaVsAvgDaily = todayAmount - avgDaily. Negative = below average
- * (good for expense), positive = above average (overspending).
+ * The UI shows a 2-tab switcher (Bulan ini / All-time) per the user's
+ * request. The 30-day fields are not displayed in the tab UI but still
+ * power the delta badge + anomaly detection internally.
+ *
+ * Two dimensions per window:
+ *   - Per-transaction (maxTransaction): the largest single tx in this category.
+ *   - Per-day (maxDaily): the largest day-total in this category.
+ *   - avgTransaction / avgDaily: averages (per-day avg only counts days
+ *     that have at least one tx — so the avg isn't diluted by no-activity
+ *     days).
+ *
+ * deltaVsAvgDaily = todayAmount - avgDaily (30-day). Negative = below
+ * average (good for expense), positive = above average (overspending).
  *
  * emoji/color come from the FinanceCategory table (with FALLBACK_EXPENSE
  * lookup for default-named categories that still have the placeholder 📦).
@@ -51,6 +63,7 @@ interface CategoryStats {
   name: string;
   todayAmount: number;
   todayCount: number;
+  // 30-day window (existing — powers delta badge + anomaly z-score)
   maxTransaction: number;
   avgTransaction: number;
   maxDaily: number;
@@ -58,6 +71,16 @@ interface CategoryStats {
   deltaVsAvgDaily: number;
   emoji: string;
   color: string;
+  // Current month window (new — for "Bulan ini" tab)
+  monthMaxTransaction: number;
+  monthAvgTransaction: number;
+  monthMaxDaily: number;
+  monthAvgDaily: number;
+  // All-time window (new — for "All-time" tab)
+  allTimeMaxTransaction: number;
+  allTimeAvgTransaction: number;
+  allTimeMaxDaily: number;
+  allTimeAvgDaily: number;
 }
 
 interface SourceBreakdown {
@@ -984,6 +1007,48 @@ export async function GET() {
       catTxAmounts.get(tx.category)!.push(tx.amount);
     }
 
+    // ── Current-month per-category stats (new — for "Bulan ini" tab) ──
+    // Reuse `monthTx` (already filtered to this Jakarta month). Build
+    // per-category tx-amount arrays + day-total maps, same structure as
+    // the 30-day maps above. Only expense txs are counted.
+    const monthCatTxAmounts = new Map<string, number[]>();
+    const monthCatDayTotals = new Map<string, Map<string, number>>();
+    for (const tx of monthTx) {
+      if (tx.type !== 'expense') continue;
+      if (!monthCatTxAmounts.has(tx.category)) {
+        monthCatTxAmounts.set(tx.category, []);
+        monthCatDayTotals.set(tx.category, new Map());
+      }
+      monthCatTxAmounts.get(tx.category)!.push(tx.amount);
+      const dk = jakartaDateKey(tx.date);
+      const dm = monthCatDayTotals.get(tx.category)!;
+      dm.set(dk, (dm.get(dk) ?? 0) + tx.amount);
+    }
+
+    // ── All-time per-category stats (new — for "All-time" tab) ────────
+    // Single query for ALL expense transactions ever recorded. This is
+    // heavier than the 30-day query, but only runs once per daily-recap
+    // request and the payload is small (amount + date + category only).
+    // For users with thousands of txs over years, this could be optimized
+    // with a cached CategoryStats table updated on mutation — but for now
+    // (personal app, <1000 txs) the direct query is fine.
+    const allTimeTxRaw = await db.transaction.findMany({
+      where: { type: 'expense' },
+      select: { amount: true, date: true, category: true },
+    });
+    const allTimeCatTxAmounts = new Map<string, number[]>();
+    const allTimeCatDayTotals = new Map<string, Map<string, number>>();
+    for (const tx of allTimeTxRaw) {
+      if (!allTimeCatTxAmounts.has(tx.category)) {
+        allTimeCatTxAmounts.set(tx.category, []);
+        allTimeCatDayTotals.set(tx.category, new Map());
+      }
+      allTimeCatTxAmounts.get(tx.category)!.push(tx.amount);
+      const dk = jakartaDateKey(tx.date);
+      const dm = allTimeCatDayTotals.get(tx.category)!;
+      dm.set(dk, (dm.get(dk) ?? 0) + tx.amount);
+    }
+
     const categoryStats: CategoryStats[] = [];
     for (const [cat, dayMap] of catDayTotals.entries()) {
       const todayEntry = todayCategoryMap.get(cat);
@@ -1000,6 +1065,30 @@ export async function GET() {
         ? Math.round(dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length)
         : 0;
 
+      // Current-month stats
+      const monthTxAmts = monthCatTxAmounts.get(cat) ?? [];
+      const monthDayTots = Array.from((monthCatDayTotals.get(cat) ?? new Map()).values());
+      const monthMaxTransaction = monthTxAmts.length > 0 ? Math.max(...monthTxAmts) : 0;
+      const monthAvgTransaction = monthTxAmts.length > 0
+        ? Math.round(monthTxAmts.reduce((a, b) => a + b, 0) / monthTxAmts.length)
+        : 0;
+      const monthMaxDaily = monthDayTots.length > 0 ? Math.max(...monthDayTots) : 0;
+      const monthAvgDaily = monthDayTots.length > 0
+        ? Math.round(monthDayTots.reduce((a, b) => a + b, 0) / monthDayTots.length)
+        : 0;
+
+      // All-time stats
+      const allTimeTxAmts = allTimeCatTxAmounts.get(cat) ?? [];
+      const allTimeDayTots = Array.from((allTimeCatDayTotals.get(cat) ?? new Map()).values());
+      const allTimeMaxTransaction = allTimeTxAmts.length > 0 ? Math.max(...allTimeTxAmts) : 0;
+      const allTimeAvgTransaction = allTimeTxAmts.length > 0
+        ? Math.round(allTimeTxAmts.reduce((a, b) => a + b, 0) / allTimeTxAmts.length)
+        : 0;
+      const allTimeMaxDaily = allTimeDayTots.length > 0 ? Math.max(...allTimeDayTots) : 0;
+      const allTimeAvgDaily = allTimeDayTots.length > 0
+        ? Math.round(allTimeDayTots.reduce((a, b) => a + b, 0) / allTimeDayTots.length)
+        : 0;
+
       categoryStats.push({
         name: cat,
         todayAmount: todayEntry.amount,
@@ -1011,6 +1100,14 @@ export async function GET() {
         deltaVsAvgDaily: todayEntry.amount - avgDaily,
         emoji: metaFor(cat).emoji,
         color: metaFor(cat).color,
+        monthMaxTransaction,
+        monthAvgTransaction,
+        monthMaxDaily,
+        monthAvgDaily,
+        allTimeMaxTransaction,
+        allTimeAvgTransaction,
+        allTimeMaxDaily,
+        allTimeAvgDaily,
       });
     }
     // Sort by todayAmount desc — biggest spending today first.
