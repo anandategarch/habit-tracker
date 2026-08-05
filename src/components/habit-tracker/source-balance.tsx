@@ -71,10 +71,27 @@ export default function SourceBalanceSection() {
   // PATCH /api/finance/sources/[id]/balance creates an adjustment
   // transaction (income if diff > 0, expense if diff < 0) + atomically
   // increments the balance. See route.ts for details.
+  //
+  // Bug fix: previously fired PATCH even when the value didn't change
+  // (user clicked nominal then clicked away without editing). Now we
+  // compare the new value with the current balance FIRST — if same,
+  // just close edit mode silently (no network call, no toast).
   const handleSaveBalance = async (sourceId: string) => {
     const raw = parseNominalInput(balanceEditValue);
     const val = parseFloat(raw);
-    if (isNaN(val)) { setBalanceEditId(null); return; }
+    if (isNaN(val)) { setBalanceEditId(null); setBalanceEditValue(''); return; }
+
+    // Find the current balance for this source. If the new value equals
+    // the current balance, skip the PATCH entirely — no change needed.
+    const source = sources.find((s) => s.id === sourceId);
+    const currentBalance = source?.balance ?? 0;
+    if (val === currentBalance) {
+      // No change — close edit mode silently (no toast, no network call)
+      setBalanceEditId(null);
+      setBalanceEditValue('');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/finance/sources/${sourceId}/balance`, {
         method: 'PATCH',
@@ -92,7 +109,7 @@ export default function SourceBalanceSection() {
           const sign = adj.type === 'income' ? '+' : '−';
           toast.success(`Saldo diupdate — transaksi "${sign}${formatRupiah(adj.amount)}" dibuat`);
         } else {
-          toast.success('Saldo tidak berubah');
+          toast.success('Saldo diupdate');
         }
       } else {
         toast.error('Gagal update saldo');
