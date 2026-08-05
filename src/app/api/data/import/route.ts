@@ -145,6 +145,16 @@ export async function POST(request: NextRequest) {
       // inserting. This preserves the habit↔log relationship across import.
       const habitIdMap = new Map<string, string>(); // oldId → newId
 
+      // BUG-5 fix: insert habitGroups BEFORE habits. Habits reference
+      // groupId (FK to HabitGroup.id). Inserting habits first creates
+      // dangling FK references. SQLite doesn't enforce FKs at runtime,
+      // but strict relational DBs (PostgreSQL/MySQL) would reject.
+      if (body.habitGroups && body.habitGroups.length > 0) {
+        const data = stripAutoFields(body.habitGroups);
+        const res = await tx.habitGroup.createMany({ data });
+        counts.habitGroups = res.count;
+      }
+
       if (body.habits && body.habits.length > 0) {
         const cleaned = stripAutoFields(body.habits);
         let habitsInserted = 0;
@@ -287,13 +297,7 @@ export async function POST(request: NextRequest) {
       // Without these, backup/restore silently destroyed fund-source
       // balances, weekly budgets, habit groups, learning topics, and
       // habit options. Now they're part of the export/import cycle.
-
-      // HabitGroups must be inserted BEFORE habits (habits reference groupId)
-      if (body.habitGroups && body.habitGroups.length > 0) {
-        const data = stripAutoFields(body.habitGroups);
-        const res = await tx.habitGroup.createMany({ data });
-        counts.habitGroups = res.count;
-      }
+      // Note: habitGroups already inserted above (before habits, for FK order).
 
       if (body.habitOptions && body.habitOptions.length > 0) {
         const data = stripAutoFields(body.habitOptions);
