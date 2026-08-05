@@ -277,6 +277,8 @@ const FALLBACK_CATEGORY_META: Record<string, { emoji: string; color: string }> =
   'Freelance': { emoji: '💻', color: '#06b6d4' },
   'Investasi': { emoji: '📈', color: '#f59e0b' },
   'Bisnis': { emoji: '🏢', color: '#8b5cf6' },
+  // Adjustment transaction category (created by PATCH /sources/[id]/balance)
+  'Penyesuaian Saldo': { emoji: '🔧', color: '#64748b' },
 };
 
 const DEFAULT_EMOJI = '📦';
