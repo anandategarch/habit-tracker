@@ -529,7 +529,18 @@ export default function Finance() {
   const handleSaveBalance = async (sourceId: string) => {
     const raw = parseNominalInput(balanceEditValue);
     const val = parseFloat(raw);
-    if (isNaN(val)) { setBalanceEditId(null); return; }
+    if (isNaN(val)) { setBalanceEditId(null); setBalanceEditValue(''); return; }
+
+    // Bug fix: skip PATCH if value unchanged (user clicked then blurred
+    // without editing). Avoids unnecessary network call + toast spam.
+    const source = getActiveSources().find((s) => s.id === sourceId);
+    const currentBalance = source?.balance ?? 0;
+    if (val === currentBalance) {
+      setBalanceEditId(null);
+      setBalanceEditValue('');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/finance/sources/${sourceId}/balance`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
       if (res.ok) {
@@ -544,7 +555,7 @@ export default function Finance() {
           const sign = adj.type === 'income' ? '+' : '−';
           toast.success(`Saldo diupdate — transaksi "${sign}${formatRupiah(adj.amount)}" dibuat`);
         } else {
-          toast.success('Saldo tidak berubah');
+          toast.success('Saldo diupdate');
         }
       } else {
         toast.error('Gagal update saldo');
