@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { createJournalSchema, parseOr400 } from '@/lib/validation';
+import { dateFromYMD } from '@/lib/timezone';
 
 // GET /api/journals
 export async function GET() {
@@ -24,8 +25,14 @@ export async function POST(request: NextRequest) {
     const body = parsed.data;
     const { date, mood, stress, energy, sleep, reflection, winToday, lessonLearned, tomorrowPlan } = body;
 
-    const dateObj = new Date(date);
-    dateObj.setHours(0, 0, 0, 0);
+    // BUG-10 fix: use dateFromYMD() instead of new Date(date) + setHours(0,0,0,0).
+    // z.coerce.date() parses "2025-01-15" as UTC midnight. setHours() sets LOCAL
+    // hours, shifting the epoch on non-UTC servers (e.g., Jakarta dev server
+    // UTC+7 would shift to 2025-01-14T17:00:00Z → wrong day + uniqueness collision).
+    // dateFromYMD() constructs UTC-midnight explicitly, TZ-independent.
+    const dateObj = dateFromYMD(
+      `${new Date(date).getFullYear()}-${String(new Date(date).getMonth() + 1).padStart(2, '0')}-${String(new Date(date).getDate()).padStart(2, '0')}`
+    );
 
     const journal = await db.journal.upsert({
       where: { date: dateObj },
