@@ -126,11 +126,24 @@ export async function GET(request: NextRequest) {
       : daysInMonth;
     const avgDailyExpense = currentDay > 0 ? totalExpense / currentDay : 0;
 
+    // Fetch ACTUAL total balance from all fund sources — this is the real
+    // money the user has right now. Each transaction's atomic increment/
+    // decrement keeps FundSource.balance in sync, so this is always accurate.
+    // Previously the hero card showed `totalIncome - totalExpense` (monthly
+    // cash flow) which was misleading — it didn't match the actual money
+    // the user has, especially after mid-month adjustments.
+    let totalSourceBalance = 0;
+    try {
+      const sources = await db.fundSource.findMany({ select: { balance: true } });
+      totalSourceBalance = sources.reduce((sum, s) => sum + (s.balance || 0), 0);
+    } catch (e) { console.error('Finance dashboard: fundSource query failed:', e); }
+
     return NextResponse.json({
       month,
       totalIncome,
       totalExpense,
-      balance,
+      balance: totalSourceBalance, // ACTUAL total balance (was: totalIncome - totalExpense)
+      netCashFlow: totalIncome - totalExpense, // monthly cash flow (for reference)
       transactionCount,
       avgDailyExpense,
       projectedMonthlyExpense: avgDailyExpense * daysInMonth,

@@ -59,9 +59,9 @@ export default function FinanceOverview({
 
       {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
       <Card className="overflow-hidden anim-stagger" style={{ animationDelay: '0ms' }}>
-        {/* Top section: big balance number */}
+        {/* Top section: big balance number — ACTUAL total from fund sources */}
         <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-4 sm:px-6 sm:py-5">
-          <p className="text-xs text-muted-foreground font-medium">Saldo Bulan Ini</p>
+          <p className="text-xs text-muted-foreground font-medium">Total Saldo</p>
           <p className={cn(
             'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
             dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600'
@@ -69,7 +69,17 @@ export default function FinanceOverview({
             <CountUpRupiah amount={dashboardData.balance} />
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            <CountUpNumber value={dashboardData.transactionCount} /> transaksi
+            <CountUpNumber value={dashboardData.transactionCount} /> transaksi bulan ini
+            {dashboardData.netCashFlow !== undefined && (
+              <span className="ml-1.5">
+                ·{' '}
+                <span className={dashboardData.netCashFlow >= 0 ? 'text-primary' : 'text-red-500'}>
+                  {dashboardData.netCashFlow >= 0 ? '+' : '−'}
+                  {formatRupiah(Math.abs(dashboardData.netCashFlow))}
+                </span>
+                {' '}cash flow
+              </span>
+            )}
           </p>
         </div>
 
