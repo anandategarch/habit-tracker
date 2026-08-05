@@ -159,7 +159,7 @@ export default function FinanceExplorer({
   });
 
   // Fetch ALL expense transactions for the selected month
-  const { data: allTx = [], isLoading } = useQuery<Transaction[]>({
+  const { data: allTxRaw = [], isLoading } = useQuery<Transaction[]>({
     queryKey: ['finance', 'explorer', selectedMonth],
     queryFn: async () => {
       // Use the `month` param (already timezone-fixed with 7h buffer +
@@ -172,6 +172,13 @@ export default function FinanceExplorer({
     },
     staleTime: 15_000,
   });
+
+  // Exclude "Penyesuaian Saldo" and "Transfer Antar Sumber" from all
+  // explorer calculations. These are internal movements, not real expenses.
+  // Filter once here so all derived data (weekData, dayData, stats) uses
+  // the clean set.
+  const EXCLUDED_CATEGORIES = ['Penyesuaian Saldo', 'Transfer Antar Sumber'];
+  const allTx = allTxRaw.filter((tx) => !EXCLUDED_CATEGORIES.includes(tx.category));
 
   // Also fetch 6-month overview for Level 1 bar chart
   const { data: monthlyData = [], isError: monthlyError } = useQuery<MonthData[]>({
@@ -193,8 +200,10 @@ export default function FinanceExplorer({
       const txs: Transaction[] = await res.json();
       // Group by Jakarta month using jakartaDateKey for correct assignment
       // (previously used manual JAKARTA_OFFSET_MS which only works on UTC servers).
+      // Also exclude internal movements (adjustment + transfer) from totals.
       const monthMap: Record<string, number> = {};
       for (const tx of txs) {
+        if (EXCLUDED_CATEGORIES.includes(tx.category)) continue;
         const key = jakartaDateKey(new Date(tx.date)).slice(0, 7);
         monthMap[key] = (monthMap[key] || 0) + (tx.amount || 0);
       }

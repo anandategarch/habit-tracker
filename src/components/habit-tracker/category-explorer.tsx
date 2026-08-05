@@ -339,10 +339,15 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
     staleTime: 60_000,
   });
 
-  // Group transactions by category for the list view
+  // Group transactions by category for the list view.
+  // Exclude "Penyesuaian Saldo" and "Transfer Antar Sumber" — these are
+  // internal movements, not real expenses. Including them would inflate
+  // the grandTotal and show misleading category breakdowns.
   const categoryTotals = useMemo<CategoryTotal[]>(() => {
+    const EXCLUDED = ['Penyesuaian Saldo', 'Transfer Antar Sumber'];
     const map = new Map<string, { total: number; count: number }>();
     for (const tx of transactions) {
+      if (EXCLUDED.includes(tx.category)) continue;
       const existing = map.get(tx.category) ?? { total: 0, count: 0 };
       existing.total += tx.amount || 0;
       existing.count += 1;
