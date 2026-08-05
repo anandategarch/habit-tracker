@@ -29,7 +29,8 @@ export interface DashboardData {
   month: string;
   totalIncome: number;
   totalExpense: number;
-  balance: number;
+  balance: number; // ACTUAL total from fund sources (not income - expense)
+  netCashFlow?: number; // income - expense for the month (for reference)
   transactionCount: number;
   avgDailyExpense: number;
   projectedMonthlyExpense: number;
