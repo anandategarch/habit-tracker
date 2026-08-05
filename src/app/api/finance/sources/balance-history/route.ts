@@ -1,13 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { format, subDays } from 'date-fns';
-
-// Jakarta timezone
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-function jakartaToday(): Date {
-  const now = new Date(Date.now() + JAKARTA_OFFSET_MS);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
+import { jakartaToday, jakartaDateKey } from '@/lib/timezone';
 
 // GET /api/finance/sources/balance-history?period=7d|1m|3m
 export async function GET(request: NextRequest) {
@@ -45,7 +39,7 @@ export async function GET(request: NextRequest) {
     const dailyNetFlow: Record<string, Record<string, number>> = {};
 
     for (const tx of allTransactions) {
-      const dateStr = format(new Date(tx.date.getTime() + JAKARTA_OFFSET_MS), 'yyyy-MM-dd');
+      const dateStr = jakartaDateKey(tx.date);
       if (!dailyNetFlow[dateStr]) dailyNetFlow[dateStr] = {};
       const flow = tx.type === 'income' ? tx.amount : -tx.amount;
       dailyNetFlow[dateStr][tx.source] = (dailyNetFlow[dateStr][tx.source] || 0) + flow;

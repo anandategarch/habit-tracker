@@ -4,6 +4,7 @@ import {
   startOfDay, subDays, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, format, differenceInCalendarDays,
 } from 'date-fns';
+import { jakartaToday, jakartaTimeMinutes, jakartaDateKey } from '@/lib/timezone';
 
 // ── Helper: wrap a promise with a fallback value if it rejects ──────────
 // Used to parallelize queries that may fail (e.g. table doesn't exist yet)
@@ -24,18 +25,6 @@ function calcLevel(totalXP: number): number {
 
 function calcNextLevelXP(level: number): number {
   return (level * level) * 100;
-}
-
-// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-function jakartaNow(): Date {
-  return new Date(Date.now() + JAKARTA_OFFSET_MS);
-}
-
-function jakartaToday(): Date {
-  const now = jakartaNow();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 type Period = '7d' | '1m' | '3m' | '6m' | '1y' | 'all';
@@ -580,11 +569,9 @@ export async function GET(request: NextRequest) {
     const timeHabits = habits.filter(h => h.trackTime);
     const timeTrackedSummary: TimeHabitSummary[] = [];
 
-    // Extract local time in minutes from ISO string, converting to Jakarta (UTC+7)
+    // Extract local time in minutes from ISO string in Jakarta timezone
     function toMinutesFromISO(isoStr: string): number {
-      const d = new Date(isoStr);
-      const jakarta = new Date(d.getTime() + JAKARTA_OFFSET_MS);
-      return jakarta.getUTCHours() * 60 + jakarta.getUTCMinutes();
+      return jakartaTimeMinutes(new Date(isoStr));
     }
     function minutesToHHmm(mins: number): string {
       const h = Math.floor(mins / 60) % 24;
@@ -738,17 +725,18 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const logJakarta = new Date(latestLog.date.getTime() + JAKARTA_OFFSET_MS);
-      const logDateOnly = new Date(logJakarta.getFullYear(), logJakarta.getMonth(), logJakarta.getDate());
+      // Compute the log's Jakarta calendar date without the shifted-epoch trick
+      const logYMD = jakartaDateKey(latestLog.date);
+      const [ly, lm, ld] = logYMD.split('-').map(Number);
+      const logDateOnly = new Date(ly, lm - 1, ld);
       const daysAgo = differenceInCalendarDays(today, logDateOnly);
 
-      // Extract time in Jakarta timezone (UTC+7)
+      // Extract time in Jakarta timezone
       let timeStr: string | null = null;
       if (latestLog.completedAt) {
         try {
-          const d = new Date(latestLog.completedAt);
-          const jakarta = new Date(d.getTime() + JAKARTA_OFFSET_MS);
-          timeStr = `${String(jakarta.getUTCHours()).padStart(2, '0')}:${String(jakarta.getUTCMinutes()).padStart(2, '0')}`;
+          const mins = jakartaTimeMinutes(new Date(latestLog.completedAt));
+          timeStr = minutesToHHmm(mins);
         } catch {
           // fallback: raw extract
           const tm = latestLog.completedAt.match(/T(\d{2}:\d{2})/);

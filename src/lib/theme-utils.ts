@@ -4,7 +4,7 @@
  */
 
 /** Convert hex (#rrggbb) to { r, g, b } (0-255) */
-export function hexToRgb(hex: string): { r: number; g: number; b: number } {
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const cleaned = hex.replace('#', '');
   return {
     r: parseInt(cleaned.slice(0, 2), 16),
@@ -14,7 +14,7 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 /** Calculate relative luminance (0-1) per WCAG 2.1 */
-export function getLuminance(r: number, g: number, b: number): number {
+function getLuminance(r: number, g: number, b: number): number {
   const [rs, gs, bs] = [r, g, b].map((c) => {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
@@ -23,7 +23,7 @@ export function getLuminance(r: number, g: number, b: number): number {
 }
 
 /** Return appropriate foreground color (light or dark) based on background luminance */
-export function getContrastForeground(hex: string): string {
+function getContrastForeground(hex: string): string {
   const { r, g, b } = hexToRgb(hex);
   const lum = getLuminance(r, g, b);
   // If background is light, use dark text; if dark, use light text
@@ -31,14 +31,14 @@ export function getContrastForeground(hex: string): string {
 }
 
 /** Lighten a hex color by mixing with white */
-export function lightenHex(hex: string, amount: number): string {
+function lightenHex(hex: string, amount: number): string {
   const { r, g, b } = hexToRgb(hex);
   const mix = (c: number) => Math.round(c + (255 - c) * amount);
   return `#${[mix(r), mix(g), mix(b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Generate a very light tint of the color (for backgrounds, secondary, accent) */
-export function tintColor(hex: string, opacity: number): string {
+function tintColor(hex: string, opacity: number): string {
   const { r, g, b } = hexToRgb(hex);
   // Mix with white at given opacity
   const mix = (c: number) => Math.round(c * opacity + 255 * (1 - opacity));

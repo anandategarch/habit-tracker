@@ -37,7 +37,6 @@ function toHex(cssColor: string): string {
  * Always returns hex (#rrggbb) so it's safe to use with:
  * - recharts fill/stroke attributes
  * - inline style gradients (e.g. `linear-gradient(${color}, ${color}99)`)
- * - hexToRgba() helper
  * - Any string concatenation
  *
  * @param varName CSS variable name without the leading '--' (default: 'primary')
