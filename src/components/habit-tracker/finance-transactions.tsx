@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit3, Search, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString, jakartaDateKey } from '@/lib/timezone';
+import { toast } from 'sonner';
 import { formatRupiah, capitalize } from './finance-types';
 import type { Transaction } from './finance-types';
 
@@ -340,11 +341,16 @@ export default function FinanceTransactions({
                         {/* Action buttons (visible on hover, always visible on mobile) */}
                         {!multiSelect && (
                           <div className="flex flex-col gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                            {/* Disable edit + delete for transfer transactions —
+                                they're linked pairs that can't be modified
+                                independently without corrupting balances. */}
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
                               onClick={(e) => { e.stopPropagation(); onEditTx(tx); }}
+                              disabled={tx.category === 'Transfer Antar Sumber'}
+                              title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa diedit' : 'Edit'}
                             >
                               <Edit3 className="h-3 w-3" />
                             </Button>
@@ -352,7 +358,16 @@ export default function FinanceTransactions({
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 text-red-500 hover:text-red-600"
-                              onClick={(e) => { e.stopPropagation(); onDeleteTx(tx.id); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (tx.category === 'Transfer Antar Sumber') {
+                                  toast.error('Transfer tidak bisa dihapus. Hapus kedua sisi (expense + income) secara manual.');
+                                  return;
+                                }
+                                onDeleteTx(tx.id);
+                              }}
+                              disabled={tx.category === 'Transfer Antar Sumber'}
+                              title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa dihapus' : 'Hapus'}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>

@@ -414,8 +414,16 @@ export default function Finance() {
     if (!deletingId) return;
     try {
       const res = await fetch(`/api/finance/transactions/${deletingId}`, { method: 'DELETE' });
-      if (res.ok) { toast.success('Transaksi berhasil dihapus'); setDeleteDialogOpen(false); setDeletingId(null); invalidateFinance(); }
-      else toast.error('Gagal menghapus transaksi');
+      if (res.ok) {
+        toast.success('Transaksi berhasil dihapus');
+        setDeleteDialogOpen(false);
+        setDeletingId(null);
+        invalidateFinance();
+      } else {
+        // Show the API's error message (e.g. transfer transactions can't be deleted)
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || 'Gagal menghapus transaksi');
+      }
     } catch { toast.error('Terjadi kesalahan'); }
   };
 
