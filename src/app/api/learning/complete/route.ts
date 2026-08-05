@@ -1,13 +1,7 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { startOfDay, subDays, format } from 'date-fns';
-
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-function jakartaToday(): Date {
-  const now = new Date(Date.now() + JAKARTA_OFFSET_MS);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
+import { jakartaToday } from '@/lib/timezone';
 
 const HABIT_NAME = 'Daily Learning';
 const HABIT_ICON = '📚';

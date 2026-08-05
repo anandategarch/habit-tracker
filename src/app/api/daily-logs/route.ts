@@ -2,8 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { createDailyLogSchema, parseOr400 } from '@/lib/validation';
 import { startOfMonth, endOfMonth } from 'date-fns';
-
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+import { jakartaNowParts } from '@/lib/timezone';
 
 // GET /api/daily-logs?month=2024-01
 export async function GET(request: NextRequest) {
@@ -28,18 +27,20 @@ export async function GET(request: NextRequest) {
     let endDate: Date;
 
     // Use Jakarta time for date boundaries
-    const jakartaNow = new Date(Date.now() + JAKARTA_OFFSET_MS);
     if (month) {
       const [y, m] = month.split('-').map(Number);
       startDate = new Date(Date.UTC(y, m - 1, 1));
       const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
       endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
     } else {
-      startDate = new Date(jakartaNow);
+      // Construct the range using Jakarta wall-clock components so the result
+      // matches the prior behavior of `new Date(Date.now() + 7h)` + setUTCHours
+      // (i.e. UTC parts equal Jakarta wall-clock parts).
+      const jp = jakartaNowParts();
+      endDate = new Date(Date.UTC(jp.year, jp.month - 1, jp.day, 23, 59, 59, 999));
+      startDate = new Date(endDate);
       startDate.setUTCDate(startDate.getUTCDate() - 30);
       startDate.setUTCHours(0, 0, 0, 0);
-      endDate = new Date(jakartaNow);
-      endDate.setUTCHours(23, 59, 59, 999);
     }
 
     const logs = await db.dailyLog.findMany({

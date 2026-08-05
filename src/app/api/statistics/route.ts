@@ -4,18 +4,7 @@ import {
   startOfDay, subDays, format, startOfWeek,
   startOfMonth, differenceInCalendarDays,
 } from 'date-fns';
-
-// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-function jakartaNow(): Date {
-  return new Date(Date.now() + JAKARTA_OFFSET_MS);
-}
-
-function jakartaToday(): Date {
-  const now = jakartaNow();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
+import { jakartaToday } from '@/lib/timezone';
 
 type Period = '7d' | '1m' | '3m' | 'all';
 

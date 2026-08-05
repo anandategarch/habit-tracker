@@ -1,13 +1,7 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { format, differenceInCalendarDays, subDays } from 'date-fns';
-
-// Jakarta timezone helpers
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-function jakartaToday(): Date {
-  const now = new Date(Date.now() + JAKARTA_OFFSET_MS);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
+import { jakartaToday, jakartaDateKey } from '@/lib/timezone';
 
 // GET /api/habits/last-done
 // Returns last completion date for each habit with trackLastDone = true
@@ -79,8 +73,9 @@ export async function GET() {
       }
 
       // Use Jakarta timezone for daysAgo calculation
-      const logJakarta = new Date(lastLog.date.getTime() + JAKARTA_OFFSET_MS);
-      const logDateOnly = new Date(logJakarta.getFullYear(), logJakarta.getMonth(), logJakarta.getDate());
+      const logYMD = jakartaDateKey(lastLog.date);
+      const [ly, lm, ld] = logYMD.split('-').map(Number);
+      const logDateOnly = new Date(ly, lm - 1, ld);
       const daysAgo = differenceInCalendarDays(today, logDateOnly);
       const intervalDays = intervalToDays(habit.lastDoneInterval);
 

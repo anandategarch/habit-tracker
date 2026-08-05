@@ -3,18 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { format } from 'date-fns';
 import { jakartaDateKey, jakartaMonthString, jakartaNowParts } from '@/lib/timezone';
 
-// ── Jakarta timezone helpers (UTC+7) ───────────────────────────────────
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-function jakartaNow(): Date {
-  return new Date(Date.now() + JAKARTA_OFFSET_MS);
-}
-
-function jakartaToday(): Date {
-  const now = jakartaNow();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
 // GET /api/finance/dashboard?month=2025-01
 export async function GET(request: NextRequest) {
   try {

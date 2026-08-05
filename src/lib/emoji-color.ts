@@ -115,7 +115,7 @@ const colorCache = new Map<string, string>();
  * @param emoji - single emoji character (e.g. "🍎", "🚗")
  * @returns hex color string (e.g. "#ef4444")
  */
-export function extractDominantColor(emoji: string): string {
+function extractDominantColor(emoji: string): string {
   // Check cache first
   const cached = colorCache.get(emoji);
   if (cached) return cached;
@@ -225,7 +225,7 @@ export function extractDominantColor(emoji: string): string {
  * @param threshold - hue difference threshold in degrees (default 15)
  * @returns adjusted hex color (may equal input if no conflict)
  */
-export function resolveColorConflict(
+function resolveColorConflict(
   color: string,
   existingColors: string[],
   threshold: number = 15

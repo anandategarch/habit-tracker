@@ -141,3 +141,39 @@ export function dayToWeek(day: number): number {
   if (day <= 21) return 3;
   return 4;
 }
+
+/**
+ * Returns minutes since midnight (0-1439) for a given Date in Jakarta TZ.
+ * Replaces the fragile `new Date(d.getTime() + OFFSET).getUTCHours() * 60 + getUTCMinutes()`
+ * pattern. Uses Intl.DateTimeFormat with explicit timeZone — works on ANY
+ * server timezone (UTC, local dev, etc.).
+ *
+ * @param date - the Date to extract time from
+ * @returns minutes since midnight (e.g. 08:30 → 510, 14:00 → 840)
+ */
+export function jakartaTimeMinutes(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: JAKARTA_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const h = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10) % 24;
+  const m = parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10);
+  return h * 60 + m;
+}
+
+/**
+ * Returns a Date representing today-at-midnight in Jakarta (local Date object
+ * with year/month/day from jakartaNowParts). Used for date-range calculations
+ * where you need a "start of today" boundary.
+ *
+ * Replaces the `new Date(Date.now() + OFFSET)` + `getFullYear/getMonth/getDate`
+ * pattern that produced a shifted-epoch Date.
+ *
+ * @returns Date for today at 00:00 (Jakarta wall-clock components in local TZ)
+ */
+export function jakartaToday(): Date {
+  const p = jakartaNowParts();
+  return new Date(p.year, p.month - 1, p.day);
+}

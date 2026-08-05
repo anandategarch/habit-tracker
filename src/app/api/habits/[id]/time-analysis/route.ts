@@ -12,6 +12,7 @@ import {
   addDays,
   parseISO,
 } from 'date-fns';
+import { jakartaToday, jakartaTimeMinutes } from '@/lib/timezone';
 
 interface DayData {
   date: string;
@@ -42,19 +43,9 @@ interface AnalysisResult {
   };
 }
 
-// Jakarta timezone offset
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-/** Get current time adjusted to Jakarta (UTC+7) for date boundary calculations */
-function jakartaNow(): Date {
-  return new Date(Date.now() + JAKARTA_OFFSET_MS);
-}
-
+/** Convert an ISO string to "minutes since midnight" in Jakarta timezone */
 function toMinutes(isoStr: string): number {
-  // Convert to Jakarta timezone (UTC+7) then extract hours and minutes
-  const d = new Date(isoStr);
-  const jakarta = new Date(d.getTime() + JAKARTA_OFFSET_MS);
-  return jakarta.getUTCHours() * 60 + jakarta.getUTCMinutes();
+  return jakartaTimeMinutes(new Date(isoStr));
 }
 
 function minutesToHHmm(mins: number): string {
@@ -88,7 +79,7 @@ export async function GET(
       return NextResponse.json({ error: 'This habit does not track time' }, { status: 400 });
     }
 
-    const now = jakartaNow();
+    const now = jakartaToday();
     let startDate: Date;
     let endDate: Date;
     let prevStartDate: Date;
