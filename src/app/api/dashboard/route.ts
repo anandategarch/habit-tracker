@@ -612,8 +612,17 @@ export async function GET(request: NextRequest) {
       const weekLogs = habitTimeLogs.filter(l => l.date >= weekStart && l.date <= weekEnd);
       const prevWeekLogs = habitTimeLogs.filter(l => l.date >= subDays(weekStart, 7) && l.date <= subDays(weekStart, 1));
 
-      // Today's time
-      const todayLog = weekLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
+      // N+1 fix: pre-build a Map<dateKey, log> for weekLogs so we can do O(1)
+      // lookups instead of .find() scanning the array per day.
+      // Previously: weekLogs.find(l => format(l.date, 'yyyy-MM-dd') === key)
+      // was called inside a nested loop (7 days × N habits = N×7 scans).
+      const weekLogsByDate = new Map<string, typeof weekLogs[number]>();
+      for (const l of weekLogs) {
+        weekLogsByDate.set(format(l.date, 'yyyy-MM-dd'), l);
+      }
+
+      // Today's time — O(1) Map lookup
+      const todayLog = weekLogsByDate.get(todayKey);
       const todayTime = todayLog?.completedAt ? minutesToHHmm(toMinutesFromISO(todayLog.completedAt)) : null;
 
       // This week average
@@ -634,12 +643,12 @@ export async function GET(request: NextRequest) {
       const prevAvgMins = prevMins.length > 0 ? Math.round(prevMins.reduce((a, b) => a + b, 0) / prevMins.length) : null;
       const trend = currentAvgMins !== null && prevAvgMins !== null ? currentAvgMins - prevAvgMins : null;
 
-      // Per-day times for mini chart
+      // Per-day times for mini chart — O(1) Map lookup per day
       const weekTimes: { day: string; time: string | null; minutes: number | null }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = subDays(today, i);
         const key = format(d, 'yyyy-MM-dd');
-        const log = weekLogs.find(l => format(l.date, 'yyyy-MM-dd') === key);
+        const log = weekLogsByDate.get(key);
         if (log?.completedAt) {
           const mins = toMinutesFromISO(log.completedAt);
           weekTimes.push({ day: format(d, 'EEE'), time: minutesToHHmm(mins), minutes: mins });
