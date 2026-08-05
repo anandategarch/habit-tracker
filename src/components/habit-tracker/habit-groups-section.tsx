@@ -79,7 +79,9 @@ export function HabitGroupsSection({
                           setNewGroupEmoji(e);
                           // Auto-derive color from emoji — no manual color picker.
                           // Resolve conflicts with existing group colors.
-                          const existingColors = groups.map(g => g.color);
+                          const existingColors = groups
+                            .map(g => g.color)
+                            .filter((c): c is string => !!c);
                           const derived = deriveColorFromEmoji(e, existingColors);
                           setNewGroupColor(derived);
                           setShowGroupEmojiPicker(false);

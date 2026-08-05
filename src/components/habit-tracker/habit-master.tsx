@@ -440,8 +440,9 @@ export default function HabitMaster() {
                         // Auto-derive color when icon changes (manual type)
                         if (icon) {
                           const existingColors = habits
-                            .filter(h => h.id !== editingHabit?.id && h.status === 'active')
-                            .map(h => h.color);
+                            .filter(h => h.id !== editingId && h.status === 'active')
+                            .map(h => h.color)
+                            .filter((c): c is string => !!c);
                           const derived = deriveColorFromEmoji(icon, existingColors);
                           updateForm('color', derived);
                         }
@@ -462,8 +463,9 @@ export default function HabitMaster() {
                               // color via Canvas, resolve conflicts with existing
                               // habits' colors so no two share the same hue.
                               const existingColors = habits
-                                .filter(h => h.id !== editingHabit?.id && h.status === 'active')
-                                .map(h => h.color);
+                                .filter(h => h.id !== editingId && h.status === 'active')
+                                .map(h => h.color)
+                                .filter((c): c is string => !!c);
                               const derived = deriveColorFromEmoji(e, existingColors);
                               updateForm('color', derived);
                               setFormEmojiPicker(false);
