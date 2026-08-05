@@ -439,8 +439,12 @@ export default function HabitMaster() {
                         updateForm('icon', icon);
                         // Auto-derive color when icon changes (manual type)
                         if (icon) {
+                          // BUG-1 fix: include ALL habits (active + paused + archived)
+                          // in conflict check. A paused/archived habit's color is
+                          // still "taken" — if we exclude it, un-pausing later
+                          // could reveal a duplicate color.
                           const existingColors = habits
-                            .filter(h => h.id !== editingId && h.status === 'active')
+                            .filter(h => h.id !== editingId)
                             .map(h => h.color)
                             .filter((c): c is string => !!c);
                           const derived = deriveColorFromEmoji(icon, existingColors);
@@ -448,7 +452,7 @@ export default function HabitMaster() {
                         }
                       }}
                       onFocus={() => setFormEmojiPicker(true)}
-                      maxLength={2}
+                      maxLength={11}
                     />
                     {formEmojiPicker && (
                       <div className="absolute top-full mt-1 z-50 bg-popover border rounded-lg shadow-lg p-2 flex flex-wrap gap-1 w-48">
@@ -462,8 +466,10 @@ export default function HabitMaster() {
                               // Auto-derive color from emoji — extract dominant
                               // color via Canvas, resolve conflicts with existing
                               // habits' colors so no two share the same hue.
+                              // BUG-1 fix: include ALL habits (active + paused +
+                              // archived) — paused habit's color is still "taken".
                               const existingColors = habits
-                                .filter(h => h.id !== editingId && h.status === 'active')
+                                .filter(h => h.id !== editingId)
                                 .map(h => h.color)
                                 .filter((c): c is string => !!c);
                               const derived = deriveColorFromEmoji(e, existingColors);
