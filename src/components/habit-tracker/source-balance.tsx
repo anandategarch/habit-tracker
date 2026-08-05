@@ -4,7 +4,11 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { Wallet, ArrowUpRight, ArrowDownRight, Pencil } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Wallet, ArrowUpRight, ArrowDownRight, Pencil, ArrowLeftRight } from 'lucide-react';
 import { formatRupiah, formatNominalInput, parseNominalInput, type FundSource, type Transaction } from './finance-types';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';
@@ -56,6 +60,13 @@ export default function SourceBalanceSection() {
   const queryClient = useQueryClient();
   const [balanceEditId, setBalanceEditId] = useState<string | null>(null);
   const [balanceEditValue, setBalanceEditValue] = useState('');
+  // Transfer dialog state
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferFrom, setTransferFrom] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferDesc, setTransferDesc] = useState('');
+  const [transferring, setTransferring] = useState(false);
 
   const { data: sources = [], isLoading: loading } = useQuery<FundSource[]>({
     queryKey: ['finance', 'sources'],
@@ -119,6 +130,45 @@ export default function SourceBalanceSection() {
     setBalanceEditValue('');
   };
 
+  // Transfer between fund sources — creates 2 linked transactions
+  // (expense from + income to) atomically via POST /api/finance/transfer.
+  // Transfer transactions use category "Transfer Antar Sumber" and are
+  // excluded from Daily Recap stats (internal movement, not real income/expense).
+  const handleTransfer = async () => {
+    if (!transferFrom || !transferTo) { toast.error('Pilih sumber asal dan tujuan'); return; }
+    if (transferFrom === transferTo) { toast.error('Sumber asal dan tujuan tidak boleh sama'); return; }
+    const raw = parseNominalInput(transferAmount);
+    const val = parseFloat(raw);
+    if (isNaN(val) || val <= 0) { toast.error('Masukkan jumlah yang valid'); return; }
+    setTransferring(true);
+    try {
+      const res = await fetch('/api/finance/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromSourceId: transferFrom,
+          toSourceId: transferTo,
+          amount: val,
+          description: transferDesc || undefined,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'balance-history'] });
+        toast.success(`Transfer ${formatRupiah(val)} berhasil`);
+        setTransferOpen(false);
+        setTransferFrom(''); setTransferTo(''); setTransferAmount(''); setTransferDesc('');
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Transfer gagal');
+      }
+    } catch { toast.error('Transfer gagal'); }
+    setTransferring(false);
+  };
+
   const today = jakartaDateString();
   const { data: todayTx = [] } = useQuery<Transaction[]>({
     queryKey: ['finance', 'transactions-today', today],
@@ -178,11 +228,23 @@ export default function SourceBalanceSection() {
   return (
     <div className="space-y-5">
       {/* ── Header ── */}
-      <div>
-        <h2 className="text-xl font-bold tracking-tight">Sumber Dana</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Kelola seluruh saldo dari berbagai sumber dana dalam satu tampilan.
-        </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Sumber Dana</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Kelola seluruh saldo dari berbagai sumber dana dalam satu tampilan.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setTransferOpen(true)}
+          disabled={sources.length < 2}
+          className="shrink-0"
+        >
+          <ArrowLeftRight className="h-4 w-4 mr-1.5" />
+          Transfer
+        </Button>
       </div>
 
       {/* ── Main Summary Card (glassmorphism + gradient) ── */}
@@ -370,6 +432,76 @@ export default function SourceBalanceSection() {
           );
         })}
       </div>
+
+      {/* ── Transfer Dialog ── */}
+      <Dialog open={transferOpen} onOpenChange={(open) => { if (!open && !transferring) setTransferOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4" />
+              Transfer Antar Sumber
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Dari</Label>
+              <Select value={transferFrom} onValueChange={setTransferFrom}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih sumber asal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sources.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.emoji} {s.name} ({formatRupiah(s.balance)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Ke</Label>
+              <Select value={transferTo} onValueChange={setTransferTo}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih sumber tujuan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sources.filter(s => s.id !== transferFrom).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.emoji} {s.name} ({formatRupiah(s.balance)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Jumlah</Label>
+              <Input
+                placeholder="0"
+                value={transferAmount}
+                onChange={e => setTransferAmount(formatNominalInput(e.target.value))}
+                className="text-base font-semibold"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Catatan (opsional)</Label>
+              <Input
+                placeholder="Contoh: Tarik tunai ATM"
+                value={transferDesc}
+                onChange={e => setTransferDesc(e.target.value)}
+                maxLength={200}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="flex-1" onClick={() => setTransferOpen(false)} disabled={transferring}>
+              Batal
+            </Button>
+            <Button className="flex-1" onClick={handleTransfer} disabled={transferring || !transferFrom || !transferTo || !transferAmount}>
+              {transferring ? 'Memproses...' : 'Transfer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

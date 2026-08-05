@@ -279,6 +279,8 @@ const FALLBACK_CATEGORY_META: Record<string, { emoji: string; color: string }> =
   'Bisnis': { emoji: '🏢', color: '#8b5cf6' },
   // Adjustment transaction category (created by PATCH /sources/[id]/balance)
   'Penyesuaian Saldo': { emoji: '🔧', color: '#64748b' },
+  // Transfer between fund sources (created by POST /api/finance/transfer)
+  'Transfer Antar Sumber': { emoji: '🔄', color: '#0ea5e9' },
 };
 
 const DEFAULT_EMOJI = '📦';
@@ -348,7 +350,7 @@ export async function GET() {
     // Single query covering 30 days is cheaper than 4 separate queries.
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const allRecentTx = await db.transaction.findMany({
+    const allRecentTxRaw = await db.transaction.findMany({
       where: { date: { gte: thirtyDaysAgo } },
       select: {
         id: true,
@@ -361,6 +363,16 @@ export async function GET() {
       },
       orderBy: { date: 'desc' },
     });
+
+    // Filter out "Transfer Antar Sumber" transactions from daily recap
+    // stats. Transfers are internal movements between fund sources, not
+    // real income/expense. Including them would inflate both income and
+    // expense, making the daily recap misleading.
+    // They still appear in the Transactions tab (not filtered there).
+    const TRANSFER_CATEGORY = 'Transfer Antar Sumber';
+    const allRecentTx = allRecentTxRaw.filter(
+      (t) => t.category !== TRANSFER_CATEGORY && t.category !== 'Penyesuaian Saldo'
+    );
 
     // ── Fetch FinanceCategory table for emoji/color resolution ──────
     // We need this so the API can return the correct emoji per category
