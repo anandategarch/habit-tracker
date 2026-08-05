@@ -53,6 +53,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
+import { deriveColorFromEmoji } from '@/lib/emoji-color';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 
@@ -869,10 +870,38 @@ export default function Finance() {
           <DialogHeader><DialogTitle>{editingCat ? 'Edit Kategori' : 'Tambah Kategori'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-[60px_1fr] gap-3">
-              <div><Label className="text-xs">Emoji</Label><Input value={catForm.emoji} onChange={e => setCatForm(f => ({ ...f, emoji: e.target.value }))} className="mt-1 text-center text-lg" maxLength={4} /></div>
+              <div>
+                <Label className="text-xs">Emoji</Label>
+                <Input
+                  value={catForm.emoji}
+                  onChange={e => {
+                    const emoji = e.target.value;
+                    // Auto-derive color from emoji — no manual color picker.
+                    // Extracts dominant color via Canvas, resolves conflicts
+                    // with existing category colors (same type) so no two
+                    // categories share the same hue.
+                    const existingColors = categories
+                      .filter(c => c.type === catForm.type && c.id !== editingCat?.id)
+                      .map(c => c.color);
+                    const derived = deriveColorFromEmoji(emoji, existingColors);
+                    setCatForm(f => ({ ...f, emoji, color: derived }));
+                  }}
+                  className="mt-1 text-center text-lg"
+                  maxLength={4}
+                />
+              </div>
               <div><Label className="text-xs">Nama</Label><Input placeholder="Contoh: Makanan" value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} className="mt-1" /></div>
             </div>
-            <div><Label className="text-xs">Warna</Label><Input type="color" value={catForm.color} onChange={e => setCatForm(f => ({ ...f, color: e.target.value }))} className="mt-1 h-10 w-16 cursor-pointer" /></div>
+            {/* Color preview — auto-derived from emoji, no manual picker.
+                Shows a swatch so user can see what color was assigned. */}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 rounded-md border border-border shrink-0"
+                style={{ backgroundColor: catForm.color }}
+                aria-label={`Warna otomatis: ${catForm.color}`}
+              />
+              <p className="text-xs text-muted-foreground">Warna otomatis dari emoji</p>
+            </div>
             <div className="flex items-center gap-2"><input type="checkbox" id="trackLastDone" checked={catForm.trackLastDone} onChange={e => setCatForm(f => ({ ...f, trackLastDone: e.target.checked }))} className="rounded border-border" /><Label htmlFor="trackLastDone" className="text-xs">Track terakhir transaksi</Label></div>
             <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => setCatFormOpen(false)}>Batal</Button><Button className="flex-1" onClick={handleSubmitCat} disabled={submitting}>{submitting ? 'Menyimpan...' : editingCat ? 'Update' : 'Simpan'}</Button></div>
           </div>

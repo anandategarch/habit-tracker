@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { GROUP_EMOJIS, type HabitGroup } from './habit-master-types';
+import { deriveColorFromEmoji } from '@/lib/emoji-color';
 
 interface HabitGroupsSectionProps {
   groups: HabitGroup[];
@@ -76,6 +77,11 @@ export function HabitGroupsSection({
                         className="text-xl hover:bg-accent rounded p-1 transition-colors"
                         onClick={() => {
                           setNewGroupEmoji(e);
+                          // Auto-derive color from emoji — no manual color picker.
+                          // Resolve conflicts with existing group colors.
+                          const existingColors = groups.map(g => g.color);
+                          const derived = deriveColorFromEmoji(e, existingColors);
+                          setNewGroupColor(derived);
                           setShowGroupEmojiPicker(false);
                         }}
                       >
@@ -102,11 +108,12 @@ export function HabitGroupsSection({
                 }}
                 disabled={addingGroup}
               />
-              <input
-                type="color"
-                value={newGroupColor}
-                onChange={(e) => setNewGroupColor(e.target.value)}
-                className="h-8 w-8 rounded-md border cursor-pointer bg-transparent p-0.5 shrink-0"
+              {/* Color preview — auto-derived from emoji */}
+              <div
+                className="h-8 w-8 rounded-md border border-border shrink-0"
+                style={{ backgroundColor: newGroupColor }}
+                aria-label={`Warna otomatis: ${newGroupColor}`}
+                title="Warna otomatis dari emoji"
               />
               <Button
                 onClick={handleCreateGroup}
