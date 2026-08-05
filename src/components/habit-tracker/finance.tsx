@@ -532,7 +532,23 @@ export default function Finance() {
     if (isNaN(val)) { setBalanceEditId(null); return; }
     try {
       const res = await fetch(`/api/finance/sources/${sourceId}/balance`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
-      if (res.ok) { toast.success('Saldo berhasil diupdate'); queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] }); }
+      if (res.ok) {
+        const data = await res.json();
+        // Invalidate both sources + transactions (adjustment creates a tx)
+        queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+        // Show informative toast based on whether an adjustment was made
+        if (data?.adjustment) {
+          const adj = data.adjustment;
+          const sign = adj.type === 'income' ? '+' : '−';
+          toast.success(`Saldo diupdate — transaksi "${sign}${formatRupiah(adj.amount)}" dibuat`);
+        } else {
+          toast.success('Saldo tidak berubah');
+        }
+      } else {
+        toast.error('Gagal update saldo');
+      }
     } catch { toast.error('Gagal update saldo'); }
     setBalanceEditId(null); setBalanceEditValue('');
   };
