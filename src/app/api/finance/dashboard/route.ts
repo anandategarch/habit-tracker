@@ -22,9 +22,16 @@ export async function GET(request: NextRequest) {
       const allFetched = await db.transaction.findMany({
         where: { date: { gte: fetchStart, lte: fetchEnd } },
       });
-      // Post-query filter by Jakarta month for exact match
+      // Post-query filter by Jakarta month for exact match.
+      // Also exclude "Penyesuaian Saldo" and "Transfer Antar Sumber" —
+      // these are internal movements (adjustment + transfer), NOT real
+      // income/expense. Including them would inflate both sides equally,
+      // making the dashboard summary misleading.
       transactions = allFetched.filter(
-        (t) => jakartaDateKey(t.date).slice(0, 7) === month
+        (t) =>
+          jakartaDateKey(t.date).slice(0, 7) === month &&
+          t.category !== 'Penyesuaian Saldo' &&
+          t.category !== 'Transfer Antar Sumber'
       );
     } catch (e) { console.error('Finance dashboard: transactions query failed:', e); }
 
@@ -97,7 +104,10 @@ export async function GET(request: NextRequest) {
         where: { date: { gte: prevFetchStart, lte: prevFetchEnd } },
       });
       prevTransactions = allPrevFetched.filter(
-        (t) => jakartaDateKey(t.date).slice(0, 7) === prevMonth
+        (t) =>
+          jakartaDateKey(t.date).slice(0, 7) === prevMonth &&
+          t.category !== 'Penyesuaian Saldo' &&
+          t.category !== 'Transfer Antar Sumber'
       );
     } catch (e) { console.error('Finance dashboard: prevTransactions query failed:', e); }
 
