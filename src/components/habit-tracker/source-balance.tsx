@@ -214,8 +214,14 @@ export default function SourceBalanceSection() {
   if (sources.length === 0) return null;
 
   const totalBalance = sources.reduce((s, src) => s + src.balance, 0);
-  const todayTotalIncome = todayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const todayTotalExpense = todayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  // Exclude "Penyesuaian Saldo" and "Transfer Antar Sumber" from
+  // today's income/expense display — these are internal movements,
+  // not real income/expense.
+  const realTodayTx = todayTx.filter(
+    t => t.category !== 'Penyesuaian Saldo' && t.category !== 'Transfer Antar Sumber'
+  );
+  const todayTotalIncome = realTodayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const todayTotalExpense = realTodayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
   // Build REAL summary chart data: sum all sources' daily balances per date.
   // All sources share the same date range from the API, so we iterate by index.
