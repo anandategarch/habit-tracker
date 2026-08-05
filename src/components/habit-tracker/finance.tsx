@@ -887,7 +887,7 @@ export default function Finance() {
                     setCatForm(f => ({ ...f, emoji, color: derived }));
                   }}
                   className="mt-1 text-center text-lg"
-                  maxLength={4}
+                  maxLength={11}
                 />
               </div>
               <div><Label className="text-xs">Nama</Label><Input placeholder="Contoh: Makanan" value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} className="mt-1" /></div>
