@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { jakartaDateString } from '@/lib/timezone';
 
+// BUG-3 fix: replace legacy getTimezoneOffset() shifted-epoch pattern
+// with proper Intl-based helper. The old pattern only worked on UTC
+// servers; on non-UTC servers the daily quote was wrong during
+// Jakarta midnight rollover.
 function getTodayKey(): string {
-  const now = new Date();
-  const jakartaOffset = 7 * 60;
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const jakarta = new Date(utc + jakartaOffset * 60000);
-  return jakarta.toISOString().split('T')[0];
+  return jakartaDateString();
 }
 
 // 60+ quotes with Indonesian translations — selected by date so they never repeat within 2 months

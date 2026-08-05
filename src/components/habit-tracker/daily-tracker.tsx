@@ -87,6 +87,22 @@ function toDateString(isoLike: string): string {
   return jakartaDateKey(new Date(isoLike));
 }
 
+/**
+ * Format a completedAt ISO string to "HH:mm" in Jakarta timezone.
+ * BUG-4 fix: previously used `new Date(iso).getHours()` which reads
+ * the BROWSER's local TZ. Inconsistent with daily-recap.tsx and
+ * finance-transactions.tsx which use `timeZone: 'Asia/Jakarta'`.
+ * Now uses Intl.DateTimeFormat for TZ-correct display on any device.
+ */
+function formatJakartaTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso));
+}
+
 function timeDiffMinutes(time: string, target: string): number {
   const [th, tm] = target.split(':').map(Number);
   const [ah, am] = time.split(':').map(Number);
@@ -403,8 +419,7 @@ export default function DailyTracker() {
           const dayLog = logs.find((l) => toDateString(l.date) === date);
           map[h.id] = dayLog?.completed ?? false;
           if (dayLog?.completedAt) {
-            const d = new Date(dayLog.completedAt);
-            atMap[h.id] = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            atMap[h.id] = formatJakartaTime(dayLog.completedAt);
           }
         });
       setCompletionMap(map);
@@ -437,8 +452,7 @@ export default function DailyTracker() {
       const dayLog = logs.find((l) => toDateString(l.date) === date);
       map[habit.id] = dayLog?.completed ?? false;
       if (dayLog?.completedAt) {
-        const d = new Date(dayLog.completedAt);
-        atMap[habit.id] = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        atMap[habit.id] = formatJakartaTime(dayLog.completedAt);
       }
     });
 
@@ -565,10 +579,9 @@ export default function DailyTracker() {
       }
 
       if (next && completedAt) {
-        const d = new Date(completedAt);
         setCompletedAtMap((p) => ({
           ...p,
-          [habitId]: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+          [habitId]: formatJakartaTime(completedAt),
         }));
       } else {
         setCompletedAtMap((p) => {

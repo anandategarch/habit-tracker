@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { updateJournalSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
+import { dateFromYMD } from '@/lib/timezone';
 
 // GET /api/journals/[id]
 export async function GET(
@@ -35,7 +36,13 @@ export async function PUT(
     const journal = await db.journal.update({
       where: { id },
       data: {
-        ...(d.date !== undefined && { date: new Date(d.date) }),
+        // BUG-10 fix: normalize to UTC midnight via dateFromYMD, consistent
+        // with POST route. Prevents TZ-shifted epochs on non-UTC servers.
+        ...(d.date !== undefined && {
+          date: dateFromYMD(
+            `${new Date(d.date).getFullYear()}-${String(new Date(d.date).getMonth() + 1).padStart(2, '0')}-${String(new Date(d.date).getDate()).padStart(2, '0')}`
+          ),
+        }),
         ...(d.mood !== undefined && { mood: d.mood }),
         ...(d.stress !== undefined && { stress: d.stress }),
         ...(d.energy !== undefined && { energy: d.energy }),

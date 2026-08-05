@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { jakartaDateString, jakartaDateKey, dateFromYMD } from '@/lib/timezone';
 
 // GET /api/finance/last-done
 // Returns the last transaction date for each category with trackLastDone = true
@@ -36,13 +37,11 @@ export async function GET() {
       }
     }
 
-    // Jakarta timezone helper
-    const toJakarta = (d: Date) => {
-      const utc = d.getTime() + d.getTimezoneOffset() * 60000;
-      return new Date(utc + 7 * 60 * 60000);
-    };
-    const nowJakarta = toJakarta(new Date());
-    const todayStart = new Date(nowJakarta.getFullYear(), nowJakarta.getMonth(), nowJakarta.getDate()).getTime();
+    // BUG-2 fix: replace legacy getTimezoneOffset() shifted-epoch pattern
+    // with proper Intl-based helpers from lib/timezone. The old pattern
+    // only worked on UTC servers; on non-UTC servers daysAgo was wrong.
+    const todayKey = jakartaDateString(); // "yyyy-MM-dd"
+    const todayDate = dateFromYMD(todayKey); // UTC-midnight Date for diff calc
 
     const result = trackedCategories.map(cat => {
       const lastTx = lastTxMap.get(cat.name);
@@ -50,9 +49,10 @@ export async function GET() {
         return { category: cat.name, emoji: cat.emoji, color: cat.color, type: cat.type, lastDate: null, daysAgo: null, lastAmount: null, description: null };
       }
 
-      const jakartaDate = toJakarta(lastTx.date);
-      const txDateOnly = new Date(jakartaDate.getFullYear(), jakartaDate.getMonth(), jakartaDate.getDate()).getTime();
-      const daysAgo = Math.floor((todayStart - txDateOnly) / (1000 * 60 * 60 * 24));
+      // Get Jakarta date key for the transaction, then compute daysAgo
+      const txKey = jakartaDateKey(lastTx.date); // "yyyy-MM-dd"
+      const txDate = dateFromYMD(txKey); // UTC-midnight Date
+      const daysAgo = Math.round((todayDate.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24));
 
       return {
         category: cat.name,
