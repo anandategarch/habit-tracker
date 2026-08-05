@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -245,6 +246,14 @@ export default function Finance() {
 
   // Form states
   const [txForm, setTxForm] = useState({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: 'Kas' });
+  // Split-mode state. Only used when adding a new transaction (not editing —
+  // split children are standalone transactions and are edited individually
+  // via the regular single-category form).
+  const [splitMode, setSplitMode] = useState(false);
+  const [splitRows, setSplitRows] = useState<Array<{ category: string; amount: string; }>>([
+    { category: '', amount: '' },
+    { category: '', amount: '' },
+  ]);
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
@@ -348,6 +357,12 @@ export default function Finance() {
     const p = jakartaNowParts();
     const time = `${String(p.hours).padStart(2, '0')}:${String(p.minutes).padStart(2, '0')}`;
     setTxForm({ type, amount: '', category: '', description: '', date: jakartaDateString(), time, notes: '', source: 'Kas' });
+    // Reset split state every time the dialog opens fresh.
+    setSplitMode(false);
+    setSplitRows([
+      { category: '', amount: '' },
+      { category: '', amount: '' },
+    ]);
     setTxDialogOpen(true);
   };
 
@@ -377,10 +392,82 @@ export default function Finance() {
       time: jakartaTime,
       notes: tx.notes || '', source: tx.source || 'Kas',
     });
+    // Edit always uses single-category mode — split children are
+    // standalone transactions and are edited one at a time.
+    setSplitMode(false);
     setTxDialogOpen(true);
   };
 
+  // ── Split helpers ────────────────────────────────────────────────────────
+
+  const addSplitRow = () => {
+    // Cap at 10 rows — matches the API-side zod .max(10) constraint.
+    setSplitRows(prev => prev.length >= 10 ? prev : [...prev, { category: '', amount: '' }]);
+  };
+
+  const updateSplitRow = (idx: number, field: 'category' | 'amount', value: string) => {
+    setSplitRows(prev => prev.map((row, i) => i === idx ? { ...row, [field]: field === 'amount' ? formatNominalInput(value) : value } : row));
+  };
+
+  const removeSplitRow = (idx: number) => {
+    setSplitRows(prev => {
+      // Don't allow fewer than 2 rows — that's the split minimum.
+      if (prev.length <= 2) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  // Sum of all split row amounts (whole rupiah). Used for the real-time
+  // total indicator + final payload.
+  const splitTotal = useMemo(() => {
+    return splitRows.reduce((sum, r) => sum + (parseInt(parseNominalInput(r.amount) || '0', 10) || 0), 0);
+  }, [splitRows]);
+
   const handleSubmitTx = async () => {
+    // ── Split mode branch ──
+    // Split is only valid for CREATE (not editing — each split child is
+    // edited individually via the regular single-category form).
+    if (splitMode && !editingTx) {
+      // Validate: at least 2 rows with category + amount > 0
+      const validRows = splitRows.filter(r => r.category && parseNominalInput(r.amount) && parseInt(parseNominalInput(r.amount), 10) > 0);
+      if (validRows.length < 2) { toast.error('Minimal 2 kategori dengan jumlah valid untuk split'); return; }
+      if (!txForm.date) { toast.error('Pilih tanggal'); return; }
+      if (splitTotal <= 0) { toast.error('Total split harus lebih dari 0'); return; }
+      // Parse date+time with explicit Jakarta offset (+07:00) — same
+      // pattern as the non-split path below.
+      const fullDate = txForm.time
+        ? new Date(`${txForm.date}T${txForm.time}:00+07:00`)
+        : new Date(`${txForm.date}T00:00:00+07:00`);
+      const payload = {
+        date: fullDate.toISOString(),
+        source: txForm.source,
+        description: txForm.description || null,
+        splits: validRows.map(r => ({
+          category: r.category,
+          amount: parseInt(parseNominalInput(r.amount), 10),
+        })),
+      };
+      setSubmitting(true);
+      try {
+        const res = await fetch('/api/finance/transactions/split', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          toast.success(`Split transaction berhasil (${validRows.length} kategori)`);
+          setTxDialogOpen(false);
+          invalidateFinance();
+        } else {
+          const err = await res.json().catch(() => null);
+          toast.error(err?.error || 'Gagal membuat split transaction');
+          return;
+        }
+      } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+      return;
+    }
+
+    // ── Regular (non-split) branch ──
     const rawAmount = parseNominalInput(txForm.amount);
     if (!rawAmount || parseFloat(rawAmount) <= 0) { toast.error('Masukkan jumlah yang valid'); return; }
     if (!txForm.category) { toast.error('Pilih kategori'); return; }
@@ -769,16 +856,90 @@ export default function Finance() {
           <DialogHeader><DialogTitle>{editingTx ? 'Edit Transaksi' : 'Tambah Transaksi'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-red-500 hover:bg-red-600 text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} className={cn(txForm.type === 'income' && 'bg-primary hover:bg-primary text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
+              <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-red-500 hover:bg-red-600 text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))} disabled={splitMode}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
+              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} className={cn(txForm.type === 'income' && 'bg-primary hover:bg-primary text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))} disabled={splitMode} title={splitMode ? 'Split hanya untuk pengeluaran' : undefined}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
             </div>
-            <div><Label className="text-xs">Jumlah (Rp)</Label><Input type="text" inputMode="numeric" placeholder="0" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="mt-1" /></div>
-            <div><Label className="text-xs">Kategori</Label><Select value={txForm.category} onValueChange={v => setTxForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList(txForm.type).map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
+
+            {/* Split toggle — only shown when adding (not editing). Split
+                children are standalone transactions edited individually. */}
+            {!editingTx && (
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg border bg-muted/30">
+                <div className="min-w-0">
+                  <Label className="text-xs font-medium">Split ke beberapa kategori</Label>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Pisahkan 1 pembayaran ke beberapa kategori sekaligus</p>
+                </div>
+                <Switch
+                  checked={splitMode}
+                  onCheckedChange={(checked) => {
+                    setSplitMode(checked);
+                    if (checked) {
+                      // Split API only supports expense — force type.
+                      setTxForm(f => ({ ...f, type: 'expense' }));
+                    }
+                  }}
+                  aria-label="Aktifkan mode split transaksi"
+                />
+              </div>
+            )}
+
+            {/* Either split rows OR single amount + category. */}
+            {splitMode && !editingTx ? (
+              <div className="space-y-2">
+                <Label className="text-xs">Kategori & Jumlah</Label>
+                {splitRows.map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <Select value={row.category} onValueChange={v => updateSplitRow(idx, 'category', v)}>
+                      <SelectTrigger className="flex-1 min-w-0 h-9"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
+                      <SelectContent>
+                        {getCategoryList('expense').map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={row.amount}
+                      onChange={e => updateSplitRow(idx, 'amount', e.target.value)}
+                      className="w-28 h-9 shrink-0"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 text-red-500 hover:text-red-600"
+                      onClick={() => removeSplitRow(idx)}
+                      disabled={splitRows.length <= 2}
+                      title={splitRows.length <= 2 ? 'Minimal 2 kategori untuk split' : 'Hapus baris'}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1">
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addSplitRow} disabled={splitRows.length >= 10}>
+                    <Plus className="h-3 w-3 mr-1" />Tambah kategori
+                  </Button>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Total: </span>
+                    <span className="font-semibold">{formatRupiah(splitTotal)}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div><Label className="text-xs">Jumlah (Rp)</Label><Input type="text" inputMode="numeric" placeholder="0" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="mt-1" /></div>
+                <div><Label className="text-xs">Kategori</Label><Select value={txForm.category} onValueChange={v => setTxForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList(txForm.type).map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
+              </>
+            )}
             <div><Label className="text-xs">Sumber Dana</Label><Select value={txForm.source} onValueChange={v => setTxForm(f => ({ ...f, source: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih sumber" /></SelectTrigger><SelectContent>{getActiveSources().map(s => (<SelectItem key={s.id || s.name} value={s.name}>{s.emoji} {s.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="grid grid-cols-2 gap-2"><div><Label className="text-xs">Tanggal</Label><Input type="date" value={txForm.date} onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))} className="mt-1" /></div><div><Label className="text-xs">Jam</Label><Input type="time" value={txForm.time} onChange={e => setTxForm(f => ({ ...f, time: e.target.value }))} className="mt-1" /></div></div>
             <div><Label className="text-xs">Deskripsi</Label><Input placeholder="Contoh: Makan siang di kantin" value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))} className="mt-1" /></div>
-            <div><Label className="text-xs">Catatan (opsional)</Label><Input placeholder="Catatan tambahan..." value={txForm.notes} onChange={e => setTxForm(f => ({ ...f, notes: e.target.value }))} className="mt-1" /></div>
-            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => setTxDialogOpen(false)}>Batal</Button><Button className="flex-1" onClick={handleSubmitTx} disabled={submitting}>{submitting ? 'Menyimpan...' : editingTx ? 'Update' : 'Simpan'}</Button></div>
+            {/* Hide notes field in split mode — each split child gets an
+                auto-generated "Split i/n" note, so a manual note doesn't apply. */}
+            {!(splitMode && !editingTx) && (
+              <div><Label className="text-xs">Catatan (opsional)</Label><Input placeholder="Catatan tambahan..." value={txForm.notes} onChange={e => setTxForm(f => ({ ...f, notes: e.target.value }))} className="mt-1" /></div>
+            )}
+            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => setTxDialogOpen(false)}>Batal</Button><Button className="flex-1" onClick={handleSubmitTx} disabled={submitting}>{submitting ? 'Menyimpan...' : editingTx ? 'Update' : (splitMode ? 'Simpan Split' : 'Simpan')}</Button></div>
           </div>
         </DialogContent>
       </Dialog>

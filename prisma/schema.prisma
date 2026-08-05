@@ -183,6 +183,10 @@ model Transaction {
   date        DateTime
   notes       String?
   source      String   @default("Kas")
+  // Split transaction group ID. Null = standalone transaction.
+  // Non-null = part of a split group (multiple transactions sharing
+  // the same date/source/description but different category/amount).
+  groupId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -190,6 +194,7 @@ model Transaction {
   @@index([type, date])
   @@index([source, date])
   @@index([category])
+  @@index([groupId])
 }
 
 model Budget {

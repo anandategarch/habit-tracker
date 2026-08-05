@@ -9,6 +9,10 @@ export interface Transaction {
   date: string;
   notes: string | null;
   source: string;
+  // Split transaction group ID. Null = standalone transaction.
+  // Non-null = part of a split group (multiple transactions sharing
+  // the same date/source/description but different category/amount).
+  groupId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -302,8 +302,13 @@ export default function FinanceTransactions({
                         <div className="flex-1 min-w-0">
                           {/* Top row: title + time */}
                           <div className="flex items-start justify-between gap-2">
-                            <span className="text-sm font-semibold truncate">
+                            <span className="text-sm font-semibold truncate flex items-center gap-1.5">
                               {tx.category}
+                              {tx.groupId && (
+                                <span className="text-[9px] px-1 py-0 rounded-full bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400 font-medium shrink-0">
+                                  Split
+                                </span>
+                              )}
                             </span>
                             <span className="text-xs text-muted-foreground shrink-0">
                               {formatTime(tx.date)}
