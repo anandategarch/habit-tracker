@@ -61,6 +61,7 @@ import {
   CollapsibleContent,
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { deriveColorFromEmoji } from '@/lib/emoji-color';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
@@ -433,7 +434,18 @@ export default function HabitMaster() {
                     <Input
                       className="w-20 text-center text-xl"
                       value={form.icon}
-                      onChange={(e) => updateForm('icon', e.target.value)}
+                      onChange={(e) => {
+                        const icon = e.target.value;
+                        updateForm('icon', icon);
+                        // Auto-derive color when icon changes (manual type)
+                        if (icon) {
+                          const existingColors = habits
+                            .filter(h => h.id !== editingHabit?.id && h.status === 'active')
+                            .map(h => h.color);
+                          const derived = deriveColorFromEmoji(icon, existingColors);
+                          updateForm('color', derived);
+                        }
+                      }}
                       onFocus={() => setFormEmojiPicker(true)}
                       maxLength={2}
                     />
@@ -446,6 +458,14 @@ export default function HabitMaster() {
                             className="text-2xl hover:bg-accent rounded p-1 transition-colors"
                             onClick={() => {
                               updateForm('icon', e);
+                              // Auto-derive color from emoji — extract dominant
+                              // color via Canvas, resolve conflicts with existing
+                              // habits' colors so no two share the same hue.
+                              const existingColors = habits
+                                .filter(h => h.id !== editingHabit?.id && h.status === 'active')
+                                .map(h => h.color);
+                              const derived = deriveColorFromEmoji(e, existingColors);
+                              updateForm('color', derived);
                               setFormEmojiPicker(false);
                             }}
                           >
@@ -573,23 +593,17 @@ export default function HabitMaster() {
                 </div>
               </div>
 
-              {/* Row: Color + Reminder + Status */}
+              {/* Row: Color preview (auto-derived from emoji, no manual picker) */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Color</Label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={form.color}
-                      onChange={(e) => updateForm('color', e.target.value)}
-                      className="h-9 w-9 rounded-md border cursor-pointer bg-transparent p-0.5"
+                    <div
+                      className="h-9 w-9 rounded-md border border-border shrink-0"
+                      style={{ backgroundColor: form.color }}
+                      aria-label={`Warna otomatis: ${form.color}`}
                     />
-                    <Input
-                      value={form.color}
-                      onChange={(e) => updateForm('color', e.target.value)}
-                      className="flex-1"
-                      maxLength={7}
-                    />
+                    <p className="text-xs text-muted-foreground">Otomatis dari emoji</p>
                   </div>
                 </div>
               </div>
