@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
       default: days = 30;
     }
 
+    // BUG-7 fix: add ±7h buffer to query range. Transactions between 00:00-06:59
+    // Jakarta time have UTC epochs in the previous day. Without the buffer, the
+    // leftmost and rightmost data points in the chart are incomplete.
+    // Same pattern as finance/dashboard/route.ts.
+    const BUFFER_MS = 7 * 60 * 60 * 1000;
     const startDate = subDays(today, days - 1);
+    const fetchStart = new Date(startDate.getTime() - BUFFER_MS);
+    const fetchEnd = new Date(today.getTime() + BUFFER_MS);
 
     // Fetch all fund sources
     const sources = await db.fundSource.findMany({ orderBy: { order: 'asc' } });
@@ -26,10 +33,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ sources: [], period });
     }
 
-    // Fetch all transactions in the period (+ some buffer for today's transactions)
+    // Fetch all transactions in the period (with ±7h buffer for TZ safety)
     const allTransactions = await db.transaction.findMany({
       where: {
-        date: { gte: startDate, lte: today },
+        date: { gte: fetchStart, lte: fetchEnd },
       },
       orderBy: { date: 'asc' },
     });

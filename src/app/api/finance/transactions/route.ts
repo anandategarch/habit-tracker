@@ -18,6 +18,17 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
+    // BUG-8 fix: validate that month and startDate/endDate are mutually
+    // exclusive. Previously both could be provided, causing the DB query
+    // to use startDate/endDate while the post-query filter used month —
+    // resulting in confusing, non-intuitive filter behavior.
+    if (month && (startDate || endDate)) {
+      return NextResponse.json(
+        { error: 'Gunakan "month" ATAU "startDate/endDate", jangan keduanya bersamaan.' },
+        { status: 400 }
+      );
+    }
+
     if (month) {
       if (!/^\d{4}-\d{2}$/.test(month)) {
         return NextResponse.json({ error: 'Invalid month format. Use YYYY-MM' }, { status: 400 });

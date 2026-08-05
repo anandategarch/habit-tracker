@@ -36,6 +36,12 @@ export async function GET() {
       transactions,
       budgets,
       financeCategories,
+      fundSources,
+      weeklyBudgets,
+      budgetSnapshots,
+      habitGroups,
+      learningTopics,
+      habitOptions,
     ] = await Promise.all([
       db.habit.findMany({ orderBy: { createdAt: 'asc' } }),
       db.habitLog.findMany({ orderBy: { date: 'asc' } }),
@@ -48,6 +54,13 @@ export async function GET() {
       db.transaction.findMany({ orderBy: { date: 'asc' } }),
       db.budget.findMany(),
       db.financeCategory.findMany({ orderBy: { createdAt: 'asc' } }),
+      // BUG-6 fix: add 6 missing tables (were only in JSON export, not CSV)
+      db.fundSource.findMany({ orderBy: { createdAt: 'asc' } }),
+      db.weeklyBudget.findMany({ orderBy: { month: 'asc' } }),
+      db.budgetSnapshot.findMany({ orderBy: { month: 'asc' } }),
+      db.habitGroup.findMany({ orderBy: { createdAt: 'asc' } }),
+      db.learningTopic.findMany({ orderBy: { createdAt: 'asc' } }),
+      db.habitOption.findMany({ orderBy: { createdAt: 'asc' } }),
     ]);
 
     const zip = new JSZip();
@@ -152,10 +165,64 @@ export async function GET() {
       )
     );
 
+    // 12. Fund Sources (BUG-6 fix — was missing from CSV export)
+    zip.file(
+      `12-sumber-dana-${today}.csv`,
+      toCSV(
+        ['ID', 'Nama', 'Emoji', 'Saldo', 'Urutan', 'Dibuat', 'Diubah'],
+        fundSources.map((s) => [s.id, s.name, s.emoji, s.balance, s.order, fmtDateTime(s.createdAt), fmtDateTime(s.updatedAt)])
+      )
+    );
+
+    // 13. Weekly Budgets
+    zip.file(
+      `13-budget-mingguan-${today}.csv`,
+      toCSV(
+        ['ID', 'Bulan', 'Minggu', 'Target', 'Rollover', 'Dibuat', 'Diubah'],
+        weeklyBudgets.map((w) => [w.id, w.month, w.week, w.target, w.rollover, fmtDateTime(w.createdAt), fmtDateTime(w.updatedAt)])
+      )
+    );
+
+    // 14. Budget Snapshots
+    zip.file(
+      `14-snapshot-budget-${today}.csv`,
+      toCSV(
+        ['ID', 'Kategori', 'Bulan', 'Budget Awal', 'Terpakai', 'Rollover In', 'Rollover Out', 'Effective Budget', 'Persentase', 'Status', 'Dibuat', 'Diubah'],
+        budgetSnapshots.map((s) => [s.id, s.category, s.month, s.budgetAmount, s.spentAmount, s.rolloverIn, s.rolloverOut, s.effectiveBudget, s.percentage, s.status, fmtDateTime(s.createdAt), fmtDateTime(s.updatedAt)])
+      )
+    );
+
+    // 15. Habit Groups
+    zip.file(
+      `15-grup-habit-${today}.csv`,
+      toCSV(
+        ['ID', 'Nama', 'Emoji', 'Warna', 'Urutan', 'Dibuat', 'Diubah'],
+        habitGroups.map((g) => [g.id, g.name, g.emoji, g.color, g.order, fmtDateTime(g.createdAt), fmtDateTime(g.updatedAt)])
+      )
+    );
+
+    // 16. Learning Topics
+    zip.file(
+      `16-topik-belajar-${today}.csv`,
+      toCSV(
+        ['ID', 'Nama', 'Emoji', 'Urutan', 'Dibuat', 'Diubah'],
+        learningTopics.map((t) => [t.id, t.name, t.emoji, t.order, fmtDateTime(t.createdAt), fmtDateTime(t.updatedAt)])
+      )
+    );
+
+    // 17. Habit Options
+    zip.file(
+      `17-opsi-habit-${today}.csv`,
+      toCSV(
+        ['ID', 'Tipe', 'Nama', 'Warna', 'XP', 'Urutan', 'Dibuat', 'Diubah'],
+        habitOptions.map((o) => [o.id, o.type, o.name, o.color, o.xp, o.order, fmtDateTime(o.createdAt), fmtDateTime(o.updatedAt)])
+      )
+    );
+
     // Generate ZIP
     const zipBuffer = await zip.generateAsync({ type: 'uint8array' });
 
-    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + challenges.length + badges.length + rewards.length + transactions.length + budgets.length + financeCategories.length;
+    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + challenges.length + badges.length + rewards.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + learningTopics.length + habitOptions.length;
 
     // Convert Uint8Array to a Blob for Response BodyInit compatibility.
     // Some TS lib versions reject Uint8Array<ArrayBufferLike> directly.
@@ -167,7 +234,7 @@ export async function GET() {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="habit-tracker-data-${today}.zip"`,
         'X-Total-Records': String(totalRecords),
-        'X-Files-Count': '11',
+        'X-Files-Count': '17',
       },
     });
   } catch (error) {
