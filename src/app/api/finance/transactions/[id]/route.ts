@@ -33,6 +33,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const transaction = await db.$transaction(async (tx) => {
       const existing = await tx.transaction.findUnique({ where: { id } });
       if (!existing) throw new Error('NOT_FOUND');
+      // BUG-2 fix: block editing of "Transfer Antar Sumber" transactions.
+      // Editing one side of a transfer pair desyncs the pair and corrupts
+      // balances (only one source adjusts, the other stays unchanged).
+      if (existing.category === 'Transfer Antar Sumber') {
+        throw new Error('TRANSFER_BLOCKED');
+      }
 
       // Determine effective new values (fall back to existing).
       const newType = update.type ?? existing.type;
@@ -87,6 +93,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (error instanceof Error && error.message === 'NOT_FOUND') {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
+    if (error instanceof Error && error.message === 'TRANSFER_BLOCKED') {
+      return NextResponse.json(
+        { error: 'Transaksi transfer tidak bisa diedit. Transfer adalah pasangan terhubung.' },
+        { status: 400 }
+      );
+    }
     console.error('PUT /api/finance/transactions/[id] error:', error);
     return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
   }
@@ -94,6 +106,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 // DELETE /api/finance/transactions/[id]
 // Reverts the transaction's effect on its fund source balance.
+// BUG-1 fix: block deletion of "Transfer Antar Sumber" transactions.
+// Transfer transactions come in linked pairs (expense from + income to).
+// Deleting only one side corrupts balances (the other side's effect
+// is never reverted). User must delete BOTH sides manually, or use
+// the transfer endpoint to reverse a transfer.
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -101,6 +118,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     await db.$transaction(async (tx) => {
       const existing = await tx.transaction.findUnique({ where: { id } });
       if (!existing) throw new Error('NOT_FOUND');
+      if (existing.category === 'Transfer Antar Sumber') {
+        throw new Error('TRANSFER_BLOCKED');
+      }
 
       // Revert the effect on the fund source using an atomic increment
       // (no read-modify-write).
@@ -120,6 +140,12 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   } catch (error) {
     if (error instanceof Error && error.message === 'NOT_FOUND') {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === 'TRANSFER_BLOCKED') {
+      return NextResponse.json(
+        { error: 'Transaksi transfer tidak bisa dihapus. Hapus kedua sisi transfer (expense + income) secara manual.' },
+        { status: 400 }
+      );
     }
     console.error('DELETE /api/finance/transactions/[id] error:', error);
     return NextResponse.json({ error: 'Failed to delete transaction' }, { status: 500 });

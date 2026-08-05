@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -468,9 +468,10 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={setOpen}>
-        <div onClick={() => setOpen(true)} className="inline-flex">
+        {/* BUG-11 fix: use DrawerTrigger asChild instead of wrapper div. */}
+        <DrawerTrigger asChild>
           {triggerButton}
-        </div>
+        </DrawerTrigger>
         <DrawerContent className="max-h-[75vh]">
           {/* sr-only title — required by Vaul for accessibility, but not
               shown visually (helpContent has the visible header). */}

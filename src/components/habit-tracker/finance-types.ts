@@ -122,13 +122,19 @@ export const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec489
 // ── Utilities ───────────────────────────────────────────────────────────
 
 export const formatNominalInput = (value: string): string => {
+  // BUG-4 fix: preserve leading minus sign for negative balances
+  const isNegative = value.trim().startsWith('-');
   const raw = value.replace(/[^\d]/g, '');
-  if (!raw) return '';
-  return raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (!raw) return isNegative ? '-' : '';
+  const formatted = raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return isNegative ? `-${formatted}` : formatted;
 };
 
 export const parseNominalInput = (value: string): string => {
-  return value.replace(/[^\d]/g, '');
+  // BUG-4 fix: preserve leading minus sign for negative balances
+  const isNegative = value.trim().startsWith('-');
+  const digits = value.replace(/[^\d]/g, '');
+  return isNegative ? `-${digits}` : digits;
 };
 
 // ── Cached formatters (performance critical) ───────────────────────────

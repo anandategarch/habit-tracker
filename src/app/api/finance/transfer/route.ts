@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { jakartaNowIso } from '@/lib/timezone';
+// BUG-10 fix: removed unused jakartaNowIso import (was assigned but never used).
 
 // POST /api/finance/transfer
 // Transfer money between fund sources. Creates 2 linked transactions
@@ -72,7 +72,6 @@ export async function POST(request: NextRequest) {
       }
 
       const now = new Date();
-      const nowIso = jakartaNowIso();
       const transferNote = description || `Transfer ${fromSource.name} → ${toSource.name}`;
 
       // Create expense transaction (from source)
@@ -106,6 +105,15 @@ export async function POST(request: NextRequest) {
         where: { id: fromSourceId },
         data: { balance: { increment: -amount } },
       });
+      // BUG-5 fix: verify balance didn't go negative after decrement.
+      // The pre-check (line 70) uses a stale read — under concurrent
+      // transfers, two requests can both pass the check and both decrement.
+      // This post-increment check catches the race: if the result is
+      // negative, throw to roll back the entire transaction (both tx
+      // creates + both balance updates are undone atomically).
+      if (updatedFrom.balance < 0) {
+        throw new Error('INSUFFICIENT_BALANCE');
+      }
       const updatedTo = await tx.fundSource.update({
         where: { id: toSourceId },
         data: { balance: { increment: amount } },

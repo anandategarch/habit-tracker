@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
     const deleted = await db.$transaction(async (tx) => {
       const records = await tx.transaction.findMany({ where: { id: { in: ids } } });
 
+      // BUG-7 fix: block bulk-delete of "Transfer Antar Sumber" transactions.
+      // Transfer transactions are linked pairs — deleting one side orphans
+      // the other and corrupts balances. Reject the entire batch if any
+      // transfer transaction is included.
+      const transferTx = records.find((t) => t.category === 'Transfer Antar Sumber');
+      if (transferTx) {
+        throw new Error('TRANSFER_BLOCKED');
+      }
+
       // Revert each transaction's effect on its fund source using atomic
       // increments — no read-modify-write, no lost-update race.
       for (const t of records) {
@@ -38,6 +47,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, deleted });
   } catch (error) {
+    if (error instanceof Error && error.message === 'TRANSFER_BLOCKED') {
+      return NextResponse.json(
+        { error: 'Tidak bisa hapus transaksi transfer via bulk-delete. Hapus manual kedua sisi.' },
+        { status: 400 }
+      );
+    }
     console.error('POST /api/finance/transactions/bulk-delete error:', error);
     return NextResponse.json({ error: 'Failed to delete transactions' }, { status: 500 });
   }

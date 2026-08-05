@@ -24,6 +24,8 @@ async function calculateSmartSuggestion(): Promise<number> {
       where: {
         type: 'expense',
         date: { gte: threeMonthsAgo, lte: now },
+        // BUG-6 fix: exclude internal movements from smart suggestion
+        category: { notIn: ['Penyesuaian Saldo', 'Transfer Antar Sumber'] },
       },
       select: { amount: true, date: true },
     });
@@ -74,11 +76,16 @@ export async function GET(request: NextRequest) {
         type: 'expense',
         date: { gte: fetchStart, lte: fetchEnd },
       },
-      select: { amount: true, date: true },
+      select: { amount: true, date: true, category: true },
     });
     // Filter to exact Jakarta month
+    // BUG-3 fix: exclude internal movements (adjustment + transfer)
+    // from weekly spending calculations
     const transactions = allFetchedTx.filter(
-      (t) => jakartaDateKey(t.date).slice(0, 7) === monthKey
+      (t) =>
+        jakartaDateKey(t.date).slice(0, 7) === monthKey &&
+        t.category !== 'Penyesuaian Saldo' &&
+        t.category !== 'Transfer Antar Sumber'
     );
 
     // Calculate actual spending per week
