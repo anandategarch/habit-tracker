@@ -88,6 +88,9 @@ export const FALLBACK_EXPENSE = [
   { value: 'Tagihan & Utilitas', emoji: '📋', color: '#6366f1' },
   { value: 'Tabungan & Investasi', emoji: '🏦', color: '#14b8a6' },
   { value: 'Lainnya', emoji: '📦', color: '#78716c' },
+  // Internal movement categories (created by system, not user-created)
+  { value: 'Transfer Antar Sumber', emoji: '🔄', color: '#0ea5e9' },
+  { value: 'Penyesuaian Saldo', emoji: '🔧', color: '#64748b' },
 ];
 
 export const FALLBACK_INCOME = [
@@ -96,6 +99,9 @@ export const FALLBACK_INCOME = [
   { value: 'Investasi', emoji: '📈', color: '#f59e0b' },
   { value: 'Bisnis', emoji: '🏢', color: '#8b5cf6' },
   { value: 'Lainnya', emoji: '💸', color: '#78716c' },
+  // Internal movement categories (created by system, not user-created)
+  { value: 'Transfer Antar Sumber', emoji: '🔄', color: '#0ea5e9' },
+  { value: 'Penyesuaian Saldo', emoji: '🔧', color: '#64748b' },
 ];
 
 export const EMOJI_OPTIONS = [
