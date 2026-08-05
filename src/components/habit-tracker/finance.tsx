@@ -363,7 +363,12 @@ export default function Finance() {
       timeZone: 'Asia/Jakarta',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false,
+      // BUG-5 fix: use hourCycle: 'h23' instead of hour12: false.
+      // hour12: false can produce "24:00" for midnight on some older V8
+      // runtimes, which would make new Date("...T24:00:00+07:00") → Invalid
+      // Date → save fails. hourCycle: 'h23' is the modern standard that
+      // always produces "00" for midnight.
+      hourCycle: 'h23',
     }).format(txDate);
     setTxForm({
       type: tx.type, amount: formatNominalInput(String(tx.amount)), category: tx.category,
@@ -583,12 +588,32 @@ export default function Finance() {
   const groupedTransactions = useMemo(() => {
     const sorted = [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const groups: { dateKey: string; dateLabel: string; dayName: string; txs: Transaction[]; totalIncome: number; totalExpense: number; net: number }[] = [];
+    // BUG-6 fix: hoist Intl.DateTimeFormat instances outside the loop.
+    // Previously used date-fns format(d, 'yyyy-MM-dd') which reads the
+    // BROWSER's local TZ — transactions near midnight Jakarta got grouped
+    // under the wrong date. Now use jakartaDateKey() for the date key and
+    // Intl.DateTimeFormat with timeZone: 'Asia/Jakarta' for labels.
+    // Hoisting avoids creating a new formatter per transaction (expensive).
+    const dateLabelFmt = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: 'numeric',
+      month: 'long',
+    });
+    const dayNameFmt = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      weekday: 'long',
+    });
     let currentGroup: typeof groups[0] | null = null;
     for (const tx of sorted) {
       const d = new Date(tx.date);
-      const dateKey = format(d, 'yyyy-MM-dd');
+      const dateKey = jakartaDateKey(d);
       if (!currentGroup || currentGroup.dateKey !== dateKey) {
-        currentGroup = { dateKey, dateLabel: format(d, 'd MMMM', { locale: idLocale }), dayName: format(d, 'EEEE', { locale: idLocale }), txs: [], totalIncome: 0, totalExpense: 0, net: 0 };
+        currentGroup = {
+          dateKey,
+          dateLabel: dateLabelFmt.format(d),
+          dayName: dayNameFmt.format(d),
+          txs: [], totalIncome: 0, totalExpense: 0, net: 0,
+        };
         groups.push(currentGroup);
       }
       currentGroup.txs.push(tx);

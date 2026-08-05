@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -457,8 +457,14 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
   );
 
   // Mobile: bottom-sheet Drawer — easier to reach, natural swipe-down dismiss,
-  // doesn't cover content while reading. Max height 70vh so user can still
+  // doesn't cover content while reading. Max height 75vh so user can still
   // see the section they're learning about.
+  //
+  // BUG-4 fix: previously had TWO headers — DrawerHeader with visible
+  // DrawerTitle + helpContent's own header with emoji+title+close. Both
+  // showed the title → redundant, wasted ~48px. Now DrawerTitle is
+  // sr-only (Vaul requires it for accessibility) and helpContent's header
+  // is the single visible header (it has the close button).
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={setOpen}>
@@ -466,12 +472,11 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
           {triggerButton}
         </div>
         <DrawerContent className="max-h-[75vh]">
-          <DrawerHeader className="pb-2">
-            <DrawerTitle className="flex items-center gap-1.5 text-sm">
-              <span>{data.emoji}</span>
-              <span>Cara Hitung: {data.title}</span>
-            </DrawerTitle>
-          </DrawerHeader>
+          {/* sr-only title — required by Vaul for accessibility, but not
+              shown visually (helpContent has the visible header). */}
+          <DrawerTitle className="sr-only">
+            Cara Hitung: {data.title}
+          </DrawerTitle>
           <div className="overflow-y-auto custom-scrollbar px-1 pb-4">
             {helpContent}
           </div>
