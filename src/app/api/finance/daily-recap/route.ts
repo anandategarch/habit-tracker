@@ -885,8 +885,13 @@ export async function GET() {
       // Separate query — small payload since we only need description+amount+date.
       const ninetyFiveDaysAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000);
       const recurringHistoryTx = await db.transaction.findMany({
-        where: { date: { gte: ninetyFiveDaysAgo }, type: 'expense' },
-        select: { description: true, amount: true, date: true },
+        where: {
+          date: { gte: ninetyFiveDaysAgo },
+          type: 'expense',
+          // BUG-14 fix: exclude internal movements from recurring detection
+          category: { notIn: ['Penyesuaian Saldo', 'Transfer Antar Sumber'] },
+        },
+        select: { description: true, amount: true, date: true, category: true },
       });
 
       for (const tx of todayTransactions) {

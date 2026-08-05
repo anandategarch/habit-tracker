@@ -153,7 +153,8 @@ export default function SourceBalanceSection() {
         }),
       });
       if (res.ok) {
-        const data = await res.json();
+        // BUG-9 fix: removed unused `data` variable (was captured but never read).
+        // Query invalidation refetches fresh data instead.
         queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] });
         queryClient.invalidateQueries({ queryKey: ['finance', 'transactions'] });
         queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
@@ -379,7 +380,10 @@ export default function SourceBalanceSection() {
                   onClick={(e) => {
                     e.stopPropagation();
                     setBalanceEditId(src.id);
-                    setBalanceEditValue(src.balance ? String(Math.abs(src.balance)) : '');
+                    // BUG-4 fix: use signed value (not Math.abs) so negative
+                    // balances are preserved. Previously Math.abs stripped
+                    // the minus sign, causing a click+blur to flip -500k → +500k.
+                    setBalanceEditValue(src.balance ? String(src.balance) : '');
                   }}
                   title="Klik untuk adjust saldo"
                 >
@@ -451,7 +455,7 @@ export default function SourceBalanceSection() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs">Dari</Label>
-              <Select value={transferFrom} onValueChange={setTransferFrom}>
+              <Select value={transferFrom} onValueChange={(v) => { setTransferFrom(v); setTransferTo(''); /* BUG-8: clear stale "Ke" value */ }}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sumber asal" />
                 </SelectTrigger>

@@ -933,7 +933,7 @@ export default function Finance() {
                         <Input autoFocus className="h-6 text-xs w-28 px-1.5 py-0" value={balanceEditValue} onChange={e => setBalanceEditValue(formatNominalInput(e.target.value))} onKeyDown={e => { if (e.key === 'Enter') handleSaveBalance(src.id); if (e.key === 'Escape') setBalanceEditId(null); }} onBlur={() => handleSaveBalance(src.id)} />
                       </div>
                     ) : (
-                      <button className="text-xs font-semibold hover:underline cursor-pointer" style={{ color: (src.balance || 0) >= 0 ? '#059669' : '#dc2626' }} onClick={() => { setBalanceEditId(src.id); setBalanceEditValue(src.balance ? String(Math.abs(src.balance)) : ''); }}>
+                      <button className="text-xs font-semibold hover:underline cursor-pointer" style={{ color: (src.balance || 0) >= 0 ? '#059669' : '#dc2626' }} onClick={() => { setBalanceEditId(src.id); setBalanceEditValue(src.balance ? String(src.balance) : ''); }}>
                         {(src.balance || 0) < 0 ? '-' : ''}{formatRupiah(Math.abs(src.balance || 0))}
                       </button>
                     )}
