@@ -1,11 +1,14 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { formatRupiah, type FundSource, type Transaction } from './finance-types';
+import { Input } from '@/components/ui/input';
+import { Wallet, ArrowUpRight, ArrowDownRight, Pencil } from 'lucide-react';
+import { formatRupiah, formatNominalInput, parseNominalInput, type FundSource, type Transaction } from './finance-types';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';
+import { toast } from 'sonner';
 import { ResponsiveContainer, AreaChart, Area, YAxis } from 'recharts';
 
 // Source accent colors — each source gets a unique vibrant color
@@ -50,6 +53,10 @@ interface BalanceHistoryResponse {
 }
 
 export default function SourceBalanceSection() {
+  const queryClient = useQueryClient();
+  const [balanceEditId, setBalanceEditId] = useState<string | null>(null);
+  const [balanceEditValue, setBalanceEditValue] = useState('');
+
   const { data: sources = [], isLoading: loading } = useQuery<FundSource[]>({
     queryKey: ['finance', 'sources'],
     queryFn: async () => {
@@ -59,6 +66,41 @@ export default function SourceBalanceSection() {
     },
     staleTime: 15_000,
   });
+
+  // Inline balance edit — same logic as finance.tsx SourcesTab.
+  // PATCH /api/finance/sources/[id]/balance creates an adjustment
+  // transaction (income if diff > 0, expense if diff < 0) + atomically
+  // increments the balance. See route.ts for details.
+  const handleSaveBalance = async (sourceId: string) => {
+    const raw = parseNominalInput(balanceEditValue);
+    const val = parseFloat(raw);
+    if (isNaN(val)) { setBalanceEditId(null); return; }
+    try {
+      const res = await fetch(`/api/finance/sources/${sourceId}/balance`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance: val }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+        queryClient.invalidateQueries({ queryKey: ['finance', 'balance-history'] });
+        if (data?.adjustment) {
+          const adj = data.adjustment;
+          const sign = adj.type === 'income' ? '+' : '−';
+          toast.success(`Saldo diupdate — transaksi "${sign}${formatRupiah(adj.amount)}" dibuat`);
+        } else {
+          toast.success('Saldo tidak berubah');
+        }
+      } else {
+        toast.error('Gagal update saldo');
+      }
+    } catch { toast.error('Gagal update saldo'); }
+    setBalanceEditId(null);
+    setBalanceEditValue('');
+  };
 
   const today = jakartaDateString();
   const { data: todayTx = [] } = useQuery<Transaction[]>({
@@ -211,7 +253,7 @@ export default function SourceBalanceSection() {
               key={src.id}
               className={cn(
                 'group relative bg-white dark:bg-card rounded-2xl p-4 sm:p-5 transition-all duration-300',
-                'hover:-translate-y-1.5 hover:shadow-lg cursor-pointer'
+                'hover:-translate-y-1 hover:shadow-md'
               )}
               style={{
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -230,13 +272,38 @@ export default function SourceBalanceSection() {
                 {src.name}
               </p>
 
-              {/* Balance */}
-              <p className={cn(
-                'text-xl font-bold tracking-tight',
-                isPositive ? 'text-foreground' : 'text-red-500'
-              )}>
-                {formatRupiah(src.balance)}
-              </p>
+              {/* Balance — clickable for inline edit (creates adjustment tx) */}
+              {balanceEditId === src.id ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground">Rp</span>
+                  <Input
+                    autoFocus
+                    className="h-7 text-base font-bold w-32 px-1.5 py-0"
+                    value={balanceEditValue}
+                    onChange={e => setBalanceEditValue(formatNominalInput(e.target.value))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveBalance(src.id);
+                      if (e.key === 'Escape') { setBalanceEditId(null); setBalanceEditValue(''); }
+                    }}
+                    onBlur={() => handleSaveBalance(src.id)}
+                  />
+                </div>
+              ) : (
+                <button
+                  className="group/balance inline-flex items-center gap-1 text-xl font-bold tracking-tight hover:opacity-70 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBalanceEditId(src.id);
+                    setBalanceEditValue(src.balance ? String(Math.abs(src.balance)) : '');
+                  }}
+                  title="Klik untuk adjust saldo"
+                >
+                  <span className={isPositive ? 'text-foreground' : 'text-red-500'}>
+                    {formatRupiah(src.balance)}
+                  </span>
+                  <Pencil className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/balance:opacity-100 transition-opacity" />
+                </button>
+              )}
 
               {/* Indicator + sparkline */}
               <div className="flex items-center justify-between mt-2">
