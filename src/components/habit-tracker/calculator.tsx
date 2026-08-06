@@ -131,6 +131,10 @@ export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDial
   const appendToExpression = useCallback((char: string) => {
     setJustCalculated(false);
     setExpression((prev) => {
+      // Limit expression length to prevent overflow + performance issues
+      const MAX_EXPR_LENGTH = 30;
+      if (prev.length >= MAX_EXPR_LENGTH) return prev;
+
       // If just calculated and user types a digit, start fresh
       if (justCalculated) {
         // BUG-13 fix: "00" after "=" would start the expression with "00"

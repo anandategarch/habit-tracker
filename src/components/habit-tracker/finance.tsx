@@ -780,11 +780,12 @@ export default function Finance() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-3">
+      {/* Header — compact on mobile: month picker + action buttons in 2 rows */}
+      <div className="flex flex-col gap-2">
+        {/* Row 1: Month navigation */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPrevMonth}><CalendarDays className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={goToPrevMonth}><CalendarDays className="h-4 w-4" /></Button>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-full sm:w-[170px] h-9"><SelectValue /></SelectTrigger>
             <SelectContent className="max-h-64">
@@ -792,26 +793,27 @@ export default function Finance() {
             </SelectContent>
           </Select>
           {selectedMonth !== format(new Date(), 'yyyy-MM') && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={goToThisMonth}>Hari ini</Button>
+            <Button variant="ghost" size="sm" className="text-xs h-7 shrink-0" onClick={goToThisMonth}>Hari ini</Button>
           )}
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          <Button size="sm" onClick={() => openNewTx('expense')} className="bg-red-500 hover:bg-red-600 text-white"><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-          <Button size="sm" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
-          <Button size="sm" variant="outline" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
-          <Button size="sm" variant="outline" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4 mr-1" />Sumber Dana</Button>
+        {/* Row 2: Quick actions — horizontal scroll on mobile, wrap on desktop */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:overflow-visible sm:pb-0 sm:flex-wrap">
+          <Button size="sm" className="shrink-0 bg-red-500 hover:bg-red-600 text-white" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
+          <Button size="sm" className="shrink-0" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4 mr-1" />Sumber Dana</Button>
         </div>
       </div>
 
-      {/* Sub Tabs */}
+      {/* Sub Tabs — icon-only on mobile, icon+label on desktop */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
         <TabsList className="flex w-full overflow-x-auto scrollbar-hide">
-          <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><BarChart3 className="h-3.5 w-3.5 mr-1" />Ringkasan</TabsTrigger>
-          <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><Wallet className="h-3.5 w-3.5 mr-1" />Transaksi</TabsTrigger>
-          <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><Target className="h-3.5 w-3.5 mr-1" />Budget</TabsTrigger>
-          <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><Compass className="h-3.5 w-3.5 mr-1" />Explorer</TabsTrigger>
-          <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap"><PieChart className="h-3.5 w-3.5 mr-1" />Kategori</TabsTrigger>
+          <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
+          <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
+          <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
+          <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Explorer</span></TabsTrigger>
+          <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PieChart className="h-3.5 w-3.5" /><span className="hidden sm:inline">Kategori</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
