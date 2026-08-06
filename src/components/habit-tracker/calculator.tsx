@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calculator as CalcIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,11 @@ import { cn } from '@/lib/utils';
 interface HistoryEntry {
   expression: string;
   result: string;
+  // Raw numeric string of the result (e.g. "33.33", "1500000").
+  // BUG-2 fix: used by loadHistoryEntry to restore the expression without
+  // relying on locale-formatted `result` (which uses comma decimals in id-ID
+  // and breaks evaluate()).
+  resultValue: string;
   timestamp: number;
 }
 
@@ -26,7 +31,16 @@ function evaluate(expr: string): number | null {
     // Replace − (minus sign) with - for JS
     let sanitized = expr.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
 
-    // Handle %: convert "N%" to "(N/100)"
+    // BUG-4 fix: handle "A + B%" and "A - B%" per calculator convention —
+    // B% means "B percent of A", so "100 + 10%" = 110, "100 - 10%" = 90.
+    // Must run BEFORE the standalone N% replacement below so that the
+    // A±B% pattern is matched as a unit (the standalone regex would
+    // otherwise turn "10%" into "(10/100)" and yield 100.1 / 99.9).
+    // Multiplication ("150000 * 11%") is intentionally NOT matched here —
+    // it falls through to the standalone N% rule below, giving 16500.
+    sanitized = sanitized.replace(/(\d+(?:\.\d+)?)\s*([+\-])\s*(\d+(?:\.\d+)?)\s*%/g, '$1 $2 ($1 * $3 / 100)');
+
+    // Handle standalone N% (and N% in multiplication): convert "N%" to "(N/100)"
     sanitized = sanitized.replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
 
     // Validate: only allow digits, operators, parentheses, decimals, spaces
@@ -83,9 +97,13 @@ function saveHistory(entries: HistoryEntry[]): void {
 interface CalculatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // BUG-3 fix: optional callback invoked when the user clicks "Apply ke Jumlah".
+  // Receives the raw numeric result string (e.g. "33.33", "1500000").
+  // When omitted, the Apply button is hidden (calculator used standalone).
+  onApply?: (value: string) => void;
 }
 
-export function CalculatorDialog({ open, onOpenChange }: CalculatorDialogProps) {
+export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDialogProps) {
   const [expression, setExpression] = useState('');
   const [justCalculated, setJustCalculated] = useState(false);
   // Lazy-init from localStorage (avoids set-state-in-effect on mount)
@@ -102,15 +120,34 @@ export function CalculatorDialog({ open, onOpenChange }: CalculatorDialogProps) 
     return '0';
   }, [expression]);
 
+  // BUG-3: raw numeric result string for the Apply button. Empty when the
+  // expression is empty or invalid (so the Apply button can be disabled).
+  const resultValue = useMemo(() => {
+    if (!expression) return '';
+    const evaluated = evaluate(expression);
+    return evaluated !== null ? String(evaluated) : '';
+  }, [expression]);
+
   const appendToExpression = useCallback((char: string) => {
     setJustCalculated(false);
     setExpression((prev) => {
       // If just calculated and user types a digit, start fresh
-      if (justCalculated && /[\d.]/.test(char)) {
-        return char;
+      if (justCalculated) {
+        // BUG-13 fix: "00" after "=" would start the expression with "00"
+        // (invalid leading zeros). Normalize to "0".
+        if (char === '00') return '0';
+        // BUG-14 fix: leading "." after "=" creates an un-evaluable
+        // expression like ".5". Normalize to "0.".
+        if (char === '.') return '0.';
+        if (/[\d]/.test(char)) return char;
+        // For operators after "=", continue calculating with the result
+        // (fall through to the default append logic below).
       }
       // Prevent leading operator (except minus)
       if (prev === '' && ['+', '×', '÷'].includes(char)) return prev;
+      // BUG-14 fix: leading "." when the expression is empty creates an
+      // un-evaluable expression. Normalize to "0.".
+      if (prev === '' && char === '.') return '0.';
       // Prevent double operators — replace last operator
       const lastChar = prev.slice(-1);
       if (['+', '−', '×', '÷'].includes(lastChar) && ['+', '−', '×', '÷'].includes(char)) {
@@ -131,6 +168,9 @@ export function CalculatorDialog({ open, onOpenChange }: CalculatorDialogProps) 
     const entry: HistoryEntry = {
       expression,
       result: formattedResult,
+      // BUG-2 fix: store the raw numeric string so loadHistoryEntry can
+      // restore the expression without locale-format parsing issues.
+      resultValue: String(evaluated),
       timestamp: Date.now(),
     };
     const newHistory = [entry, ...history].slice(0, MAX_HISTORY);
@@ -158,10 +198,61 @@ export function CalculatorDialog({ open, onOpenChange }: CalculatorDialogProps) 
   }, []);
 
   const loadHistoryEntry = useCallback((entry: HistoryEntry) => {
-    const cleanResult = entry.result.replace(/\./g, '');
+    // BUG-2 fix: use the raw resultValue (e.g. "33.33") instead of stripping
+    // dots from the locale-formatted result. The old approach broke on
+    // decimal results because id-ID uses comma decimals ("33,33") and
+    // evaluate() cannot parse commas. Fall back to the old dot-strip for
+    // history entries persisted before this fix (which lack resultValue).
+    const cleanResult = entry.resultValue || entry.result.replace(/\./g, '');
     setExpression(cleanResult);
     setJustCalculated(true);
   }, []);
+
+  // BUG-10: keyboard input support. Only active while the dialog is open.
+  // Lets users type expressions directly with the physical keyboard.
+  // Declared after the callbacks it depends on to avoid the temporal dead
+  // zone (const declarations are not hoisted).
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key combos with modifier keys (Ctrl+C copy, Cmd+R reload, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key;
+      if (key >= '0' && key <= '9') {
+        e.preventDefault();
+        appendToExpression(key);
+      } else if (key === '+') {
+        e.preventDefault();
+        appendToExpression('+');
+      } else if (key === '-') {
+        e.preventDefault();
+        appendToExpression('−');
+      } else if (key === '*') {
+        e.preventDefault();
+        appendToExpression('×');
+      } else if (key === '/') {
+        e.preventDefault();
+        appendToExpression('÷');
+      } else if (key === 'Enter' || key === '=') {
+        e.preventDefault();
+        handleEquals();
+      } else if (key === 'Escape') {
+        e.preventDefault();
+        onOpenChange(false);
+      } else if (key === 'Backspace') {
+        e.preventDefault();
+        handleBackspace();
+      } else if (key === '%') {
+        e.preventDefault();
+        handlePercent();
+      } else if (key === '.') {
+        e.preventDefault();
+        appendToExpression('.');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, appendToExpression, handleEquals, handleBackspace, handlePercent, onOpenChange]);
 
   // ── Button layout ────────────────────────────────────────────────────
 
@@ -214,9 +305,9 @@ export function CalculatorDialog({ open, onOpenChange }: CalculatorDialogProps) 
         {history.length > 0 && (
           <div className="px-4 py-1.5 border-b border-border max-h-24 overflow-y-auto custom-scrollbar">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">History</p>
-            {history.map((entry, i) => (
+            {history.map((entry) => (
               <button
-                key={i}
+                key={entry.timestamp}
                 type="button"
                 onClick={() => loadHistoryEntry(entry)}
                 className="block w-full text-right text-[11px] py-0.5 hover:bg-muted/40 rounded px-1 -mx-1 transition-colors"
@@ -244,6 +335,27 @@ export function CalculatorDialog({ open, onOpenChange }: CalculatorDialogProps) 
             </button>
           ))}
         </div>
+
+        {/* BUG-3: Apply button — wires the calculator result to the amount
+            field in the transaction form. Only rendered when onApply is
+            provided (i.e. when the calculator is opened from finance.tsx). */}
+        {onApply && (
+          <div className="px-3 pb-3">
+            <button
+              type="button"
+              disabled={!resultValue}
+              onClick={() => {
+                if (resultValue) {
+                  onApply(resultValue);
+                  onOpenChange(false);
+                }
+              }}
+              className="w-full h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              Apply ke Jumlah
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

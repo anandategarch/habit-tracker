@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import {
@@ -260,6 +260,11 @@ export default function Finance() {
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
+  // BUG-5 fix: double-submit guard. Prevents concurrent submissions when the
+  // user double-clicks the Save/Simpan button (especially in split mode where
+  // N expense rows + a balance update are created atomically). Set to true at
+  // the start of handleSubmitTx, reset in each finally block.
+  const submitGuard = useRef(false);
 
   // ── Category helpers ──────────────────────────────────────────────────────
 
@@ -427,6 +432,11 @@ export default function Finance() {
   }, [splitRows]);
 
   const handleSubmitTx = async () => {
+    // BUG-5 fix: double-submit guard. If a submission is already in flight
+    // (e.g. the user double-clicked Simpan), bail out immediately. The guard
+    // is set right before the async fetch and reset in each finally block, so
+    // validation-failure early returns below don't leave it stuck as true.
+    if (submitGuard.current) return;
     // ── Split mode branch ──
     // Split is only valid for CREATE (not editing — each split child is
     // edited individually via the regular single-category form).
@@ -450,6 +460,7 @@ export default function Finance() {
           amount: parseInt(parseNominalInput(r.amount), 10),
         })),
       };
+      submitGuard.current = true;
       setSubmitting(true);
       try {
         const res = await fetch('/api/finance/transactions/split', {
@@ -466,7 +477,7 @@ export default function Finance() {
           toast.error(err?.error || 'Gagal membuat split transaction');
           return;
         }
-      } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+      } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); submitGuard.current = false; }
       return;
     }
 
@@ -486,6 +497,7 @@ export default function Finance() {
       ? new Date(`${txForm.date}T${txForm.time}:00+07:00`)
       : new Date(`${txForm.date}T00:00:00+07:00`);
     const payload = { ...txForm, amount: rawAmount, date: fullDate.toISOString() };
+    submitGuard.current = true;
     setSubmitting(true);
     try {
       if (editingTx) {
@@ -497,7 +509,7 @@ export default function Finance() {
       }
       setTxDialogOpen(false);
       invalidateFinance();
-    } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+    } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); submitGuard.current = false; }
   };
 
   const handleDeleteTx = async () => {
@@ -873,14 +885,23 @@ export default function Finance() {
                 </div>
                 <Switch
                   checked={splitMode}
+                  // BUG-7 fix: instead of forcing the type to expense when split
+                  // is toggled ON (which left the type stuck as expense when
+                  // toggled OFF), disable the Switch entirely while the type
+                  // is income. The user must switch to expense first, then
+                  // enable split — so toggling split off needs no restoration.
+                  disabled={txForm.type === 'income'}
                   onCheckedChange={(checked) => {
                     setSplitMode(checked);
-                    if (checked) {
-                      // Split API only supports expense — force type.
-                      setTxForm(f => ({ ...f, type: 'expense' }));
+                    if (!checked) {
+                      // BUG-6 fix: reset split rows to default when turning
+                      // split off, so stale category/amount entries from a
+                      // previous split session don't persist.
+                      setSplitRows([{ category: '', amount: '' }, { category: '', amount: '' }]);
                     }
                   }}
                   aria-label="Aktifkan mode split transaksi"
+                  title={txForm.type === 'income' ? 'Split hanya untuk pengeluaran' : undefined}
                 />
               </div>
             )}
@@ -894,7 +915,10 @@ export default function Finance() {
                     <Select value={row.category} onValueChange={v => updateSplitRow(idx, 'category', v)}>
                       <SelectTrigger className="flex-1 min-w-0 h-9"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
                       <SelectContent>
-                        {getCategoryList('expense').map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}
+                        {/* BUG-8 fix: filter out categories already selected in
+                            other split rows to prevent duplicate categories
+                            within the same split. */}
+                        {getCategoryList('expense').filter(c => !splitRows.some((r, j) => j !== idx && r.category === c.value)).map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}
                       </SelectContent>
                     </Select>
                     <Input
@@ -1172,7 +1196,15 @@ export default function Finance() {
       </AlertDialog>
 
       {/* ── Calculator Dialog ── */}
-      <CalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
+      <CalculatorDialog
+        open={calcOpen}
+        onOpenChange={setCalcOpen}
+        // BUG-3 fix: wire the calculator result to the amount field. The
+        // raw numeric string (e.g. "1500000") is formatted via
+        // formatNominalInput into the id-ID thousand-separated form the
+        // amount Input expects.
+        onApply={(value) => setTxForm(f => ({ ...f, amount: formatNominalInput(value) }))}
+      />
     </div>
   );
 }
