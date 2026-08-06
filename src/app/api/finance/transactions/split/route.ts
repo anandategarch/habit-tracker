@@ -98,31 +98,57 @@ export async function POST(request: NextRequest) {
       // Using Prisma's atomic `increment` with a negative value avoids the
       // lost-update race of read-modify-write. Same pattern as the regular
       // transactions POST route, just with the total instead of per-row.
-      await tx.fundSource.update({
+      const updatedSource = await tx.fundSource.update({
         where: { id: fundSource.id },
         data: { balance: { increment: signedDelta(totalAmount, 'expense') } },
       });
 
-      // Create each split transaction. All share groupId/date/source/description/type.
-      // notes is per-child: "Split 1/3", "Split 2/3", ... so users can see the
-      // split relationship when editing individual transactions.
-      const records: Awaited<ReturnType<typeof tx.transaction.create>>[] = [];
-      for (let i = 0; i < n; i++) {
-        const s = normalizedSplits[i];
-        const record = await tx.transaction.create({
-          data: {
-            type: 'expense',
-            amount: s.amount,
-            category: s.category,
-            description,
-            date,
-            notes: `Split ${i + 1}/${n}`,
-            source,
-            groupId,
-          },
-        });
-        records.push(record);
+      // BUG-1 fix: post-increment balance check. The pre-check (line 93)
+      // uses a stale read — under concurrent submissions, two requests can
+      // both pass the check and both decrement. This post-check catches the
+      // race: if the result is negative, throw to roll back the entire
+      // transaction (balance update + all created rows are undone).
+      if (updatedSource.balance < 0) {
+        throw new Error('INSUFFICIENT_BALANCE');
       }
+
+      // Create all split transactions in a single query (createMany) instead
+      // of a sequential for-loop of N `create` calls. This reduces N DB
+      // round-trips down to 1, which is faster and avoids partial-write
+      // windows between iterations (though the outer db.$transaction already
+      // guarantees atomicity, fewer round-trips still mean less time holding
+      // the transaction).
+      //
+      // All children share groupId/date/source/description/type='expense'.
+      // notes is per-child: "Split 1/3", "Split 2/3", ... so users can see
+      // the split relationship when editing individual transactions.
+      //
+      // BUG-9 note: the "n" in "Split i/n" reflects the ORIGINAL split size at
+      // creation time. If a child is later deleted, "n" is NOT updated — the
+      // remaining children keep their original "Split i/3" notes even after
+      // one is removed. This is acceptable: the note is a creation-time
+      // annotation indicating "this row was child #i of an originally-3-way
+      // split", not a live count of current group size.
+      await tx.transaction.createMany({
+        data: normalizedSplits.map((s, i) => ({
+          type: 'expense',
+          amount: s.amount,
+          category: s.category,
+          description,
+          date,
+          notes: `Split ${i + 1}/${n}`,
+          source,
+          groupId,
+        })),
+      });
+
+      // createMany returns only a count, not the created records. Re-fetch
+      // them by groupId so the response includes the full transaction objects
+      // (matching the previous shape returned to the client).
+      const records = await tx.transaction.findMany({
+        where: { groupId },
+        orderBy: { createdAt: 'asc' },
+      });
 
       return records;
     });
