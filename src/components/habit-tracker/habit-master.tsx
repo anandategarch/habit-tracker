@@ -461,7 +461,7 @@ export default function HabitMaster() {
                           <button
                             key={e}
                             type="button"
-                            className="text-2xl hover:bg-accent rounded p-1 transition-colors"
+                            className="text-2xl hover:bg-accent rounded-lg p-1 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                             onClick={() => {
                               updateForm('icon', e);
                               // Auto-derive color from emoji — extract dominant

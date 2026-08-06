@@ -1576,6 +1576,9 @@ export default function DailyRecap() {
             );
           })()}
 
+          {/* MOBILE-6 fix: Wrap smart recommendations (compliance + smart cap +
+              countdown + top category + over budget) in a collapsible on mobile
+              to reduce cognitive overload. On desktop, always expanded. */}
           {/* Budget compliance progress bar.
               Audit fix: relaxed guard from `dailyBudget && dailyBudget.target`
               to just `budgetCompliancePct !== null`. The API computes
@@ -1700,7 +1703,7 @@ export default function DailyRecap() {
                   type="button"
                   onClick={() => setInsightPeriod('month')}
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+                    'px-3 py-1.5 rounded-full text-[10px] font-medium transition-colors min-h-[36px] flex items-center',
                     insightPeriod === 'month'
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -1712,7 +1715,7 @@ export default function DailyRecap() {
                   type="button"
                   onClick={() => setInsightPeriod('alltime')}
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+                    'px-3 py-1.5 rounded-full text-[10px] font-medium transition-colors min-h-[36px] flex items-center',
                     insightPeriod === 'alltime'
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'

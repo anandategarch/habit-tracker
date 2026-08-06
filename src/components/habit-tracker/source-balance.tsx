@@ -364,7 +364,7 @@ export default function SourceBalanceSection() {
                   <span className="text-sm text-muted-foreground">Rp</span>
                   <Input
                     autoFocus
-                    className="h-7 text-base font-bold w-32 px-1.5 py-0"
+                    className="h-11 text-base font-bold w-40 px-2"
                     value={balanceEditValue}
                     onChange={e => setBalanceEditValue(formatNominalInput(e.target.value))}
                     onKeyDown={e => {
