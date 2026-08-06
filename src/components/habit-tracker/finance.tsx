@@ -55,6 +55,7 @@ import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
+import { CalculatorDialog, CalculatorButton } from './calculator';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 
@@ -254,6 +255,8 @@ export default function Finance() {
     { category: '', amount: '' },
     { category: '', amount: '' },
   ]);
+  // Calculator dialog state
+  const [calcOpen, setCalcOpen] = useState(false);
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
@@ -927,7 +930,13 @@ export default function Finance() {
               </div>
             ) : (
               <>
-                <div><Label className="text-xs">Jumlah (Rp)</Label><Input type="text" inputMode="numeric" placeholder="0" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="mt-1" /></div>
+                <div>
+                  <Label className="text-xs">Jumlah (Rp)</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input type="text" inputMode="numeric" placeholder="0" value={txForm.amount} onChange={e => setTxForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="flex-1" />
+                    <CalculatorButton onOpen={() => setCalcOpen(true)} />
+                  </div>
+                </div>
                 <div><Label className="text-xs">Kategori</Label><Select value={txForm.category} onValueChange={v => setTxForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList(txForm.type).map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
               </>
             )}
@@ -1161,6 +1170,9 @@ export default function Finance() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Calculator Dialog ── */}
+      <CalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
     </div>
   );
 }
