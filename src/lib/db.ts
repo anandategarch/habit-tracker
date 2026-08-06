@@ -1,13 +1,11 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaLibSQL } from '@prisma/adapter-libsql'
 
-type PrismaClientInstance = PrismaClient;
-
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClientInstance | undefined
+  prisma: PrismaClient | undefined
 }
 
-function createPrismaClient(): PrismaClientInstance {
+function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
 
   // ── Production safety check ──────────────────────────────────────
@@ -62,8 +60,11 @@ function createPrismaClient(): PrismaClientInstance {
   return new PrismaClient();
 }
 
-// Lazy singleton: only creates PrismaClient on first property access
-export const db = new Proxy({} as PrismaClientInstance, {
+// Lazy singleton: only creates PrismaClient on first property access.
+// The Proxy delegates all property access to the real PrismaClient.
+// We cast to PrismaClient (not `any`) so TypeScript resolves model
+// accessors (db.habit, db.transaction, etc.) correctly.
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
     if (!globalForPrisma.prisma) {
       globalForPrisma.prisma = createPrismaClient();
