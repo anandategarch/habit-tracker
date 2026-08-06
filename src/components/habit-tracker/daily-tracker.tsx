@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
+import { TimePicker } from '@/components/habit-tracker/time-picker';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass } from '@/lib/label-colors';
@@ -1061,10 +1062,9 @@ export default function DailyTracker() {
                   <label className="text-xs font-medium text-muted-foreground">
                     Jam
                   </label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     value={manualTime}
-                    onChange={(e) => setManualTime(e.target.value)}
+                    onChange={(v) => setManualTime(v)}
                   />
                 </div>
               </div>

@@ -56,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
 import { CalculatorDialog, CalculatorButton } from './calculator';
+import { TimePicker } from './time-picker';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 
@@ -965,7 +966,7 @@ export default function Finance() {
               </>
             )}
             <div><Label className="text-xs">Sumber Dana</Label><Select value={txForm.source} onValueChange={v => setTxForm(f => ({ ...f, source: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih sumber" /></SelectTrigger><SelectContent>{getActiveSources().map(s => (<SelectItem key={s.id || s.name} value={s.name}>{s.emoji} {s.name}</SelectItem>))}</SelectContent></Select></div>
-            <div className="grid grid-cols-2 gap-2"><div><Label className="text-xs">Tanggal</Label><Input type="date" value={txForm.date} onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))} className="mt-1" /></div><div><Label className="text-xs">Jam</Label><Input type="time" value={txForm.time} onChange={e => setTxForm(f => ({ ...f, time: e.target.value }))} className="mt-1" /></div></div>
+            <div className="grid grid-cols-2 gap-2"><div><Label className="text-xs">Tanggal</Label><Input type="date" value={txForm.date} onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))} className="mt-1" /></div><div><Label className="text-xs">Jam</Label><TimePicker value={txForm.time} onChange={v => setTxForm(f => ({ ...f, time: v }))} className="mt-1" /></div></div>
             <div><Label className="text-xs">Deskripsi</Label><Input placeholder="Contoh: Makan siang di kantin" value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))} className="mt-1" /></div>
             {/* Hide notes field in split mode — each split child gets an
                 auto-generated "Split i/n" note, so a manual note doesn't apply. */}
