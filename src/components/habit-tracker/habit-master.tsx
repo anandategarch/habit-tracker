@@ -62,6 +62,7 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
+import { TimePicker } from './time-picker';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
@@ -687,12 +688,9 @@ export default function HabitMaster() {
                     <Label htmlFor="target-time">
                       Target Jam <span className="text-muted-foreground text-xs">(opsional)</span>
                     </Label>
-                    <Input
-                      id="target-time"
-                      type="time"
-                      value={form.targetTime || ''}
-                      onChange={(e) => updateForm('targetTime', e.target.value)}
-                      className="w-40"
+                    <TimePicker
+                      value={form.targetTime || '07:00'}
+                      onChange={(v) => updateForm('targetTime', v)}
                     />
                     <p className="text-xs text-muted-foreground">
                       Digunakan untuk menghitung apakah kamu tepat waktu.
