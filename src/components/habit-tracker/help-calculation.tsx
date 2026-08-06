@@ -378,17 +378,25 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
   // window in most browsers, so they won't trigger the close. This is the
   // desired behavior — the user can scroll inside the help without closing
   // it, but scrolling the page behind it closes it.
+  //
+  // Threshold fix: only close if scrollY actually changed significantly
+  // (>5px). Tiny scroll events from layout shifts (image load, content
+  // render, keyboard open/close) were causing the popover to immediately
+  // close after opening — "timbul kemudian hilang".
   useEffect(() => {
     if (!open) return;
+    let lastScrollY = window.scrollY;
     let scrolled = false;
     const handleScroll = () => {
-      // Debounce — only close once per scroll gesture, not on every pixel
       if (scrolled) return;
-      scrolled = true;
-      setOpen(false);
+      const delta = Math.abs(window.scrollY - lastScrollY);
+      // Only close on significant scroll (>5px), not tiny layout-shift scrolls
+      if (delta > 5) {
+        scrolled = true;
+        setOpen(false);
+      }
+      lastScrollY = window.scrollY;
     };
-    // No capture: true — only window-level scroll triggers close.
-    // passive: true for performance.
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
