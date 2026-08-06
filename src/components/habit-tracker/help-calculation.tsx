@@ -446,7 +446,7 @@ export function HelpInfoButton({ section, label }: { section: HelpSectionId; lab
   const triggerButton = (
     <button
       type="button"
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
       aria-label={label ?? `Bantuan: ${data.title}`}
       title={`Cara hitung: ${data.title}`}
     >

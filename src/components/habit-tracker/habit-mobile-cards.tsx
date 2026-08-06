@@ -28,7 +28,7 @@ export function HabitMobileCards({
   onEdit, onToggleStatus, onArchive, onDelete,
 }: HabitMobileCardsProps) {
   return (
-    <div className="md:hidden space-y-3 max-h-[600px] overflow-y-auto">
+    <div className="md:hidden space-y-3">
       {habits.map((habit) => (
         <Card key={habit.id}>
           <CardContent className="p-4">
