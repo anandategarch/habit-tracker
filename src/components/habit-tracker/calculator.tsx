@@ -257,26 +257,27 @@ export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDial
   // ── Button layout ────────────────────────────────────────────────────
 
   const buttons = [
-    { label: 'C', onClick: handleClear, className: 'bg-red-500/10 text-red-500 hover:bg-red-500/20' },
-    { label: '⌫', onClick: handleBackspace, className: 'bg-muted/50 hover:bg-muted' },
-    { label: '%', onClick: handlePercent, className: 'bg-muted/50 hover:bg-muted' },
-    { label: '÷', onClick: () => appendToExpression('÷'), className: 'bg-primary/10 text-primary hover:bg-primary/20' },
-    { label: '7', onClick: () => appendToExpression('7'), className: 'bg-card hover:bg-muted/50' },
-    { label: '8', onClick: () => appendToExpression('8'), className: 'bg-card hover:bg-muted/50' },
-    { label: '9', onClick: () => appendToExpression('9'), className: 'bg-card hover:bg-muted/50' },
-    { label: '×', onClick: () => appendToExpression('×'), className: 'bg-primary/10 text-primary hover:bg-primary/20' },
-    { label: '4', onClick: () => appendToExpression('4'), className: 'bg-card hover:bg-muted/50' },
-    { label: '5', onClick: () => appendToExpression('5'), className: 'bg-card hover:bg-muted/50' },
-    { label: '6', onClick: () => appendToExpression('6'), className: 'bg-card hover:bg-muted/50' },
-    { label: '−', onClick: () => appendToExpression('−'), className: 'bg-primary/10 text-primary hover:bg-primary/20' },
-    { label: '1', onClick: () => appendToExpression('1'), className: 'bg-card hover:bg-muted/50' },
-    { label: '2', onClick: () => appendToExpression('2'), className: 'bg-card hover:bg-muted/50' },
-    { label: '3', onClick: () => appendToExpression('3'), className: 'bg-card hover:bg-muted/50' },
-    { label: '+', onClick: () => appendToExpression('+'), className: 'bg-primary/10 text-primary hover:bg-primary/20' },
-    { label: '00', onClick: () => appendToExpression('00'), className: 'bg-card hover:bg-muted/50' },
-    { label: '0', onClick: () => appendToExpression('0'), className: 'bg-card hover:bg-muted/50' },
-    { label: '.', onClick: () => appendToExpression('.'), className: 'bg-card hover:bg-muted/50' },
-    { label: '=', onClick: handleEquals, className: 'bg-primary text-primary-foreground hover:bg-primary/90 font-bold' },
+    { label: 'C', onClick: handleClear, className: 'bg-red-500/10 text-red-500 hover:bg-red-500/20', tall: false },
+    { label: '⌫', onClick: handleBackspace, className: 'bg-muted/50 hover:bg-muted', tall: false },
+    { label: '%', onClick: handlePercent, className: 'bg-muted/50 hover:bg-muted', tall: false },
+    { label: '÷', onClick: () => appendToExpression('÷'), className: 'bg-primary/10 text-primary hover:bg-primary/20', tall: false },
+    { label: '7', onClick: () => appendToExpression('7'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '8', onClick: () => appendToExpression('8'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '9', onClick: () => appendToExpression('9'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '×', onClick: () => appendToExpression('×'), className: 'bg-primary/10 text-primary hover:bg-primary/20', tall: false },
+    { label: '4', onClick: () => appendToExpression('4'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '5', onClick: () => appendToExpression('5'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '6', onClick: () => appendToExpression('6'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '−', onClick: () => appendToExpression('−'), className: 'bg-primary/10 text-primary hover:bg-primary/20', tall: false },
+    { label: '1', onClick: () => appendToExpression('1'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '2', onClick: () => appendToExpression('2'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '3', onClick: () => appendToExpression('3'), className: 'bg-card hover:bg-muted/50', tall: false },
+    { label: '+', onClick: () => appendToExpression('+'), className: 'bg-primary/10 text-primary hover:bg-primary/20', tall: false },
+    // MOBILE-17: bottom row taller (48px) for comfortable thumb reach
+    { label: '00', onClick: () => appendToExpression('00'), className: 'bg-card hover:bg-muted/50', tall: true },
+    { label: '0', onClick: () => appendToExpression('0'), className: 'bg-card hover:bg-muted/50', tall: true },
+    { label: '.', onClick: () => appendToExpression('.'), className: 'bg-card hover:bg-muted/50', tall: true },
+    { label: '=', onClick: handleEquals, className: 'bg-primary text-primary-foreground hover:bg-primary/90 font-bold', tall: true },
   ];
 
   return (
@@ -327,7 +328,8 @@ export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDial
               type="button"
               onClick={btn.onClick}
               className={cn(
-                'h-11 rounded-lg text-base font-medium transition-colors active:scale-95',
+                'rounded-lg text-base font-medium transition-colors active:scale-95',
+                btn.tall ? 'h-12' : 'h-11',
                 btn.className
               )}
             >

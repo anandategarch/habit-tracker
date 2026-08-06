@@ -352,7 +352,7 @@ export default function FinanceTransactions({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6"
+                              className="h-9 w-9"
                               onClick={(e) => { e.stopPropagation(); onEditTx(tx); }}
                               disabled={tx.category === 'Transfer Antar Sumber'}
                               title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa diedit' : 'Edit'}
@@ -362,7 +362,7 @@ export default function FinanceTransactions({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 text-red-500 hover:text-red-600"
+                              className="h-9 w-9 text-red-500 hover:text-red-600"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (tx.category === 'Transfer Antar Sumber') {

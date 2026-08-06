@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { HelpInfoButton } from './help-calculation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -589,7 +590,7 @@ function BudgetDialog({
               }
             }}
             className="text-lg font-semibold tabular-nums"
-            autoFocus
+            autoFocus={!isMobile}
           />
           {budgetInput && (() => {
             const digits = budgetInput.replace(/[^\d]/g, '');
@@ -828,6 +829,7 @@ function StatTile({
 
 export default function DailyRecap() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   // What-if slider state: 0-50% spending reduction for the rest of the month.
@@ -1428,7 +1430,7 @@ export default function DailyRecap() {
                   elapsed + last-month transaction data). */}
               {predictions.lastMonthAccuracy && (
                 <div
-                  className="px-1.5 py-0.5 rounded-full text-[9px] font-medium border flex items-center gap-0.5"
+                  className="px-2 py-1 rounded-full text-[11px] font-medium border flex items-center gap-0.5"
                   title={`Bulan lalu: proyeksi ${compactRupiahSafe(predictions.lastMonthAccuracy.projected)} vs aktual ${compactRupiahSafe(predictions.lastMonthAccuracy.actual)} (selisih ${predictions.lastMonthAccuracy.deviationPct}%)`}
                 >
                   {predictions.lastMonthAccuracy.tier === 'accurate' && (
@@ -1552,7 +1554,7 @@ export default function DailyRecap() {
                   min={0}
                   max={50}
                   step={5}
-                  className="py-1"
+                  className="py-1 [&_[data-radix-slider-thumb]]:h-5 [&_[data-radix-slider-thumb]]:w-5 [&_[data-radix-slider-thumb]]:border-2"
                   aria-label="What-if spending reduction percentage"
                 />
                 {/* Result: only show the adjusted number when reduction > 0

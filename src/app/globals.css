@@ -1090,3 +1090,12 @@
     min-width: 44px;
   }
 }
+
+/* MOBILE-15: scrollbar-hide utility for horizontal scroll areas */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
