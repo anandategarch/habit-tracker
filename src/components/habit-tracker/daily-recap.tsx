@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { HelpInfoButton } from './help-calculation';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -590,7 +589,7 @@ function BudgetDialog({
               }
             }}
             className="text-lg font-semibold tabular-nums"
-            autoFocus={!isMobile}
+            autoFocus
           />
           {budgetInput && (() => {
             const digits = budgetInput.replace(/[^\d]/g, '');
@@ -829,7 +828,6 @@ function StatTile({
 
 export default function DailyRecap() {
   const queryClient = useQueryClient();
-  const isMobile = useIsMobile();
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   // What-if slider state: 0-50% spending reduction for the rest of the month.
