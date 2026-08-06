@@ -74,7 +74,7 @@ export function HabitGroupsSection({
                       <button
                         key={e}
                         type="button"
-                        className="text-xl hover:bg-accent rounded p-1 transition-colors"
+                        className="text-xl hover:bg-accent rounded-lg p-1 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                         onClick={() => {
                           setNewGroupEmoji(e);
                           // Auto-derive color from emoji — no manual color picker.

@@ -320,6 +320,7 @@
 .tx-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
   padding: 0.375rem 0.75rem;
   border-radius: 9999px;
@@ -328,6 +329,8 @@
   white-space: nowrap;
   transition: all 0.15s ease;
   cursor: pointer;
+  /* MOBILE-1 fix: min touch target 44px for thumb-friendly tapping */
+  min-height: 44px;
 }
 .tx-chip-active {
   background: oklch(0.522 0.154 142);
