@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useCountUp } from '@/hooks/use-count-up';
 import { formatRupiah } from '@/components/habit-tracker/finance-types';
 
@@ -9,10 +10,10 @@ import { formatRupiah } from '@/components/habit-tracker/finance-types';
  *
  * Combines premium count-up with gamification flash feedback.
  *
- * Implementation: the `key` prop changes whenever the value changes,
- * which remounts the <span> and retriggers the CSS animation. This
- * avoids all ref/state-in-effect lint violations — no tracking of
- * previous value needed.
+ * Implementation: useState tracks the previous value (null on first render).
+ * shouldFlash is computed during render based on prev !== null && prev !== value.
+ * A render-phase update to prevValue is safe here because it's derived from
+ * the `value` prop (same value → same state, no loop).
  *
  * @param value   Target number.
  * @param duration Count-up duration in ms (default 900).
@@ -31,9 +32,17 @@ export function FlashNumber({
   flash?: boolean;
 }) {
   const display = useCountUp(value, duration, 0);
-  // Key changes on every value change → remount → CSS animation retriggers.
-  // Only apply flash class when value > 0 (initial mount from 0 doesn't flash).
-  const shouldFlash = flash && value > 0;
+  // prevValue starts as null. On first render: shouldFlash = false (prev is null).
+  // On subsequent renders where value changed: shouldFlash = true.
+  const [prevValue, setPrevValue] = useState<number | null>(null);
+  const shouldFlash = flash && prevValue !== null && prevValue !== value;
+
+  // Schedule prevValue update for next render. This is the React-recommended
+  // pattern for "adjusting state when a prop changes" — see:
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (prevValue !== value) {
+    setPrevValue(value);
+  }
 
   return (
     <span
@@ -60,7 +69,12 @@ export function FlashRupiah({
   flash?: boolean;
 }) {
   const display = useCountUp(amount, duration, 0);
-  const shouldFlash = flash && amount > 0;
+  const [prevAmount, setPrevAmount] = useState<number | null>(null);
+  const shouldFlash = flash && prevAmount !== null && prevAmount !== amount;
+
+  if (prevAmount !== amount) {
+    setPrevAmount(amount);
+  }
 
   return (
     <span

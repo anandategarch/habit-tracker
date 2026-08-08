@@ -433,7 +433,7 @@ export default function Finance() {
     return splitRows.reduce((sum, r) => sum + (parseInt(parseNominalInput(r.amount) || '0', 10) || 0), 0);
   }, [splitRows]);
 
-  const handleSubmitTx = async () => {
+  const handleSubmitTx = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     // BUG-5 fix: double-submit guard. If a submission is already in flight
     // (e.g. the user double-clicked Simpan), bail out immediately. The guard
     // is set right before the async fetch and reset in each finally block, so
@@ -507,7 +507,7 @@ export default function Finance() {
         if (res.ok) toast.success('Transaksi berhasil diupdate'); else { toast.error('Gagal mengupdate transaksi'); return; }
       } else {
         const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop(); } else { toast.error('Gagal menambahkan transaksi'); return; }
+        if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop(event?.currentTarget); } else { toast.error('Gagal menambahkan transaksi'); return; }
       }
       setTxDialogOpen(false);
       invalidateFinance();

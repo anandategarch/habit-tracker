@@ -103,12 +103,15 @@ export function celebrate(opts?: { emojis?: string[] }) {
 export function smallPop(el?: HTMLElement | null) {
   if (prefersReducedMotion()) return;
 
-  const origin = el
-    ? {
-        x: (el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2) / window.innerWidth,
-        y: (el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2) / window.innerHeight,
-      }
-    : { x: 0.5, y: 0.5 };
+  let origin = { x: 0.5, y: 0.5 };
+  if (el) {
+    // Call getBoundingClientRect once to avoid 4 synchronous layout reflows.
+    const rect = el.getBoundingClientRect();
+    origin = {
+      x: (rect.left + rect.width / 2) / window.innerWidth,
+      y: (rect.top + rect.height / 2) / window.innerHeight,
+    };
+  }
 
   confetti({
     particleCount: 12,

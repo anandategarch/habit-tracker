@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 /**
  * useCountUp — animates a number from 0 (or previous value) to `target`.
@@ -18,17 +18,31 @@ import { useEffect, useRef, useState } from 'react';
  * @param decimals Number of decimal places (default 0 — for money/counts).
  * @param bounce   If true, use easeOutBack (slight overshoot) instead of easeOutExpo.
  */
+
+// Subscribe to prefers-reduced-motion via useSyncExternalStore — SSR-safe
+// (no hydration mismatch because getServerSnapshot returns false).
+const reducedMotionQuery = typeof window !== 'undefined' ? window.matchMedia?.('(prefers-reduced-motion: reduce)') : null;
+function subscribeReducedMotion(callback: () => void) {
+  if (!reducedMotionQuery) return () => {};
+  reducedMotionQuery.addEventListener('change', callback);
+  return () => reducedMotionQuery.removeEventListener('change', callback);
+}
+function getReducedMotionSnapshot() {
+  return reducedMotionQuery?.matches ?? false;
+}
+
 export function useCountUp(
   target: number,
   duration = 900,
   decimals = 0,
   bounce = false
 ): number {
-  // Check reduced-motion synchronously during render (no setState in effect).
-  // SSR-safe: window doesn't exist on server, so default to false.
-  const reducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  // SSR-safe: returns false on server, correct value on client after hydration.
+  const reducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    () => false // getServerSnapshot — always false on SSR
+  );
 
   const [display, setDisplay] = useState(0);
   const fromRef = useRef(0);
