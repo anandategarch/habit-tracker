@@ -817,7 +817,7 @@ export default function Finance() {
           <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PieChart className="h-3.5 w-3.5" /><span className="hidden sm:inline">Kategori</span></TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 anim-tab-fade-up">
           {dashboardData ? (
             <FinanceOverview
               dashboardData={dashboardData}
@@ -829,7 +829,7 @@ export default function Finance() {
           )}
         </TabsContent>
 
-        <TabsContent value="transactions" className="mt-4">
+        <TabsContent value="transactions" className="mt-4 anim-tab-fade-up">
           <FinanceTransactions
             filteredTransactions={filteredTransactions}
             groupedTransactions={groupedTransactions}
@@ -848,7 +848,7 @@ export default function Finance() {
           />
         </TabsContent>
 
-        <TabsContent value="budgets" className="mt-4">
+        <TabsContent value="budgets" className="mt-4 anim-tab-fade-up">
           <FinanceBudgets
             budgets={budgets}
             dashboardData={dashboardData ?? null}
@@ -860,11 +860,11 @@ export default function Finance() {
           />
         </TabsContent>
 
-        <TabsContent value="explorer" className="mt-4">
+        <TabsContent value="explorer" className="mt-4 anim-tab-fade-up">
           <FinanceExplorer getCategoryMeta={getCategoryMeta} />
         </TabsContent>
 
-        <TabsContent value="categories" className="mt-4">
+        <TabsContent value="categories" className="mt-4 anim-tab-fade-up">
           <CategoryExplorer getCategoryMeta={getCategoryMeta} />
         </TabsContent>
       </Tabs>
