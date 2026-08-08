@@ -540,8 +540,8 @@
   }
 }
 .anim-stagger {
-  opacity: 0;
-  animation: anim-stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 1; /* resting state — matches the 'to' keyframe so there's no flicker when other animations are added/removed */
+  animation: anim-stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   will-change: transform, opacity;
 }
 

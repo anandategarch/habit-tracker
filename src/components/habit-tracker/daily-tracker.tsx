@@ -490,34 +490,23 @@ export default function DailyTracker() {
   };
 
   // ---- handlers ----
+  // Ref to track the element that triggered a habit completion (for confetti position).
+  // Set in handleHabitCheck, read in toggleHabit after successful API response.
+  const confettiElRef = useRef<HTMLElement | null>(null);
+
   const handleHabitCheck = (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
     const next = !(completionMap[habit.id] ?? false);
     if (!next) {
       toggleHabit(habit.id, null);
       return;
     }
-    // Fire confetti on completion — use the clicked element for position.
-    // Milestone streaks (7/30/100) get full celebrate(), others get burstFromElement().
-    const el = event && 'currentTarget' in event
+    // Store the triggering element for confetti positioning (used in toggleHabit
+    // after successful API response — ensures confetti only fires on actual completion).
+    // For checkbox clicks, event.currentTarget is the checkbox; for card clicks,
+    // it's the card div. Both are valid origins for the confetti burst.
+    confettiElRef.current = event && 'currentTarget' in event
       ? (event.currentTarget as HTMLElement)
       : null;
-    // Compute current streak to detect milestones (before completion, so +1 for the new day)
-    const month = selectedDate.slice(0, 7);
-    const cache = monthLogsCacheRef.current[month];
-    const currentStreak = cache ? computeStreak(cache[habit.id] || [], selectedDate) : (habit._count?.logs || 0);
-    const newStreak = currentStreak + 1;
-
-    if ([7, 30, 100, 365].includes(newStreak)) {
-      // Big milestone — full screen celebration with emojis
-      setTimeout(() => {
-        celebrate({
-          emojis: newStreak >= 100 ? ['💯', '🔥'] : newStreak >= 30 ? ['⚡', '🔥'] : ['🔥'],
-        });
-      }, 200);
-    } else {
-      // Regular completion — burst from the clicked element
-      setTimeout(() => burstFromElement(el, { count: 20 }), 100);
-    }
 
     if (habit.trackTime) {
       const now = new Date();
@@ -619,10 +608,32 @@ export default function DailyTracker() {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
-      if (next) toast.success('Habit completed! 🎉');
+      if (next) {
+        toast.success('Habit completed! 🎉');
+
+        // ── Confetti — ONLY after successful API response ──
+        // Compute the new streak (current + 1 for the just-completed day).
+        const habit = habits.find((h) => h.id === habitId);
+        const currentStreak = cache ? computeStreak(cache[habitId] || [], selectedDate) : (habit?._count?.logs || 0);
+        const newStreak = currentStreak + 1;
+        const el = confettiElRef.current;
+
+        if ([7, 30, 100, 365].includes(newStreak)) {
+          // Big milestone — full-screen celebration with emojis
+          celebrate({
+            emojis: newStreak >= 100 ? ['💯', '🔥'] : newStreak >= 30 ? ['⚡', '🔥'] : ['🔥'],
+          });
+        } else {
+          // Regular completion — burst from the clicked element
+          burstFromElement(el, { count: 20 });
+        }
+        // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
+        confettiElRef.current = null;
+      }
     } catch (e) {
       setCompletionMap((p) => ({ ...p, [habitId]: !next }));
       toast.error(e instanceof Error ? e.message : 'Failed to update habit');
+      confettiElRef.current = null;
     } finally {
       setTogglingIds((p) => {
         const s = new Set(p);
@@ -913,7 +924,12 @@ export default function DailyTracker() {
                       checked={isDone}
                       onCheckedChange={() => handleHabitCheck(habit)}
                       disabled={isToggling}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Set confetti origin to the checkbox button itself,
+                        // since onCheckedChange doesn't receive a DOM event.
+                        confettiElRef.current = e.currentTarget as HTMLElement;
+                      }}
                       className={cn(
                         'h-5 w-5 rounded-md transition-all duration-200',
                         isDone &&
