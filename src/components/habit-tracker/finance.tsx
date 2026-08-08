@@ -59,6 +59,7 @@ import { CalculatorDialog, CalculatorButton } from './calculator';
 import { TimePicker } from './time-picker';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
+import { smallPop } from '@/lib/confetti';
 
 // Lazy-loaded sub-components
 const FinanceOverview = dynamic(() => import('./finance-overview'), {
@@ -506,7 +507,7 @@ export default function Finance() {
         if (res.ok) toast.success('Transaksi berhasil diupdate'); else { toast.error('Gagal mengupdate transaksi'); return; }
       } else {
         const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) toast.success('Transaksi berhasil ditambahkan'); else { toast.error('Gagal menambahkan transaksi'); return; }
+        if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop(); } else { toast.error('Gagal menambahkan transaksi'); return; }
       }
       setTxDialogOpen(false);
       invalidateFinance();
@@ -799,10 +800,10 @@ export default function Finance() {
         </div>
         {/* Row 2: Quick actions — horizontal scroll on mobile, wrap on desktop */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:overflow-visible sm:pb-0 sm:flex-wrap">
-          <Button size="sm" className="shrink-0 bg-red-500 hover:bg-red-600 text-white" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-          <Button size="sm" className="shrink-0" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
-          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
-          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4 mr-1" />Sumber Dana</Button>
+          <Button size="sm" className="shrink-0 bg-red-500 hover:bg-red-600 text-white anim-press anim-pulse-ring" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
+          <Button size="sm" className="shrink-0 anim-press" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
+          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
+          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4 mr-1" />Sumber Dana</Button>
         </div>
       </div>
 

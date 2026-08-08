@@ -59,8 +59,9 @@ export default function FinanceOverview({
 
       {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
       <Card className="overflow-hidden anim-stagger" style={{ animationDelay: '0ms' }}>
-        {/* Top section: big balance number — ACTUAL total from fund sources */}
-        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 py-4 sm:px-6 sm:py-5">
+        {/* Top section: big balance number — ACTUAL total from fund sources.
+            Animated gradient shift for premium feel. */}
+        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent anim-gradient-shift px-4 py-4 sm:px-6 sm:py-5" style={{ backgroundImage: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(280 70% 60% / 0.06), hsl(var(--primary) / 0.08), hsl(200 70% 60% / 0.05))' }}>
           <p className="text-xs text-muted-foreground font-medium">Total Saldo</p>
           <p className={cn(
             'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
