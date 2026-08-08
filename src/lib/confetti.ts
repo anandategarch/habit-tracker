@@ -36,17 +36,18 @@ export function burstFromElement(el: HTMLElement | null, opts?: {
     colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
   });
 
-  // Emoji burst (optional) — fires slightly after particle burst
+  // Emoji burst (optional) — fires slightly after particle burst.
+  // Uses shapeFromText() — the correct API for emoji/text confetti shapes.
   if (opts?.emojis && opts.emojis.length > 0) {
+    const emojis = opts.emojis;
     setTimeout(() => {
       confetti({
-        particleCount: opts.emojis!.length * 2,
+        particleCount: emojis.length * 2,
         spread: 60,
         origin: { x, y },
         scalar: 1.6,
         ticks: 100,
-        shapes: ['text'],
-        text: opts.emojis!.join(' '),
+        shapes: emojis.map((e) => confetti.shapeFromText({ text: e, scalar: 1.6 })),
       });
     }, 120);
   }
@@ -82,15 +83,15 @@ export function celebrate(opts?: { emojis?: string[] }) {
 
   // Center emoji burst (optional)
   if (opts?.emojis && opts.emojis.length > 0) {
+    const emojis = opts.emojis;
     setTimeout(() => {
       confetti({
-        particleCount: opts.emojis.length * 3,
+        particleCount: emojis.length * 3,
         spread: 80,
         origin: { x: 0.5, y: 0.5 },
         scalar: 1.8,
         ticks: 140,
-        shapes: ['text'],
-        text: opts.emojis.join(' '),
+        shapes: emojis.map((e) => confetti.shapeFromText({ text: e, scalar: 1.8 })),
       });
     }, 200);
   }
