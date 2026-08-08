@@ -13,6 +13,7 @@ import { formatRupiah, formatNominalInput, parseNominalInput, type FundSource, t
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';
 import { toast } from 'sonner';
+import { FlashRupiah } from '@/components/habit-tracker/flash-number';
 import { ResponsiveContainer, AreaChart, Area, YAxis } from 'recharts';
 
 // Source accent colors — each source gets a unique vibrant color
@@ -256,9 +257,10 @@ export default function SourceBalanceSection() {
 
       {/* ── Main Summary Card (glassmorphism + gradient) ── */}
       <div
-        className="relative overflow-hidden rounded-3xl p-6 sm:p-8"
+        className="relative overflow-hidden rounded-3xl p-6 sm:p-8 anim-gradient-shift"
         style={{
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.06), rgba(139, 92, 246, 0.05))',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.06), rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.06))',
+          backgroundSize: '200% 200%',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 32px rgba(99, 102, 241, 0.06)',
           backdropFilter: 'blur(12px)',
           border: '1px solid rgba(99, 102, 241, 0.1)',
@@ -270,7 +272,7 @@ export default function SourceBalanceSection() {
             <div>
               <p className="text-sm text-muted-foreground font-medium">Total Saldo</p>
               <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-1 break-words">
-                {formatRupiah(totalBalance)}
+                <FlashRupiah amount={totalBalance} />
               </p>
             </div>
 
@@ -339,10 +341,11 @@ export default function SourceBalanceSection() {
               key={src.id}
               className={cn(
                 'group relative bg-white dark:bg-card rounded-2xl p-4 sm:p-5 transition-all duration-300',
-                'hover:-translate-y-1 hover:shadow-md'
+                'hover:-translate-y-1 hover:shadow-md anim-stagger'
               )}
               style={{
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                animationDelay: `${idx * 60}ms`,
               }}
             >
               {/* Icon container */}

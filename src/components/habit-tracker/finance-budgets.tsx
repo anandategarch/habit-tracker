@@ -180,7 +180,7 @@ export default function FinanceBudgets({
         </Card>
       ) : (
         <div className="space-y-3">
-          {budgets.map(b => {
+          {budgets.map((b, idx) => {
             const meta = getCategoryMeta(b.category);
             const dashboardBudget = dashboardData?.budgetStatus.find(db2 => db2.id === b.id);
             const spent = dashboardBudget?.spent || 0;
@@ -200,11 +200,11 @@ export default function FinanceBudgets({
               <div
                 key={b.id}
                 className={cn(
-                  'group rounded-2xl bg-card p-4 transition-all duration-200 hover:shadow-md',
+                  'group rounded-2xl bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 anim-stagger',
                   isOver && 'ring-1 ring-red-300 dark:ring-red-800',
                   !isOver && isWarning && 'ring-1 ring-amber-300 dark:ring-amber-800'
                 )}
-                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)', animationDelay: `${idx * 50}ms` }}
               >
                 {/* Top row: icon + name + actions */}
                 <div className="flex items-start justify-between mb-3">
@@ -245,7 +245,7 @@ export default function FinanceBudgets({
                   {/* Progress bar */}
                   <Progress
                     value={Math.min(pct, 100)}
-                    className={cn('h-2', isOver && '[&>div]:bg-red-500', isWarning && '[&>div]:bg-amber-500')}
+                    className={cn('h-2 anim-progress-fill', isOver && '[&>div]:bg-red-500', isWarning && '[&>div]:bg-amber-500')}
                   />
 
                   {/* Footer: remaining + daily rate */}

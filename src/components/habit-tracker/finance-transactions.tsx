@@ -253,11 +253,11 @@ export default function FinanceTransactions({
               </div>
 
               {/* Transaction cards */}
-              {group.txs.map(tx => {
+              {group.txs.map((tx, txIdx) => {
                 const meta = getCategoryMeta(tx.category);
                 const isExpense = tx.type === 'expense';
                 return (
-                  <div key={tx.id} className="relative">
+                  <div key={tx.id} className="relative anim-stagger" style={{ animationDelay: `${Math.min(txIdx, 8) * 30}ms` }}>
                     {/* Timeline node */}
                     <div
                       className="tx-node"
