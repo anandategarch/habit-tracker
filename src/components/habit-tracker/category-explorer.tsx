@@ -79,8 +79,10 @@ function DowLineChart({
 
   // Use a wide viewBox so the chart scales proportionally on all screens.
   // Wider viewBox (340) gives more horizontal room for 7 labels.
+  // Padding left/right (28) ensures amount labels at the first/last nodes
+  // don't overflow the SVG bounds on narrow mobile screens.
   const W = 340, H = 120;
-  const padding = { top: 24, bottom: 22, left: 10, right: 10 };
+  const padding = { top: 24, bottom: 22, left: 28, right: 28 };
   const chartW = W - padding.left - padding.right;
   const chartH = H - padding.top - padding.bottom;
   const step = chartW / (data.length - 1 || 1);
@@ -109,7 +111,7 @@ function DowLineChart({
   const gradId = `dow-grad-${color.replace('#', '')}`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: 'auto', maxHeight: '130px' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-hidden" style={{ height: 'auto', maxHeight: '130px' }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.2" />
@@ -630,7 +632,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
     const primaryColor = cat.color || '#6366f1';
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 overflow-x-hidden">
         {/* Breadcrumb + back */}
         <div className="flex items-center gap-2">
           <button
@@ -719,8 +721,11 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                 )}
               </div>
             </div>
+            {/* min-w-0 + overflow-hidden: prevents Recharts ResponsiveContainer
+                from expanding beyond parent width on mobile (known flex-layout bug) */}
+            <div className="w-full min-w-0 overflow-hidden">
             <ResponsiveContainer width="100%" height={220}>
-              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => compactRupiahSafe(v)} />
@@ -765,6 +770,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                 />
               </ComposedChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </Card>
 
@@ -812,7 +818,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <div className="space-y-1.5">
               {Object.entries(timeOfDayMap).map(([key, slot]) => (
                 <div key={key} className="flex items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground w-28 shrink-0 truncate">{slot.label}</span>
+                  <span className="text-[11px] text-muted-foreground w-24 sm:w-28 shrink-0 truncate">{slot.label}</span>
                   <div className="flex-1 h-4 bg-muted/30 rounded-sm overflow-hidden">
                     <div
                       className={cn(
@@ -853,7 +859,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
               {sourceList.map((src) => (
                 <div key={src.name} className="flex items-center gap-2">
                   <span className="text-[11px] text-muted-foreground flex-1 truncate">{src.name}</span>
-                  <div className="w-20 h-2 bg-muted/30 rounded-full overflow-hidden shrink-0">
+                  <div className="w-16 sm:w-20 h-2 bg-muted/30 rounded-full overflow-hidden shrink-0">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${src.percentage}%`, backgroundColor: primaryColor }}
@@ -1039,7 +1045,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
   // ── Category List View ────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-x-hidden">
       {/* Header — month picker (left, compact) + Total (right, dominant) */}
       <div className="flex items-center justify-between gap-2">
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
