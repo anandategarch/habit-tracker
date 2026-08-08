@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
  *
  * Features:
  * - Smooth easing (easeOutExpo) for a premium feel.
+ * - Optional bounce (easeOutBack) for satisfying overshoot on money amounts.
  * - Respects `prefers-reduced-motion` (returns target immediately, no state).
  * - Handles target changes (re-animates from current displayed value).
  * - Safe for unmount (cancels animation frame).
@@ -15,8 +16,14 @@ import { useEffect, useRef, useState } from 'react';
  * @param target  Final number to animate to.
  * @param duration Animation duration in ms (default 900).
  * @param decimals Number of decimal places (default 0 — for money/counts).
+ * @param bounce   If true, use easeOutBack (slight overshoot) instead of easeOutExpo.
  */
-export function useCountUp(target: number, duration = 900, decimals = 0): number {
+export function useCountUp(
+  target: number,
+  duration = 900,
+  decimals = 0,
+  bounce = false
+): number {
   // Check reduced-motion synchronously during render (no setState in effect).
   // SSR-safe: window doesn't exist on server, so default to false.
   const reducedMotion =
@@ -37,7 +44,14 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
 
     const start = performance.now();
     // easeOutExpo: fast start, slow finish — premium feel.
-    const ease = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    // easeOutBack: slight overshoot at ~85% then settles — satisfying bounce.
+    const easeExpo = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    const easeBack = (t: number) => {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    };
+    const ease = bounce ? easeBack : easeExpo;
 
     // Throttle setState to every ~33ms (30fps) instead of every frame (60fps).
     // Halves the number of re-renders during count-up animation.
@@ -84,7 +98,7 @@ export function useCountUp(target: number, duration = 900, decimals = 0): number
     // NOTE: display is intentionally NOT in the dependency array.
     // It changes every animation frame; including it would cause an
     // infinite re-render loop. displayRef tracks it without triggering re-runs.
-  }, [target, duration, decimals, reducedMotion]);
+  }, [target, duration, decimals, bounce, reducedMotion]);
 
   return reducedMotion ? target : display;
 }

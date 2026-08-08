@@ -6,12 +6,22 @@ import { formatRupiah } from '@/components/habit-tracker/finance-types';
 /**
  * CountUpRupiah — animates a Rupiah amount from 0 to target.
  * Uses formatRupiah for display so it stays consistent with the rest of the app.
+ * Uses easeOutBack (bounce) for a satisfying overshoot on money amounts.
  *
  * @param amount  Target amount in whole rupiah (Int).
  * @param duration Animation duration in ms (default 900).
+ * @param bounce  If true (default), use overshoot easing. Set false for subtle animation.
  */
-export function CountUpRupiah({ amount, duration = 900 }: { amount: number; duration?: number }) {
-  const display = useCountUp(amount, duration, 0);
+export function CountUpRupiah({
+  amount,
+  duration = 900,
+  bounce = true,
+}: {
+  amount: number;
+  duration?: number;
+  bounce?: boolean;
+}) {
+  const display = useCountUp(amount, duration, 0, bounce);
   return <>{formatRupiah(display)}</>;
 }
 

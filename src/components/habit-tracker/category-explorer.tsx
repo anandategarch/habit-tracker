@@ -861,7 +861,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   <span className="text-[11px] text-muted-foreground flex-1 truncate">{src.name}</span>
                   <div className="w-16 sm:w-20 h-2 bg-muted/30 rounded-full overflow-hidden shrink-0">
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full transition-all duration-500 anim-fill-bar"
                       style={{ width: `${src.percentage}%`, backgroundColor: primaryColor }}
                     />
                   </div>
@@ -1195,7 +1195,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                       </div>
                       <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all duration-500"
+                          className="h-full rounded-full transition-all duration-500 anim-fill-bar"
                           style={{
                             width: `${cat.percentage}%`,
                             backgroundColor: cat.color,

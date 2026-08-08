@@ -33,6 +33,7 @@ import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { FlashNumber } from '@/components/habit-tracker/flash-number';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { jakartaDateString } from '@/lib/jakarta-date';
+import { burstFromElement, celebrate } from '@/lib/confetti';
 import {
   format,
   addDays,
@@ -489,12 +490,35 @@ export default function DailyTracker() {
   };
 
   // ---- handlers ----
-  const handleHabitCheck = (habit: Habit) => {
+  const handleHabitCheck = (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
     const next = !(completionMap[habit.id] ?? false);
     if (!next) {
       toggleHabit(habit.id, null);
       return;
     }
+    // Fire confetti on completion — use the clicked element for position.
+    // Milestone streaks (7/30/100) get full celebrate(), others get burstFromElement().
+    const el = event && 'currentTarget' in event
+      ? (event.currentTarget as HTMLElement)
+      : null;
+    // Compute current streak to detect milestones (before completion, so +1 for the new day)
+    const month = selectedDate.slice(0, 7);
+    const cache = monthLogsCacheRef.current[month];
+    const currentStreak = cache ? computeStreak(cache[habit.id] || [], selectedDate) : (habit._count?.logs || 0);
+    const newStreak = currentStreak + 1;
+
+    if ([7, 30, 100, 365].includes(newStreak)) {
+      // Big milestone — full screen celebration with emojis
+      setTimeout(() => {
+        celebrate({
+          emojis: newStreak >= 100 ? ['💯', '🔥'] : newStreak >= 30 ? ['⚡', '🔥'] : ['🔥'],
+        });
+      }, 200);
+    } else {
+      // Regular completion — burst from the clicked element
+      setTimeout(() => burstFromElement(el, { count: 20 }), 100);
+    }
+
     if (habit.trackTime) {
       const now = new Date();
       setTimeDialogHabit(habit);
@@ -873,13 +897,13 @@ export default function DailyTracker() {
                     justCompleted && 'habit-card-pop anim-check-pop',
                   )}
                   style={{ animationDelay: `${idx * 40}ms` }}
-                  onClick={() => handleHabitCheck(habit)}
+                  onClick={(e) => handleHabitCheck(habit, e)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      handleHabitCheck(habit);
+                      handleHabitCheck(habit, e);
                     }
                   }}
                 >
