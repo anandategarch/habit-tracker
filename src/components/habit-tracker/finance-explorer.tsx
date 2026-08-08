@@ -537,11 +537,12 @@ export default function FinanceExplorer({
                 <p className="text-sm text-muted-foreground">Belum ada data pengeluaran</p>
               </div>
             ) : (
+            <div className="w-full min-w-0 overflow-hidden">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <BarChart data={monthlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={48} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={40} />
                 <RechartsTooltip
                   formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
                   labelFormatter={(label: string) => label || ''}
@@ -555,6 +556,7 @@ export default function FinanceExplorer({
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            </div>
             )}
             <p className="text-[11px] text-muted-foreground text-center mt-2">Klik bar bulan untuk drill-down ke minggu →</p>
           </div>
@@ -576,7 +578,7 @@ export default function FinanceExplorer({
                 </div>
               )}
             </div>
-            <div className="flex items-end justify-around gap-3 mt-4" style={{ height: '210px' }}>
+            <div className="flex items-end justify-between gap-1 sm:gap-3 mt-4 overflow-hidden" style={{ height: '210px' }}>
               {weekData.map((w, i) => {
                 const bw = budgetData?.weeks.find((b) => b.week === w.week);
                 const target = bw?.target || 0;
@@ -588,12 +590,12 @@ export default function FinanceExplorer({
                 return (
                   <div
                     key={w.week}
-                    className="flex-1 flex flex-col items-center cursor-pointer h-full"
+                    className="flex-1 min-w-0 flex flex-col items-center cursor-pointer h-full"
                     onClick={() => drillFromWeekToDay(w.week)}
                   >
-                    {/* Value label */}
-                    <div className="h-7 flex items-end justify-center shrink-0">
-                      <span className={cn('text-[11px] font-bold tabular-nums', isOver && 'text-red-500')}>{w.total > 0 ? formatRupiah(w.total).replace('Rp ', '') : '—'}</span>
+                    {/* Value label — compactRupiah for narrow mobile columns */}
+                    <div className="h-7 flex items-end justify-center shrink-0 w-full">
+                      <span className={cn('text-[11px] font-bold tabular-nums text-center truncate', isOver && 'text-red-500')}>{w.total > 0 ? compactRupiah(w.total) : '—'}</span>
                     </div>
                     {/* Bar + target line */}
                     <div className="w-full flex-1 flex items-end min-h-0 relative">
@@ -620,13 +622,13 @@ export default function FinanceExplorer({
                       />
                     </div>
                     {/* Label + set target button */}
-                    <div className="h-12 flex flex-col items-center justify-end shrink-0 gap-0.5">
+                    <div className="h-12 flex flex-col items-center justify-end shrink-0 gap-0.5 w-full">
                       <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
                       <span className="text-[11px] text-muted-foreground">{w.dateRange}</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDialog(w.week); }}
                         className={cn(
-                          'flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all',
+                          'flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all whitespace-nowrap',
                           target > 0
                             ? isOver
                               ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
@@ -634,8 +636,9 @@ export default function FinanceExplorer({
                             : 'bg-primary/10 text-primary hover:bg-primary/20',
                         )}
                       >
-                        <Target className="h-2.5 w-2.5" />
-                        {target > 0 ? formatRupiah(target).replace('Rp ', '') : 'Set Target'}
+                        <Target className="h-2.5 w-2.5 shrink-0" />
+                        <span className="hidden sm:inline">{target > 0 ? compactRupiah(target) : 'Set Target'}</span>
+                        <span className="sm:hidden sr-only">{target > 0 ? 'Edit target' : 'Set target'}</span>
                       </button>
                     </div>
                   </div>
