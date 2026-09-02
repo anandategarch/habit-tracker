@@ -267,6 +267,12 @@ model AppSettings {
   // string match with no join needed. If a category is renamed or deleted,
   // its stale name simply won't match any transaction and is ignored.
   projectionCategoryIds String @default("[]")
+  pushHabitEnabled    Boolean @default(true)
+  pushHabitTime       String  @default("08:00")
+  pushBudgetEnabled   Boolean @default(true)
+  pushBudgetTime      String  @default("12:00")
+  pushSpendingEnabled Boolean @default(true)
+  pushSpendingTime    String  @default("20:00")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -292,4 +298,13 @@ model HabitOption {
 
   @@unique([type, name])
   @@index([type])
+}
+model PushSubscription {
+  id              String   @id @default(cuid())
+  endpoint        String   @unique
+  p256dh          String
+  auth            String
+  userAgent       String?
+  createdAt       DateTime @default(now())
+  lastUsedAt      DateTime @default(now())
 }

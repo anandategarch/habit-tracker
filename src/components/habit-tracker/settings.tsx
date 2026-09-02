@@ -32,6 +32,7 @@ import { useAppStore } from '@/store/app-store';
 import { useRef } from 'react';
 import dynamic from 'next/dynamic';
 import LabelManager from './label-manager';
+import { PushNotificationSettings } from './push-notification-settings';
 
 const HabitMaster = dynamic(() => import('./habit-master'), { ssr: false });
 import {

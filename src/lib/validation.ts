@@ -306,6 +306,12 @@ export const updateSettingsSchema = z.object({
   // never send more than 1 category, and legacy multi-category data gets
   // rejected on the next PUT (which will overwrite with a single value).
   projectionCategoryIds: z.array(z.string().min(1).max(100)).max(1).optional(),
+  pushHabitEnabled: z.boolean().optional(),
+  pushHabitTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  pushBudgetEnabled: z.boolean().optional(),
+  pushBudgetTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  pushSpendingEnabled: z.boolean().optional(),
+  pushSpendingTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

@@ -32,6 +32,12 @@ type SettingsBody = {
   targetCompletion?: number;
   dailyBudgetTarget?: number;
   projectionCategoryIds?: string[];
+  pushHabitEnabled?: boolean;
+  pushHabitTime?: string;
+  pushBudgetEnabled?: boolean;
+  pushBudgetTime?: string;
+  pushSpendingEnabled?: boolean;
+  pushSpendingTime?: string;
 };
 
 // Build the partial data object for Prisma from validated input.
@@ -61,6 +67,12 @@ function buildData(body: SettingsBody) {
     const truncated = deduped.length > 0 ? [deduped[0]] : [];
     data.projectionCategoryIds = JSON.stringify(truncated);
   }
+  if (body.pushHabitEnabled !== undefined) data.pushHabitEnabled = body.pushHabitEnabled;
+  if (body.pushHabitTime !== undefined) data.pushHabitTime = body.pushHabitTime;
+  if (body.pushBudgetEnabled !== undefined) data.pushBudgetEnabled = body.pushBudgetEnabled;
+  if (body.pushBudgetTime !== undefined) data.pushBudgetTime = body.pushBudgetTime;
+  if (body.pushSpendingEnabled !== undefined) data.pushSpendingEnabled = body.pushSpendingEnabled;
+  if (body.pushSpendingTime !== undefined) data.pushSpendingTime = body.pushSpendingTime;
   return data;
 }
 

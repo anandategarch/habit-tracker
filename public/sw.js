@@ -89,3 +89,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
+
+// Push handler
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let p; try { p = event.data.json(); } catch { p = { title: 'Rutina', body: event.data.text() }; }
+  const o = { body: p.body||'', icon: p.icon||'/icon-192.png', badge: p.badge||'/icon-96.png', tag: p.tag||'r', data: p.data||{url:'/'}, requireInteraction: p.requireInteraction||false, actions: p.actions||[], vibrate: [100,50,100] };
+  event.waitUntil(self.registration.showNotification(p.title||'Rutina', o));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const u = event.notification.data?.url || '/';
+  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cl => {
+    for (const c of cl) { if (c.url.includes(self.location.origin)) { c.focus(); return; } }
+    if (self.clients.openWindow) return self.clients.openWindow(u);
+  }));
+});
