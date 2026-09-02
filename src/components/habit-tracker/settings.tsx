@@ -584,6 +584,9 @@ export default function Settings() {
           {/* Habit Labels Section */}
           <LabelManager />
 
+          {/* Push Notification Section */}
+          <PushNotificationSettings />
+
           {/* Save Button */}
           <div className="flex justify-end pt-2">
             <Button
