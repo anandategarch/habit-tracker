@@ -881,6 +881,7 @@ export default function Finance() {
             onDeleteTx={(id) => { setDeletingId(id); setDeleteDialogOpen(true); }}
             onBulkDelete={() => setBulkDeleteOpen(true)}
             selectedMonth={selectedMonth}
+            onGoToPrevMonth={goToPrevMonth}
           />
         </TabsContent>
 

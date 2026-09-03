@@ -41,6 +41,14 @@ interface FinanceTransactionsProps {
   // when viewing the current month (filteredTransactions is scoped to
   // selectedMonth, so today's expense is 0 for any other month).
   selectedMonth: string;
+  // DB-MIGRATE-1: callback to navigate to the previous month. Used by the
+  // empty-state below — when the current month has no transactions (e.g.
+  // user just opened the app at the start of a new month), the empty
+  // state offers a one-tap shortcut to view the previous month's data
+  // instead of leaving the user staring at "Belum ada transaksi" and
+  // wondering whether their data was lost (which was the exact confusion
+  // that triggered the DB-migration debug investigation).
+  onGoToPrevMonth?: () => void;
 }
 
 export default function FinanceTransactions({
@@ -59,6 +67,7 @@ export default function FinanceTransactions({
   onDeleteTx,
   onBulkDelete,
   selectedMonth,
+  onGoToPrevMonth,
 }: FinanceTransactionsProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [multiSelect, setMultiSelect] = useState(false);
@@ -244,7 +253,30 @@ export default function FinanceTransactions({
         <div className="text-center py-16 text-muted-foreground">
           <div className="text-4xl mb-2">💸</div>
           <p className="text-sm font-medium">Belum ada transaksi</p>
-          <p className="text-xs mt-1">Coba ubah filter atau tambah transaksi baru</p>
+          {/* DB-MIGRATE-1: when viewing the current month and it's empty,
+              the user may genuinely have no transactions this month (e.g.
+              just started a new month, or hasn't logged anything yet) —
+              but they may also be panicking that their data was lost
+              (this happened during the DB migration). Offer a one-tap
+              shortcut to view the previous month so they can quickly
+              confirm their old data is still there. Only show this CTA
+              when we're on the current month AND a prev-month handler
+              was wired up by the parent. */}
+          {isCurrentMonth && onGoToPrevMonth ? (
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <p className="text-xs">Belum ada transaksi bulan ini.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={onGoToPrevMonth}
+              >
+                Lihat bulan sebelumnya
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs mt-1">Coba ubah filter atau tambah transaksi baru</p>
+          )}
         </div>
       ) : (
         <div className="tx-timeline space-y-0">

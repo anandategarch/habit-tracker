@@ -1,6 +1,6 @@
-const CACHE_NAME = 'habit-tracker-v6';
+const CACHE_NAME = 'habit-tracker-v7';
 
-// Bump cache version (v1 -> v2 -> ... -> v6) to purge any stale /api/ responses that
+// Bump cache version (v1 -> v2 -> ... -> v7) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
 // v5: morph bump nav redesign — purge old JS chunks that contain the old
 // flat-pill nav code so browsers fetch fresh JS with morph-bump styles.
@@ -9,6 +9,18 @@ const CACHE_NAME = 'habit-tracker-v6';
 // (previously could be terminated before claim finished, leaving the
 // user stuck on the old SW). Also adds page-side `SKIP_WAITING` message
 // handler so sw-register.tsx can nudge a waiting worker into activation.
+// v7: CLIENT-DEBUG-1 — post-Turso-migration cache purge. Even though v2+
+// SW no longer caches /api/ responses, the v1 SW DID cache them with a
+// network-first strategy. Any user whose browser still has the v1 SW
+// active (because v6 activation failed silently on iOS PWA mode, or
+// because they never re-opened the app after v6 was deployed) will have
+// STALE EMPTY /api/ responses in their `habit-tracker-v1` cache from
+// the DB-migration window. Bumping to v7 forces a fresh SW update wave
+// + activate event, which deletes ALL old caches (including v1) via the
+// `keys.filter(key => key !== CACHE_NAME)` cleanup below. Combined with
+// the no-store header on /api/dashboard, this guarantees that the next
+// load after the v7 deploy fetches fresh data from the new Turso DB.
+// Also bumps static-asset cache so any client-side JS changes get fetched.
 
 // Install: pre-cache shell
 self.addEventListener('install', (event) => {

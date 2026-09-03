@@ -827,10 +827,17 @@ export async function GET(request: NextRequest) {
       lastDoneSummary,
     }, {
       headers: {
-        // Cache for 30s, then allow serving stale while revalidating for 60s.
-        // Dashboard data changes infrequently (user marks habits, adds transactions),
-        // so brief caching is safe and significantly reduces DB load on rapid nav.
-        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+        // CLIENT-DEBUG-1: previously `private, max-age=30, stale-while-revalidate=60`
+        // which let the browser HTTP cache serve STALE EMPTY dashboard data for
+        // up to 90s after a DB migration / disconnect. The SW is network-only
+        // for /api/, but the SW's fetch() still goes through the HTTP cache
+        // (because we don't pass `cache: 'no-store'`). After the Turso DB
+        // migration, users who hit /api/dashboard during the empty-DB window
+        // saw "no data" for ~90s even after the DB was fixed. `no-store`
+        // disables all HTTP caching of this response — every request goes
+        // to the origin. React Query's in-memory cache (staleTime 30s) still
+        // provides client-side dedup, so DB load is not significantly higher.
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   } catch (error) {
