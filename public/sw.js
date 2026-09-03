@@ -1,9 +1,10 @@
-const CACHE_NAME = 'habit-tracker-v7';
+const CACHE_NAME = 'habit-tracker-v8';
 
-// Bump cache version (v1 -> v2 -> ... -> v7) to purge any stale /api/ responses that
+// Bump cache version (v1 → v2 → ... → v8) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
-// v5: morph bump nav redesign — purge old JS chunks that contain the old
-// flat-pill nav code so browsers fetch fresh JS with morph-bump styles.
+// v8: Rewards/Badges/Challenges removed — purge old JS chunks that still
+// contain nav items + KPI cards for these removed features. Users seeing
+// stale nav with 9 items need this cache bump to fetch fresh JS (6 items).
 // v6: SW activate bug fix — `clients.claim()` now runs inside
 // `event.waitUntil()` so the new SW reliably takes control of open tabs
 // (previously could be terminated before claim finished, leaving the
