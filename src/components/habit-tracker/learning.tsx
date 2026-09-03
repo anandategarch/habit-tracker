@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -283,53 +284,45 @@ export default function LearningTab() {
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-600">
-            <GraduationCap className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold">Daily Learning</h2>
-            <p className="text-xs text-muted-foreground">Belajar sesuatu setiap hari</p>
-          </div>
-        </div>
-
-        {/* Streak & Status */}
-        <div className="flex items-center gap-3">
-          {status.streak > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900">
-              <Flame className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{status.streak}</span>
-              <span className="text-xs text-orange-500">hari</span>
-            </div>
-          )}
-          <Badge variant="secondary" className="text-xs">
-            {status.totalDays} hari total
-          </Badge>
-          <Dialog open={manageOpen} onOpenChange={setManageOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-1.5" />
-                Kelola Topik
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[95vw] sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Kelola Topik Pembelajaran
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 py-2">
-                {/* Add topic */}
-                <Button
-                  onClick={() => { setTopicName(''); setTopicEmoji('📚'); setAddTopicOpen(true); }}
-                  variant="outline"
-                  className="w-full border-dashed"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Tambah Topik Baru
+      <PageHeader
+        title="Daily Learning"
+        description="Belajar sesuatu setiap hari"
+        action={
+          <div className="flex items-center gap-3">
+            {status.streak > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{status.streak}</span>
+                <span className="text-xs text-orange-500">hari</span>
+              </div>
+            )}
+            <Badge variant="secondary" className="text-xs">
+              {status.totalDays} hari total
+            </Badge>
+            <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4" />
+                  Kelola Topik
                 </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[95vw] sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Kelola Topik Pembelajaran
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  {/* Add topic */}
+                  <Button
+                    onClick={() => { setTopicName(''); setTopicEmoji('📚'); setAddTopicOpen(true); }}
+                    variant="outline"
+                    className="w-full border-dashed"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tambah Topik Baru
+                  </Button>
 
                 {/* Topic list */}
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -374,8 +367,9 @@ export default function LearningTab() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* ── Topic Selector ─────────────────────────────────────────────────── */}
       {topicsLoading ? (
@@ -436,7 +430,7 @@ export default function LearningTab() {
               onClick={() => refetchArticle()}
               className="mt-2"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4" />
               Coba Lagi
             </Button>
           </div>
@@ -526,14 +520,14 @@ export default function LearningTab() {
               >
                 {status.completedToday ? (
                   <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
+                    <CheckCircle className="h-4 w-4" />
                     Sudah Selesai
                   </>
                 ) : completing ? (
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    <BookOpen className="h-4 w-4 mr-2" />
+                    <BookOpen className="h-4 w-4" />
                     Selesai Baca
                   </>
                 )}
@@ -616,7 +610,7 @@ export default function LearningTab() {
               />
             </div>
             <Button onClick={handleAddTopic} className="w-full bg-violet-600 hover:bg-violet-700 text-white">
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Tambah
             </Button>
           </div>
@@ -660,7 +654,7 @@ export default function LearningTab() {
               />
             </div>
             <Button onClick={handleEditTopic} className="w-full bg-violet-600 hover:bg-violet-700 text-white">
-              <Edit className="h-4 w-4 mr-2" />
+              <Edit className="h-4 w-4" />
               Simpan Perubahan
             </Button>
           </div>
@@ -679,7 +673,7 @@ export default function LearningTab() {
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteTopic} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4" />
               Hapus
             </AlertDialogAction>
           </AlertDialogFooter>

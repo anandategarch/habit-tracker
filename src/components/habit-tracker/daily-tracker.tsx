@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { jakartaDateKey, jakartaNowIso, jakartaNowParts } from '@/lib/timezone';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -274,8 +276,8 @@ function KpiCard({
     amber: 'text-warning',
   };
   return (
-    <div
-      className={cn('kpi-card group anim-stagger', accents[accent])}
+    <Card
+      className={cn('group anim-stagger p-4', accents[accent])}
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
     >
       <div className="flex items-center gap-1.5 mb-1.5">
@@ -286,7 +288,7 @@ function KpiCard({
       </div>
       <p className="text-xl font-bold tracking-tight tabular-nums">{value}</p>
       <p className="text-[11px] mt-0.5 text-muted-foreground">{sub}</p>
-    </div>
+    </Card>
   );
 }
 
@@ -757,47 +759,43 @@ export default function DailyTracker() {
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* ─────────────────── Date Navigation ─────────────────── */}
-      <section className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goToPrevDay}
-            className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="text-center min-w-0 px-1">
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight truncate">
-              {isToday ? 'Today' : format(dateObj, 'EEEE')}
-            </h2>
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {format(dateObj, 'MMM d, yyyy')} · Day {dayOfMonth}/{daysInMonth}
-            </p>
+      <PageHeader
+        title={isToday ? 'Today' : format(dateObj, 'EEEE')}
+        description={`${format(dateObj, 'MMM d, yyyy')} · Day ${dayOfMonth}/${daysInMonth}`}
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPrevDay}
+              className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
+              aria-label="Previous day"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextDay}
+              className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            {!isToday && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToToday}
+                className="shrink-0 rounded-xl h-9"
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                Today
+              </Button>
+            )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goToNextDay}
-            className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
-            aria-label="Next day"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        {!isToday && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToToday}
-            className="shrink-0 gap-1.5 rounded-xl h-9"
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            Today
-          </Button>
-        )}
-      </section>
+        }
+      />
 
       {/* ─────────────────── Daily Summary (4 KPI cards) ─────── */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -973,10 +971,10 @@ export default function DailyTracker() {
                 doneTime && habit.targetTime && doneTime > habit.targetTime;
 
               return (
-                <div
+                <Card
                   key={habit.id}
                   className={cn(
-                    'habit-card group cursor-pointer select-none anim-stagger',
+                    'group cursor-pointer select-none anim-stagger p-5 gap-0 transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
                     !justCompleted && 'anim-lift',
                     isDone && 'habit-card-completed',
                     justCompleted && 'habit-card-pop anim-check-pop',
@@ -1108,7 +1106,7 @@ export default function DailyTracker() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -1230,11 +1228,11 @@ function LoadingSkeleton() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="kpi-card">
+          <Card key={i} className="p-4 gap-0">
             <div className="h-3 w-16 bg-muted rounded animate-pulse mb-2" />
             <div className="h-7 w-20 bg-muted rounded animate-pulse mb-1" />
             <div className="h-2 w-full bg-muted rounded animate-pulse" />
-          </div>
+          </Card>
         ))}
       </div>
 
@@ -1250,7 +1248,7 @@ function LoadingSkeleton() {
 
       <div className="habit-grid">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="habit-card">
+          <Card key={i} className="p-5 gap-0">
             <div className="h-12 w-12 rounded-2xl bg-muted animate-pulse mb-3" />
             <div className="h-4 w-28 bg-muted rounded animate-pulse mb-2" />
             <div className="h-3 w-20 bg-muted rounded animate-pulse mb-4" />
@@ -1261,7 +1259,7 @@ function LoadingSkeleton() {
                 <div className="h-3 w-10 bg-muted rounded animate-pulse ml-auto" />
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

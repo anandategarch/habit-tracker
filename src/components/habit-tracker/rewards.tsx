@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -253,28 +254,22 @@ export default function Rewards() {
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Rewards</h2>
-          <p className="text-sm text-muted-foreground">
-            {rewards.length} reward{rewards.length !== 1 ? 's' : ''} &middot;{' '}
-            {unlockedRewards.length} unlocked &middot; {redeemedRewards.length} redeemed
-          </p>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={openDialog}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Reward
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[440px]">
-            <DialogHeader>
-              <DialogTitle>Add Reward</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
+      <PageHeader
+        title="Rewards"
+        description={`${rewards.length} reward${rewards.length !== 1 ? 's' : ''} · ${unlockedRewards.length} unlocked · ${redeemedRewards.length} redeemed`}
+        action={
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openDialog}>
+                <Plus className="h-4 w-4" />
+                New Reward
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[440px]">
+              <DialogHeader>
+                <DialogTitle>New Reward</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="reward-name">Name</Label>
                 <Input
@@ -331,7 +326,8 @@ export default function Rewards() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       {/* ── Stats Bar ─────────────────────────────────────────────────── */}
       {rewards.length > 0 && (
@@ -391,7 +387,7 @@ export default function Rewards() {
                               cfg.border
                             )}
                           >
-                            <StatusIcon className="mr-1 h-3 w-3" />
+                            <StatusIcon className="h-3 w-3" />
                             {cfg.label}
                           </Badge>
                         </div>
@@ -399,7 +395,7 @@ export default function Rewards() {
                           variant="secondary"
                           className="text-xs bg-warning/10 text-warning border border-warning/30"
                         >
-                          <Star className="mr-1 h-3 w-3" />
+                          <Star className="h-3 w-3" />
                           {formatXp(reward.xpCost)}
                         </Badge>
                       </div>
@@ -423,7 +419,7 @@ export default function Rewards() {
                         className="flex-1 h-8 text-xs"
                         onClick={() => handleRedeem(reward)}
                       >
-                        <Gift className="mr-1.5 h-3 w-3" />
+                        <Gift className="h-3 w-3" />
                         Redeem
                       </Button>
                       <Button
@@ -480,12 +476,12 @@ export default function Rewards() {
                               cfg.border
                             )}
                           >
-                            <StatusIcon className="mr-1 h-3 w-3" />
+                            <StatusIcon className="h-3 w-3" />
                             {cfg.label}
                           </Badge>
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          <Star className="mr-1 h-3 w-3" />
+                          <Star className="h-3 w-3" />
                           {formatXp(reward.xpCost)}
                         </Badge>
                       </div>
@@ -510,7 +506,7 @@ export default function Rewards() {
                         className="flex-1 h-8 text-xs border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
                         onClick={() => handleToggleUnlock(reward)}
                       >
-                        <Unlock className="mr-1.5 h-3 w-3" />
+                        <Unlock className="h-3 w-3" />
                         Unlock
                       </Button>
                       <Button
@@ -562,12 +558,12 @@ export default function Rewards() {
                               cfg.border
                             )}
                           >
-                            <StatusIcon className="mr-1 h-3 w-3" />
+                            <StatusIcon className="h-3 w-3" />
                             {cfg.label}
                           </Badge>
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          <Star className="mr-1 h-3 w-3" />
+                          <Star className="h-3 w-3" />
                           {formatXp(reward.xpCost)}
                         </Badge>
                       </div>
@@ -612,8 +608,8 @@ export default function Rewards() {
               onClick={openDialog}
               className="mt-2"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Your First Reward
+              <Plus className="h-4 w-4" />
+              New Reward
             </Button>
           </CardContent>
         </Card>

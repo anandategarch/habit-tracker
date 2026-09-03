@@ -18,6 +18,7 @@ import {
   startOfDay,
 } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -28,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, CalendarDays, Flame, Droplets, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, Droplets, RefreshCw } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 
 // ── Settings type ──────────────────────────────────────────────────────────
@@ -360,49 +361,43 @@ export default function CalendarView() {
   return (
     <div className="space-y-6">
       {/* ── Header with month navigation ──────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarDays className="h-6 w-6 text-primary" />
-            Calendar View
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Visualize your habit completion in a monthly heatmap.
-          </p>
-        </div>
+      <PageHeader
+        title="Calendar View"
+        description="Visualize your habit completion in a monthly heatmap."
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={goToPrevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToPrevMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+            <Select
+              value={selectedMonth}
+              onValueChange={setSelectedMonth}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select
-            value={selectedMonth}
-            onValueChange={setSelectedMonth}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="icon" onClick={goToNextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+            <Button variant="outline" size="icon" onClick={goToNextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        }
+      />
 
       {fetchError && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-sm text-muted-foreground">Gagal memuat data kalender</p>
           <Button variant="outline" size="sm" onClick={() => { queryClient.invalidateQueries({ queryKey: ['habits'] }); queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] }); queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] }); }}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4" />
             Coba Lagi
           </Button>
         </div>

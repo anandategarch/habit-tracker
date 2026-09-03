@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -394,25 +395,20 @@ export default function HabitMaster() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Habit Master
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage and organize all your habits in one place.
-          </p>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={openAdd}
-              className="gap-2 w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              Add Habit
-            </Button>
-          </DialogTrigger>
+      <PageHeader
+        title="Habit Master"
+        description="Manage and organize all your habits in one place."
+        action={
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                onClick={openAdd}
+                className="w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                New Habit
+              </Button>
+            </DialogTrigger>
 
           {/* ── Add / Edit Dialog ─────────────────────────────────────── */}
           <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -797,7 +793,8 @@ export default function HabitMaster() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       {/* Quick Add Bar */}
       <QuickAddBar
@@ -870,7 +867,7 @@ export default function HabitMaster() {
                 onClick={openAdd}
                 className="mt-4"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4" />
                 Create Habit
               </Button>
             )}

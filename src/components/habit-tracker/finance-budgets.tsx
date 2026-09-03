@@ -81,11 +81,11 @@ export default function FinanceBudgets({
         <p className="text-sm text-muted-foreground">Atur budget pengeluaran per kategori per bulan</p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={toggleHistory}>
-            <History className="h-4 w-4 mr-1" />
+            <History className="h-4 w-4" />
             {showHistory ? 'Tutup' : 'History'}
           </Button>
           <Button size="sm" onClick={onAddBudget}>
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4" />
             Tambah
           </Button>
         </div>

@@ -525,7 +525,7 @@ export default function FinanceExplorer({
         {level === 'month' && (
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-full sm:w-[160px] h-8 text-xs">
-              <Calendar className="h-3 w-3 mr-1" />
+              <Calendar className="h-3 w-3" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

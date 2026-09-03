@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -339,7 +340,7 @@ export default function JournalTab() {
           <Button
             onClick={openNewForm}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             New Entry
           </Button>
         </DialogTrigger>
@@ -702,20 +703,11 @@ export default function JournalTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-            <BookOpen className="h-4 w-4 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Journal</h2>
-            <p className="text-xs text-muted-foreground">
-              {journals.length} {journals.length === 1 ? 'entry' : 'entries'}
-            </p>
-          </div>
-        </div>
-        {renderForm()}
-      </div>
+      <PageHeader
+        title="Journal"
+        description={`${journals.length} ${journals.length === 1 ? 'entry' : 'entries'}`}
+        action={renderForm()}
+      />
 
       {/* Entries list */}
       {journals.length === 0 ? (
@@ -732,8 +724,8 @@ export default function JournalTab() {
               onClick={openNewForm}
               className="mt-4"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Write First Entry
+              <Plus className="h-4 w-4" />
+              New Entry
             </Button>
           </CardContent>
         </Card>

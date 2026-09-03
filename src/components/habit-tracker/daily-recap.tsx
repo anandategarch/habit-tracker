@@ -614,7 +614,7 @@ function BudgetDialog({
               disabled={isPending}
               className="text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15"
             >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              <Trash2 className="h-3.5 w-3.5" />
               Hapus
             </Button>
           ) : (
@@ -1044,7 +1044,7 @@ export default function DailyRecap() {
             onClick={() => refetch()}
             className="h-7 text-xs px-2 shrink-0"
           >
-            <RefreshCw className="h-3 w-3 mr-1" />
+            <RefreshCw className="h-3 w-3" />
             Coba lagi
           </Button>
         </div>

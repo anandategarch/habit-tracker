@@ -92,7 +92,7 @@ export function HabitMobileCards({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => onEdit(habit)}>
-                    <Pencil className="h-4 w-4 mr-2" />
+                    <Pencil className="h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onToggleStatus(habit)}>
@@ -105,7 +105,7 @@ export function HabitMobileCards({
                     onClick={() => onDelete(habit.id)}
                     className="text-destructive focus:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="h-4 w-4" />
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>

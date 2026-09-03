@@ -234,7 +234,7 @@ export default function FinanceTransactions({
             </span>
           </div>
           <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={onBulkDelete}>
-            <Trash2 className="h-3 w-3 mr-1" /> Hapus
+            <Trash2 className="h-3 w-3" /> Hapus
           </Button>
         </div>
       )}

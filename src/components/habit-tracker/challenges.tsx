@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -378,30 +379,24 @@ export default function Challenges() {
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Challenges</h2>
-          <p className="text-sm text-muted-foreground">
-            {challenges.length} challenge{challenges.length !== 1 ? 's' : ''} &middot;{' '}
-            {activeChallenges.length} active
-          </p>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={openNewDialog}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Challenge
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingChallenge ? 'Edit Challenge' : 'New Challenge'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
+      <PageHeader
+        title="Challenges"
+        description={`${challenges.length} challenge${challenges.length !== 1 ? 's' : ''} · ${activeChallenges.length} active`}
+        action={
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNewDialog}>
+                <Plus className="h-4 w-4" />
+                New Challenge
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingChallenge ? 'Edit Challenge' : 'New Challenge'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="challenge-title">Title</Label>
                 <Input
@@ -469,7 +464,8 @@ export default function Challenges() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       {/* ── Duration Quick Picks ──────────────────────────────────────── */}
       <div className="space-y-2">
@@ -485,7 +481,7 @@ export default function Challenges() {
               className="border-primary/20 text-primary hover:bg-primary/10 hover:text-primary"
               onClick={() => handleQuickPick(preset.value)}
             >
-              <Flame className="mr-1.5 h-3.5 w-3.5" />
+              <Flame className="h-3.5 w-3.5" />
               {preset.label}
             </Button>
           ))}
@@ -586,7 +582,7 @@ export default function Challenges() {
                         onClick={() => handleUpdateProgress(challenge)}
                         disabled={challenge.progress >= challenge.duration}
                       >
-                        <Flame className="mr-1 h-3 w-3" />
+                        <Flame className="h-3 w-3" />
                         +1 Day
                       </Button>
                       <Button
@@ -596,7 +592,7 @@ export default function Challenges() {
                         onClick={() => handleComplete(challenge)}
                         disabled={challenge.status === 'completed'}
                       >
-                        <Trophy className="mr-1 h-3 w-3" />
+                        <Trophy className="h-3 w-3" />
                         Complete
                       </Button>
                       <Button
@@ -747,8 +743,8 @@ export default function Challenges() {
               onClick={openNewDialog}
               className="mt-2"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Your First Challenge
+              <Plus className="h-4 w-4" />
+              New Challenge
             </Button>
           </CardContent>
         </Card>

@@ -649,7 +649,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
         {/* Month picker */}
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
           <SelectTrigger className="w-full sm:w-[180px] h-9">
-            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            <Calendar className="h-3.5 w-3.5" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1063,7 +1063,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
       <div className="flex items-center justify-between gap-2">
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
           <SelectTrigger className="w-full sm:w-[180px] h-9">
-            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            <Calendar className="h-3.5 w-3.5" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

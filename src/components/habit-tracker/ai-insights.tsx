@@ -4,13 +4,12 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
-  Brain,
-  Sparkles,
   TrendingUp,
   AlertTriangle,
   Lightbulb,
@@ -195,15 +194,10 @@ export default function AIInsights() {
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-            <Brain className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">AI Insights</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Automated pattern analysis</p>
-          </div>
-        </div>
+        <PageHeader
+          title="AI Insights"
+          description="Automated pattern analysis"
+        />
         <Separator />
         <EmptyState />
       </div>
@@ -213,18 +207,10 @@ export default function AIInsights() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-          <Brain className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold tracking-tight">AI Insights</h2>
-            <Sparkles className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">Automated pattern analysis</p>
-        </div>
-      </div>
+      <PageHeader
+        title="AI Insights"
+        description="Automated pattern analysis"
+      />
 
       <Separator />
 

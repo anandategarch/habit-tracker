@@ -513,7 +513,7 @@ export default function Dashboard() {
         <div className="mb-4 flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
           <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
           <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            <RefreshCw className="h-3.5 w-3.5" />
             Retry
           </Button>
         </div>

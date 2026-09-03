@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -204,28 +205,22 @@ export default function Badges() {
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Badges</h2>
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-primary">{stats.unlocked}</span>
-            <span className="text-muted-foreground">/ {stats.total} Unlocked</span>
-          </p>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={openDialog}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Badge
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[440px]">
-            <DialogHeader>
-              <DialogTitle>Create Badge</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
+      <PageHeader
+        title="Badges"
+        description={`${stats.unlocked} / ${stats.total} Unlocked`}
+        action={
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openDialog}>
+                <Plus className="h-4 w-4" />
+                New Badge
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[440px]">
+              <DialogHeader>
+                <DialogTitle>New Badge</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="badge-icon">Icon (Emoji)</Label>
                 <div className="flex items-center gap-3">
@@ -287,7 +282,8 @@ export default function Badges() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       {/* ── Overall Progress ───────────────────────────────────────────── */}
       {badges.length > 0 && (
@@ -380,14 +376,14 @@ export default function Badges() {
                     variant="outline"
                     className="border-primary/20 text-primary bg-primary/10 text-xs"
                   >
-                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    <CheckCircle2 className="h-3 w-3" />
                     {badge.unlockedAt
                       ? format(new Date(badge.unlockedAt), 'MMM d, yyyy')
                       : 'Unlocked'}
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="border-border text-muted-foreground bg-muted text-xs">
-                    <Lock className="mr-1 h-3 w-3" />
+                    <Lock className="h-3 w-3" />
                     Locked
                   </Badge>
                 )}
@@ -439,8 +435,8 @@ export default function Badges() {
               onClick={openDialog}
               className="mt-2"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Your First Badge
+              <Plus className="h-4 w-4" />
+              New Badge
             </Button>
           </CardContent>
         </Card>

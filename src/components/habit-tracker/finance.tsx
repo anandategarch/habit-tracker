@@ -819,10 +819,10 @@ export default function Finance() {
         </div>
         {/* Row 2: Quick actions — horizontal scroll on mobile, wrap on desktop */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:overflow-visible sm:pb-0 sm:flex-wrap">
-          <Button size="sm" className="shrink-0 bg-destructive hover:bg-destructive text-white anim-press anim-pulse-ring" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-          <Button size="sm" className="shrink-0 anim-press" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
-          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
-          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4 mr-1" />Sumber Dana</Button>
+          <Button size="sm" className="shrink-0 bg-destructive hover:bg-destructive text-white anim-press anim-pulse-ring" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4" />Pengeluaran</Button>
+          <Button size="sm" className="shrink-0 anim-press" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4" />Pemasukan</Button>
+          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4" />Kategori</Button>
+          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4" />Sumber Dana</Button>
         </div>
       </div>
 
@@ -895,8 +895,8 @@ export default function Finance() {
           <DialogHeader><DialogTitle>{editingTx ? 'Edit Transaksi' : 'Tambah Transaksi'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-destructive hover:bg-destructive text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))} disabled={splitMode}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))} disabled={splitMode} title={splitMode ? 'Split hanya untuk pengeluaran' : undefined}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
+              <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-destructive hover:bg-destructive text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))} disabled={splitMode}><ArrowDownRight className="h-4 w-4" />Pengeluaran</Button>
+              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))} disabled={splitMode} title={splitMode ? 'Split hanya untuk pengeluaran' : undefined}><ArrowUpRight className="h-4 w-4" />Pemasukan</Button>
             </div>
 
             {/* Split toggle — only shown when adding (not editing). Split
@@ -968,7 +968,7 @@ export default function Finance() {
                 ))}
                 <div className="flex items-center justify-between pt-1">
                   <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addSplitRow} disabled={splitRows.length >= 10}>
-                    <Plus className="h-3 w-3 mr-1" />Tambah kategori
+                    <Plus className="h-3 w-3" />Tambah kategori
                   </Button>
                   <div className="text-xs">
                     <span className="text-muted-foreground">Total: </span>
@@ -1051,7 +1051,7 @@ export default function Finance() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-destructive">📁 Pengeluaran</h3>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('expense')}><Plus className="h-3 w-3 mr-1" />Tambah</Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('expense')}><Plus className="h-3 w-3" />Tambah</Button>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
                 {expenseCategories.map(cat => (
@@ -1070,7 +1070,7 @@ export default function Finance() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-primary">💰 Pemasukan</h3>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('income')}><Plus className="h-3 w-3 mr-1" />Tambah</Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('income')}><Plus className="h-3 w-3" />Tambah</Button>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
                 {incomeCategories.map(cat => (
@@ -1145,7 +1145,7 @@ export default function Finance() {
             </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">Kelola akun bank, e-wallet, kas, dll</p>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openNewSource}><Plus className="h-3 w-3 mr-1" />Tambah</Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openNewSource}><Plus className="h-3 w-3" />Tambah</Button>
             </div>
             <div className="space-y-1.5 max-h-80 overflow-y-auto custom-scrollbar">
               {getActiveSources().map(src => (

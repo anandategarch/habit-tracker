@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -383,15 +384,10 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
-          <SettingsIcon className="h-5 w-5" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Pengaturan</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Kelola preferensi, habits, dan data</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Pengaturan"
+        description="Kelola preferensi, habits, dan data"
+      />
 
       {/* Sub-tabs */}
       <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
@@ -615,7 +611,7 @@ export default function Settings() {
               disabled={saving}
               className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[120px]"
             >
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-4 w-4" />
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
@@ -659,7 +655,7 @@ export default function Settings() {
                 onClick={handleExportJSON}
                 disabled={exporting}
               >
-                {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HardDriveDownload className="h-4 w-4 mr-2 text-primary" />}
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardDriveDownload className="h-4 w-4 text-primary" />}
                 {exporting ? 'Mengunduh...' : 'Backup JSON'}
               </Button>
               <Button
@@ -669,7 +665,7 @@ export default function Settings() {
                 onClick={handleExportCSV}
                 disabled={exporting}
               >
-                {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2 text-primary" />}
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-primary" />}
                 {exporting ? 'Mengunduh...' : 'Export Semua CSV'}
               </Button>
               <Button
@@ -679,7 +675,7 @@ export default function Settings() {
                 onClick={() => setImportDialogOpen(true)}
                 disabled={importing}
               >
-                <Upload className="h-4 w-4 mr-2" />
+                <Upload className="h-4 w-4" />
                 Import JSON
               </Button>
             </div>
@@ -754,7 +750,7 @@ export default function Settings() {
                     size="sm"
                     className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive dark:border-destructive/30 dark:hover:bg-destructive/15 dark:text-destructive/80 dark:hover:text-destructive/80"
                   >
-                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    <Trash2 className="h-4 w-4" />
                     Hapus Semua
                   </Button>
                 </AlertDialogTrigger>
@@ -794,12 +790,12 @@ export default function Settings() {
                     >
                       {resetting ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           Menghapus...
                         </>
                       ) : (
                         <>
-                          <Trash2 className="h-4 w-4 mr-2" />
+                          <Trash2 className="h-4 w-4" />
                           Ya, Hapus Semua
                         </>
                       )}

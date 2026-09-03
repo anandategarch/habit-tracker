@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -240,24 +241,22 @@ export default function SourceBalanceSection() {
   return (
     <div className="space-y-5">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Sumber Dana</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Kelola seluruh saldo dari berbagai sumber dana dalam satu tampilan.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setTransferOpen(true)}
-          disabled={sources.length < 2}
-          className="shrink-0"
-        >
-          <ArrowLeftRight className="h-4 w-4 mr-1.5" />
-          Transfer
-        </Button>
-      </div>
+      <PageHeader
+        title="Sumber Dana"
+        description="Kelola seluruh saldo dari berbagai sumber dana dalam satu tampilan."
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTransferOpen(true)}
+            disabled={sources.length < 2}
+            className="shrink-0"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            Transfer
+          </Button>
+        }
+      />
 
       {/* ── Main Summary Card (glassmorphism + gradient) ── */}
       <div

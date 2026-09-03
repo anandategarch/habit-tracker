@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -600,7 +601,7 @@ export default function GoalsTab() {
           <Button
             onClick={openNewForm}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             New Goal
           </Button>
         </DialogTrigger>
@@ -722,7 +723,7 @@ export default function GoalsTab() {
                   disabled={!newMilestone.trim()}
                   className="h-9 flex-shrink-0 border-primary/20 text-primary hover:bg-primary/5"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <Plus className="h-3.5 w-3.5" />
                   Add
                 </Button>
               </div>
@@ -796,20 +797,11 @@ export default function GoalsTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-            <Target className="h-4 w-4 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Goals</h2>
-            <p className="text-xs text-muted-foreground">
-              Track progress towards your objectives
-            </p>
-          </div>
-        </div>
-        {renderForm()}
-      </div>
+      <PageHeader
+        title="Goals"
+        description="Track progress towards your objectives"
+        action={renderForm()}
+      />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-3">
@@ -852,8 +844,8 @@ export default function GoalsTab() {
               onClick={openNewForm}
               className="mt-4"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Create First Goal
+              <Plus className="h-4 w-4" />
+              New Goal
             </Button>
           </CardContent>
         </Card>
