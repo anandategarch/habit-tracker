@@ -255,69 +255,97 @@ export default function Home() {
           </header>
 
           {/* Content area — extra bottom padding on mobile so content
-              doesn't get hidden behind the fixed bottom navigation bar. */}
-          <div className="flex-1 p-4 md:p-6 overflow-auto pb-24 md:pb-6">
+              doesn't get hidden behind the fixed bottom navigation bar.
+              Uses pb-28 (112px) to accommodate the morph-bump nav which
+              is taller than the previous flat nav (active tab bumps up). */}
+          <div className="flex-1 p-4 md:p-6 overflow-auto pb-28 md:pb-6">
             <div key={activeTab} className="anim-tab-enter">
               <ActiveComponent />
             </div>
           </div>
         </main>
 
-        {/* ── Mobile bottom navigation ─────────────────────────────────────
-            Fixed at the bottom on mobile only (md:hidden). Provides 1-tap
-            access to the 4 most-used tabs. Other tabs remain accessible
-            via the hamburger sidebar drawer. Respects iOS safe-area inset
-            so it doesn't overlap the home indicator on notch devices. */}
+        {/* ── Mobile bottom navigation (Morph Bump style) ────────────────────
+            Fixed at the bottom on mobile only (md:hidden).
+            Design: Material You morph-bump — active tab's icon lifts up
+            inside a gradient circle that emerges from the nav bar, giving
+            a 3D depth effect. Inactive tabs stay flat with muted icons.
+            Respects iOS safe-area inset for the home indicator. */}
         <nav
           aria-label="Primary mobile navigation"
           className={cn(
             'fixed bottom-0 left-0 right-0 z-30 md:hidden',
             'bg-background/95 backdrop-blur-md border-t border-border',
-            'flex items-stretch justify-around',
-            // Padding bottom for iOS home indicator / safe-area
             'pb-[env(safe-area-inset-bottom)]'
           )}
         >
-          {BOTTOM_NAV_ITEMS.map((item, navIdx) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                aria-label={item.label}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-2 relative',
-                  'transition-all duration-150 active:scale-90',
-                  'min-h-[56px]',
-                  isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {/* Sliding active indicator — always rendered, slides via transform */}
-                <span
+          <div className="flex items-stretch justify-around h-[68px] relative">
+            {BOTTOM_NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  aria-label={item.label}
+                  aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/10 anim-nav-pill',
-                    isActive ? 'opacity-100' : 'opacity-0',
+                    'flex-1 flex flex-col items-center justify-end pb-2 relative',
+                    'transition-all duration-200 active:scale-90',
+                    'min-h-[68px]'
                   )}
-                  style={{
-                    transform: isActive ? 'translateX(0)' : `translateX(${(navIdx - BOTTOM_NAV_ITEMS.findIndex(n => n.id === activeTab)) * 100}%)`,
-                  }}
-                />
-                {/* Top accent bar — always rendered, slides with pill */}
-                <span
-                  className={cn(
-                    'absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary anim-nav-pill',
-                    isActive ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
-                <Icon className={cn('h-5 w-5 shrink-0 relative z-10', isActive && 'text-primary')} />
-                <span className="text-xs font-medium leading-none relative z-10">{item.label}</span>
-              </button>
-            );
-          })}
+                >
+                  {/* Morph bump circle — gradient background that emerges
+                      when active. Always rendered for smooth morph animation.
+                      Uses scale + translateY for the bump-up effect. */}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'absolute top-2 left-1/2 -translate-x-1/2',
+                      'w-12 h-12 rounded-full',
+                      'bg-gradient-to-br from-primary to-primary/85',
+                      'shadow-lg shadow-primary/30',
+                      'transition-all duration-300 ease-out',
+                      'anim-nav-bump',
+                      isActive
+                        ? 'opacity-100 scale-100 -translate-y-3'
+                        : 'opacity-0 scale-50 translate-y-0'
+                    )}
+                  />
+                  {/* Top accent dot — small highlight on active circle */}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'absolute top-2 left-1/2 -translate-x-1/2',
+                      'w-1.5 h-1.5 rounded-full bg-primary-foreground/40',
+                      'transition-all duration-300 ease-out',
+                      isActive ? 'opacity-100 -translate-y-1' : 'opacity-0'
+                    )}
+                  />
+                  {/* Icon — lifts up with the bump when active, stays flat otherwise */}
+                  <Icon
+                    className={cn(
+                      'shrink-0 relative z-10 transition-all duration-300 ease-out',
+                      isActive
+                        ? 'h-5 w-5 -translate-y-3.5 text-primary-foreground'
+                        : 'h-5 w-5 translate-y-0 text-muted-foreground'
+                    )}
+                  />
+                  {/* Label — always visible; active label uses primary color */}
+                  <span
+                    className={cn(
+                      'text-[10px] font-medium leading-none mt-1.5 transition-all duration-300',
+                      isActive
+                        ? 'text-primary'
+                        : 'text-muted-foreground/70'
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </nav>
       </div>
     </TooltipProvider>
