@@ -84,38 +84,51 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       // race. Previously used a read-modify-write (`applyDelta(balance, ...)`),
       // which also corrupted the balance when the type flipped on the same
       // source — see worklog Task ID 2-a/2-c Critical bug.
-      const oldFundSource = await tx.fundSource.findUnique({ where: { name: existing.source } });
-      if (oldFundSource) {
-        // Revert = apply the opposite delta of what was originally applied.
-        // If original was income (+amount), revert is -amount. If expense,
-        // revert is +amount. Equivalent to signedDelta(amount, inverseType).
-        const revertDelta = -signedDelta(existing.amount, existing.type);
-        const revertedSource = await tx.fundSource.update({
-          where: { id: oldFundSource.id },
-          data: { balance: { increment: revertDelta } },
-        });
-        // FIN-BUG-2 fix: post-increment check on reverted old source.
-        // Edge case: reverting a previous income on a source whose balance
-        // has since been spent down to near-zero can drive it negative.
-        if (revertedSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
-      }
+      //
+      // BUG-FINANCE-2 BUG-5 fix: skip balance update entirely when only
+      // cosmetic fields change (description, notes, date, category without
+      // type). Previously, editing description on a transaction whose source
+      // was currently negative would reject with INSUFFICIENT_BALANCE —
+      // trapping the user (can't fix notes, can't fix the bad transaction).
+      const affectsBalance =
+        update.amount !== undefined ||
+        update.type !== undefined ||
+        update.source !== undefined;
 
-      // Apply new effect on the NEW source (if it exists as a FundSource row).
-      // If newSource === existing.source, the row was already reverted above;
-      // applying the new effect on top produces the correct final balance for
-      // any combination of type/amount change.
-      const newFundSource = newSource !== existing.source
-        ? await tx.fundSource.findUnique({ where: { name: newSource } })
-        : oldFundSource;
-      if (newFundSource) {
-        const updatedNewSource = await tx.fundSource.update({
-          where: { id: newFundSource.id },
-          data: { balance: { increment: signedDelta(newAmount, newType) } },
-        });
-        // FIN-BUG-2 fix: post-increment check on new source. Catches the
-        // race where the new amount exceeds the source's current balance
-        // (e.g. user edits an expense to increase its amount).
-        if (updatedNewSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
+      if (affectsBalance) {
+        const oldFundSource = await tx.fundSource.findUnique({ where: { name: existing.source } });
+        if (oldFundSource) {
+          // Revert = apply the opposite delta of what was originally applied.
+          // If original was income (+amount), revert is -amount. If expense,
+          // revert is +amount. Equivalent to signedDelta(amount, inverseType).
+          const revertDelta = -signedDelta(existing.amount, existing.type);
+          const revertedSource = await tx.fundSource.update({
+            where: { id: oldFundSource.id },
+            data: { balance: { increment: revertDelta } },
+          });
+          // FIN-BUG-2 fix: post-increment check on reverted old source.
+          // Edge case: reverting a previous income on a source whose balance
+          // has since been spent down to near-zero can drive it negative.
+          if (revertedSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
+        }
+
+        // Apply new effect on the NEW source (if it exists as a FundSource row).
+        // If newSource === existing.source, the row was already reverted above;
+        // applying the new effect on top produces the correct final balance for
+        // any combination of type/amount change.
+        const newFundSource = newSource !== existing.source
+          ? await tx.fundSource.findUnique({ where: { name: newSource } })
+          : oldFundSource;
+        if (newFundSource) {
+          const updatedNewSource = await tx.fundSource.update({
+            where: { id: newFundSource.id },
+            data: { balance: { increment: signedDelta(newAmount, newType) } },
+          });
+          // FIN-BUG-2 fix: post-increment check on new source. Catches the
+          // race where the new amount exceeds the source's current balance
+          // (e.g. user edits an expense to increase its amount).
+          if (updatedNewSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
+        }
       }
 
       const updateData: Record<string, unknown> = {};

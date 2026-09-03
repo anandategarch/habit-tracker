@@ -41,7 +41,15 @@ export async function POST(request: NextRequest) {
       },
     });
     const transactions = allFetchedTx.filter(
-      (t) => jakartaDateKey(t.date).slice(0, 7) === month
+      (t) =>
+        jakartaDateKey(t.date).slice(0, 7) === month &&
+        // BUG-FINANCE-2 fix: exclude internal movements (adjustments +
+        // transfers) from budget spent calc — consistent with dashboard
+        // route (line 30-35) and weekly-budget route (line 84-89).
+        // Previously, snapshot spentAmount was inflated by these internal
+        // expense records, breaking rollover + percentage accuracy.
+        t.category !== 'Penyesuaian Saldo' &&
+        t.category !== 'Transfer Antar Sumber'
     );
 
     // Group spending by category
