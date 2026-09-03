@@ -69,6 +69,13 @@ export function StreakFlame({
   const tier = getTier(streak);
   const sizeClass = SIZE_CLASSES[size];
 
+  // PERF-FIX: Only animate flames for habits WITH streak > 0.
+  // Previously, all 19 flame icons ran pulse animations concurrently,
+  // causing GPU lag on mobile. Now empty (streak=0) flames are static
+  // gray — no animation. Only active streaks get the pulse effect.
+  // This reduces concurrent infinite animations from 19 → ~2-3 (typical).
+  const shouldAnimate = streak > 0;
+
   // The embers wrapper is only used at fire tier — pure CSS pseudo-elements
   // generate the rising ember particles (see globals.css `.anim-flame-embers`).
   const wrapperClass =
@@ -84,7 +91,7 @@ export function StreakFlame({
         className={cn(
           sizeClass,
           TIER_COLOR[tier],
-          TIER_ANIMATION[tier],
+          shouldAnimate && TIER_ANIMATION[tier],
         )}
       />
     </span>

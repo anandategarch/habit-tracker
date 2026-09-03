@@ -918,8 +918,11 @@
   0%, 100% { box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--primary) 30%, transparent); }
   50%      { box-shadow: 0 6px 16px -2px color-mix(in oklab, var(--primary) 45%, transparent); }
 }
+/* PERF-FIX: removed infinite pulse animation — caused GPU lag on mobile
+   with 19+ flame animations + 3D flip cards + framer-motion running
+   concurrently. Static shadow is sufficient for visual depth. */
 .anim-nav-bump:not([class*="opacity-0"]) {
-  animation: anim-nav-bump-pulse 2.5s ease-in-out infinite;
+  box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--primary) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   .anim-nav-bump {

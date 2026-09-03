@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import {
   motion,
   AnimatePresence,
@@ -175,13 +175,26 @@ function ParallaxBackgroundInner({ className = '' }: { className?: string }) {
   const prefersReducedMotion = useReducedMotion();
   const { scrollY } = useScroll();
 
+  // PERF-FIX: Disable parallax on mobile (touch devices) — useScroll +
+  // useTransform causes scroll jank on mobile Chrome/Safari due to
+  // continuous transform updates during touch scroll. Desktop keeps
+  // the effect (mouse wheel scroll is smoother and less frequent).
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(
+      typeof window !== 'undefined' &&
+        (window.matchMedia('(pointer: coarse)').matches ||
+          window.innerWidth < 768)
+    );
+  }, []);
+
   // Map scroll 0→1000px → translateY 0→-24px (background drifts up slower
   // than content, giving a parallax depth effect). Clamp via framer-motion's
   // default interpolation (no extrapolation).
-  const y = useTransform(scrollY, [0, 1000], [0, prefersReducedMotion ? 0 : -24]);
+  const y = useTransform(scrollY, [0, 1000], [0, prefersReducedMotion || isMobile ? 0 : -24]);
 
-  if (prefersReducedMotion) {
-    // Static layer — no motion subscription.
+  if (prefersReducedMotion || isMobile) {
+    // Static layer — no motion subscription (mobile + reduced motion).
     return (
       <div
         aria-hidden="true"
