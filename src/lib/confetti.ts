@@ -123,3 +123,435 @@ export function smallPop(el?: HTMLElement | null) {
     colors: ['#f59e0b', '#10b981', '#f59e0b'],
   });
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MILESTONE CELEBRATIONS — Full-screen bursts for big achievements
+   Each function composes multiple confetti() calls + emoji shapes.
+   All respect prefers-reduced-motion (no-op if reduced motion).
+   ══════════════════════════════════════════════════════════════════════ */
+
+const GREEN = '#22c55e';
+const AMBER = '#f59e0b';
+const VIOLET = '#8b5cf6';
+const PINK = '#ec4899';
+const CYAN = '#06b6d4';
+const GOLD = '#fbbf24';
+
+/**
+ * Spawn a transient celebration overlay (radial primary glow) on top of the
+ * viewport. Auto-removes after the animation completes. Safe to call from
+ * any client component — no React lifecycle required.
+ */
+function showCelebrationOverlay(durationMs = 1500) {
+  if (prefersReducedMotion() || typeof document === 'undefined') return;
+  const overlay = document.createElement('div');
+  overlay.className = 'anim-celebration-overlay';
+  document.body.appendChild(overlay);
+  // Auto-remove once the glow animation finishes.
+  window.setTimeout(() => {
+    overlay.remove();
+  }, durationMs + 60);
+}
+
+/**
+ * 7-day streak — green + amber center burst with 🌱 emoji.
+ * Light, friendly, encourages the user to keep going.
+ */
+export function milestone7() {
+  if (prefersReducedMotion()) return;
+
+  showCelebrationOverlay(1500);
+
+  const colors = [GREEN, AMBER, '#84cc16'];
+  const sprout = confetti.shapeFromText({ text: '🌱', scalar: 1.8 });
+
+  // Center burst
+  confetti({
+    particleCount: 60,
+    spread: 80,
+    origin: { x: 0.5, y: 0.5 },
+    scalar: 1,
+    ticks: 140,
+    colors,
+  });
+
+  // Emoji shower — slightly delayed so it layers above the particles.
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 6,
+      spread: 70,
+      startVelocity: 35,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 1.8,
+      ticks: 160,
+      shapes: [sprout],
+    });
+  }, 120);
+
+  // Side cannons for a wider celebration
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 25,
+      angle: 60,
+      spread: 70,
+      origin: { x: 0.15, y: 0.7 },
+      colors,
+      scalar: 0.9,
+    });
+    confetti({
+      particleCount: 25,
+      angle: 120,
+      spread: 70,
+      origin: { x: 0.85, y: 0.7 },
+      colors,
+      scalar: 0.9,
+    });
+  }, 220);
+}
+
+/**
+ * 30-day streak — bigger multi-color burst with ⚡ + 🔥 emojis.
+ * Stronger feedback than milestone7 — sustained for ~1.2s.
+ */
+export function milestone30() {
+  if (prefersReducedMotion()) return;
+
+  showCelebrationOverlay(1800);
+
+  const colors = [GREEN, AMBER, VIOLET, PINK, CYAN];
+  const bolt = confetti.shapeFromText({ text: '⚡', scalar: 2 });
+  const fire = confetti.shapeFromText({ text: '🔥', scalar: 2 });
+
+  // Triple center burst, staggered for a sustained effect.
+  confetti({
+    particleCount: 90,
+    spread: 100,
+    origin: { x: 0.5, y: 0.5 },
+    scalar: 1.1,
+    ticks: 160,
+    colors,
+  });
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 70,
+      spread: 120,
+      startVelocity: 45,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 1.2,
+      ticks: 180,
+      colors,
+    });
+  }, 200);
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 6,
+      spread: 100,
+      startVelocity: 40,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 2,
+      ticks: 200,
+      shapes: [bolt, fire],
+    });
+  }, 400);
+
+  // Side cannons
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 40,
+      angle: 60,
+      spread: 80,
+      origin: { x: 0.1, y: 0.7 },
+      colors,
+      scalar: 1.1,
+    });
+    confetti({
+      particleCount: 40,
+      angle: 120,
+      spread: 80,
+      origin: { x: 0.9, y: 0.7 },
+      colors,
+      scalar: 1.1,
+    });
+  }, 300);
+}
+
+/**
+ * 100-day streak — full-screen rainbow shimmer with 💯 emoji.
+ * Three waves of confetti + top/bottom bursts.
+ */
+export function milestone100() {
+  if (prefersReducedMotion()) return;
+
+  showCelebrationOverlay(2200);
+
+  const rainbow = [
+    '#ef4444', '#f97316', '#f59e0b', '#84cc16',
+    '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+  ];
+  const hundred = confetti.shapeFromText({ text: '💯', scalar: 2.2 });
+  const fire = confetti.shapeFromText({ text: '🔥', scalar: 2.2 });
+
+  // Wave 1 — full-screen wide spread from center
+  confetti({
+    particleCount: 120,
+    spread: 360,
+    startVelocity: 50,
+    origin: { x: 0.5, y: 0.5 },
+    scalar: 1.3,
+    ticks: 220,
+    colors: rainbow,
+  });
+
+  // Wave 2 — top cannons (rain falls down)
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 80,
+      spread: 120,
+      angle: 270,
+      startVelocity: 35,
+      origin: { x: 0.2, y: 0 },
+      colors: rainbow,
+      scalar: 1.2,
+      ticks: 240,
+    });
+    confetti({
+      particleCount: 80,
+      spread: 120,
+      angle: 270,
+      startVelocity: 35,
+      origin: { x: 0.8, y: 0 },
+      colors: rainbow,
+      scalar: 1.2,
+      ticks: 240,
+    });
+  }, 300);
+
+  // Wave 3 — emoji shower 💯🔥
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 8,
+      spread: 120,
+      startVelocity: 45,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 2.2,
+      ticks: 260,
+      shapes: [hundred, fire],
+    });
+  }, 600);
+
+  // Wave 4 — bottom corners
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 90,
+      origin: { x: 0.05, y: 1 },
+      colors: rainbow,
+      scalar: 1.1,
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 90,
+      origin: { x: 0.95, y: 1 },
+      colors: rainbow,
+      scalar: 1.1,
+    });
+  }, 500);
+}
+
+/**
+ * 365-day streak — epic celebration. 3 sustained bursts over ~2s,
+ * rainbow + 🏆 emoji + side cannons. The granddaddy of all confetti.
+ */
+export function milestone365() {
+  if (prefersReducedMotion()) return;
+
+  showCelebrationOverlay(2500);
+
+  const rainbow = [
+    '#ef4444', '#f97316', '#f59e0b', '#84cc16',
+    '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+  ];
+  const trophy = confetti.shapeFromText({ text: '🏆', scalar: 2.4 });
+  const star = confetti.shapeFromText({ text: '⭐', scalar: 2.2 });
+  const fire = confetti.shapeFromText({ text: '🔥', scalar: 2.2 });
+
+  // Burst 1 — center, full spread
+  confetti({
+    particleCount: 150,
+    spread: 360,
+    startVelocity: 55,
+    origin: { x: 0.5, y: 0.5 },
+    scalar: 1.4,
+    ticks: 260,
+    colors: rainbow,
+  });
+
+  // Burst 2 — side cannons (sustained, fires 700ms later)
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 100,
+      angle: 60,
+      spread: 100,
+      origin: { x: 0.05, y: 0.7 },
+      colors: rainbow,
+      scalar: 1.3,
+      ticks: 280,
+    });
+    confetti({
+      particleCount: 100,
+      angle: 120,
+      spread: 100,
+      origin: { x: 0.95, y: 0.7 },
+      colors: rainbow,
+      scalar: 1.3,
+      ticks: 280,
+    });
+  }, 700);
+
+  // Burst 3 — top-down rain + emojis
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 100,
+      spread: 180,
+      angle: 270,
+      startVelocity: 40,
+      origin: { x: 0.5, y: 0 },
+      colors: rainbow,
+      scalar: 1.2,
+      ticks: 300,
+    });
+    confetti({
+      particleCount: 10,
+      spread: 140,
+      startVelocity: 45,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 2.4,
+      ticks: 320,
+      shapes: [trophy, star, fire],
+    });
+  }, 1400);
+}
+
+/**
+ * Badge unlock — golden glow + 🏅 particles from center.
+ * Use for any badge unlock (manual or auto).
+ */
+export function badgeUnlock() {
+  if (prefersReducedMotion()) return;
+
+  showCelebrationOverlay(1400);
+
+  const goldColors = [GOLD, AMBER, '#fde68a', '#fcd34d'];
+  const medal = confetti.shapeFromText({ text: '🏅', scalar: 2 });
+  const star = confetti.shapeFromText({ text: '⭐', scalar: 1.8 });
+
+  // Golden burst
+  confetti({
+    particleCount: 80,
+    spread: 100,
+    startVelocity: 40,
+    origin: { x: 0.5, y: 0.5 },
+    scalar: 1.2,
+    ticks: 160,
+    colors: goldColors,
+  });
+
+  // Medal + star emojis
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 8,
+      spread: 80,
+      startVelocity: 35,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 2,
+      ticks: 200,
+      shapes: [medal, star],
+    });
+  }, 180);
+
+  // Sparkle follow-up
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 30,
+      spread: 70,
+      startVelocity: 25,
+      origin: { x: 0.5, y: 0.4 },
+      scalar: 0.8,
+      ticks: 100,
+      colors: ['#fde68a', '#fcd34d', '#ffffff'],
+    });
+  }, 350);
+}
+
+/**
+ * Challenge complete — 🏆 trophy + sustained celebratory confetti.
+ * Bigger than a regular completion, smaller than milestone365.
+ */
+export function challengeComplete() {
+  if (prefersReducedMotion()) return;
+
+  showCelebrationOverlay(1800);
+
+  const colors = [GREEN, AMBER, VIOLET, PINK, CYAN];
+  const trophy = confetti.shapeFromText({ text: '🏆', scalar: 2.2 });
+  const party = confetti.shapeFromText({ text: '🎉', scalar: 2 });
+
+  // Center burst
+  confetti({
+    particleCount: 100,
+    spread: 100,
+    startVelocity: 45,
+    origin: { x: 0.5, y: 0.5 },
+    scalar: 1.2,
+    ticks: 180,
+    colors,
+  });
+
+  // Trophy + party emojis
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 8,
+      spread: 90,
+      startVelocity: 40,
+      origin: { x: 0.5, y: 0.5 },
+      scalar: 2.2,
+      ticks: 220,
+      shapes: [trophy, party],
+    });
+  }, 220);
+
+  // Side cannons for sustained celebration
+  window.setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 80,
+      origin: { x: 0.1, y: 0.7 },
+      colors,
+      scalar: 1.1,
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 80,
+      origin: { x: 0.9, y: 0.7 },
+      colors,
+      scalar: 1.1,
+    });
+  }, 400);
+}
+
+/**
+ * Dispatch the correct milestone celebration based on streak count.
+ * Falls back to a regular `celebrate()` for non-milestone streaks.
+ */
+export function milestoneForStreak(streak: number) {
+  if (streak >= 365) return milestone365();
+  if (streak >= 100) return milestone100();
+  if (streak >= 30) return milestone30();
+  if (streak >= 7) return milestone7();
+  // Below 7-day threshold — keep the existing small celebration.
+  return celebrate({ emojis: ['🔥'] });
+}

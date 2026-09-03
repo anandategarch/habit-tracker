@@ -60,6 +60,7 @@ import { TimePicker } from './time-picker';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { smallPop } from '@/lib/confetti';
+import { MoneyParticles } from './money-particles';
 
 // Lazy-loaded sub-components
 const FinanceOverview = dynamic(() => import('./finance-overview'), {
@@ -262,6 +263,10 @@ export default function Finance() {
   const [budgetForm, setBudgetForm] = useState({ category: '', amount: '', period: 'monthly' });
   const [catForm, setCatForm] = useState({ type: 'expense' as string, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
   const [submitting, setSubmitting] = useState(false);
+  // ANIM-2 / Feature 3: MoneyParticles trigger key. Increment to fire a
+  // burst of floating 💰 particles when an income transaction is added.
+  // Starts at 0 — the MoneyParticles component ignores the initial value.
+  const [moneyParticlesKey, setMoneyParticlesKey] = useState(0);
   // BUG-5 fix: double-submit guard. Prevents concurrent submissions when the
   // user double-clicks the Save/Simpan button (especially in split mode where
   // N expense rows + a balance update are created atomically). Set to true at
@@ -523,6 +528,12 @@ export default function Finance() {
       } else {
         const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop(event?.currentTarget); } else { toast.error('Gagal menambahkan transaksi'); return; }
+        // ANIM-2 / Feature 3: fire money particles when an income transaction
+        // is added. Split mode is expense-only, so this only applies to the
+        // regular single-transaction branch (txForm.type === 'income').
+        if (txForm.type === 'income') {
+          setMoneyParticlesKey(k => k + 1);
+        }
       }
       setTxDialogOpen(false);
       invalidateFinance();
@@ -797,6 +808,11 @@ export default function Finance() {
 
   return (
     <div className="space-y-3">
+      {/* ANIM-2 / Feature 3: Floating 💰 particles overlay — fires when an
+          income transaction is added. Fixed-positioned (covers viewport),
+          pointer-events-none, aria-hidden. Auto-cleans after 2.6s. */}
+      <MoneyParticles triggerKey={moneyParticlesKey} />
+
       {/* Header — compact on mobile: month picker + action buttons in 2 rows */}
       <div className="flex flex-col gap-2">
         {/* Row 1: Month navigation */}

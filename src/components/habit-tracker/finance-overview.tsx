@@ -95,7 +95,7 @@ export default function FinanceOverview({
               <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
               <span className="text-xs font-medium text-primary">Pemasukan</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-primary"><CountUpRupiah amount={dashboardData.totalIncome} /></p>
+            <p className="text-lg sm:text-xl font-bold text-primary"><CountUpRupiah amount={dashboardData.totalIncome} flashColor="green" /></p>
             {dashboardData.previousMonth.income > 0 && (
               <p className={cn('text-xs mt-0.5', incomeChange >= 0 ? 'text-primary' : 'text-destructive')}>
                 {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs lalu
@@ -109,7 +109,7 @@ export default function FinanceOverview({
               <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
               <span className="text-xs font-medium text-destructive">Pengeluaran</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-destructive"><CountUpRupiah amount={dashboardData.totalExpense} /></p>
+            <p className="text-lg sm:text-xl font-bold text-destructive"><CountUpRupiah amount={dashboardData.totalExpense} flashColor="red" /></p>
             {dashboardData.previousMonth.expense > 0 && (
               <p className={cn('text-xs mt-0.5', expenseChange <= 0 ? 'text-primary' : 'text-destructive')}>
                 {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs lalu

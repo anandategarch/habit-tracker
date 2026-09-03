@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { useTypewriter } from '@/hooks/use-typewriter';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
+import { StaggerGroup, StaggerItem } from '@/components/habit-tracker/page-transition';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   Target,
@@ -558,7 +559,11 @@ export default function Dashboard() {
 
       {/* ── KPI Cards Grid ──────────────────────────────────────── */}
       <section aria-label="Key metrics">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        {/* ANIM-2 / Feature 4: framer-motion staggerChildren — 60ms cascade
+            through cards (smoother than the previous `anim-stagger` CSS class).
+            The grid wrapper is the StaggerGroup; each card is wrapped in
+            StaggerItem which inherits the visible variant via context. */}
+        <StaggerGroup className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {[
             { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Active habits', key: 'habits' },
             { label: 'Completion Rate', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
@@ -575,7 +580,7 @@ export default function Dashboard() {
             { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
             { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
             { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
-          ].map((card, i) => {
+          ].map((card) => {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce
             // cognitive overload. 15 cards → 6 on mobile.
@@ -585,27 +590,28 @@ export default function Dashboard() {
             const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'challenges', 'goals']);
             const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
             return (
-              <Card
+              <StaggerItem
                 key={card.key}
-                className={cn('p-4 anim-stagger', isHiddenOnMobile && 'hidden sm:block')}
-                style={{ animationDelay: `${i * 50}ms` }}
+                className={cn(isHiddenOnMobile && 'hidden sm:block')}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
-                  <Icon className={cn('h-4 w-4', card.iconColor, card.iconClass)} />
-                </div>
-                <div className="tabular-nums text-xl sm:text-2xl font-bold">{card.value}</div>
-                {card.progress !== undefined && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <Progress value={card.progress} className={cn('h-1.5 flex-1', card.progressColor)} />
-                    {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
+                    <Icon className={cn('h-4 w-4', card.iconColor, card.iconClass)} />
                   </div>
-                )}
-                {card.sub && <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>}
-              </Card>
+                  <div className="tabular-nums text-xl sm:text-2xl font-bold">{card.value}</div>
+                  {card.progress !== undefined && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <Progress value={card.progress} className={cn('h-1.5 flex-1', card.progressColor)} />
+                      {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
+                    </div>
+                  )}
+                  {card.sub && <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>}
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerGroup>
       </section>
 
       {/* ── Progress Rings Section ───────────────────────────────── */}

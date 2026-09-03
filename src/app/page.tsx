@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore, type TabId } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,8 @@ import {
 import { jakartaDateString } from '@/lib/jakarta-date';
 
 import dynamic from 'next/dynamic';
+import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
+import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
 
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
@@ -80,6 +83,22 @@ export default function Home() {
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const queryClient = useQueryClient();
+
+  // ANIM-3 / Feature 5: Pull-to-refresh handler. Called by PullToRefresh
+  // when the user pulls past the threshold on a touch device. Invalidates
+  // all React Query caches (active queries refetch immediately) AND bumps
+  // `refreshKey` for components that use the non-React-Query refresh
+  // pattern (e.g. daily-tracker's month-cache useEffect). Wrapped in
+  // Promise.resolve so the caller can always `await` even if the inner
+  // work is sync.
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries(),
+      Promise.resolve(triggerRefresh()),
+    ]);
+  }, [queryClient, triggerRefresh]);
 
   // BUGHUNT-OTHER-1 BUG-L9: header date string should use Jakarta wall-clock
   // date, not the browser-local date, so it stays consistent for users in
@@ -162,6 +181,12 @@ export default function Home() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="min-h-dvh flex bg-background">
+        {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
+            gradient that drifts opposite to scroll direction. Fixed-positioned,
+            behind all content (-z-10), pointer-events-none. Renders as a static
+            layer when prefers-reduced-motion is set. */}
+        <ParallaxBackground className="bg-gradient-to-b from-primary/5 via-background to-background" />
+
         {/* Mobile dark overlay */}
         {sidebarOpen && (
           <div
@@ -257,12 +282,28 @@ export default function Home() {
           {/* Content area — extra bottom padding on mobile so content
               doesn't get hidden behind the fixed bottom navigation bar.
               Uses pb-28 (112px) to accommodate the morph-bump nav which
-              is taller than the previous flat nav (active tab bumps up). */}
-          <div className="flex-1 p-4 md:p-6 overflow-auto pb-28 md:pb-6">
-            <div key={activeTab} className="anim-tab-enter">
+              is taller than the previous flat nav (active tab bumps up).
+
+              ANIM-3 / Feature 5: PullToRefresh wraps the content area.
+              On touch devices, the user can pull down at the top of the
+              scroll area to trigger a full data refresh (a 🌱 sprout
+              grows as they pull, then spins while refreshing). On
+              desktop (no touch), it's a pass-through wrapper — no
+              behaviour change. */}
+          <PullToRefresh
+            className="flex-1 p-4 md:p-6 overflow-auto pb-28 md:pb-6"
+            onRefresh={handleRefresh}
+          >
+            {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
+                content with a smooth enter/exit (fade + slide x).
+                Replaces the previous `anim-tab-enter` CSS-only transition
+                with framer-motion's AnimatePresence for crossfade-aware
+                enter/exit (no overlap). `tabId={activeTab}` triggers a
+                re-mount on tab change. */}
+            <PageTransition tabId={activeTab}>
               <ActiveComponent />
-            </div>
-          </div>
+            </PageTransition>
+          </PullToRefresh>
         </main>
 
         {/* ── Mobile bottom navigation (Morph Bump style) ────────────────────

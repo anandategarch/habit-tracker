@@ -563,6 +563,14 @@
   .anim-lift,
   .anim-cursor,
   .anim-flame-pulse,
+  .anim-flame-pulse-slow,
+  .anim-flame-pulse-fast,
+  .anim-flame-pulse-blaze,
+  .anim-flame-embers,
+  .anim-flame-embers::before,
+  .anim-flame-embers::after,
+  .anim-flame-epic,
+  .anim-celebration-overlay,
   .anim-flash-green,
   .anim-crossfade {
     animation: none !important;
@@ -585,6 +593,112 @@
 .anim-flame-pulse {
   animation: anim-flame-pulse 1.5s ease-in-out infinite;
   display: inline-block;
+}
+
+/* ── Streak flame tiers — dynamic intensity by streak count ──
+   spark (1-3):    subtle slow pulse, amber
+   flame (4-6):    normal pulse, orange
+   blaze (7-29):   fast pulse + glow shadow, red
+   fire (30-99):   fast pulse + ember particles rising, deep red
+   epic (100+):    rainbow hue-rotate shimmer, deep red + rainbow
+   ───────────────────────────────────────────────────────────── */
+@keyframes anim-flame-pulse-slow {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.anim-flame-pulse-slow {
+  animation: anim-flame-pulse-slow 2.2s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes anim-flame-pulse-fast {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
+  }
+  50% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.7));
+  }
+}
+.anim-flame-pulse-fast {
+  animation: anim-flame-pulse-fast 1.1s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes anim-flame-pulse-blaze {
+  0%, 100% {
+    transform: scale(1) rotate(-2deg);
+    filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
+  }
+  50% {
+    transform: scale(1.18) rotate(2deg);
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8));
+  }
+}
+.anim-flame-pulse-blaze {
+  animation: anim-flame-pulse-blaze 0.8s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Ember particles rising from the flame — used for fire tier (30-99).
+   Pure CSS pseudo-elements so no extra DOM is needed per render. */
+@keyframes anim-flame-rise {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(-40px) scale(1.2); opacity: 0; }
+}
+.anim-flame-embers {
+  position: relative;
+  display: inline-block;
+}
+.anim-flame-embers::before,
+.anim-flame-embers::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fbbf24 0%, #ef4444 60%, transparent 100%);
+  pointer-events: none;
+  animation: anim-flame-rise 1.4s ease-out infinite;
+}
+.anim-flame-embers::before {
+  margin-left: -6px;
+  animation-delay: 0s;
+}
+.anim-flame-embers::after {
+  margin-left: 2px;
+  animation-delay: 0.7s;
+}
+
+/* Epic tier (100+): rainbow hue-rotate shimmer over a deep red base. */
+@keyframes anim-rainbow-shimmer {
+  0% { filter: hue-rotate(0deg) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
+  100% { filter: hue-rotate(360deg) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
+}
+.anim-flame-epic {
+  animation: anim-rainbow-shimmer 3s linear infinite;
+  display: inline-block;
+}
+
+/* ── Celebration overlay: full-screen radial primary glow for milestones ──
+   Spawned imperatively by showCelebrationOverlay() in src/lib/confetti.ts.
+   Auto-removed after the animation completes; pointer-events:none so it
+   never blocks taps. */
+@keyframes anim-celebration-glow {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.3; }
+}
+.anim-celebration-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.2), transparent 70%);
+  animation: anim-celebration-glow 1.5s ease-out;
 }
 
 /* ── Number flash: green pulse when a value increases (habit completed, XP gained) ── */
@@ -616,6 +730,76 @@
   transform-origin: bottom;
   animation: anim-chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform;
+}
+
+/* ── Chart line draw: stroke-dashoffset animates from full → 0 ──
+   Apply to SVG <path>/<<line>> with stroke. Caller MUST set:
+   stroke-dasharray and stroke-dashoffset equal to path length (or a
+   large number like 2000) inline OR via the .anim-chart-line-draw--setup
+   helper class below. */
+@keyframes anim-chart-line-draw {
+  from { stroke-dashoffset: var(--anim-line-length, 2000); }
+  to   { stroke-dashoffset: 0; }
+}
+.anim-chart-line-draw {
+  stroke-dasharray: var(--anim-line-length, 2000);
+  stroke-dashoffset: var(--anim-line-length, 2000);
+  animation: anim-chart-line-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: stroke-dashoffset;
+}
+
+/* ── Pie / donut chart entrance: rotate-in + scale-in ── */
+@keyframes anim-chart-pie-in {
+  0%   { transform: scale(0.4) rotate(-90deg); opacity: 0; }
+  60%  { transform: scale(1.05) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.anim-chart-pie {
+  transform-origin: center;
+  animation: anim-chart-pie-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ANIM-2 / Feature 3 — Finance Counter Roll-Up
+   Money-particles + number flash (green up / red down) + chart draw-in
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Money particle rise: floating 💰 emoji rises + fades ──
+   Apply to a span/element with class .anim-money-particle.
+   The parent should be position:relative; this element absolute. */
+@keyframes anim-money-rise {
+  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+  20%  { transform: translateY(-20px) scale(1); opacity: 1; }
+  100% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+}
+.anim-money-particle {
+  opacity: 0; /* base — invisible until animation runs (so reduced-motion keeps it hidden) */
+  animation: anim-money-rise 2s ease-out forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* ── Number flash green (income / value-up feedback) ── */
+@keyframes anim-number-flash-green {
+  0%, 100% { color: inherit; transform: scale(1); }
+  50%      { color: hsl(var(--success)); transform: scale(1.05); }
+}
+.anim-flash-up {
+  animation: anim-number-flash-green 0.6s ease-out;
+  display: inline-block;
+  will-change: transform, color;
+}
+
+/* ── Number flash red (expense / value-down feedback) ── */
+@keyframes anim-number-flash-red {
+  0%, 100% { color: inherit; transform: scale(1); }
+  50%      { color: hsl(var(--destructive)); transform: scale(0.95); }
+}
+.anim-flash-down {
+  animation: anim-number-flash-red 0.6s ease-out;
+  display: inline-block;
+  will-change: transform, color;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -798,12 +982,18 @@
   .anim-scroll-reveal,
   .anim-sheet-up,
   .anim-sheet-down,
-  .anim-nav-pill {
+  .anim-nav-pill,
+  .anim-chart-line-draw,
+  .anim-chart-pie,
+  .anim-money-particle,
+  .anim-flash-up,
+  .anim-flash-down {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
     grid-template-rows: 1fr !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 
@@ -1268,4 +1458,86 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ANIM-3 — Pull-to-Refresh Sprout + Card Flip 3D
+   Mobile-only pull-to-refresh with growing 🌱 sprout, and 3D card flip
+   for habit cards. All respect prefers-reduced-motion.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Pull-to-Refresh Sprout ──
+   The sprout icon grows + rotates as the user pulls down. When ready
+   (pull ≥ 80px), it gets a subtle "snap" wobble. While refreshing, it
+   switches to a continuous spin (handled via Loader2's animate-spin, but
+   we keep the keyframes here for completeness / custom use). */
+@keyframes anim-sprout-grow {
+  0%   { transform: scale(0.3) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.anim-sprout {
+  /* Smooth spring-y transition when the pull distance changes — matches
+     the content's snap-back easing for a unified feel. */
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+/* "Ready" state — sprout is fully grown, give it a gentle pulse so the
+   user knows releasing will trigger a refresh. */
+.anim-sprout-ready {
+  animation: anim-sprout-ready-pulse 1.2s ease-in-out infinite;
+}
+@keyframes anim-sprout-ready-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 oklch(0.622 0.174 142 / 0)); }
+  50%      { filter: drop-shadow(0 0 6px oklch(0.622 0.174 142 / 0.45)); }
+}
+@keyframes anim-sprout-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.anim-sprout-refreshing {
+  animation: anim-sprout-spin 1s linear infinite;
+}
+
+/* ── Card Flip 3D ──
+   .perspective-1000 goes on the PARENT of the rotating element so the
+     rotateY() produces a 3D depth effect (closer face = bigger).
+   .preserve-3d on the rotating element keeps its children in the same
+     3D space (so the back face, pre-rotated 180°, lines up correctly).
+   .backface-hidden hides the rear face of an element (so when the card
+     is flipped, only the front OR the back is visible, never both). */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Subtle scale-in for the back face as it rotates into view. Applied
+   opportunistically — the FlipCard component controls the rotation; this
+   keyframe is available for custom entrance effects. */
+@keyframes anim-card-flip-in {
+  0%   { transform: rotateY(180deg) scale(0.92); opacity: 0; }
+  100% { transform: rotateY(180deg) scale(1); opacity: 1; }
+}
+
+/* ── Reduced motion: disable ANIM-3 effects ──
+   Sprout stays static (no pulse, no spin), card flip is bypassed in the
+   component (front always shown), and transitions are flattened. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-sprout,
+  .anim-sprout-ready,
+  .anim-sprout-refreshing {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Force preserve-3d off so the back face doesn't render in 3D space
+     (the component already skips the rotation, but this is a safety net
+     for any custom usage). */
+  .preserve-3d {
+    transform-style: flat;
+  }
 }

@@ -18,6 +18,7 @@ import {
   Star,
   Clock,
   Zap,
+  RotateCw,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,14 +29,19 @@ import {
 import { Input } from '@/components/ui/input';
 import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { TimePicker } from '@/components/habit-tracker/time-picker';
+import { FlipCard } from '@/components/habit-tracker/flip-card';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass } from '@/lib/label-colors';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { FlashNumber } from '@/components/habit-tracker/flash-number';
+import { StreakFlame } from '@/components/habit-tracker/streak-flame';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { burstFromElement, celebrate } from '@/lib/confetti';
+import {
+  burstFromElement,
+  milestoneForStreak,
+} from '@/lib/confetti';
 import {
   format,
   addDays,
@@ -147,6 +153,29 @@ function computeStreak(logs: HabitLog[], dateStr: string): number {
     }
   }
   return streak;
+}
+
+/**
+ * ANIM-3: Last-7-days status for the FlipCard back face.
+ * Returns 7 entries (oldest → newest) with `done` flag + day-of-month label.
+ * Uses the month-cached logs (same source as computeStreak). Days outside the
+ * cached month are treated as not-done — acceptable for a quick stats view.
+ */
+function getLast7DaysStatus(
+  logs: HabitLog[] | undefined,
+  todayStr: string,
+): { done: boolean; dateNum: number }[] {
+  const completedDays = new Set(
+    (logs || []).filter((l) => l.completed).map((l) => toDateString(l.date)),
+  );
+  const today = parseISO(todayStr);
+  const result: { done: boolean; dateNum: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = subDays(today, i);
+    const key = format(day, 'yyyy-MM-dd');
+    result.push({ done: completedDays.has(key), dateNum: day.getDate() });
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -667,10 +696,9 @@ export default function DailyTracker() {
         const el = confettiElRef.current;
 
         if ([7, 30, 100, 365].includes(newStreak)) {
-          // Big milestone — full-screen celebration with emojis
-          celebrate({
-            emojis: newStreak >= 100 ? ['💯', '🔥'] : newStreak >= 30 ? ['⚡', '🔥'] : ['🔥'],
-          });
+          // Big milestone — dispatch to the correct tier-based
+          // full-screen celebration (🌱 → ⚡🔥 → 💯🔥 → 🏆⭐🔥).
+          milestoneForStreak(newStreak);
         } else {
           // Regular completion — burst from the clicked element
           burstFromElement(el, { count: 20 });
@@ -970,143 +998,230 @@ export default function DailyTracker() {
               const isLate =
                 doneTime && habit.targetTime && doneTime > habit.targetTime;
 
+              // ANIM-3 / Feature 6: derive last-7-days status + total logs
+              // for the FlipCard back face. Reuses the same month cache that
+              // computeStreak uses (so the front streak and back mini-calendar
+              // stay in sync). Days outside the cached month are treated as
+              // not-done — acceptable for a quick stats view.
+              const last7Days = (() => {
+                const month = selectedDate.slice(0, 7);
+                const cache = monthLogsCacheRef.current[month];
+                return getLast7DaysStatus(cache?.[habit.id], todayStr);
+              })();
+              const totalLogs = habit._count?.logs ?? 0;
+
               return (
-                <Card
+                <FlipCard
                   key={habit.id}
                   className={cn(
-                    'group cursor-pointer select-none anim-stagger p-5 gap-0 transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
+                    'anim-stagger',
                     !justCompleted && 'anim-lift',
-                    isDone && 'habit-card-completed',
                     justCompleted && 'habit-card-pop anim-check-pop',
                   )}
                   style={{ animationDelay: `${idx * 40}ms` }}
-                  onClick={(e) => handleHabitCheck(habit, e)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleHabitCheck(habit, e);
-                    }
-                  }}
-                >
-                  {/* Checkbox top-right */}
-                  <div className="absolute top-4 right-4 z-10">
-                    <Checkbox
-                      checked={isDone}
-                      onCheckedChange={() => handleHabitCheck(habit)}
-                      disabled={isToggling}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Set confetti origin to the checkbox button itself,
-                        // since onCheckedChange doesn't receive a DOM event.
-                        confettiElRef.current = e.currentTarget as HTMLElement;
-                      }}
+                  front={
+                    <Card
                       className={cn(
-                        'h-5 w-5 rounded-md transition-all duration-200',
-                        isDone &&
-                          'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
-                        justCompleted && 'animate-[ringPop_0.4s_ease]',
-                      )}
-                    />
-                  </div>
-
-                  {/* Icon + Category tint */}
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-3 transition-transform duration-300 group-hover:scale-110',
-                      catStyle.tint,
-                    )}
-                  >
-                    {habit.icon}
-                  </div>
-
-                  {/* Title */}
-                  <h4
-                    className={cn(
-                      'text-sm font-bold truncate pr-8 transition-all duration-200',
-                      isDone && 'line-through text-muted-foreground',
-                    )}
-                  >
-                    {habit.name}
-                  </h4>
-
-                  {/* Time + Category badge */}
-                  <div className="flex items-center gap-1.5 mt-1.5 mb-4 flex-wrap">
-                    {habit.targetTime && (
-                      <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums">
-                        <Clock className="h-3 w-3" />
-                        {habit.targetTime}
-                      </span>
-                    )}
-                    {doneTime && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAnalysisHabitId(habit.id);
-                        }}
-                        className={cn(
-                          'inline-flex items-center gap-0.5 text-[11px] tabular-nums rounded px-1 py-0.5 hover:bg-accent transition-colors',
-                          isLate
-                            ? 'text-destructive dark:text-destructive/80'
-                            : 'text-primary',
-                        )}
-                        title={
-                          habit.targetTime
-                            ? `Target: ${habit.targetTime}`
-                            : 'Click for time analysis'
-                        }
-                      >
-                        <Check className="h-3 w-3" />
-                        {doneTime}
-                        {isLate &&
-                          ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
-                      </button>
-                    )}
-                    <span
-                      className={cn(
-                        'inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full',
-                        getBadgeClass(
-                          categoryMap[habit.category]?.color || 'slate',
-                        ),
+                        'group cursor-pointer select-none p-5 gap-0 h-full transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
+                        isDone && 'habit-card-completed',
                       )}
                     >
-                      {habit.category}
-                    </span>
-                  </div>
-
-                  {/* Circular Progress + Streak */}
-                  <div className="flex items-center justify-between">
-                    <ProgressRing
-                      progress={pct}
-                      color={catStyle.hex}
-                      done={isDone}
-                      primaryColor={primaryColor}
-                    />
-                    <div className="text-right">
-                      {isDone ? (
-                        <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
-                          <Check className="h-3 w-3" /> Done
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-medium text-muted-foreground">
-                          Not started
-                        </span>
-                      )}
-                      <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
-                        <Flame
+                      {/* Checkbox top-right (stopPropagation: clicking it
+                          toggles the habit without flipping the card). */}
+                      <div className="absolute top-4 right-4 z-10">
+                        <Checkbox
+                          checked={isDone}
+                          onCheckedChange={() => handleHabitCheck(habit)}
+                          disabled={isToggling}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Set confetti origin to the checkbox button itself,
+                            // since onCheckedChange doesn't receive a DOM event.
+                            confettiElRef.current = e.currentTarget as HTMLElement;
+                          }}
                           className={cn(
-                            'h-3 w-3',
-                            streak > 0 ? 'text-orange-500' : 'text-muted-foreground/40',
-                            streak >= 7 && 'anim-flame-pulse',
+                            'h-5 w-5 rounded-md transition-all duration-200',
+                            isDone &&
+                              'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
+                            justCompleted && 'animate-[ringPop_0.4s_ease]',
                           )}
                         />
-                        {streak} {streak === 1 ? 'day' : 'days'}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
+                      </div>
+
+                      {/* ANIM-3: Flip hint icon — top-left, pointer-events-none
+                          so taps pass through to the FlipCard flip handler. */}
+                      <div className="absolute top-4 left-4 z-10 pointer-events-none">
+                        <RotateCw className="h-3.5 w-3.5 text-muted-foreground/40" />
+                      </div>
+
+                      {/* Icon + Category tint */}
+                      <div
+                        className={cn(
+                          'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-3 transition-transform duration-300 group-hover:scale-110',
+                          catStyle.tint,
+                        )}
+                      >
+                        {habit.icon}
+                      </div>
+
+                      {/* Title */}
+                      <h4
+                        className={cn(
+                          'text-sm font-bold truncate pr-8 transition-all duration-200',
+                          isDone && 'line-through text-muted-foreground',
+                        )}
+                      >
+                        {habit.name}
+                      </h4>
+
+                      {/* Time + Category badge */}
+                      <div className="flex items-center gap-1.5 mt-1.5 mb-4 flex-wrap">
+                        {habit.targetTime && (
+                          <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums">
+                            <Clock className="h-3 w-3" />
+                            {habit.targetTime}
+                          </span>
+                        )}
+                        {doneTime && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAnalysisHabitId(habit.id);
+                            }}
+                            className={cn(
+                              'inline-flex items-center gap-0.5 text-[11px] tabular-nums rounded px-1 py-0.5 hover:bg-accent transition-colors',
+                              isLate
+                                ? 'text-destructive dark:text-destructive/80'
+                                : 'text-primary',
+                            )}
+                            title={
+                              habit.targetTime
+                                ? `Target: ${habit.targetTime}`
+                                : 'Click for time analysis'
+                            }
+                          >
+                            <Check className="h-3 w-3" />
+                            {doneTime}
+                            {isLate &&
+                              ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
+                          </button>
+                        )}
+                        <span
+                          className={cn(
+                            'inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full',
+                            getBadgeClass(
+                              categoryMap[habit.category]?.color || 'slate',
+                            ),
+                          )}
+                        >
+                          {habit.category}
+                        </span>
+                      </div>
+
+                      {/* Circular Progress + Streak */}
+                      <div className="flex items-center justify-between">
+                        <ProgressRing
+                          progress={pct}
+                          color={catStyle.hex}
+                          done={isDone}
+                          primaryColor={primaryColor}
+                        />
+                        <div className="text-right">
+                          {isDone ? (
+                            <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
+                              <Check className="h-3 w-3" /> Done
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-medium text-muted-foreground">
+                              Not started
+                            </span>
+                          )}
+                          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
+                            <StreakFlame streak={streak} size="sm" />
+                            {streak} {streak === 1 ? 'day' : 'days'}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  }
+                  back={
+                    <Card
+                      className={cn(
+                        'p-5 gap-0 h-full flex flex-col overflow-hidden',
+                        isDone && 'habit-card-completed',
+                      )}
+                    >
+                      {/* Header: icon + name + flip hint */}
+                      <div className="flex items-center gap-2 mb-3 min-w-0">
+                        <span className="text-lg shrink-0">{habit.icon}</span>
+                        <h4 className="text-sm font-bold truncate flex-1">
+                          {habit.name}
+                        </h4>
+                        <RotateCw className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                      </div>
+
+                      {/* Last 7 days mini calendar */}
+                      <div className="mb-3">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
+                          Last 7 days
+                        </p>
+                        <div className="flex items-center gap-1">
+                          {last7Days.map((day, i) => (
+                            <div
+                              key={i}
+                              className={cn(
+                                'flex-1 h-7 rounded-md flex items-center justify-center text-[10px] font-semibold tabular-nums',
+                                day.done
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground/60',
+                              )}
+                            >
+                              {day.dateNum}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="grid grid-cols-2 gap-2 mt-auto">
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            Total logs
+                          </p>
+                          <p className="text-sm font-bold tabular-nums">
+                            {totalLogs}
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            Streak
+                          </p>
+                          <p className="text-sm font-bold tabular-nums flex items-center gap-1">
+                            <StreakFlame streak={streak} size="sm" />
+                            {streak}d
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Notes preview */}
+                      {habit.notes ? (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                            Notes
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-3">
+                            {habit.notes}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-3 pt-3 border-t border-border text-[10px] text-muted-foreground/60 italic">
+                          Tap to flip back
+                        </p>
+                      )}
+                    </Card>
+                  }
+                />
               );
             })}
           </div>
