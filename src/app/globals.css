@@ -225,22 +225,28 @@
 }
 
 /* Skeleton shimmer — premium gradient sweep (light + dark mode aware).
-   Uses CSS variables (--muted, --accent) so it adapts to theme.
+   Uses CSS variables (--muted, --primary) so it adapts to theme.
    will-change: background-position hints the browser to optimize the
    animation for compositing (smoother on low-end devices). */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+/* Aurora Skeleton Upgrade — gradient hijau emerald→teal flowing.
+   Sweeps a soft green tint (--primary at low opacity) across a muted
+   base, matching the app's sprout/nature theme. Adapts to light & dark
+   via CSS variables. Slow 2s linear loop for calm premium feel. */
 .shimmer {
   background: linear-gradient(
-    90deg,
-    var(--muted) 25%,
-    var(--accent) 50%,
-    var(--muted) 75%
+    110deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--primary) / 0.08) 40%,
+    hsl(var(--primary) / 0.15) 50%,
+    hsl(var(--primary) / 0.08) 60%,
+    hsl(var(--muted)) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite linear;
+  animation: shimmer 2s linear infinite;
   will-change: background-position;
 }
 

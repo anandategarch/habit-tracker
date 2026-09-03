@@ -25,6 +25,7 @@ import { jakartaDateString } from '@/lib/jakarta-date';
 import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
+import { SproutGrow } from '@/components/ui/loaders';
 
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
@@ -77,6 +78,15 @@ export default function Home() {
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
+
+  // Splash screen on initial app load — shows SproutGrow loader for 1.5s
+  // while dynamic imports + React Query fetch data. Makes first load feel
+  // premium + branded (sprout theme) instead of blank white flash.
+  const [showSplash, setShowSplash] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // ANIM-3 / Feature 5: Pull-to-refresh handler. Called by PullToRefresh
   // when the user pulls past the threshold on a touch device. Invalidates
@@ -172,6 +182,17 @@ export default function Home() {
 
   return (
     <TooltipProvider delayDuration={300}>
+      {/* Splash screen — SproutGrow loader on initial app load (1.5s).
+          Premium branded loading experience instead of blank white flash. */}
+      {showSplash && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-6">
+          <SproutGrow size={140} />
+          <div className="text-center">
+            <p className="text-lg font-semibold text-primary tracking-tight">Rutina</p>
+            <p className="text-xs text-muted-foreground mt-1">Menumbuhkan habit harian</p>
+          </div>
+        </div>
+      )}
       <div className="min-h-dvh flex bg-background">
         {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
             gradient that drifts opposite to scroll direction. Fixed-positioned,

@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react"
+import { AuroraRing } from "@/components/ui/loaders"
 
 import { cn } from "@/lib/utils"
 
@@ -8,12 +8,11 @@ interface LoadingStateProps {
 }
 
 /**
- * LoadingState (DESIGN-BUG-5 fix)
+ * LoadingState (DESIGN-BUG-5 fix + loader upgrade)
  *
- * Shared inline loading indicator — replaces ad-hoc
- * `<div className="text-center py-8 text-muted-foreground">Memuat...</div>`
- * patterns scattered across tabs. Uses lucide's `Loader2` with
- * `animate-spin` (Tailwind's built-in spin keyframe, no custom CSS).
+ * Shared inline loading indicator — uses AuroraRing (gradient emerald→teal
+ * circular progress with breathing sprout in center). Replaces old Loader2
+ * spinner with premium 2025-style loader.
  *
  * Default text is Indonesian ("Memuat...") to match the dominant language
  * already in use in the app; override per-call if needed.
@@ -26,11 +25,11 @@ function LoadingState({
     <div
       data-slot="loading-state"
       className={cn(
-        "flex items-center justify-center gap-2 py-8 text-muted-foreground",
+        "flex flex-col items-center justify-center gap-3 py-8 text-muted-foreground",
         className
       )}
     >
-      <Loader2 className="h-4 w-4 animate-spin" />
+      <AuroraRing size="sm" />
       <span className="text-sm">{text}</span>
     </div>
   )

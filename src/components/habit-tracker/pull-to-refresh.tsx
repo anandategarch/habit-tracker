@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { Sprout, Loader2 } from 'lucide-react';
+import { Sprout } from 'lucide-react';
+import { BreathingSeed } from '@/components/ui/loaders';
 import { cn } from '@/lib/utils';
 
 /**
@@ -163,7 +164,7 @@ export function PullToRefresh({ children, onRefresh, className }: PullToRefreshP
         >
           <div className="flex items-center justify-center h-8 w-8 mt-1">
             {refreshing ? (
-              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+              <BreathingSeed size={32} />
             ) : (
               <Sprout
                 className={cn(
