@@ -20,8 +20,18 @@ export const metadata: Metadata = {
   title: "Rutina",
   description: "Build daily routines, track your growth",
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>",
-    apple: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>",
+    // PNG icons are required for Android home screen + iOS apple-touch-icon.
+    // The previous SVG data: URL emoji worked for desktop browser tabs but
+    // was silently ignored by iOS Safari (which requires PNG for
+    // apple-touch-icon) and not preferred by Android Chrome for home-screen
+    // install. See worklog ICON-FIX-1.
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
