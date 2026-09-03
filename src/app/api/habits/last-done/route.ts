@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { format, differenceInCalendarDays, subDays } from 'date-fns';
-import { jakartaToday, jakartaDateKey } from '@/lib/timezone';
+import { jakartaToday, jakartaDateKey, jakartaTimeMinutes } from '@/lib/timezone';
 
 // GET /api/habits/last-done
 // Returns last completion date for each habit with trackLastDone = true
@@ -79,11 +79,17 @@ export async function GET() {
       const daysAgo = differenceInCalendarDays(today, logDateOnly);
       const intervalDays = intervalToDays(habit.lastDoneInterval);
 
-      // Extract time from completedAt if available
+      // Extract time from completedAt using Jakarta TZ (BUG-28 fix).
+      // Previously used a regex `match(/T(\d{2}:\d{2})/)` which returned the
+      // RAW ISO time components — correct only when the ISO was already in
+      // Jakarta offset. For UTC-stored timestamps (Z suffix) it returned
+      // the UTC time, not Jakarta. Use jakartaTimeMinutes for TZ-correct HH:mm.
       let timeStr: string | null = null;
       if (lastLog.completedAt) {
-        const m = lastLog.completedAt.match(/T(\d{2}:\d{2})/);
-        if (m) timeStr = m[1];
+        const mins = jakartaTimeMinutes(new Date(lastLog.completedAt));
+        const h = Math.floor(mins / 60) % 24;
+        const m = mins % 60;
+        timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
       }
 
       return {
@@ -100,9 +106,10 @@ export async function GET() {
       };
     });
 
-    // Sort: overdue first (by most overdue), then by daysAgo desc (oldest first), then never-done
+    // Sort: overdue first (by most overdue), then by daysAgo desc (oldest first).
+    // Never-done items (daysAgo === null) sort to the bottom.
     result.sort((a, b) => {
-      // Never done always at top if no interval, or below overdue if has interval
+      // Never-done items go to the bottom (after items with completion history).
       if (a.daysAgo === null && b.daysAgo === null) return 0;
       if (a.daysAgo === null) return 1; // never done → bottom
       if (b.daysAgo === null) return -1;

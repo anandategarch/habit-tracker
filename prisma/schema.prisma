@@ -27,7 +27,18 @@ model Habit {
   category    String   @default("General")
   priority    String   @default("Medium")
   difficulty  String   @default("Medium")
+  // BUG-3 NOTE: target > 1 is stored but NOT supported by the UI. The habit
+  // form clamps target to 1 (see habit-master.tsx handleSubmit), and the
+  // daily-tracker only sends binary completion (value=1). Existing rows with
+  // target > 1 are preserved on disk but will be reset to 1 the next time the
+  // user edits that habit. Do not remove this column — it would break existing
+  // rows. A future "multi-completion" feature could re-enable target > 1.
   target      Int      @default(1)
+  // BUG-14 NOTE: targetType 'weekly' and 'monthly' are stored but NOT used by
+  // the completion logic — every habit is treated as daily. The form disables
+  // non-daily options to prevent users from picking an unsupported mode. Do
+  // not remove this column (would break existing rows); a future
+  // "weekly/monthly habit" feature could re-enable the other options.
   targetType  String   @default("daily")
   color       String   @default("#22c55e")
   reminder    String?

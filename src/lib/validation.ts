@@ -172,11 +172,16 @@ export type UpdateChallengeInput = z.infer<typeof updateChallengeSchema>;
 
 // ── Badge / Reward ───────────────────────────────────────────────────────
 
+// BUG-4 fix: description / requirement / unlockCondition accept null/
+// undefined (the client sends `null` when the field is empty). Previously
+// these used `nonEmpty(500)` which rejects null, causing silent 400 failures
+// on Badge/Reward creation when the user left the field blank. The API
+// converts null to `''` on write, so the DB column stays non-null.
 export const createBadgeSchema = z.object({
   name: nonEmpty(200),
-  description: nonEmpty(500),
+  description: optionalString(500),
   icon: z.string().max(20).optional(),
-  requirement: nonEmpty(500),
+  requirement: optionalString(500),
   unlocked: z.boolean().optional(),
 });
 export type CreateBadgeInput = z.infer<typeof createBadgeSchema>;
@@ -185,9 +190,9 @@ export type CreateBadgeInput = z.infer<typeof createBadgeSchema>;
 export const updateBadgeSchema = z
   .object({
     name: nonEmpty(200).optional(),
-    description: nonEmpty(500).optional(),
+    description: optionalString(500).optional(),
     icon: z.string().max(20).optional(),
-    requirement: nonEmpty(500).optional(),
+    requirement: optionalString(500).optional(),
     unlocked: z.boolean().optional(),
   })
   .refine((d) => Object.keys(d).length > 0, { message: 'No fields provided' });
@@ -196,7 +201,7 @@ export type UpdateBadgeInput = z.infer<typeof updateBadgeSchema>;
 export const createRewardSchema = z.object({
   name: nonEmpty(200),
   description: optionalString(500),
-  unlockCondition: nonEmpty(500),
+  unlockCondition: optionalString(500),
   xpCost: z.number().int().min(0).optional(),
   status: z.enum(['locked', 'unlocked', 'redeemed']).optional(),
 });
@@ -207,7 +212,7 @@ export const updateRewardSchema = z
   .object({
     name: nonEmpty(200).optional(),
     description: optionalString(500).optional(),
-    unlockCondition: nonEmpty(500).optional(),
+    unlockCondition: optionalString(500).optional(),
     xpCost: z.number().int().min(0).optional(),
     status: z.enum(['locked', 'unlocked', 'redeemed']).optional(),
   })
@@ -289,8 +294,13 @@ export const updateHabitOptionSchema = createHabitOptionSchema.partial();
 export const updateSettingsSchema = z.object({
   userName: nonEmpty(100).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
-  primaryColor: z.string().max(20).optional(),
-  secondaryColor: z.string().max(20).optional(),
+  // BUGHUNT-OTHER-1 BUG-L12: validate hex color format (#RRGGBB). Previously
+  // any string up to 20 chars was accepted, allowing invalid values like
+  // "red", "#xyz", or "#1234567" to be stored — which would break CSS
+  // rendering downstream (silent fallback to default colors with no
+  // indication of what went wrong).
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Invalid hex color (use #RRGGBB)').optional(),
+  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Invalid hex color (use #RRGGBB)').optional(),
   weekStart: z.enum(['monday', 'sunday', 'saturday']).optional(),
   language: z.string().max(10).optional(),
   targetCompletion: z.number().int().min(1).max(100).optional(),

@@ -48,11 +48,12 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, isPast, parseISO, differenceInCalendarDays } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { getBadgeClass } from '@/lib/label-colors';
+import { jakartaDateString } from '@/lib/jakarta-date';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -270,12 +271,16 @@ export default function GoalsTab() {
     }
   }
 
-  async function toggleMilestone(goalId: string, index: number, currentMilestones: string) {
+  async function toggleMilestone(goalId: string, index: number, currentMilestones: string, currentStatus: string) {
     const milestones = parseMilestones(currentMilestones);
     milestones[index] = { ...milestones[index], done: !milestones[index].done };
 
     const newProgress = calcProgress(milestones);
-    const newStatus = newProgress >= 100 ? 'completed' : 'active';
+    // BUGHUNT-OTHER-1 BUG-M16: previously this always set status to 'active'
+    // when progress < 100, which silently reset 'paused' goals back to
+    // 'active' on every milestone toggle. Preserve the current status unless
+    // we're transitioning to 'completed' (progress reached 100%).
+    const newStatus = newProgress >= 100 ? 'completed' : currentStatus;
 
     try {
       const res = await fetch(`/api/goals/${goalId}`, {
@@ -343,6 +348,27 @@ export default function GoalsTab() {
     }
   }
 
+  // BUGHUNT-OTHER-1 BUG-L7: previously the only way to "stop" an active goal
+  // was to delete it (which loses the record entirely). Add a Cancel action
+  // that flips `status` to 'cancelled' so the goal moves to a separate
+  // visual state (greyed out, no longer counted in "in progress" stats)
+  // without being deleted.
+  async function handleCancelGoal(goal: Goal) {
+    if (goal.status === 'cancelled' || goal.status === 'completed') return;
+    try {
+      const res = await fetch(`/api/goals/${goal.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      if (!res.ok) throw new Error('Failed to cancel');
+      toast.success('Goal cancelled');
+      invalidateGoals();
+    } catch {
+      toast.error('Failed to cancel goal');
+    }
+  }
+
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
   }
@@ -361,10 +387,27 @@ export default function GoalsTab() {
     const milestones = parseMilestones(goal.milestones);
     const isCompleted = goal.status === 'completed';
     const isCancelled = goal.status === 'cancelled';
-    const isOverdue = goal.deadline && isPast(parseISO(goal.deadline)) && !isCompleted && !isCancelled;
+    // BUGHUNT-OTHER-1 BUG-M4: `isPast(parseISO(deadline))` returns true the
+    // moment "now" exceeds the UTC midnight of the deadline. For Jakarta
+    // users, the deadline's UTC midnight = 07:00 WIB on the deadline day,
+    // so goals would be marked overdue at 07:00 WIB on the deadline day
+    // itself (a full day early). Instead, compare YMD strings: the goal is
+    // overdue only when today's Jakarta date is strictly after the deadline
+    // date. The deadline is stored as UTC midnight, so its YMD portion is
+    // the user-meaningful calendar date.
+    const isOverdue = (() => {
+      if (!goal.deadline || isCompleted || isCancelled) return false;
+      const deadlineYmd = goal.deadline.slice(0, 10); // "2025-01-15"
+      const todayYmd = jakartaDateString();
+      return deadlineYmd < todayYmd;
+    })();
     // Deadline within 7 days (not overdue yet) — subtle urgency pulse
     const isUrgent = !isOverdue && goal.deadline && (() => {
-      const days = differenceInCalendarDays(parseISO(goal.deadline), new Date());
+      const deadlineYmd = goal.deadline.slice(0, 10);
+      const todayYmd = jakartaDateString();
+      if (deadlineYmd <= todayYmd) return false;
+      const [y, m, d] = deadlineYmd.split('-').map(Number);
+      const days = differenceInCalendarDays(new Date(y, m - 1, d), new Date());
       return days >= 0 && days <= 7;
     })();
 
@@ -437,6 +480,20 @@ export default function GoalsTab() {
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 </Button>
               )}
+              {/* BUGHUNT-OTHER-1 BUG-L7: add Cancel action so users can stop
+                  an active goal without deleting it. */}
+              {goal.status === 'active' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  onClick={() => handleCancelGoal(goal)}
+                  aria-label="Cancel goal"
+                  title="Cancel goal"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -474,7 +531,12 @@ export default function GoalsTab() {
                 )}
               >
                 <Calendar className="h-3 w-3" />
-                {format(parseISO(goal.deadline), 'MMM d, yyyy')}
+                {/* BUGHUNT-OTHER-1 BUG-M3: build a local Date from the YMD
+                    portion of the ISO so the calendar day is preserved in
+                    any browser tz (was `parseISO(goal.deadline)` which reads
+                    UTC midnight → shifted to one day earlier on negative-tz
+                    browsers). */}
+                {format(new Date(goal.deadline.slice(0, 10)), 'MMM d, yyyy')}
               </span>
             ) : (
               <span />
@@ -508,7 +570,7 @@ export default function GoalsTab() {
                     <Checkbox
                       checked={ms.done}
                       disabled={isCompleted || isCancelled}
-                      onCheckedChange={() => toggleMilestone(goal.id, idx, goal.milestones)}
+                      onCheckedChange={() => toggleMilestone(goal.id, idx, goal.milestones, goal.status)}
                       className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     />
                     <span

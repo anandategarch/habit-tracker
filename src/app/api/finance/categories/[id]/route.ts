@@ -41,6 +41,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           where: { category: oldName },
           data: { category: newName },
         });
+        // FIN-BUG-3 fix: cascade rename to BudgetSnapshot so historical
+        // budget history shows the new category name. Previously, past
+        // months' snapshots retained the old name, breaking the history
+        // view (looked like two different categories) and causing
+        // getCategoryMeta to return the fallback 📦 emoji for old names.
+        await tx.budgetSnapshot.updateMany({
+          where: { category: oldName },
+          data: { category: newName },
+        });
       }
       return updated;
     });

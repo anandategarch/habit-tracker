@@ -208,11 +208,21 @@ export async function GET(request: NextRequest) {
       dayData.push({ key, activeOnDay, completedOnDay });
     }
 
-    // Current streak (consecutive perfect days from today backwards)
-    for (const day of dayData) {
+    // Current streak (consecutive perfect days from today backwards).
+    // BUG-13 fix: be lenient about TODAY — if today is not yet a perfect day
+    // (user hasn't completed all habits yet), skip it and start counting from
+    // yesterday. This matches `computeStreak` in daily-tracker.tsx, which also
+    // allows today to be incomplete. Previously the dashboard would report
+    // streak=0 the moment a single habit was unfinished today, even if the
+    // user had a 30-day streak going into today.
+    for (let i = 0; i < dayData.length; i++) {
+      const day = dayData[i];
       if (day.activeOnDay === 0) continue; // no habits existed yet, skip
       if (day.completedOnDay >= day.activeOnDay) {
         currentStreak++;
+      } else if (i === 0) {
+        // Today is incomplete — lenient: skip today, streak continues from yesterday
+        continue;
       } else {
         break;
       }

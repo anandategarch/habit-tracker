@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Seed default badges
 const DEFAULT_BADGES = [
@@ -158,7 +158,29 @@ const DEFAULT_INCOME_CATEGORIES = [
   { type: 'income', name: 'Lainnya', emoji: '💸', color: '#78716c', order: 5 },
 ];
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Security guard: this endpoint injects sample data into the database. By
+  // default it is BLOCKED in production unless `APP_API_KEY` env var is set
+  // and the request provides a matching `x-api-key` header (or `?apiKey=`
+  // query param). In non-production (local dev), it remains open.
+  //
+  // See BUGHUNT-OTHER-1 BUG-H1.
+  if (process.env.NODE_ENV === 'production') {
+    const apiKey = process.env.APP_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Destructive endpoints disabled. Set APP_API_KEY to enable.' },
+        { status: 403 }
+      );
+    }
+    const provided =
+      request.headers.get('x-api-key') ||
+      new URL(request.url).searchParams.get('apiKey') ||
+      '';
+    if (provided.length !== apiKey.length || provided !== apiKey) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   try {
     const badgeCount = await db.badge.count();
     const rewardCount = await db.reward.count();

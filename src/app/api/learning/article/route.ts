@@ -14,8 +14,14 @@ interface ArticleData {
 }
 
 // ── In-memory cache ──────────────────────────────────────────────────────────
-
-// Cache: keyed by "date|topic" → first article of the day (no refresh)
+// BUGHUNT-OTHER-1 BUG-L17: this module-level cache is per-instance on
+// Vercel serverless — each cold-start lambda has its own Map, and warm
+// instances may serve only a fraction of requests. The cache therefore
+// provides only partial benefit (some hits within a warm instance, no
+// cross-instance sharing). A real fix would require an external cache
+// (Redis, Vercel KV, etc.) which is out of scope here. Leaving the
+// in-memory cache in place because it's a net positive on warm instances
+// and the purge-on-day-rollover logic still prevents unbounded growth.
 const articleCache = new Map<string, ArticleData>();
 
 // Track article titles we've already shown today (per topic)

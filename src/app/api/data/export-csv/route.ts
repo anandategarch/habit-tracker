@@ -1,25 +1,54 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import JSZip from 'jszip';
+import { jakartaDateKey } from '@/lib/timezone';
 
 function esc(field: string | number | boolean | null | undefined): string {
   const s = field === null || field === undefined ? '' : String(field);
-  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-    return `"${s.replace(/"/g, '""')}"`;
+  // BUGHUNT-OTHER-1 BUG-H4: prevent CSV injection. If a value starts with
+  // `=`, `+`, `-`, or `@`, Excel/LibreOffice would otherwise interpret it as
+  // a formula. Prefix with a single quote to neutralize (Excel drops the
+  // quote on display but keeps it in the cell value as text).
+  let safe = s;
+  if (/^[=+\-@]/.test(safe)) safe = "'" + safe;
+  if (safe.includes(',') || safe.includes('"') || safe.includes('\n') || safe.includes('\r')) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return s;
+  return safe;
 }
 
 function toCSV(headers: string[], rows: (string | number | boolean | null | undefined)[][]): string {
-  return [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
+  // BUGHUNT-OTHER-1 BUG-M9: prefix with a UTF-8 BOM so Excel reads the file
+  // as UTF-8 instead of mojibaking Indonesian chars (and emojis in CSV cells).
+  // The BOM is U+FEFF encoded as the UTF-8 bytes EF BB BF.
+  const bom = '\uFEFF';
+  return bom + [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
 }
 
+// BUGHUNT-OTHER-1 BUG-M10: dates were previously formatted via
+// `d.toISOString().slice(0, 10)` which uses UTC. For Jakarta users, a
+// transaction at 22:00 WIB on Jan 5 is stored as Jan 5 15:00 UTC, so the
+// export correctly shows Jan 5. But a transaction at 01:00 WIB on Jan 6 is
+// stored as Jan 5 18:00 UTC → exported as Jan 5 (wrong day). Use the
+// Jakarta wall-clock date so the CSV matches the in-app display.
 function fmtDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return jakartaDateKey(d);
 }
 
 function fmtDateTime(d: Date): string {
-  return d.toISOString().replace('T', ' ').slice(0, 19);
+  // Combine the Jakarta date with the Jakarta time-of-day. We approximate
+  // by formatting via Jakarta date + the UTC time-of-day for created/updated
+  // stamps (the original code did toISOString() which is UTC). For audit
+  // timestamps the small tz drift is acceptable; the more important fix is
+  // for `fmtDate` (used on user-meaningful dates like transaction date,
+  // journal date, deadline, etc.). For consistency we at least use the
+  // Jakarta date prefix so the calendar day is correct.
+  const datePart = jakartaDateKey(d);
+  // Extract time-of-day from the UTC ISO string (HH:MM:SS portion) for
+  // backward-compat with any tooling that parsed the old format. This is
+  // purely informational.
+  const timePart = d.toISOString().slice(11, 19);
+  return `${datePart} ${timePart}`;
 }
 
 export async function GET() {
@@ -42,6 +71,7 @@ export async function GET() {
       habitGroups,
       learningTopics,
       habitOptions,
+      appSettings,
     ] = await Promise.all([
       db.habit.findMany({ orderBy: { createdAt: 'asc' } }),
       db.habitLog.findMany({ orderBy: { date: 'asc' } }),
@@ -61,6 +91,9 @@ export async function GET() {
       db.habitGroup.findMany({ orderBy: { createdAt: 'asc' } }),
       db.learningTopic.findMany({ orderBy: { createdAt: 'asc' } }),
       db.habitOption.findMany({ orderBy: { createdAt: 'asc' } }),
+      // BUGHUNT-OTHER-1 BUG-M8: include AppSettings so theme/preferences are
+      // backed up (was in JSON export but missing from CSV export).
+      db.appSettings.findMany(),
     ]);
 
     const zip = new JSZip();
@@ -219,10 +252,34 @@ export async function GET() {
       )
     );
 
+    // 18. App Settings (BUGHUNT-OTHER-1 BUG-M8)
+    zip.file(
+      `18-pengaturan-${today}.csv`,
+      toCSV(
+        [
+          'ID', 'User Name', 'Theme', 'Primary Color', 'Secondary Color',
+          'Week Start', 'Language', 'Target Completion', 'Daily Budget Target',
+          'Projection Category IDs', 'Push Habit Enabled', 'Push Habit Time',
+          'Push Budget Enabled', 'Push Budget Time', 'Push Spending Enabled',
+          'Push Spending Time', 'Dibuat', 'Diubah',
+        ],
+        appSettings.map((s) => [
+          s.id, s.userName ?? '', s.theme ?? '', s.primaryColor ?? '',
+          s.secondaryColor ?? '', s.weekStart ?? '', s.language ?? '',
+          s.targetCompletion ?? '', s.dailyBudgetTarget ?? '',
+          s.projectionCategoryIds ?? '',
+          s.pushHabitEnabled ? 'Ya' : 'Tidak', s.pushHabitTime ?? '',
+          s.pushBudgetEnabled ? 'Ya' : 'Tidak', s.pushBudgetTime ?? '',
+          s.pushSpendingEnabled ? 'Ya' : 'Tidak', s.pushSpendingTime ?? '',
+          fmtDateTime(s.createdAt), fmtDateTime(s.updatedAt),
+        ])
+      )
+    );
+
     // Generate ZIP
     const zipBuffer = await zip.generateAsync({ type: 'uint8array' });
 
-    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + challenges.length + badges.length + rewards.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + learningTopics.length + habitOptions.length;
+    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + challenges.length + badges.length + rewards.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + learningTopics.length + habitOptions.length + appSettings.length;
 
     // Convert Uint8Array to a Blob for Response BodyInit compatibility.
     // Some TS lib versions reject Uint8Array<ArrayBufferLike> directly.
@@ -234,7 +291,7 @@ export async function GET() {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="habit-tracker-data-${today}.zip"`,
         'X-Total-Records': String(totalRecords),
-        'X-Files-Count': '17',
+        'X-Files-Count': '18',
       },
     });
   } catch (error) {

@@ -25,6 +25,17 @@ const PUBLIC_API_ROUTES = new Set<string>([
   // Example: '/api/health'. None by default.
 ]);
 
+// Destructive routes that are ALWAYS blocked in production unless
+// `APP_API_KEY` is set and the request provides a matching `x-api-key`
+// header / `?apiKey=` query param. This is a defense-in-depth net that
+// complements the per-route guards in `reset-all` and `seed` — so even
+// if a future route handler forgets the guard, the middleware blocks
+// unauthenticated destructive calls.
+const DESTRUCTIVE_API_ROUTES = new Set<string>([
+  '/api/reset-all',
+  '/api/seed',
+]);
+
 function isPublicApiRoute(pathname: string): boolean {
   if (PUBLIC_API_ROUTES.has(pathname)) return true;
   // Allow exact match only — sub-paths under a "public" route are NOT public.
@@ -36,6 +47,31 @@ export function middleware(request: NextRequest) {
 
   // Only protect /api/* routes.
   if (!pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
+  // Defense-in-depth: destructive routes are blocked in production by
+  // default. The per-route handlers also enforce this, but the middleware
+  // provides a backstop. See BUGHUNT-OTHER-1 BUG-H1.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    DESTRUCTIVE_API_ROUTES.has(pathname)
+  ) {
+    const apiKey = process.env.APP_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Destructive endpoints disabled. Set APP_API_KEY to enable.' },
+        { status: 403 }
+      );
+    }
+    const provided =
+      request.headers.get('x-api-key') || searchParams.get('apiKey') || '';
+    if (provided.length !== apiKey.length || provided !== apiKey) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Provide x-api-key header or ?apiKey= query.' },
+        { status: 401 }
+      );
+    }
     return NextResponse.next();
   }
 

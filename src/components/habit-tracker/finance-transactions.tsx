@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit3, Search, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { jakartaDateString, jakartaDateKey } from '@/lib/timezone';
+import { jakartaDateString, jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { formatRupiah, capitalize } from './finance-types';
 import type { Transaction } from './finance-types';
@@ -36,6 +36,11 @@ interface FinanceTransactionsProps {
   onEditTx: (tx: Transaction) => void;
   onDeleteTx: (id: string) => void;
   onBulkDelete: () => void;
+  // FIN-BUG-7 fix: selectedMonth is needed to decide whether to render
+  // the "Total Pengeluaran Hari Ini" footer block — it's only meaningful
+  // when viewing the current month (filteredTransactions is scoped to
+  // selectedMonth, so today's expense is 0 for any other month).
+  selectedMonth: string;
 }
 
 export default function FinanceTransactions({
@@ -53,15 +58,23 @@ export default function FinanceTransactions({
   onEditTx,
   onDeleteTx,
   onBulkDelete,
+  selectedMonth,
 }: FinanceTransactionsProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [multiSelect, setMultiSelect] = useState(false);
 
-  // Calculate today's total expense
+  // FIN-BUG-7 fix: only compute + render "today's expense" when viewing
+  // the current month. filteredTransactions is scoped to selectedMonth,
+  // so for any other month today's expense would always be 0 — rendering
+  // "Total Pengeluaran Hari Ini: Rp 0" is misleading. The footer's right
+  // side (Total Transaksi count) still shows regardless.
+  const isCurrentMonth = selectedMonth === jakartaMonthString();
   const today = jakartaDateString();
-  const todayExpense = filteredTransactions
-    .filter(t => jakartaDateKey(new Date(t.date)) === today && t.type === 'expense')
-    .reduce((s, t) => s + (t.amount ?? 0), 0);
+  const todayExpense = isCurrentMonth
+    ? filteredTransactions
+        .filter(t => jakartaDateKey(new Date(t.date)) === today && t.type === 'expense')
+        .reduce((s, t) => s + (t.amount ?? 0), 0)
+    : 0;
 
   // Format time from transaction date.
   // MUST use timeZone: 'Asia/Jakarta' explicitly — without it, toLocaleTimeString
@@ -391,10 +404,18 @@ export default function FinanceTransactions({
       {/* ── Total Expense Footer ──────────────────────────────── */}
       {filteredTransactions.length > 0 && (
         <div className="tx-total-footer flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground">Total Pengeluaran Hari Ini</p>
-            <p className="text-lg font-bold text-red-500">{formatRupiah(todayExpense)}</p>
-          </div>
+          {/* FIN-BUG-7 fix: only show today-expense block when viewing the
+              current month. For other months, today's expense is always 0
+              (filteredTransactions is scoped to selectedMonth) — showing
+              "Rp 0" was misleading. */}
+          {isCurrentMonth ? (
+            <div>
+              <p className="text-xs text-muted-foreground">Total Pengeluaran Hari Ini</p>
+              <p className="text-lg font-bold text-red-500">{formatRupiah(todayExpense)}</p>
+            </div>
+          ) : (
+            <div />
+          )}
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Total Transaksi</p>
             <p className="text-lg font-bold">{filteredTransactions.length}</p>

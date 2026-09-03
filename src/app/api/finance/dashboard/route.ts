@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { format } from 'date-fns';
-import { jakartaDateKey, jakartaMonthString, jakartaNowParts } from '@/lib/timezone';
+import { dayToWeek, jakartaDateKey, jakartaMonthString, jakartaNowParts } from '@/lib/timezone';
 
 // GET /api/finance/dashboard?month=2025-01
 export async function GET(request: NextRequest) {
@@ -10,6 +10,11 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month') || jakartaMonthString();
 
     const [year, mon] = month.split('-').map(Number);
+    // Total days in the selected month — used by week-4 boundary calc and
+    // by the average-daily-expense projection below. Declared early so the
+    // FIN-BUG-1 weekly-spent block (which needs it for week-4 end day) can
+    // safely reference it.
+    const daysInMonth = new Date(year, mon, 0).getDate();
     // Fetch with 7h buffer to catch Jakarta timezone-boundary transactions.
     const startOfMonth = new Date(year, mon - 1, 1);
     const endOfMonth = new Date(year, mon, 0, 23, 59, 59, 999);
@@ -70,13 +75,50 @@ export async function GET(request: NextRequest) {
         dailySpending[day] = (dailySpending[day] || 0) + t.amount;
       });
 
+    // FIN-BUG-1 fix: weekly budgets should only count the current week's
+    // spent, not the entire month's. For monthly budgets (or when viewing
+    // a past/future month), keep using the month's total spent.
+    //
+    // Week boundaries (per lib/timezone.ts dayToWeek):
+    //   Week 1: days 1-7,  Week 2: days 8-14,
+    //   Week 3: days 15-21, Week 4: days 22-end.
+    //
+    // Only compute weekly spent when viewing the CURRENT month — for past
+    // months there is no meaningful "current week"; for future months there
+    // are no transactions yet anyway.
+    const isCurrentMonth = month === jakartaMonthString();
+    let currentWeekStartDay = 0;
+    let currentWeekEndDay = 0;
+    if (isCurrentMonth) {
+      const jpNow = jakartaNowParts();
+      const w = dayToWeek(jpNow.day);
+      currentWeekStartDay = w === 1 ? 1 : w === 2 ? 8 : w === 3 ? 15 : 22;
+      currentWeekEndDay = w === 4 ? daysInMonth : currentWeekStartDay + 6;
+    }
+    const weeklyExpenseByCategory: Record<string, number> = {};
+    if (isCurrentMonth) {
+      transactions
+        .filter(t => t.type === 'expense')
+        .forEach(t => {
+          const tDay = parseInt(jakartaDateKey(t.date).slice(8, 10), 10);
+          if (tDay >= currentWeekStartDay && tDay <= currentWeekEndDay) {
+            weeklyExpenseByCategory[t.category] =
+              (weeklyExpenseByCategory[t.category] || 0) + t.amount;
+          }
+        });
+    }
+
     // Budgets with spent amounts (resilient)
     let budgets: Awaited<ReturnType<typeof db.budget.findMany>> = [];
     try {
       budgets = await db.budget.findMany();
     } catch (e) { console.error('Finance dashboard: budgets query failed:', e); }
     const budgetStatus = budgets.map(b => {
-      const spent = expenseByCategory[b.category] || 0;
+      // FIN-BUG-1 fix: weekly budgets in the current month use the current
+      // week's spent; everything else uses the full month's spent.
+      const spent = (b.period === 'weekly' && isCurrentMonth)
+        ? (weeklyExpenseByCategory[b.category] || 0)
+        : (expenseByCategory[b.category] || 0);
       return {
         ...b,
         spent,
@@ -118,13 +160,15 @@ export async function GET(request: NextRequest) {
     const transactionCount = transactions.length;
 
     // Average daily expense
-    const daysInMonth = new Date(year, mon, 0).getDate();
     // Use jakartaNowParts for TZ-independent day-of-month
     const jp = jakartaNowParts();
     const currentDay = (jp.year === year && jp.month === mon)
       ? jp.day
       : daysInMonth;
-    const avgDailyExpense = currentDay > 0 ? totalExpense / currentDay : 0;
+    // FIN-BUG-13 fix: wrap in Math.round() so money values are whole
+    // rupiah (Int) — consistent with the rest of the codebase and avoids
+    // float precision drift in downstream calculations/UI.
+    const avgDailyExpense = currentDay > 0 ? Math.round(totalExpense / currentDay) : 0;
 
     // Fetch ACTUAL total balance from all fund sources — this is the real
     // money the user has right now. Each transaction's atomic increment/
@@ -146,7 +190,7 @@ export async function GET(request: NextRequest) {
       netCashFlow: totalIncome - totalExpense, // monthly cash flow (for reference)
       transactionCount,
       avgDailyExpense,
-      projectedMonthlyExpense: avgDailyExpense * daysInMonth,
+      projectedMonthlyExpense: Math.round(avgDailyExpense * daysInMonth),
       expenseByCategory,
       incomeByCategory,
       dailySpending,

@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Target, Plus, Edit3, Trash2, History, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { jakartaNowParts } from '@/lib/timezone';
 import { formatRupiah } from './finance-types';
 import type { BudgetItem, DashboardData } from './finance-types';
 
@@ -190,11 +191,15 @@ export default function FinanceBudgets({
             const remaining = Math.max(0, b.amount - spent);
 
             // Calculate remaining days in the selected month
+            // FIN-BUG-5 fix: use jakartaNowParts() instead of browser-local
+            // `new Date()` components. For users in timezones behind Jakarta
+            // (e.g. US/Pacific), near Jakarta midnight the browser's local
+            // day was off-by-one, making daysLeft one too many.
             const [bYear, bMonth] = selectedMonth.split('-').map(Number);
             const totalDaysInMonth = new Date(bYear, bMonth, 0).getDate();
-            const now = new Date();
-            const isCurrentMonth = now.getFullYear() === bYear && (now.getMonth() + 1) === bMonth;
-            const daysLeft = isCurrentMonth ? Math.max(1, totalDaysInMonth - now.getDate() + 1) : null;
+            const jp = jakartaNowParts();
+            const isCurrentMonth = jp.year === bYear && jp.month === bMonth;
+            const daysLeft = isCurrentMonth ? Math.max(1, totalDaysInMonth - jp.day + 1) : null;
 
             return (
               <div

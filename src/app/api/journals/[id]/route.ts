@@ -36,11 +36,13 @@ export async function PUT(
     const journal = await db.journal.update({
       where: { id },
       data: {
-        // BUG-10 fix: normalize to UTC midnight via dateFromYMD, consistent
-        // with POST route. Prevents TZ-shifted epochs on non-UTC servers.
+        // BUG-10 + BUGHUNT-OTHER-1 BUG-M1: normalize to UTC midnight via
+        // dateFromYMD using UTC components (date is a z.coerce.date() →
+        // UTC midnight; reading local YMD would shift the day on non-UTC
+        // servers). Prevents TZ-shifted epochs and uniqueness collisions.
         ...(d.date !== undefined && {
           date: dateFromYMD(
-            `${new Date(d.date).getFullYear()}-${String(new Date(d.date).getMonth() + 1).padStart(2, '0')}-${String(new Date(d.date).getDate()).padStart(2, '0')}`
+            `${d.date.getUTCFullYear()}-${String(d.date.getUTCMonth() + 1).padStart(2, '0')}-${String(d.date.getUTCDate()).padStart(2, '0')}`
           ),
         }),
         ...(d.mood !== undefined && { mood: d.mood }),

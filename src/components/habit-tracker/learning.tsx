@@ -75,10 +75,11 @@ interface LearningStatus {
 }
 
 // ── EMOJI OPTIONS ────────────────────────────────────────────────────────────
-
+// BUGHUNT-OTHER-1 BUG-L5: previously had duplicates (🏦 3x, 💼 2x, 📊 2x)
+// which rendered multiple identical buttons in the emoji picker. Deduped.
 const EMOJI_OPTIONS = [
   '📒', '💰', '📈', '🧾', '🏦', '📊', '🎓', '💡', '📋', '🏛️',
-  '🔢', '💼', '🏦', '📉', '🪙', '💼', '📊', '🏦',
+  '🔢', '💼', '📉', '🪙', '📚',
 ];
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -106,10 +107,13 @@ export default function LearningTab() {
   const initialTopicSet = useRef(false);
 
   // ── Fetch topics (TanStack Query) ──────────────────────────────────────
+  // BUGHUNT-OTHER-1 BUG-L10: removed redundant `POST /api/migrate-learning`
+  // call — `GET /api/learning/topics` already auto-seeds defaults if the
+  // table is empty (see route handler). Calling migrate on every fetch was
+  // wasted network + a redundant DB write per page load.
   const { data: topics = [], isLoading: topicsLoading } = useQuery<LearningTopic[]>({
     queryKey: ['learning-topics', refreshKey],
     queryFn: async () => {
-      try { await fetch('/api/migrate-learning', { method: 'POST' }); } catch { /* ignore */ }
       const res = await fetch('/api/learning/topics');
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
@@ -145,15 +149,20 @@ export default function LearningTab() {
 
   // ── Fetch article when topic changes ────────────────────────────────────
 
-  const { data: articleData, isLoading: articleLoading } = useQuery<{ title?: string; content?: string; funFact?: string; topic?: string; source?: string }>({
+  const { data: articleData, isLoading: articleLoading, isError: articleError, refetch: refetchArticle } = useQuery<{ title?: string; content?: string; funFact?: string; topic?: string; source?: string }>({
     queryKey: ['learning-article', selectedTopic],
     queryFn: async () => {
+      // BUGHUNT-OTHER-1 BUG-M13: previously swallowed !r.ok by returning `{}`,
+      // which the UI then treated as "no article yet" — the user couldn't
+      // tell a fetch failure from a real empty state. Throw so useQuery
+      // tracks `isError` and the UI can show an explicit error/retry.
       const r = await fetch(`/api/learning/article?topic=${encodeURIComponent(selectedTopic)}`);
-      if (!r.ok) return {};
+      if (!r.ok) throw new Error('Failed to fetch article');
       return r.json();
     },
     enabled: !!selectedTopic,
     staleTime: 5 * 60_000,
+    retry: false,
   });
 
   const article: Article | null = articleData?.title
@@ -204,18 +213,27 @@ export default function LearningTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: topicName.trim(), emoji: topicEmoji }),
       });
-      if (!res.ok) throw new Error();
+      // BUGHUNT-OTHER-1 BUG-M12: previously `if (!res.ok) throw new Error()`
+      // created an error with an EMPTY message, so the catch block's
+      // `message.includes('409')` check never matched — duplicate-topic
+      // errors always fell through to the generic "Gagal menambahkan topik"
+      // toast. Inspect `res.status` directly so we can show the right
+      // message.
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast.error('Topik sudah ada');
+        } else {
+          toast.error('Gagal menambahkan topik');
+        }
+        return;
+      }
       toast.success('Topik ditambahkan');
       setTopicName('');
       setTopicEmoji('📚');
       setAddTopicOpen(false);
       invalidateLearning();
-    } catch (e: unknown) {
-      if (e && typeof e === 'object' && 'message' in e && (e as { message: string }).message.includes('409')) {
-        toast.error('Topik sudah ada');
-      } else {
-        toast.error('Gagal menambahkan topik');
-      }
+    } catch {
+      toast.error('Gagal menambahkan topik');
     }
   };
 
@@ -403,6 +421,25 @@ export default function LearningTab() {
               <Skeleton className="h-4 w-2/3" />
             </div>
           </CardContent>
+        </Card>
+      ) : articleError ? (
+        // BUGHUNT-OTHER-1 BUG-M13: explicit error state with a retry button
+        // so the user can distinguish "fetch failed" from "no article yet".
+        <Card className="p-8">
+          <div className="flex flex-col items-center justify-center text-muted-foreground gap-3">
+            <BookOpen className="h-12 w-12 mb-1 opacity-30" />
+            <p className="text-sm font-medium">Gagal memuat artikel</p>
+            <p className="text-xs">Periksa koneksi internet lalu coba lagi.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchArticle()}
+              className="mt-2"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coba Lagi
+            </Button>
+          </div>
         </Card>
       ) : article ? (
         <Card className="overflow-hidden border-violet-200 dark:border-violet-900/50">

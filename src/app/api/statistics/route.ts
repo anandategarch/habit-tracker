@@ -4,7 +4,7 @@ import {
   startOfDay, subDays, format, startOfWeek,
   startOfMonth, differenceInCalendarDays,
 } from 'date-fns';
-import { jakartaToday } from '@/lib/timezone';
+import { jakartaToday, jakartaDateKey } from '@/lib/timezone';
 
 type Period = '7d' | '1m' | '3m' | 'all';
 
@@ -25,18 +25,23 @@ export async function GET(request: NextRequest) {
 
     const today = jakartaToday();
 
-    // Fetch only active habits
-    const habits = await db.habit.findMany({
-      where: { status: 'active' },
-    });
+    // BUG-12 fix: include ALL habits (active + paused + archived) so that
+    // historical statistics reflect reality. Previously, archiving a habit
+    // erased its past contributions to success-rate / longest-streak / etc.,
+    // distorting historical stats the moment a user tidied up their list.
+    const habits = await db.habit.findMany();
 
-    const activeHabitIds = new Set(habits.map(h => h.id));
+    const allHabitIds = new Set(habits.map(h => h.id));
 
     // ── Determine period start date ──────────────────────────────
+    // BUG-11 fix: use startDate (user-set habit start) instead of createdAt
+    // (DB row insert time). These can differ when the user back-dates a habit
+    // to count earlier completions; createdAt would ignore that back-date and
+    // shrink the period.
     let periodStart: Date;
     if (period === 'all') {
       if (habits.length > 0) {
-        const earliest = new Date(Math.min(...habits.map(h => h.createdAt.getTime())));
+        const earliest = new Date(Math.min(...habits.map(h => h.startDate.getTime())));
         periodStart = startOfDay(earliest);
       } else {
         periodStart = subDays(today, 30);
@@ -48,24 +53,25 @@ export async function GET(request: NextRequest) {
 
     const periodDays = differenceInCalendarDays(today, periodStart) + 1; // inclusive
 
-    // ── Fetch logs only for active habits ─────────────────────────
+    // ── Fetch logs only for known habits ─────────────────────────
     const allLogs = (await db.habitLog.findMany({
       where: { date: { gte: periodStart, lte: today } },
       include: { habit: true },
-    })).filter(l => activeHabitIds.has(l.habitId));
+    })).filter(l => allHabitIds.has(l.habitId));
 
-    // Pre-sort habit creation dates for O(log n) binary search lookups
-    const habitCreatedDates = habits
-      .map(h => startOfDay(h.createdAt).getTime())
+    // Pre-sort habit start dates for O(log n) binary search lookups.
+    // BUG-11 fix: was createdAt; now startDate.
+    const habitStartDates = habits
+      .map(h => startOfDay(h.startDate).getTime())
       .sort((a, b) => a - b);
 
     // ── Helper: count habits active on a given date (O(log n) via binary search) ──
     function habitsActiveOnDate(date: Date): number {
       const ts = startOfDay(date).getTime();
-      let lo = 0, hi = habitCreatedDates.length;
+      let lo = 0, hi = habitStartDates.length;
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (habitCreatedDates[mid] <= ts) lo = mid + 1;
+        if (habitStartDates[mid] <= ts) lo = mid + 1;
         else hi = mid;
       }
       return lo;
@@ -94,10 +100,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Populate completed counts from logs
+    // BUG-25 fix: use jakartaDateKey (TZ-explicit) instead of format() which
+    // reads the server's local TZ. On Vercel (UTC) the two produce the same
+    // result, but on a non-UTC server (e.g. local dev in Pacific) format()
+    // would shift the date by up to a day, mis-bucketing logs and producing
+    // empty dailyStats entries.
     const dailyCompletionMap = new Map<string, Set<string>>();
     for (const log of allLogs) {
       if (!log.completed) continue;
-      const key = format(log.date, 'yyyy-MM-dd');
+      const key = jakartaDateKey(log.date);
       if (!dailyCompletionMap.has(key)) dailyCompletionMap.set(key, new Set());
       dailyCompletionMap.get(key)!.add(log.habitId);
     }

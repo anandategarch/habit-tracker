@@ -85,8 +85,28 @@ export async function GET(request: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === 'true';
     const todayKey = getTodayKey();
 
-    // Use date-based deterministic selection — no repeat for 60+ days
-    const idx = dateToIndex(forceRefresh ? new Date().toISOString().split('T')[0] : todayKey);
+    // BUGHUNT-OTHER-1 BUG-L15: previously `forceRefresh` used
+    // `new Date().toISOString().split('T')[0]` (UTC date) instead of the
+    // Jakarta date — so on a non-UTC server (or right after Jakarta
+    // midnight but before UTC midnight) the "refresh" quote would be
+    // seeded by yesterday's UTC date, giving an inconsistent selection.
+    // When forceRefresh is requested, the user wants a DIFFERENT quote
+    // right now, not the daily one — so combine today's Jakarta date with
+    // a random offset to produce a different index each refresh.
+    let idx: number;
+    if (forceRefresh) {
+      // Pick a random index, biased away from today's deterministic one so
+      // the user actually sees a different quote on refresh.
+      const dailyIdx = dateToIndex(todayKey);
+      let randomIdx = Math.floor(Math.random() * QUOTES.length);
+      if (randomIdx === dailyIdx && QUOTES.length > 1) {
+        randomIdx = (randomIdx + 1) % QUOTES.length;
+      }
+      idx = randomIdx;
+    } else {
+      // Use date-based deterministic selection — no repeat for 60+ days
+      idx = dateToIndex(todayKey);
+    }
     const selected = QUOTES[idx];
 
     return NextResponse.json({

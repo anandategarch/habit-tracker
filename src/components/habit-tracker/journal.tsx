@@ -43,7 +43,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { jakartaDateKey } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
@@ -242,13 +241,20 @@ export default function JournalTab() {
   }
 
   function openEditForm(entry: Journal) {
+    // BUGHUNT-OTHER-1 BUG-M11: `String(null)` produces the literal string
+    // "null", which is truthy → `Number("null")` returns NaN on save →
+    // API rejects with 400 or stores NaN. Convert null/undefined to ''
+    // so the form fields render empty (and `form.stress ? ...` falls
+    // through to `null` on save as intended).
+    const numOrEmpty = (v: number | null | undefined): string =>
+      v === null || v === undefined ? '' : String(v);
     setForm({
       id: entry.id,
       date: entry.date,
-      mood: String(entry.mood),
-      stress: String(entry.stress),
-      energy: String(entry.energy),
-      sleep: String(entry.sleep),
+      mood: numOrEmpty(entry.mood),
+      stress: numOrEmpty(entry.stress),
+      energy: numOrEmpty(entry.energy),
+      sleep: numOrEmpty(entry.sleep),
       reflection: entry.reflection ?? '',
       winToday: entry.winToday ?? '',
       lessonLearned: entry.lessonLearned ?? '',
@@ -512,8 +518,16 @@ export default function JournalTab() {
 
   function renderEntryCard(entry: Journal) {
     const isExpanded = expandedId === entry.id;
-    const formattedDate = format(new Date(entry.date), 'EEEE, MMM d, yyyy');
-    const isToday = jakartaDateKey(new Date(entry.date)) === jakartaDateString();
+    // BUGHUNT-OTHER-1 BUG-M2: `entry.date` is an ISO string with UTC
+    // midnight (e.g. "2025-01-15T00:00:00.000Z"). `new Date(entry.date)`
+    // in a negative-offset browser would shift to Jan 14 19:00 local →
+    // `format(...)` shows Jan 14 (wrong day). Build the Date from the YMD
+    // portion of the ISO so the calendar day is preserved in any tz.
+    const ymd = entry.date.slice(0, 10);
+    const [y, m, d] = ymd.split('-').map(Number);
+    const entryDate = new Date(y, m - 1, d);
+    const formattedDate = format(entryDate, 'EEEE, MMM d, yyyy');
+    const isToday = ymd === jakartaDateString();
 
     return (
       <Card

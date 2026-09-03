@@ -1,15 +1,18 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { createDailyLogSchema, parseOr400 } from '@/lib/validation';
-import { startOfMonth, endOfMonth } from 'date-fns';
 import { jakartaNowParts } from '@/lib/timezone';
 
 // GET /api/daily-logs?month=2024-01
+// GET /api/daily-logs?date=2024-01-15
+// GET /api/daily-logs?all=true    ← all-time (no 30-day filter) — used by
+//                                    Settings → "Total Logs" / "Days Tracked"
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
     const date = searchParams.get('date');
+    const all = searchParams.get('all') === 'true';
 
     if (date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -32,6 +35,15 @@ export async function GET(request: NextRequest) {
       startDate = new Date(Date.UTC(y, m - 1, 1));
       const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
       endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
+    } else if (all) {
+      // BUGHUNT-OTHER-1 BUG-H2: return ALL logs (no 30-day filter). Used by
+      // Settings → "Total Logs" / "Days Tracked" so the count reflects
+      // all-time data, not just the last 30 days. Capped at 10k for safety.
+      const allLogs = await db.dailyLog.findMany({
+        orderBy: { date: 'asc' },
+        take: 10_000,
+      });
+      return NextResponse.json(allLogs);
     } else {
       // Construct the range using Jakarta wall-clock components so the result
       // matches the prior behavior of `new Date(Date.now() + 7h)` + setUTCHours
@@ -51,7 +63,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(logs);
   } catch (error) {
     console.error('GET /api/daily-logs error:', error);
-    return NextResponse.json([]);
+    // BUGHUNT-OTHER-1 M-pattern: return proper error response instead of
+    // silently swallowing the error and returning [] (which the UI cannot
+    // distinguish from "no data yet").
+    return NextResponse.json(
+      { error: 'Failed to fetch daily logs' },
+      { status: 500 }
+    );
   }
 }
 

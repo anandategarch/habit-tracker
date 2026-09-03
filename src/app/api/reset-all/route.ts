@@ -1,7 +1,37 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
-export async function DELETE() {
+/**
+ * Security guard: this endpoint wipes the entire database. By default it is
+ * BLOCKED in production unless `APP_API_KEY` env var is set, AND the request
+ * provides a matching `x-api-key` header (or `?apiKey=` query param).
+ *
+ * In non-production (NODE_ENV !== 'production'), the endpoint is open for
+ * local development convenience (matching the opt-in middleware behavior).
+ *
+ * See BUGHUNT-OTHER-1 BUG-H1.
+ */
+function authorizeDestructive(request: Request): NextResponse | null {
+  if (process.env.NODE_ENV !== 'production') return null; // dev: open
+  const apiKey = process.env.APP_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'Destructive endpoints disabled. Set APP_API_KEY to enable.' },
+      { status: 403 }
+    );
+  }
+  const url = new URL(request.url);
+  const provided =
+    request.headers.get('x-api-key') || url.searchParams.get('apiKey') || '';
+  if (provided.length !== apiKey.length || provided !== apiKey) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  return null;
+}
+
+export async function DELETE(request: Request) {
+  const auth = authorizeDestructive(request);
+  if (auth) return auth;
   try {
     // Delete all data atomically (respect foreign keys). Order matters for
     // referential integrity: child tables first, parent tables last.
@@ -36,6 +66,8 @@ export async function DELETE() {
       db.financeCategory.deleteMany(),
       // Learning
       db.learningTopic.deleteMany(),
+      // Push subscriptions (BUG L11 fix: were persisting after reset)
+      db.pushSubscription.deleteMany(),
     ]);
 
     // Keep AppSettings — just reset to defaults

@@ -31,6 +31,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, CalendarDays, Flame, Droplets, RefreshCw } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 
+// ── Settings type ──────────────────────────────────────────────────────────
+// Minimal shape of AppSettings — only the fields we consume. We re-use the
+// shared ['settings'] query cache so we stay in sync with the Settings page.
+interface AppSettings {
+  weekStart?: 'monday' | 'sunday' | 'saturday' | string | null;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Habit {
   id: string;
@@ -38,6 +45,11 @@ interface Habit {
   icon: string;
   color: string;
   status?: string;
+  // BUG-9 fix: include startDate/endDate so we can count habits that were
+  // actually active on a given historical day (instead of dividing by the
+  // CURRENT total habit count, which distorts past days).
+  startDate?: string;
+  endDate?: string | null;
 }
 
 interface HabitLog {
@@ -70,7 +82,23 @@ interface DayData {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Default weekday order is Sun..Sat. When the user has chosen Monday or
+// Saturday as their week start, we rotate the header array to match.
+// (BUGHUNT-OTHER-1 BUG-H3: previously hardcoded `weekStartsOn: 0` (Sunday)
+//  and ignored the user's `weekStart` setting entirely.)
+const WEEKDAYS_BASE = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function weekStartsOnNum(weekStart?: string | null): 0 | 1 | 6 {
+  if (weekStart === 'saturday') return 6;
+  if (weekStart === 'sunday') return 0;
+  // Default to Monday (matches the Settings UI default).
+  return 1;
+}
+
+function rotateWeekdays(weekStartsOn: 0 | 1 | 6): string[] {
+  const idx = weekStartsOn === 6 ? 6 : weekStartsOn; // 0 or 1 or 6
+  return [...WEEKDAYS_BASE.slice(idx), ...WEEKDAYS_BASE.slice(0, idx)];
+}
 
 const MOOD_EMOJIS: Record<number, string> = {
   1: '😢',
@@ -115,6 +143,21 @@ export default function CalendarView() {
   const selectedMonth = useAppStore(s => s.selectedMonth);
   const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
   const queryClient = useQueryClient();
+
+  // ── Fetch AppSettings to read `weekStart` (BUG-H3 fix) ────────────────
+  // Shares the ['settings'] cache with the Settings page so changes apply
+  // immediately after a save + invalidation.
+  const { data: settings = null } = useQuery<AppSettings | null>({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const weekStartsOn = weekStartsOnNum(settings?.weekStart);
+  const WEEKDAYS = useMemo(() => rotateWeekdays(weekStartsOn), [weekStartsOn]);
 
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
@@ -197,12 +240,40 @@ export default function CalendarView() {
   const calendarDays = useMemo<DayData[]>(() => {
     const monthStart = startOfMonth(monthDate);
     const monthEnd = endOfMonth(monthDate);
-    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
-    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    // BUGHUNT-OTHER-1 BUG-H3: respect user's `weekStart` setting instead
+    // of hardcoding Sunday.
+    const calStart = startOfWeek(monthStart, { weekStartsOn });
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn });
     const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
     const today = new Date();
-    const totalHabits = habits.filter((h) => h.status !== 'archived').length;
+    // BUG-9 fix: count habits active on a SPECIFIC day (startDate <= day AND
+    // (endDate is null OR endDate >= day) AND status !== 'archived') instead
+    // of using the CURRENT total. Previously a user with 10 current habits
+    // looking at a day last month when they only had 3 habits would see
+    // completion rates divided by 10, drastically understating past days.
+    const activeHabitCountOnDay = (day: Date): number => {
+      const dayStart = startOfDay(day);
+      const ts = dayStart.getTime();
+      return habits.filter((h) => {
+        if (h.status === 'archived') return false;
+        // Parse startDate/endDate as local-midnight Date objects. They arrive
+        // as ISO strings from the API; Date-only strings ("yyyy-MM-dd") parse
+        // as UTC midnight, so we slice to 10 chars and use new Date(y,m,d) to
+        // avoid TZ-induced off-by-one.
+        if (h.startDate) {
+          const sd = h.startDate.slice(0, 10);
+          const [sy, sm, sd2] = sd.split('-').map(Number);
+          if (new Date(sy, sm - 1, sd2).getTime() > ts) return false;
+        }
+        if (h.endDate) {
+          const ed = h.endDate.slice(0, 10);
+          const [ey, em, ed2] = ed.split('-').map(Number);
+          if (new Date(ey, em - 1, ed2).getTime() < ts) return false;
+        }
+        return true;
+      }).length;
+    };
 
     return days.map((d) => {
       const dayStr = format(d, 'yyyy-MM-dd');
@@ -211,18 +282,30 @@ export default function CalendarView() {
       const inMonth = isSameMonth(d, monthDate);
       const isFuture = isBefore(today, startOfDay(d)) && !isToday(d);
 
+      // BUG-9 + BUG-26 fix:
+      //  - Use per-day active habit count (not current total) → past days
+      //    aren't divided by an anachronistic habit count.
+      //  - No logs for the day → neutral (null), not 0% red. Showing 0% red
+      //    for a day before the user started tracking was misleading.
+      const totalHabitsOnDay = inMonth && !isFuture ? activeHabitCountOnDay(d) : 0;
+
       let completionRate: number | null = null;
       if (!inMonth) {
         completionRate = null;
       } else if (isFuture) {
         completionRate = null;
-      } else if (hLogs && totalHabits > 0) {
-        completionRate =
-          hLogs.total > 0
-            ? Math.round((hLogs.completed / totalHabits) * 100)
-            : 0;
-      } else if (inMonth && totalHabits > 0 && !isFuture) {
-        completionRate = 0;
+      } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay > 0) {
+        // Has logs + habits were active that day: compute real rate.
+        completionRate = Math.round((hLogs.completed / totalHabitsOnDay) * 100);
+      } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay === 0) {
+        // Edge case: logs exist but no habits are considered active that day
+        // (e.g. all habits were archived). Treat as 100% — the user did log
+        // something. Neutral (null) would also be defensible; 100% matches
+        // the spirit of "completed everything that was expected".
+        completionRate = 100;
+      } else {
+        // No logs at all → neutral, not 0% red (BUG-26).
+        completionRate = null;
       }
 
       return {
@@ -233,11 +316,11 @@ export default function CalendarView() {
         isToday: isToday(d),
         completionRate,
         mood: dLog?.mood ?? null,
-        totalHabits,
+        totalHabits: totalHabitsOnDay,
         completedHabits: hLogs?.completed ?? 0,
       };
     });
-  }, [monthDate, habits, habitLogMap, dailyLogMap]);
+  }, [monthDate, habits, habitLogMap, dailyLogMap, weekStartsOn]);
 
   // ── Month summary ──────────────────────────────────────────────────────
   const monthSummary = useMemo(() => {

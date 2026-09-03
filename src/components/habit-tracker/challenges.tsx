@@ -46,7 +46,7 @@ import {
   Trash2,
   Calendar,
 } from 'lucide-react';
-import { format, differenceInDays, addDays, isPast, parseISO } from 'date-fns';
+import { format, differenceInDays, addDays, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
@@ -150,20 +150,30 @@ export default function Challenges() {
   // ── Helpers ─────────────────────────────────────────────────────────────
 
   const computedEndDate = useCallback(() => {
+    // BUGHUNT-OTHER-1 BUG-M6: `addDays(start, duration)` produces an end date
+    // `duration` days AFTER start — e.g. a 30-day challenge from Jan 1 →
+    // Jan 31, which is 31 calendar days (N+1). Use `duration - 1` so the
+    // end date is the last INCLUSIVE day of the challenge (Jan 1 + 29 = Jan
+    // 30, a 30-day window).
     const start = parseISO(formStartDate);
-    return format(addDays(start, parseInt(formDuration)), 'yyyy-MM-dd');
+    const duration = parseInt(formDuration);
+    return format(addDays(start, Math.max(1, duration) - 1), 'yyyy-MM-dd');
   }, [formStartDate, formDuration]);
 
   const getDaysInfo = (challenge: Challenge) => {
     const start = parseISO(challenge.startDate);
-    const end = parseISO(challenge.endDate);
     const now = new Date();
 
     if (challenge.status === 'completed') {
       return { elapsed: challenge.duration, total: challenge.duration, label: 'Completed' };
     }
 
-    const elapsed = Math.max(0, differenceInDays(now, start));
+    // BUGHUNT-OTHER-1 BUG-M5: `differenceInDays(now, start)` is exclusive of
+    // today — on day 1 it returns 0, so a 30-day challenge on its 15th day
+    // showed "16 days remaining" instead of "15". Count inclusively: day 1
+    // = elapsed 1, day 30 = elapsed 30. Cap at [0, duration].
+    const rawElapsed = differenceInDays(now, start) + 1;
+    const elapsed = Math.max(0, Math.min(challenge.duration, rawElapsed));
     const total = challenge.duration;
     const remaining = Math.max(0, total - elapsed);
 
@@ -253,7 +263,21 @@ export default function Challenges() {
   };
 
   const handleUpdateProgress = async (challenge: Challenge) => {
-    const newProgress = Math.min(challenge.progress + 1, challenge.duration);
+    // BUGHUNT-OTHER-1 BUG-L6: previously the user could click "+1 Day"
+    // multiple times in a row and complete a 30-day challenge in 30 seconds.
+    // Cap the new progress at the number of elapsed days (inclusive of today)
+    // so progress can never exceed real time elapsed since the start date.
+    const start = parseISO(challenge.startDate);
+    const now = new Date();
+    const elapsedInclusive = Math.max(
+      0,
+      Math.min(challenge.duration, differenceInDays(now, start) + 1)
+    );
+    const newProgress = Math.min(challenge.progress + 1, challenge.duration, elapsedInclusive);
+    if (newProgress <= challenge.progress) {
+      toast.error('Belum waktunya menandai hari berikutnya. Kembali besok ya!');
+      return;
+    }
     try {
       const res = await fetch(`/api/challenges/${challenge.id}`, {
         method: 'PUT',

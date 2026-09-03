@@ -230,7 +230,13 @@ export default function HabitMaster() {
         reminder: form.reminder || null,
         endDate: form.endDate || null,
         notes: form.notes || null,
-        target: Number(form.target) || 1,
+        // BUG-3 fix: clamp target to 1 — UI only supports binary completion.
+        // (Also serves as a safety net for legacy habits edited with target>1.)
+        target: 1,
+        // targetType is preserved from the form (default 'daily' for new
+        // habits; existing habits keep their value). Non-daily options are
+        // disabled in the dropdown so users can't pick an unsupported mode,
+        // but we don't overwrite legacy values on save (BUG-14 minimal fix).
         targetTime: form.targetTime || null,
         trackLastDone: form.trackLastDone,
         lastDoneInterval: form.lastDoneInterval || null,
@@ -560,9 +566,22 @@ export default function HabitMaster() {
                   <Input
                     type="number"
                     min={1}
+                    max={1}
                     value={form.target}
-                    onChange={(e) => updateForm('target', Number(e.target.value) || 1)}
+                    onChange={(e) => {
+                      // BUG-3 fix: clamp target to 1. The UI only sends binary
+                      // completion (done/not-done); allowing target > 1 would
+                      // create a habit that can never be "completed" since the
+                      // UI never increments `value` past 1. Existing habits
+                      // with target > 1 (legacy data) are left untouched by
+                      // this clamp — only new edits are affected.
+                      const n = Number(e.target.value) || 1;
+                      updateForm('target', Math.min(1, Math.max(1, n)));
+                    }}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Multi-completion (target &gt; 1) belum didukung.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Target Type</Label>
@@ -575,12 +594,26 @@ export default function HabitMaster() {
                     </SelectTrigger>
                     <SelectContent>
                       {TARGET_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
+                        <SelectItem
+                          key={t}
+                          value={t}
+                          // BUG-14 fix: weekly/monthly target types are stored
+                          // on the habit but the UI/completion logic treats
+                          // every habit as daily. Disable non-daily options to
+                          // prevent users from selecting an unsupported mode
+                          // (existing habits with targetType=weekly/monthly
+                          // remain editable; the field is preserved on save).
+                          disabled={t !== 'daily'}
+                        >
                           {t.charAt(0).toUpperCase() + t.slice(1)}
+                          {t !== 'daily' ? ' (segera)' : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Hanya &lsquo;Daily&rsquo; yang didukung saat ini.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Difficulty</Label>

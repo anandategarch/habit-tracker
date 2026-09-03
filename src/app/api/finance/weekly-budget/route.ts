@@ -121,6 +121,16 @@ export async function GET(request: NextRequest) {
     // effectiveTarget = this week's target + rolloverIn
     // remaining = effectiveTarget - spent (can be negative if over)
     // nextRolloverIn = remaining (if rollover enabled, carries to next week)
+    //
+    // FIN-BUG-12 note (LOW — documented, not changed): a week's `rollover`
+    // boolean gates BOTH inbound (receiving from previous week, line ~149)
+    // AND outbound (sending to next week, line ~158 below). Disabling
+    // rollover on week 2 therefore drops BOTH the inbound from week 1 and
+    // the outbound to week 3. The UI label in finance-explorer.tsx (~line
+    // 789) reads "Sisa budget masuk minggu depan" which suggests outbound-
+    // only semantics, slightly contradicting the actual behavior. Splitting
+    // into separate `rolloverIn` / `rolloverOut` flags would resolve this
+    // but adds UI complexity; deferred.
     interface WeekData {
       week: number;
       label: string;
@@ -154,8 +164,16 @@ export async function GET(request: NextRequest) {
       // Remaining = effective target - spent
       const remaining = effectiveTarget > 0 ? effectiveTarget - spent : 0;
 
-      // Update prevRollover for the next iteration
-      prevRollover = (target > 0 && rolloverEnabled) ? remaining : 0;
+      // FIN-BUG-11 fix: when target === 0 (unset intermediate week), carry
+      // forward prevRollover UNCHANGED instead of resetting to 0. Previously,
+      // an unset week 2 broke the rollover chain — week 3 lost the rollover
+      // benefit from week 1. Now unset weeks are "transparent" to rollover.
+      // For target > 0: respect rolloverEnabled (false = don't propagate
+      // this week's remaining to the next week, matching pre-fix behavior).
+      if (target > 0) {
+        prevRollover = rolloverEnabled ? remaining : 0;
+      }
+      // else: target === 0 → leave prevRollover unchanged (carry forward).
 
       const { start, end } = weekDateRange(year, month, w);
 

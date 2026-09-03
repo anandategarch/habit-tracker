@@ -21,6 +21,7 @@ import {
   PanelLeftOpen,
   Sprout,
 } from 'lucide-react';
+import { jakartaDateString } from '@/lib/jakarta-date';
 
 import dynamic from 'next/dynamic';
 
@@ -68,31 +69,80 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   settings: SettingsTab,
 };
 
+// BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
+const VALID_TAB_IDS = new Set<string>([
+  'dashboard', 'tracker', 'calendar', 'goals', 'challenges',
+  'rewards', 'badges', 'finance', 'settings',
+]);
+
 export default function Home() {
   const activeTab = useAppStore(s => s.activeTab);
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
+
+  // BUGHUNT-OTHER-1 BUG-L9: header date string should use Jakarta wall-clock
+  // date, not the browser-local date, so it stays consistent for users in
+  // non-WIB timezones. We compute the initial value lazily on the client.
   const [dateString, setDateString] = useState(() =>
     typeof window !== 'undefined'
-      ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      ? new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
       : ''
   );
 
   // Refresh date string every minute so it stays accurate past midnight
+  // (Jakarta midnight, not browser-local midnight).
   useEffect(() => {
-    const id = setInterval(() => {
-      setDateString(new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
-    }, 60_000);
+    const update = () => {
+      setDateString(
+        new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+      );
+    };
+    update();
+    const id = setInterval(update, 60_000);
     return () => clearInterval(id);
   }, []);
 
+  // BUGHUNT-OTHER-1 BUG-M14: deep-link `?tab=` from URL on first mount.
+  // This makes tabs shareable and survives reload. The replaceState below
+  // also updates the URL whenever the user changes tabs (without breaking
+  // the back button — we use replace, not push).
+  // Intentionally run once on mount — we don't want to override the
+  // store when the URL changes via setActiveTab's replaceState.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && VALID_TAB_IDS.has(tab) && tab !== activeTab) {
+      setActiveTab(tab as TabId);
+    }
+  }, []);
+
+  // Sync activeTab → URL (replaceState so back button still works).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (activeTab === 'dashboard') {
+      url.searchParams.delete('tab'); // keep URLs clean for the default tab
+    } else {
+      url.searchParams.set('tab', activeTab);
+    }
+    window.history.replaceState(null, '', url.toString());
+  }, [activeTab]);
+
   // Auto-open sidebar on desktop (≥768px) on first mount.
   // Default is closed to avoid jarring overlay on mobile first load.
+  // BUGHUNT-OTHER-1 BUG-L16: also react to window resize — previously the
+  // sidebar only opened if the user happened to be on desktop at first
+  // mount, and never re-opened when resizing from mobile to desktop.
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      setSidebarOpen(true);
-    }
+    if (typeof window === 'undefined') return;
+    const apply = () => {
+      if (window.innerWidth >= 768) setSidebarOpen(true);
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
   }, [setSidebarOpen]);
 
   const handleNavClick = useCallback((id: TabId) => {

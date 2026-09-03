@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get('source');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const search = searchParams.get('search');
+    // FIN-BUG-6: `search` param intentionally not read server-side — see
+    // comment below the filter section for details.
 
     const where: Record<string, unknown> = {};
 
@@ -74,14 +75,15 @@ export async function GET(request: NextRequest) {
     if (category) where.category = category;
     if (source) where.source = source;
 
-    if (search && search.trim()) {
-      const term = search.trim();
-      where.OR = [
-        { description: { contains: term } },
-        { category: { contains: term } },
-        { notes: { contains: term } },
-      ];
-    }
+    // FIN-BUG-6 fix: removed server-side `search` (Prisma `contains` is
+    // case-sensitive on SQLite, so searching "makan" missed "Makanan").
+    // The client already does a case-insensitive `.toLowerCase().includes()`
+    // filter on the month-scoped result set (finance.tsx line 724), so the
+    // effective behavior was the intersection — case-sensitive. Dropping
+    // the server-side filter lets the client's case-insensitive filter
+    // work as intended. No client currently relies on server-side search
+    // (all callers use `month` or `startDate/endDate` only); the `search`
+    // URL param is still accepted for backward compat but ignored.
 
     // Resilient query — return empty array on DB error instead of 500
     let transactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];

@@ -53,7 +53,7 @@ import {
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
+import { jakartaDateKey, jakartaDateString, jakartaMonthString, jakartaNowParts } from '@/lib/timezone';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
 import { CalculatorDialog, CalculatorButton } from './calculator';
 import { TimePicker } from './time-picker';
@@ -340,12 +340,27 @@ export default function Finance() {
   // ── Helper: invalidate all finance queries after a mutation ─────────────
   // Replaces the old triggerRefresh() + fetchCategories() + fetchSources() pattern.
   // Invalidation causes TanStack Query to refetch active queries in the background.
+  //
+  // FIN-BUG-10 fix: debounced the budget-snapshot POST by 2s. Previously
+  // every invalidateFinance() call fired a snapshot POST, and the snapshot
+  // route fetches ALL budgets + ALL transactions for the month + upserts a
+  // row per budget — expensive for users with many budgets/transactions,
+  // and triggered on EVERY CRUD (tx create/edit/delete + budget/category/
+  // source CRUD + balance adjustment + transfer). The debounce coalesces
+  // rapid successive mutations into a single snapshot rebuild. The
+  // mount-time useEffect below still fires an initial snapshot on app
+  // load, so the snapshot is never stale by more than 2s.
+  const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invalidateFinance = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['finance'] });
     // Also notify other components (e.g. dashboard) that data changed
     triggerRefresh();
     // Auto-trigger budget snapshot check (creates/updates current month snapshot)
-    fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
+    if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+    snapshotTimerRef.current = setTimeout(() => {
+      fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
+      snapshotTimerRef.current = null;
+    }, 2000);
   }, [queryClient, triggerRefresh]);
 
   // ── Auto-create budget snapshot on mount (ensures current month exists) ──
@@ -702,7 +717,7 @@ export default function Finance() {
 
   const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m - 2, 1), 'yyyy-MM')); };
   const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m, 1), 'yyyy-MM')); };
-  const goToThisMonth = () => { setSelectedMonth(format(new Date(), 'yyyy-MM')); };
+  const goToThisMonth = () => { setSelectedMonth(jakartaMonthString()); };
   const monthLabel = useMemo(() => format(new Date(selectedMonth + '-01'), 'MMMM yyyy', { locale: idLocale }), [selectedMonth]);
 
   const monthOptions = useMemo(() => {
@@ -793,7 +808,11 @@ export default function Finance() {
               {monthOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}><span className="capitalize">{opt.label}</span></SelectItem>))}
             </SelectContent>
           </Select>
-          {selectedMonth !== format(new Date(), 'yyyy-MM') && (
+          {/* FIN-BUG-4 fix: use jakartaMonthString() instead of browser-local
+              format(new Date(), 'yyyy-MM') — consistent with selectedMonth's
+              initial value (from app-store.ts) and avoids TZ-boundary off-by-
+              one-month bugs for users behind Jakarta TZ. */}
+          {selectedMonth !== jakartaMonthString() && (
             <Button variant="ghost" size="sm" className="text-xs h-7 shrink-0" onClick={goToThisMonth}>Hari ini</Button>
           )}
           <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
@@ -845,6 +864,7 @@ export default function Finance() {
             onEditTx={openEditTx}
             onDeleteTx={(id) => { setDeletingId(id); setDeleteDialogOpen(true); }}
             onBulkDelete={() => setBulkDeleteOpen(true)}
+            selectedMonth={selectedMonth}
           />
         </TabsContent>
 

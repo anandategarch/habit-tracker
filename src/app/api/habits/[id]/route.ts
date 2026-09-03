@@ -62,7 +62,12 @@ export async function PUT(
     });
 
     return NextResponse.json(habit);
-  } catch (error) {
+  } catch (error: unknown) {
+    // P2025 = "Record to update not found". Previously this returned a
+    // generic 500, hiding the real cause from the client. Surface as 404.
+    if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2025') {
+      return NextResponse.json({ error: 'Habit not found' }, { status: 404 });
+    }
     console.error('PUT /api/habits/[id] error:', error);
     return NextResponse.json({ error: 'Failed to update habit' }, { status: 500 });
   }
@@ -77,7 +82,12 @@ export async function DELETE(
     const { id } = await params;
     await db.habit.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: unknown) {
+    // P2025 = "Record to delete not found". Previously this returned a
+    // generic 500. Surface as 404 so the UI can react appropriately.
+    if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2025') {
+      return NextResponse.json({ error: 'Habit not found' }, { status: 404 });
+    }
     console.error('DELETE /api/habits/[id] error:', error);
     return NextResponse.json({ error: 'Failed to delete habit' }, { status: 500 });
   }

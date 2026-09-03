@@ -12,6 +12,14 @@ export type TabId =
   | 'finance'
   | 'settings';
 
+// BUGHUNT-OTHER-1 BUG-L8: persistence note — `activeTab` is intentionally
+// NOT persisted via zustand persist middleware. Instead, the page.tsx
+// component syncs `activeTab` to the URL `?tab=` query param (deep
+// linking), which survives reloads AND makes tabs shareable. The other
+// state below (`selectedDate`, `selectedMonth`, `sidebarOpen`) is ephemeral
+// — `selectedDate`/`selectedMonth` defaulting to "today" on reload is the
+// intended UX (not a bug). `sidebarOpen` defaults to closed for mobile
+// safety and auto-opens on desktop via a resize listener in page.tsx.
 interface AppState {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;

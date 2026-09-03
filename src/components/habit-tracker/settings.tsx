@@ -238,7 +238,11 @@ export default function Settings() {
   const { data: logsData = [] } = useQuery<unknown[]>({
     queryKey: ['daily-logs-all'],
     queryFn: async () => {
-      const r = await fetch('/api/daily-logs');
+      // BUGHUNT-OTHER-1 BUG-H2: pass ?all=true so the API returns ALL
+      // all-time logs instead of defaulting to the last 30 days. The
+      // "Total Logs" / "Days Tracked" stats below otherwise undercount
+      // for users with >30 days of history.
+      const r = await fetch('/api/daily-logs?all=true');
       if (!r.ok) return [];
       return r.json();
     },
@@ -440,8 +444,13 @@ export default function Settings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* BUGHUNT-OTHER-1 BUG-L3: schema allows 'system' (z.enum
+                      ['light','dark','system']) and ThemeProvider now resolves
+                      it via prefers-color-scheme — expose it in the UI so the
+                      setting matches the schema. */}
                   <SelectItem value="light">Light</SelectItem>
                   <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
                 </SelectContent>
               </Select>
             </FormRow>
@@ -544,15 +553,23 @@ export default function Settings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* L4 fix: schema also allows 'saturday' — expose it so the
+                      setting matches what the API + calendar-view support. */}
                   <SelectItem value="monday">Monday</SelectItem>
                   <SelectItem value="sunday">Sunday</SelectItem>
+                  <SelectItem value="saturday">Saturday</SelectItem>
                 </SelectContent>
               </Select>
             </FormRow>
 
             <Separator className="my-2" />
 
-            <FormRow label="Language" description="Interface language">
+            {/* TODO(BUGHUNT-OTHER-1 BUG-H3): `language` is stored in AppSettings
+                but no i18n implementation exists yet. The UI is hardcoded to a
+                mix of English + Indonesian. Implement next-intl or remove this
+                dropdown to avoid confusing users. Leaving as-is for now since
+                changing it has no effect. */}
+            <FormRow label="Language" description="Interface language (not yet implemented)">
               <Select value={form.language} onValueChange={(v) => updateField('language', v)}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
@@ -566,7 +583,11 @@ export default function Settings() {
 
             <Separator className="my-2" />
 
-            <FormRow label="Target Completion" description="Daily completion target percentage">
+            {/* TODO(BUGHUNT-OTHER-1 BUG-H3): `targetCompletion` is stored in
+                AppSettings but no component reads it for any "completion target"
+                logic yet. The value is display-only. Either implement a visual
+                indicator (e.g., highlight habits below target) or remove. */}
+            <FormRow label="Target Completion" description="Daily completion target percentage (display only)">
               <div className="flex items-center gap-2">
                 <Input
                   type="number"

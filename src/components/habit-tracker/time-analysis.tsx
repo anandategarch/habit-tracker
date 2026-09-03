@@ -64,9 +64,11 @@ interface AnalysisData {
     average: string | null;
     best: string | null;
     worst: string | null;
-    onTargetCount: number;
+    // BUG-29 fix: nullable when the habit has no targetTime (the API now
+    // returns null instead of 0 in that case).
+    onTargetCount: number | null;
     totalCount: number;
-    onTargetRate: number;
+    onTargetRate: number | null;
     vsPrevious: number | null;
   };
 }
@@ -270,9 +272,9 @@ export default function TimeAnalysisDialog({
                     {targetMinutes !== null ? (
                       <>
                         <p className="text-lg font-bold tabular-nums">
-                          {data.stats.onTargetCount}/{data.stats.totalCount}
+                          {data.stats.onTargetCount ?? 0}/{data.stats.totalCount}
                           <span className="text-sm font-normal text-muted-foreground ml-1">
-                            ({data.stats.onTargetRate}%)
+                            ({data.stats.onTargetRate ?? 0}%)
                           </span>
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -415,8 +417,13 @@ export default function TimeAnalysisDialog({
                   <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
                     {targetMinutes !== null && (
                       <>
+                        {/* BUG-22 fix: legend swatches must match the actual
+                            bar fills. The bar uses `primaryColor` for on-target
+                            and `#ef4444` (red-500) for late, but the legend
+                            previously used `bg-emerald-500/85` for on-target
+                            (mismatch when primary is not green). */}
                         <span className="flex items-center gap-1">
-                          <span className="w-3 h-3 rounded-sm bg-emerald-500/85 inline-block" />
+                          <span className="w-3 h-3 rounded-sm bg-primary inline-block" />
                           Tepat waktu
                         </span>
                         <span className="flex items-center gap-1">
@@ -424,7 +431,7 @@ export default function TimeAnalysisDialog({
                           Terlambat
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="w-4 h-0 border-t-2 border-dashed border-emerald-500 inline-block" />
+                          <span className="w-4 h-0 border-t-2 border-dashed border-primary inline-block" />
                           Target
                         </span>
                       </>

@@ -5,15 +5,14 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/habit-groups
 export async function GET() {
   try {
+    // BUG-24 fix: removed `habits` include — the nested habit list was
+    // returned but never consumed by the client (it uses /api/habits for its
+    // habit list). The extra data just bloated the response. _count is kept
+    // because the UI displays "N habits" per group.
     const groups = await db.habitGroup.findMany({
       orderBy: { order: 'asc' },
       include: {
         _count: { select: { habits: true } },
-        habits: {
-          where: { status: 'active' },
-          select: { id: true, name: true, icon: true, order: true },
-          orderBy: { order: 'asc' },
-        },
       },
     });
     return NextResponse.json(groups);

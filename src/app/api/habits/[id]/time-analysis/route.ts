@@ -36,9 +36,9 @@ interface AnalysisResult {
     average: string | null; // "HH:mm"
     best: string | null; // earliest time
     worst: string | null; // latest time
-    onTargetCount: number;
+    onTargetCount: number | null; // null when habit has no targetTime
     totalCount: number;
-    onTargetRate: number;
+    onTargetRate: number | null; // null when habit has no targetTime (BUG-29)
     vsPrevious: number | null; // minutes diff from previous period, negative = improving
   };
 }
@@ -193,7 +193,7 @@ export async function GET(
 
     const onTargetCount = targetMinutes !== null
       ? timesWithValues.filter((d) => (d.minutesFromMidnight || 0) <= targetMinutes).length
-      : 0;
+      : null;
 
     // Previous period average
     const prevMins = prevLogs.map((l) => l.completedAt ? toMinutes(l.completedAt) : null).filter((m): m is number => m !== null);
@@ -216,9 +216,12 @@ export async function GET(
         worst: worstMinutes !== null && worstMinutes !== -Infinity ? minutesToHHmm(worstMinutes) : null,
         onTargetCount,
         totalCount: timesWithValues.length,
-        onTargetRate: timesWithValues.length > 0 && targetMinutes !== null
-          ? Math.round((onTargetCount / timesWithValues.length) * 100)
-          : 0,
+        // BUG-29 fix: return null when there's no targetTime (was 0, which
+        // was misleading — the UI hides this stat when targetTime is null,
+        // but the API response itself was incorrect).
+        onTargetRate: targetMinutes !== null && timesWithValues.length > 0
+          ? Math.round(((onTargetCount ?? 0) / timesWithValues.length) * 100)
+          : null,
         vsPrevious,
       },
     };

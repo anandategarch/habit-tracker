@@ -11,6 +11,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!parsed.success) return parsed.response;
     const { category, amount, period } = parsed.data;
 
+    // FIN-BUG-8 fix: pre-check category uniqueness on rename. Budget.category
+    // is @unique (schema line 202) — Prisma throws P2002 on collision which
+    // the generic catch below returned as a confusing 500. Now we surface a
+    // clear 400 with an Indonesian message the UI can show directly.
+    if (category !== undefined) {
+      const existing = await db.budget.findUnique({ where: { category } });
+      if (existing && existing.id !== id) {
+        return NextResponse.json(
+          { error: 'Budget untuk kategori ini sudah ada.' },
+          { status: 400 }
+        );
+      }
+    }
+
     const budget = await db.budget.update({
       where: { id },
       data: {

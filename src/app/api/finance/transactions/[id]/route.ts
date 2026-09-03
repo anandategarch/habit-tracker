@@ -21,6 +21,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 // PUT /api/finance/transactions/[id]
 // If amount/type/source changes, the fund source balance is adjusted atomically:
 // the old effect is reverted and the new effect is applied.
+//
+// FIN-BUG-2 fix: post-increment balance checks on BOTH the reverted old
+// source and the new source (mirror the split POST + transfer POST pattern).
+// Previously, editing an expense to increase its amount (or moving a tx to
+// a different source) could silently drive the source balance negative —
+// inconsistent with the strict checks in split + transfer.
+//
+// FIN-BUG-9 fix: validate that the (newType, newCategory) tuple exists in
+// FinanceCategory, and that the new source exists in FundSource. Previously
+// the route wrote arbitrary category/source strings, leading to orphaned
+// transactions with no emoji/color metadata and skewed analytics.
+const INTERNAL_CATEGORIES = ['Transfer Antar Sumber', 'Penyesuaian Saldo'];
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -44,6 +57,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const newType = update.type ?? existing.type;
       const newAmount = update.amount ?? existing.amount;
       const newSource = update.source ?? existing.source;
+      const newCategory = update.category ?? existing.category;
+
+      // FIN-BUG-9 fix: validate category exists when category OR type changes
+      // (changing type invalidates the existing category's type binding).
+      // Skip for internal movement categories (system-created, may not have
+      // a FinanceCategory row).
+      if (
+        (update.category !== undefined || update.type !== undefined) &&
+        !INTERNAL_CATEGORIES.includes(newCategory)
+      ) {
+        const cat = await tx.financeCategory.findUnique({
+          where: { type_name: { type: newType, name: newCategory } },
+        });
+        if (!cat) throw new Error('CATEGORY_NOT_FOUND');
+      }
+
+      // FIN-BUG-9 fix: validate source exists when changing source.
+      if (newSource !== existing.source) {
+        const src = await tx.fundSource.findUnique({ where: { name: newSource } });
+        if (!src) throw new Error('SOURCE_NOT_FOUND');
+      }
 
       // Revert old effect on the OLD source (if it exists as a FundSource row).
       // Use atomic `increment` with the inverse delta to avoid the lost-update
@@ -56,10 +90,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         // If original was income (+amount), revert is -amount. If expense,
         // revert is +amount. Equivalent to signedDelta(amount, inverseType).
         const revertDelta = -signedDelta(existing.amount, existing.type);
-        await tx.fundSource.update({
+        const revertedSource = await tx.fundSource.update({
           where: { id: oldFundSource.id },
           data: { balance: { increment: revertDelta } },
         });
+        // FIN-BUG-2 fix: post-increment check on reverted old source.
+        // Edge case: reverting a previous income on a source whose balance
+        // has since been spent down to near-zero can drive it negative.
+        if (revertedSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
       }
 
       // Apply new effect on the NEW source (if it exists as a FundSource row).
@@ -70,10 +108,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ? await tx.fundSource.findUnique({ where: { name: newSource } })
         : oldFundSource;
       if (newFundSource) {
-        await tx.fundSource.update({
+        const updatedNewSource = await tx.fundSource.update({
           where: { id: newFundSource.id },
           data: { balance: { increment: signedDelta(newAmount, newType) } },
         });
+        // FIN-BUG-2 fix: post-increment check on new source. Catches the
+        // race where the new amount exceeds the source's current balance
+        // (e.g. user edits an expense to increase its amount).
+        if (updatedNewSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
       }
 
       const updateData: Record<string, unknown> = {};
@@ -96,6 +138,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (error instanceof Error && error.message === 'TRANSFER_BLOCKED') {
       return NextResponse.json(
         { error: 'Transaksi transfer tidak bisa diedit. Transfer adalah pasangan terhubung.' },
+        { status: 400 }
+      );
+    }
+    // FIN-BUG-2 fix: surface insufficient-balance errors as 400 (not 500).
+    if (error instanceof Error && error.message === 'INSUFFICIENT_BALANCE') {
+      return NextResponse.json(
+        { error: 'Saldo sumber dana tidak mencukupi untuk perubahan ini.' },
+        { status: 400 }
+      );
+    }
+    // FIN-BUG-9 fix: surface category/source-not-found as 400 with a clear
+    // user-facing message (was: silent 500 due to Prisma FK-less string col).
+    if (error instanceof Error && error.message === 'CATEGORY_NOT_FOUND') {
+      return NextResponse.json(
+        { error: 'Kategori tidak ditemukan. Muat ulang halaman dan coba lagi.' },
+        { status: 400 }
+      );
+    }
+    if (error instanceof Error && error.message === 'SOURCE_NOT_FOUND') {
+      return NextResponse.json(
+        { error: 'Sumber dana tidak ditemukan. Muat ulang halaman dan coba lagi.' },
         { status: 400 }
       );
     }

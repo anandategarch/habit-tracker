@@ -76,7 +76,17 @@ export async function POST(
         return NextResponse.json({ error: 'Cannot set completion time more than 7 days ago' }, { status: 400 });
       }
     } else if (completed) {
-      completedAtStr = jakartaNowIso();
+      // BUG-6 fix: only auto-stamp completedAt for trackTime habits.
+      // Non-trackTime habits don't need a precise completion time — setting it
+      // caused the UI to show a misleading "done at HH:mm" badge that was
+      // really just "now". Fetch the habit to check trackTime.
+      const habit = await db.habit.findUnique({
+        where: { id },
+        select: { trackTime: true },
+      });
+      if (habit?.trackTime) {
+        completedAtStr = jakartaNowIso();
+      }
     }
 
     const log = await db.habitLog.upsert({

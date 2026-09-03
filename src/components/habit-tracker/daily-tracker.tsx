@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
-import { jakartaDateKey } from '@/lib/timezone';
+import { jakartaDateKey, jakartaNowIso, jakartaNowParts } from '@/lib/timezone';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -111,21 +111,11 @@ function timeDiffMinutes(time: string, target: string): number {
   return (ah * 60 + am) - (th * 60 + tm);
 }
 
-/** Convert a Date to ISO string WITH timezone offset (preserves local time) */
-function toLocalISO(date: Date): string {
-  const offset = -date.getTimezoneOffset();
-  const sign = offset >= 0 ? '+' : '-';
-  const absOffset = Math.abs(offset);
-  const oh = String(Math.floor(absOffset / 60)).padStart(2, '0');
-  const om = String(absOffset % 60).padStart(2, '0');
-  const y = date.getFullYear();
-  const M = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const h = String(date.getHours()).padStart(2, '0');
-  const m = String(date.getMinutes()).padStart(2, '0');
-  const s = String(date.getSeconds()).padStart(2, '0');
-  return `${y}-${M}-${d}T${h}:${m}:${s}${sign}${oh}:${om}`;
-}
+// NOTE: `toLocalISO(date)` was removed (BUG-17 fix). It converted a Date to an
+// ISO string using the BROWSER's local timezone offset, which produced wrong
+// results on non-Jakarta browsers since the rest of the app uses Asia/Jakarta.
+// Callers now use `jakartaNowIso()` (for "now") or build the ISO directly with
+// a `+07:00` offset (for user-entered date+time).
 
 /**
  * Compute the current streak (consecutive completed days ending at `date`)
@@ -333,7 +323,16 @@ export default function DailyTracker() {
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
   const cachedMonthRef = useRef('');
+  // BUG-16 fix: track the refreshKey that was used to populate the cache.
+  // When refreshKey changes (e.g. user hit "refresh" or created a new habit),
+  // the cache short-circuit must be bypassed so the new data is fetched.
+  const cachedRefreshKeyRef = useRef(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // BUG-19 fix: store the latest pending notes-save so we can fire-and-forget
+  // it on unmount (using keepalive) instead of cancelling it. Previously the
+  // debounced save was cancelled on unmount, so typing-then-navigating within
+  // 600ms lost the user's notes silently.
+  const pendingSaveRef = useRef<{ date: string; notes?: string } | null>(null);
 
   // ---- TanStack Query: habits, daily-log ----
   const { data: habits = [] } = useQuery<Habit[]>({
@@ -364,7 +363,12 @@ export default function DailyTracker() {
   const dateObj = useMemo(() => parseISO(selectedDate), [selectedDate]);
   const dayOfMonth = getDate(dateObj);
   const daysInMonth = getDaysInMonth(dateObj);
-  const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
+  // BUG-7 fix: use jakartaDateString() (TZ-explicit) instead of
+  // format(startOfDay(new Date()), 'yyyy-MM-dd') which reads the BROWSER's
+  // local TZ. A user in UTC-8 viewing the app at 22:00 local would see
+  // todayStr = "2025-01-15" while Jakarta is already 2025-01-16 — selecting
+  // "Today" would jump to the wrong date.
+  const todayStr = jakartaDateString();
 
   const activeHabits = useMemo(
     () => habits.filter((h) => h.status === 'active'),
@@ -410,7 +414,14 @@ export default function DailyTracker() {
   const fetchCompletions = async (habitList: Habit[], date: string) => {
     const month = date.slice(0, 7);
 
-    if (cachedMonthRef.current === month && monthLogsCacheRef.current[month]) {
+    // BUG-16 fix: include refreshKey in the cache hit check. Without this,
+    // changing refreshKey (e.g. after creating a habit) would still hit the
+    // stale cache and never re-fetch.
+    if (
+      cachedMonthRef.current === month &&
+      monthLogsCacheRef.current[month] &&
+      cachedRefreshKeyRef.current === refreshKey
+    ) {
       const cache = monthLogsCacheRef.current[month];
       const map: Record<string, boolean> = {};
       const atMap: Record<string, string> = {};
@@ -460,6 +471,9 @@ export default function DailyTracker() {
 
     monthLogsCacheRef.current[month] = monthCache;
     cachedMonthRef.current = month;
+    // BUG-16 fix: record the refreshKey that populated this cache so a future
+    // refreshKey change invalidates the cache.
+    cachedRefreshKeyRef.current = refreshKey;
     setCompletionMap(map);
     setCompletedAtMap(atMap);
   };
@@ -468,14 +482,21 @@ export default function DailyTracker() {
   const debouncedSave = useCallback(
     (patch: { notes?: string }) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      // BUG-19 fix: stash the pending patch (with the current selectedDate)
+      // so the unmount handler can fire-and-forget it. Previously the timer
+      // was just cancelled on unmount, losing the last <600ms of typing.
+      pendingSaveRef.current = { date: selectedDate, ...patch };
       saveTimerRef.current = setTimeout(async () => {
+        const pending = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        if (!pending) return;
         try {
           await fetch('/api/daily-logs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: selectedDate, ...patch }),
+            body: JSON.stringify(pending),
           });
-          queryClient.invalidateQueries({ queryKey: ['daily-logs', selectedDate] });
+          queryClient.invalidateQueries({ queryKey: ['daily-logs', pending.date] });
         } catch {
           toast.error('Gagal menyimpan catatan');
         }
@@ -504,16 +525,26 @@ export default function DailyTracker() {
     // after successful API response — ensures confetti only fires on actual completion).
     // For checkbox clicks, event.currentTarget is the checkbox; for card clicks,
     // it's the card div. Both are valid origins for the confetti burst.
-    confettiElRef.current = event && 'currentTarget' in event
-      ? (event.currentTarget as HTMLElement)
-      : null;
+    //
+    // BUG-5 fix: only OVERWRITE the ref when an event is provided. The checkbox's
+    // onClick handler sets confettiElRef to the checkbox button right before
+    // onCheckedChange fires (which calls handleHabitCheck with no event). The
+    // previous code did `confettiElRef.current = event ? ... : null`, which
+    // overwrote the checkbox ref with null — defeating the FIX-BUGS-1 fix.
+    if (event && 'currentTarget' in event) {
+      confettiElRef.current = event.currentTarget as HTMLElement;
+    }
 
     if (habit.trackTime) {
-      const now = new Date();
+      // BUG-17 fix: use jakartaNowParts() (TZ-explicit) instead of
+      // new Date().getHours()/getMinutes() (browser-local TZ). On a non-Jakarta
+      // browser the local hours would be displayed but stored as Jakarta ISO,
+      // causing the time picker to show the wrong initial value.
+      const now = jakartaNowParts();
       setTimeDialogHabit(habit);
       setManualDate(selectedDate);
       setManualTime(
-        `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+        `${String(now.hours).padStart(2, '0')}:${String(now.minutes).padStart(2, '0')}`,
       );
     } else {
       toggleHabit(habit.id, null);
@@ -526,9 +557,17 @@ export default function DailyTracker() {
     try {
       let completedAtISO: string | null = null;
       if (useNow) {
-        completedAtISO = toLocalISO(new Date());
+        // BUG-17 fix: use jakartaNowIso() (returns ISO with +07:00 offset,
+        // independent of browser TZ) instead of toLocalISO(new Date()) which
+        // uses the browser's local offset.
+        completedAtISO = jakartaNowIso();
       } else if (manualTime) {
-        completedAtISO = toLocalISO(new Date(`${manualDate}T${manualTime}:00`));
+        // BUG-17 fix: construct the ISO with +07:00 offset directly. The user
+        // enters manualTime in Jakarta wall-clock (the rest of the app uses
+        // Jakarta), so we just append the offset. Previously toLocalISO() was
+        // used, which interpreted the input as browser-local TZ and produced
+        // a different ISO on non-Jakarta browsers.
+        completedAtISO = `${manualDate}T${manualTime}:00+07:00`;
       }
       await toggleHabit(timeDialogHabit.id, completedAtISO);
       setTimeDialogHabit(null);
@@ -612,10 +651,15 @@ export default function DailyTracker() {
         toast.success('Habit completed! 🎉');
 
         // ── Confetti — ONLY after successful API response ──
-        // Compute the new streak (current + 1 for the just-completed day).
-        const habit = habits.find((h) => h.id === habitId);
-        const currentStreak = cache ? computeStreak(cache[habitId] || [], selectedDate) : (habit?._count?.logs || 0);
-        const newStreak = currentStreak + 1;
+        // BUG-1 fix: the month cache was already mutated above (lines 619-636
+        // in the original) to include today's completion, so computeStreak
+        // already counts today. The previous `newStreak = currentStreak + 1`
+        // double-counted today, firing milestone confetti (7/30/100/365) one
+        // day early. Now `newStreak = currentStreak`.
+        // BUG-18 fix: when no cache exists, return 0 (not _count.logs which
+        // was the total log count — completely unrelated to a streak).
+        const currentStreak = cache ? computeStreak(cache[habitId] || [], selectedDate) : 0;
+        const newStreak = currentStreak;
         const el = confettiElRef.current;
 
         if ([7, 30, 100, 365].includes(newStreak)) {
@@ -671,9 +715,34 @@ export default function DailyTracker() {
     };
   }, [habits, selectedDate, refreshKey]);
 
+  // BUG-19 fix: on unmount, fire-and-forget any pending debounced notes save
+  // using `keepalive: true` so the request completes after the component is
+  // gone. Previously the save was just cancelled, silently dropping the user's
+  // last edits if they navigated within the 600ms debounce window.
   useEffect(
     () => () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+      const pending = pendingSaveRef.current;
+      if (pending) {
+        pendingSaveRef.current = null;
+        try {
+          // Fire-and-forget: don't await, don't invalidate queries (component
+          // is gone, queryClient may be torn down). keepalive lets the browser
+          // finish the request even after the page unmounts.
+          void fetch('/api/daily-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pending),
+            keepalive: true,
+          }).catch(() => {
+            /* swallow — there's no UI left to surface the error to */
+          });
+        } catch {
+          /* ignore */
+        }
+      }
     },
     [],
   );
@@ -892,7 +961,10 @@ export default function DailyTracker() {
               const streak = (() => {
                 const month = selectedDate.slice(0, 7);
                 const cache = monthLogsCacheRef.current[month];
-                if (!cache) return habit._count?.logs || 0;
+                // BUG-18 fix: return 0 when no cache (was _count.logs which
+                // is the total log count, not a streak — completely unrelated
+                // and could show e.g. "47" instead of the actual streak).
+                if (!cache) return 0;
                 return computeStreak(cache[habit.id] || [], selectedDate);
               })();
               const isLate =
