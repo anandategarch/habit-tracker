@@ -819,7 +819,7 @@ export default function Finance() {
         </div>
         {/* Row 2: Quick actions — horizontal scroll on mobile, wrap on desktop */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:overflow-visible sm:pb-0 sm:flex-wrap">
-          <Button size="sm" className="shrink-0 bg-red-500 hover:bg-red-600 text-white anim-press anim-pulse-ring" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
+          <Button size="sm" className="shrink-0 bg-destructive hover:bg-destructive text-white anim-press anim-pulse-ring" onClick={() => openNewTx('expense')}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
           <Button size="sm" className="shrink-0 anim-press" onClick={() => openNewTx('income')}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
           <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setCatDialogOpen(true)}><Settings2 className="h-4 w-4 mr-1" />Kategori</Button>
           <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => setSourceDialogOpen(true)}><Wallet className="h-4 w-4 mr-1" />Sumber Dana</Button>
@@ -895,8 +895,8 @@ export default function Finance() {
           <DialogHeader><DialogTitle>{editingTx ? 'Edit Transaksi' : 'Tambah Transaksi'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-red-500 hover:bg-red-600 text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))} disabled={splitMode}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
-              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} className={cn(txForm.type === 'income' && 'bg-primary hover:bg-primary text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))} disabled={splitMode} title={splitMode ? 'Split hanya untuk pengeluaran' : undefined}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
+              <Button type="button" variant={txForm.type === 'expense' ? 'default' : 'outline'} className={cn(txForm.type === 'expense' && 'bg-destructive hover:bg-destructive text-white')} onClick={() => setTxForm(f => ({ ...f, type: 'expense', category: '' }))} disabled={splitMode}><ArrowDownRight className="h-4 w-4 mr-1" />Pengeluaran</Button>
+              <Button type="button" variant={txForm.type === 'income' ? 'default' : 'outline'} onClick={() => setTxForm(f => ({ ...f, type: 'income', category: '' }))} disabled={splitMode} title={splitMode ? 'Split hanya untuk pengeluaran' : undefined}><ArrowUpRight className="h-4 w-4 mr-1" />Pemasukan</Button>
             </div>
 
             {/* Split toggle — only shown when adding (not editing). Split
@@ -957,7 +957,7 @@ export default function Finance() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9 shrink-0 text-red-500 hover:text-red-600"
+                      className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
                       onClick={() => removeSplitRow(idx)}
                       disabled={splitRows.length <= 2}
                       title={splitRows.length <= 2 ? 'Minimal 2 kategori untuk split' : 'Hapus baris'}
@@ -1031,7 +1031,7 @@ export default function Finance() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle><AlertDialogDescription>Transaksi yang dihapus tidak bisa dikembalikan. Yakin ingin melanjutkan?</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteTx} className="bg-red-500 hover:bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDeleteTx} className="bg-destructive hover:bg-destructive">Hapus</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -1039,7 +1039,7 @@ export default function Finance() {
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Hapus {selectedTxIds.size} Transaksi?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak bisa dibatalkan. {selectedTxIds.size} transaksi yang dipilih akan dihapus secara permanen.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete} className="bg-red-500 hover:bg-red-600">Hapus {selectedTxIds.size} Transaksi</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive">Hapus {selectedTxIds.size} Transaksi</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -1050,7 +1050,7 @@ export default function Finance() {
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-red-600">📁 Pengeluaran</h3>
+                <h3 className="text-sm font-semibold text-destructive">📁 Pengeluaran</h3>
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openNewCat('expense')}><Plus className="h-3 w-3 mr-1" />Tambah</Button>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
@@ -1058,10 +1058,10 @@ export default function Finance() {
                   <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
                     <span className="text-lg">{cat.emoji}</span>
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
-                    {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
+                    {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80">track</span>}
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -1077,10 +1077,10 @@ export default function Finance() {
                   <div key={cat.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card group hover:bg-accent/50 transition-colors">
                     <span className="text-lg">{cat.emoji}</span>
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
-                    {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">track</span>}
+                    {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80">track</span>}
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditCat(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -1167,7 +1167,7 @@ export default function Finance() {
                   {src.id && (
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSource(src)}><Edit3 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => setDeletingSource(src)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletingSource(src)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   )}
                 </div>
@@ -1208,13 +1208,13 @@ export default function Finance() {
             <AlertDialogDescription>
               Yakin ingin menghapus <strong>{deletingSource?.emoji} {deletingSource?.name}</strong>?
               {deletingSource && (deletingSource.balance || 0) !== 0 && (
-                <span className="block mt-1 text-amber-600 dark:text-amber-400">Sumber ini memiliki saldo {formatRupiah(deletingSource.balance || 0)}.</span>
+                <span className="block mt-1 text-warning dark:text-warning/80">Sumber ini memiliki saldo {formatRupiah(deletingSource.balance || 0)}.</span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeletingSource(null)}>Batal</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" onClick={() => { if (deletingSource) { handleDeleteSource(deletingSource); setDeletingSource(null); } }}>Hapus</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive hover:bg-destructive text-white" onClick={() => { if (deletingSource) { handleDeleteSource(deletingSource); setDeletingSource(null); } }}>Hapus</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

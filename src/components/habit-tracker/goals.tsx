@@ -89,8 +89,8 @@ interface GoalFormData {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
-  completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+  active: 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80',
+  completed: 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80',
   cancelled: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
 };
 
@@ -376,9 +376,9 @@ export default function GoalsTab() {
   // ── Render helpers ────────────────────────────────────────────────────────
 
   function getProgressColor(progress: number): string {
-    if (progress >= 80) return '[&>div]:bg-green-500';
+    if (progress >= 80) return '[&>div]:bg-success';
     if (progress >= 50) return '[&>div]:bg-lime-500';
-    if (progress >= 25) return '[&>div]:bg-amber-500';
+    if (progress >= 25) return '[&>div]:bg-warning';
     return '[&>div]:bg-orange-500';
   }
 
@@ -497,7 +497,7 @@ export default function GoalsTab() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15"
                 onClick={() => setDeleteTarget(goal)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -524,9 +524,9 @@ export default function GoalsTab() {
                 className={cn(
                   'flex items-center gap-1 text-xs rounded px-1 py-0.5',
                   isOverdue
-                    ? 'text-red-500 font-medium'
+                    ? 'text-destructive font-medium'
                     : isUrgent
-                    ? 'text-amber-600 dark:text-amber-400 font-medium anim-urgency-pulse'
+                    ? 'text-warning dark:text-warning/80 font-medium anim-urgency-pulse'
                     : 'text-muted-foreground'
                 )}
               >
@@ -599,7 +599,6 @@ export default function GoalsTab() {
         <DialogTrigger asChild>
           <Button
             onClick={openNewForm}
-            className="bg-primary hover:bg-primary text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Goal
@@ -691,7 +690,7 @@ export default function GoalsTab() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 flex-shrink-0"
+                        className="h-9 w-9 text-destructive/80 hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15 flex-shrink-0"
                         onClick={() => removeMilestone(idx)}
                       >
                         <X className="h-4 w-4" />
@@ -740,7 +739,7 @@ export default function GoalsTab() {
               <Button
                 onClick={handleSave}
                 disabled={saving || !form.title.trim()}
-                className="bg-primary hover:bg-primary text-white min-w-[120px]"
+                className="min-w-[120px]"
               >
                 {saving ? 'Saving...' : form.id ? 'Update Goal' : 'Create Goal'}
               </Button>
@@ -851,7 +850,7 @@ export default function GoalsTab() {
             </p>
             <Button
               onClick={openNewForm}
-              className="mt-4 bg-primary hover:bg-primary text-white"
+              className="mt-4"
             >
               <Plus className="h-4 w-4 mr-2" />
               Create First Goal
@@ -884,7 +883,7 @@ export default function GoalsTab() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive text-white"
             >
               Delete
             </AlertDialogAction>

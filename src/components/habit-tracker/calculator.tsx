@@ -261,7 +261,7 @@ export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDial
   // ── Button layout ────────────────────────────────────────────────────
 
   const buttons = [
-    { label: 'C', onClick: handleClear, className: 'bg-red-500/10 text-red-500 hover:bg-red-500/20', tall: false },
+    { label: 'C', onClick: handleClear, className: 'bg-destructive/10 text-destructive hover:bg-destructive/20', tall: false },
     { label: '⌫', onClick: handleBackspace, className: 'bg-muted/50 hover:bg-muted', tall: false },
     { label: '%', onClick: handlePercent, className: 'bg-muted/50 hover:bg-muted', tall: false },
     { label: '÷', onClick: () => appendToExpression('÷'), className: 'bg-primary/10 text-primary hover:bg-primary/20', tall: false },

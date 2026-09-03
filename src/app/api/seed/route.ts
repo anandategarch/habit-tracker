@@ -112,8 +112,8 @@ const DEFAULT_EXPENSE_CATEGORIES = [
   { type: 'expense', name: 'Belanja', emoji: '🛍️', color: '#eab308', order: 3 },
   { type: 'expense', name: 'Hiburan', emoji: '🎮', color: '#a855f7', order: 4 },
   { type: 'expense', name: 'Kesehatan', emoji: '🏥', color: '#ec4899', order: 5 },
-  { type: 'expense', name: 'Pendidikan', emoji: '📚', color: '#3b82f6', order: 6 },
-  { type: 'expense', name: 'Tagihan & Utilitas', emoji: '📋', color: '#6366f1', order: 7 },
+  { type: 'expense', name: 'Pendidikan', emoji: '📚', color: '#8b5cf6', order: 6 },
+  { type: 'expense', name: 'Tagihan & Utilitas', emoji: '📋', color: '#a855f7', order: 7 },
   { type: 'expense', name: 'Tabungan & Investasi', emoji: '🏦', color: '#14b8a6', order: 8 },
   { type: 'expense', name: 'Lainnya', emoji: '📦', color: '#78716c', order: 9 },
 ];

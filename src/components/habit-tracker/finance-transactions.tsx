@@ -233,7 +233,7 @@ export default function FinanceTransactions({
               {selectedTxIds.size} dari {filteredTransactions.length} dipilih
             </span>
           </div>
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-600" onClick={onBulkDelete}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={onBulkDelete}>
             <Trash2 className="h-3 w-3 mr-1" /> Hapus
           </Button>
         </div>
@@ -258,7 +258,7 @@ export default function FinanceTransactions({
               <div className="tx-date-pill">
                 {group.dateLabel}, {capitalize(group.dayName)}
                 {group.totalExpense > 0 && (
-                  <span className="text-red-500 ml-1">-{formatRupiah(group.totalExpense)}</span>
+                  <span className="text-destructive ml-1">-{formatRupiah(group.totalExpense)}</span>
                 )}
                 {group.totalIncome > 0 && (
                   <span className="text-primary ml-1">+{formatRupiah(group.totalIncome)}</span>
@@ -318,7 +318,7 @@ export default function FinanceTransactions({
                             <span className="text-sm font-semibold truncate flex items-center gap-1.5">
                               {tx.category}
                               {tx.groupId && (
-                                <span className="text-[9px] px-1 py-0 rounded-full bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400 font-medium shrink-0">
+                                <span className="text-[9px] px-1 py-0 rounded-full bg-success/10 text-success dark:bg-success/15 dark:text-success/80 font-medium shrink-0">
                                   Split
                                 </span>
                               )}
@@ -347,7 +347,7 @@ export default function FinanceTransactions({
                               <span
                                 className={cn(
                                   'text-sm font-bold',
-                                  isExpense ? 'text-red-500' : 'text-primary'
+                                  isExpense ? 'text-destructive' : 'text-primary'
                                 )}
                               >
                                 {isExpense ? '-' : '+'}{formatRupiah(tx.amount)}
@@ -375,7 +375,7 @@ export default function FinanceTransactions({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 text-red-500 hover:text-red-600"
+                              className="h-9 w-9 text-destructive hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (tx.category === 'Transfer Antar Sumber') {
@@ -411,7 +411,7 @@ export default function FinanceTransactions({
           {isCurrentMonth ? (
             <div>
               <p className="text-xs text-muted-foreground">Total Pengeluaran Hari Ini</p>
-              <p className="text-lg font-bold text-red-500">{formatRupiah(todayExpense)}</p>
+              <p className="text-lg font-bold text-destructive">{formatRupiah(todayExpense)}</p>
             </div>
           ) : (
             <div />

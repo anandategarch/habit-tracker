@@ -123,7 +123,10 @@ export default function TimeAnalysisDialog({
   onOpenChange,
 }: TimeAnalysisDialogProps) {
   const [filter, setFilter] = useState<FilterType>('thisWeek');
+  // FIX-COLOR-P3: added destructiveColor so "late" bar fill follows the user's
+  // theme (was hardcoded #ef4444).
   const primaryColor = useThemeColor('primary');
+  const destructiveColor = useThemeColor('destructive');
 
   const { data: data, isLoading: loading, error: queryError, refetch } = useQuery<AnalysisData>({
     queryKey: ['time-analysis', habitId, filter],
@@ -194,9 +197,9 @@ export default function TimeAnalysisDialog({
         </div>
 
         {error && (
-          <Card className="border-red-200 dark:border-red-900">
+          <Card className="border-destructive/30 dark:border-destructive/30">
             <CardContent className="py-4">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-sm text-destructive dark:text-destructive/80">{error}</p>
             </CardContent>
           </Card>
         )}
@@ -233,11 +236,11 @@ export default function TimeAnalysisDialog({
               {/* Best */}
               <Card className="py-3">
                 <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40 shrink-0">
-                    <Trophy className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-success/10 dark:bg-success/15 shrink-0">
+                    <Trophy className="h-4 w-4 text-success dark:text-success/80" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    <p className="text-lg font-bold tabular-nums text-success dark:text-success/80">
                       {data.stats.best || '—'}
                     </p>
                     <p className="text-xs text-muted-foreground">Terbaik</p>
@@ -248,11 +251,11 @@ export default function TimeAnalysisDialog({
               {/* Worst */}
               <Card className="py-3">
                 <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/40 shrink-0">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-destructive/10 dark:bg-destructive/15 shrink-0">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-lg font-bold tabular-nums text-red-500">
+                    <p className="text-lg font-bold tabular-nums text-destructive">
                       {data.stats.worst || '—'}
                     </p>
                     <p className="text-xs text-muted-foreground">Terlambat</p>
@@ -265,8 +268,8 @@ export default function TimeAnalysisDialog({
             <div className="grid grid-cols-2 gap-3">
               <Card className="py-3">
                 <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 shrink-0">
-                    <Target className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-warning/10 dark:bg-warning/15 shrink-0">
+                    <Target className="h-4 w-4 text-warning dark:text-warning/80" />
                   </div>
                   <div className="min-w-0">
                     {targetMinutes !== null ? (
@@ -305,9 +308,9 @@ export default function TimeAnalysisDialog({
                     }}
                   >
                     {(data.stats.vsPrevious ?? 0) <= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <TrendingUp className="h-4 w-4 text-success dark:text-success/80" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
+                      <TrendingDown className="h-4 w-4 text-destructive" />
                     )}
                   </div>
                   <div className="min-w-0">
@@ -317,8 +320,8 @@ export default function TimeAnalysisDialog({
                           className={cn(
                             'text-lg font-bold tabular-nums',
                             data.stats.vsPrevious <= 0
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-red-500',
+                              ? 'text-success dark:text-success/80'
+                              : 'text-destructive',
                           )}
                         >
                           {data.stats.vsPrevious > 0 ? '+' : ''}
@@ -401,7 +404,10 @@ export default function TimeAnalysisDialog({
                             let fill = primaryColor; // default = primary
                             if (targetMinutes !== null) {
                               if (entry.time > targetMinutes) {
-                                fill = '#ef4444'; // red = late
+                                // FIX-COLOR-P3: was hardcoded '#ef4444' — now
+                                // uses destructiveColor so the "late" fill
+                                // follows the user's theme.
+                                fill = destructiveColor; // destructive = late
                               } else if (entry.time <= targetMinutes) {
                                 fill = primaryColor; // primary = on target
                               }
@@ -419,15 +425,18 @@ export default function TimeAnalysisDialog({
                       <>
                         {/* BUG-22 fix: legend swatches must match the actual
                             bar fills. The bar uses `primaryColor` for on-target
-                            and `#ef4444` (red-500) for late, but the legend
-                            previously used `bg-emerald-500/85` for on-target
-                            (mismatch when primary is not green). */}
+                            and `destructiveColor` (from useThemeColor) for late,
+                            but the legend previously used `bg-emerald-500/85`
+                            for on-target (mismatch when primary is not green).
+                            FIX-COLOR-P3: late fill is now `destructiveColor`
+                            (was hardcoded `#ef4444`); legend uses
+                            `bg-destructive/85` so both adapt to the theme. */}
                         <span className="flex items-center gap-1">
                           <span className="w-3 h-3 rounded-sm bg-primary inline-block" />
                           Tepat waktu
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="w-3 h-3 rounded-sm bg-red-500/85 inline-block" />
+                          <span className="w-3 h-3 rounded-sm bg-destructive/85 inline-block" />
                           Terlambat
                         </span>
                         <span className="flex items-center gap-1">

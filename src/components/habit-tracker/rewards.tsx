@@ -265,7 +265,6 @@ export default function Rewards() {
           <DialogTrigger asChild>
             <Button
               onClick={openDialog}
-              className="bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Reward
@@ -325,7 +324,6 @@ export default function Rewards() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  className="bg-primary text-white hover:bg-primary"
                 >
                   Create
                 </Button>
@@ -399,7 +397,7 @@ export default function Rewards() {
                         </div>
                         <Badge
                           variant="secondary"
-                          className="text-xs bg-amber-50 text-amber-700 border border-amber-200"
+                          className="text-xs bg-warning/10 text-warning border border-warning/30"
                         >
                           <Star className="mr-1 h-3 w-3" />
                           {formatXp(reward.xpCost)}
@@ -422,7 +420,7 @@ export default function Rewards() {
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
-                        className="flex-1 h-8 text-xs bg-primary text-white hover:bg-primary"
+                        className="flex-1 h-8 text-xs"
                         onClick={() => handleRedeem(reward)}
                       >
                         <Gift className="mr-1.5 h-3 w-3" />
@@ -431,7 +429,7 @@ export default function Rewards() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDelete(reward)}
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
@@ -518,7 +516,7 @@ export default function Rewards() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDelete(reward)}
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
@@ -583,7 +581,7 @@ export default function Rewards() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDelete(reward)}
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
@@ -612,7 +610,7 @@ export default function Rewards() {
             </div>
             <Button
               onClick={openDialog}
-              className="mt-2 bg-primary text-white hover:bg-primary"
+              className="mt-2"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Your First Reward

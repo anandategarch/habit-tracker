@@ -270,8 +270,8 @@ const FALLBACK_CATEGORY_META: Record<string, { emoji: string; color: string }> =
   'Belanja': { emoji: '🛍️', color: '#eab308' },
   'Hiburan': { emoji: '🎮', color: '#a855f7' },
   'Kesehatan': { emoji: '🏥', color: '#ec4899' },
-  'Pendidikan': { emoji: '📚', color: '#3b82f6' },
-  'Tagihan & Utilitas': { emoji: '📋', color: '#6366f1' },
+  'Pendidikan': { emoji: '📚', color: '#8b5cf6' },
+  'Tagihan & Utilitas': { emoji: '📋', color: '#a855f7' },
   'Tabungan & Investasi': { emoji: '🏦', color: '#14b8a6' },
   'Gaji': { emoji: '💰', color: '#22c55e' },
   'Freelance': { emoji: '💻', color: '#06b6d4' },
@@ -280,7 +280,7 @@ const FALLBACK_CATEGORY_META: Record<string, { emoji: string; color: string }> =
   // Adjustment transaction category (created by PATCH /sources/[id]/balance)
   'Penyesuaian Saldo': { emoji: '🔧', color: '#64748b' },
   // Transfer between fund sources (created by POST /api/finance/transfer)
-  'Transfer Antar Sumber': { emoji: '🔄', color: '#0ea5e9' },
+  'Transfer Antar Sumber': { emoji: '🔄', color: '#14b8a6' },
 };
 
 const DEFAULT_EMOJI = '📦';

@@ -108,7 +108,7 @@ export function HabitTable({
                       </span>
                     )}
                     {habit.trackLastDone && (
-                      <span className="ml-1.5 inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" title="Track Terakhir aktif">
+                      <span className="ml-1.5 inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80" title="Track Terakhir aktif">
                         <History className="h-3 w-3 mr-0.5" />
                         {habit.lastDoneInterval || 'track'}
                       </span>
@@ -154,7 +154,7 @@ export function HabitTable({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => onDelete(habit.id)}
-                          className="text-red-600 focus:text-red-600"
+                          className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete

@@ -629,7 +629,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
         .sort((a, b) => b.zScore - a.zScore);
     })();
 
-    const primaryColor = cat.color || '#6366f1';
+    const primaryColor = cat.color || '#22c55e';
 
     return (
       <div className="space-y-4 overflow-x-hidden">
@@ -661,7 +661,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
 
         {/* Hero number */}
         <Card className="overflow-hidden anim-stagger contain-card">
-          <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-5 sm:px-6">
+          <div className="bg-gradient-to-br from-[#22c55e]/[0.025] via-[#10b981]/[0.015] to-transparent px-4 py-5 sm:px-6">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xl">{cat.emoji}</span>
               <p className="text-sm font-semibold">{cat.name}</p>
@@ -679,9 +679,9 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
               <div className={cn(
                 'inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium',
                 vsLastMonthDir === 'up'
-                  ? 'bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400'
+                  ? 'bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80'
                   : vsLastMonthDir === 'down'
-                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                  ? 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80'
                   : 'bg-muted text-muted-foreground'
               )}>
                 {vsLastMonthDir === 'up' && <TrendingUp className="h-3 w-3" />}
@@ -710,12 +710,18 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                   Harian
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-4 h-0.5" style={{ backgroundColor: '#7C6CFF' }} />
+                  {/* FIX-COLOR-P3: was hardcoded #10b981 — now var(--chart-2)
+                      so the moving-avg legend swatch matches the Line stroke
+                      and follows the user's theme. */}
+                  <span className="w-4 h-0.5" style={{ backgroundColor: 'var(--chart-2)' }} />
                   Rata² 7 hari
                 </span>
                 {dailyAverage > 0 && (
                   <span className="flex items-center gap-1">
-                    <span className="w-4 h-0 border-t-2 border-dashed" style={{ borderColor: '#f59e0b' }} />
+                    {/* FIX-COLOR-P3: was hardcoded #f59e0b — now var(--warning)
+                        so the avg-reference legend swatch matches the
+                        ReferenceLine stroke and follows the user's theme. */}
+                    <span className="w-4 h-0 border-t-2 border-dashed" style={{ borderColor: 'var(--warning)' }} />
                     Rata²
                   </span>
                 )}
@@ -727,8 +733,10 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => compactRupiahSafe(v)} />
+                {/* FIX-COLOR-P3: was hardcoded #64748B (slate-500) — now
+                    var(--muted-foreground) so axis ticks follow the theme. */}
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => compactRupiahSafe(v)} />
                 <RechartsTooltip
                   contentStyle={{
                     backgroundColor: 'var(--card)',
@@ -749,13 +757,15 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                 {dailyAverage > 0 && (
                   <ReferenceLine
                     y={dailyAverage}
-                    stroke="#f59e0b"
+                    // FIX-COLOR-P3: was hardcoded #f59e0b — now var(--warning)
+                    // so the avg reference line follows the user's theme.
+                    stroke="var(--warning)"
                     strokeWidth={1.5}
                     strokeDasharray="5 3"
                     label={{
                       value: `Avg ${compactRupiahSafe(dailyAverage)}`,
                       position: 'insideTopRight',
-                      fill: '#f59e0b',
+                      fill: 'var(--warning)',
                       fontSize: 11,
                     }}
                   />
@@ -763,7 +773,10 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                 <Line
                   type="monotone"
                   dataKey="movingAvg"
-                  stroke="#7C6CFF"
+                  // FIX-COLOR-P3: was hardcoded #10b981 — now var(--chart-2)
+                  // (teal) so the moving-average line follows the user's theme
+                  // and stays visually distinct from the primary-green bars.
+                  stroke="var(--chart-2)"
                   strokeWidth={2}
                   dot={false}
                   yAxisId={0}
@@ -972,15 +985,15 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
 
         {/* D12: Anomaly detection */}
         {anomalies.length > 0 && (
-          <Card className="p-3 border-amber-200 dark:border-amber-900/50">
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+          <Card className="p-3 border-warning/30 dark:border-warning/20">
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-warning dark:text-warning/80">
               <TrendingUp className="h-3 w-3" />
               Anomali Terdeteksi
             </h3>
             <div className="space-y-1.5">
               {anomalies.slice(0, 3).map((a, i) => (
                 <div key={a.tx.id || i} className="flex items-center gap-2 text-xs">
-                  <span className="text-amber-500 shrink-0">⚠️</span>
+                  <span className="text-warning shrink-0">⚠️</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
                       {a.tx.description || a.tx.category}
@@ -990,7 +1003,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold tabular-nums text-amber-600 dark:text-amber-400">
+                    <p className="font-bold tabular-nums text-warning dark:text-warning/80">
                       {compactRupiahSafe(a.tx.amount)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
@@ -1030,7 +1043,7 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
                       {formatDateShort(jakartaDateKey(new Date(tx.date)))} · {formatTxTime(tx.date)} · {tx.source}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold tabular-nums shrink-0 text-red-500">
+                  <span className="text-xs font-semibold tabular-nums shrink-0 text-destructive">
                     −{compactRupiahSafe(tx.amount)}
                   </span>
                 </div>

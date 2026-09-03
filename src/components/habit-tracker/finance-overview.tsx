@@ -65,7 +65,7 @@ export default function FinanceOverview({
           <p className="text-xs text-muted-foreground font-medium">Total Saldo</p>
           <p className={cn(
             'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
-            dashboardData.balance >= 0 ? 'text-primary' : 'text-red-600'
+            dashboardData.balance >= 0 ? 'text-primary' : 'text-destructive'
           )}>
             <CountUpRupiah amount={dashboardData.balance} bounce={dashboardData.balance >= 0} />
           </p>
@@ -74,7 +74,7 @@ export default function FinanceOverview({
             {dashboardData.netCashFlow !== undefined && (
               <span className="ml-1.5">
                 ·{' '}
-                <span className={dashboardData.netCashFlow >= 0 ? 'text-primary' : 'text-red-500'}>
+                <span className={dashboardData.netCashFlow >= 0 ? 'text-primary' : 'text-destructive'}>
                   {dashboardData.netCashFlow >= 0 ? '+' : '−'}
                   {formatRupiah(Math.abs(dashboardData.netCashFlow))}
                 </span>
@@ -97,7 +97,7 @@ export default function FinanceOverview({
             </div>
             <p className="text-lg sm:text-xl font-bold text-primary"><CountUpRupiah amount={dashboardData.totalIncome} /></p>
             {dashboardData.previousMonth.income > 0 && (
-              <p className={cn('text-xs mt-0.5', incomeChange >= 0 ? 'text-primary' : 'text-red-500')}>
+              <p className={cn('text-xs mt-0.5', incomeChange >= 0 ? 'text-primary' : 'text-destructive')}>
                 {incomeChange >= 0 ? '↑' : '↓'} {Math.abs(incomeChange)}% vs lalu
               </p>
             )}
@@ -106,12 +106,12 @@ export default function FinanceOverview({
           {/* Expense */}
           <div className="px-4 py-3 sm:px-6">
             <div className="flex items-center gap-1 mb-0.5">
-              <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />
-              <span className="text-xs font-medium text-red-500">Pengeluaran</span>
+              <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
+              <span className="text-xs font-medium text-destructive">Pengeluaran</span>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-red-500"><CountUpRupiah amount={dashboardData.totalExpense} /></p>
+            <p className="text-lg sm:text-xl font-bold text-destructive"><CountUpRupiah amount={dashboardData.totalExpense} /></p>
             {dashboardData.previousMonth.expense > 0 && (
-              <p className={cn('text-xs mt-0.5', expenseChange <= 0 ? 'text-primary' : 'text-red-500')}>
+              <p className={cn('text-xs mt-0.5', expenseChange <= 0 ? 'text-primary' : 'text-destructive')}>
                 {expenseChange <= 0 ? '↓' : '↑'} {Math.abs(expenseChange)}% vs lalu
               </p>
             )}
@@ -139,7 +139,7 @@ export default function FinanceOverview({
         <Card>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" />
+              <Clock className="h-4 w-4 text-warning" />
               Terakhir Transaksi
               <ChartInfo text="Menampilkan kapan terakhir transaksi untuk kategori yang kamu tandai 'Track Terakhir Transaksi' di pengaturan Kategori. Diurutkan dari yang paling lama belum transaksi." />
             </CardTitle>
@@ -163,7 +163,7 @@ export default function FinanceOverview({
                   {item.daysAgo !== null && item.daysAgo > 7 && (
                     <div className={cn(
                       'text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0',
-                      item.daysAgo > 14 ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
+                      item.daysAgo > 14 ? 'bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80' : 'bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80'
                     )}>
                       {item.daysAgo}d
                     </div>

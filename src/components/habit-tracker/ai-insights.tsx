@@ -37,9 +37,9 @@ const SEVERITY_CONFIG = {
   },
   negative: {
     label: 'Needs Attention',
-    badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400 border-red-200 dark:border-red-800',
-    borderClass: 'border-l-red-500',
-    iconBg: 'bg-red-100 dark:bg-red-950/50',
+    badgeClass: 'bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80 border-destructive/30 dark:border-destructive/30',
+    borderClass: 'border-l-destructive',
+    iconBg: 'bg-destructive/10 dark:bg-destructive/15',
   },
   neutral: {
     label: 'Info',
@@ -93,7 +93,7 @@ function SeveritySection({
   const config = SEVERITY_CONFIG[severity];
   const colors: Record<string, string> = {
     positive: 'text-primary',
-    negative: 'text-red-500',
+    negative: 'text-destructive',
     neutral: 'text-gray-500 dark:text-gray-400',
   };
 

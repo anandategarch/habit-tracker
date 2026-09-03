@@ -155,15 +155,17 @@ const CATEGORY_STYLES: Record<
   string,
   { tint: string; ring: string; glow: string; text: string; hex: string }
 > = {
-  Productivity: { tint: 'cat-emerald', ring: '#10b981', glow: 'rgba(16,185,129,0.25)', text: 'text-emerald-600 dark:text-emerald-400', hex: '#10b981' },
-  Learning: { tint: 'cat-indigo', ring: '#6366f1', glow: 'rgba(99,102,241,0.25)', text: 'text-indigo-600 dark:text-indigo-400', hex: '#6366f1' },
+  Productivity: { tint: 'cat-emerald', ring: '#10b981', glow: 'rgba(16,185,129,0.25)', text: 'text-success dark:text-success/80', hex: '#10b981' },
+  Learning: { tint: 'cat-emerald', ring: '#10b981', glow: 'rgba(16,185,129,0.25)', text: 'text-success dark:text-success/80', hex: '#10b981' },
   Fitness: { tint: 'cat-orange', ring: '#f97316', glow: 'rgba(249,115,22,0.25)', text: 'text-orange-600 dark:text-orange-400', hex: '#f97316' },
   Health: { tint: 'cat-teal', ring: '#14b8a6', glow: 'rgba(20,184,166,0.25)', text: 'text-teal-600 dark:text-teal-400', hex: '#14b8a6' },
-  Reading: { tint: 'cat-sky', ring: '#0ea5e9', glow: 'rgba(14,165,233,0.25)', text: 'text-sky-600 dark:text-sky-400', hex: '#0ea5e9' },
+  // FIX-COLOR-P2: Reading was cat-sky/#0ea5e9 — replaced with orange.
+  Reading: { tint: 'cat-orange', ring: '#f97316', glow: 'rgba(249,115,22,0.25)', text: 'text-orange-600 dark:text-orange-400', hex: '#f97316' },
   Personal: { tint: 'cat-rose', ring: '#ec4899', glow: 'rgba(236,72,153,0.25)', text: 'text-rose-600 dark:text-rose-400', hex: '#ec4899' },
   Creative: { tint: 'cat-fuchsia', ring: '#d946ef', glow: 'rgba(217,70,239,0.25)', text: 'text-fuchsia-600 dark:text-fuchsia-400', hex: '#d946ef' },
-  Mindfulness: { tint: 'cat-violet', ring: '#8b5cf6', glow: 'rgba(139,92,246,0.25)', text: 'text-violet-600 dark:text-violet-400', hex: '#8b5cf6' },
-  Social: { tint: 'cat-red', ring: '#ef4444', glow: 'rgba(239,68,68,0.25)', text: 'text-red-600 dark:text-red-400', hex: '#ef4444' },
+  // FIX-COLOR-P2: Mindfulness was cat-violet/#8b5cf6 — replaced with rose.
+  Mindfulness: { tint: 'cat-rose', ring: '#ec4899', glow: 'rgba(236,72,153,0.25)', text: 'text-rose-600 dark:text-rose-400', hex: '#ec4899' },
+  Social: { tint: 'cat-red', ring: '#ef4444', glow: 'rgba(239,68,68,0.25)', text: 'text-destructive dark:text-destructive/80', hex: '#ef4444' },
   General: { tint: 'cat-slate', ring: '#64748b', glow: 'rgba(100,116,139,0.25)', text: 'text-slate-600 dark:text-slate-400', hex: '#64748b' },
 };
 
@@ -266,10 +268,10 @@ function KpiCard({
     amber: 'kpi-card-amber',
   };
   const iconColors: Record<string, string> = {
-    green: 'text-emerald-500',
+    green: 'text-success',
     orange: 'text-orange-500',
     rose: 'text-rose-500',
-    amber: 'text-amber-500',
+    amber: 'text-warning',
   };
   return (
     <div
@@ -869,7 +871,7 @@ export default function DailyTracker() {
               <span className="text-sm font-medium text-muted-foreground ml-1">XP</span>
             </span>
           }
-          sub={<span className="text-amber-600 dark:text-amber-400">Lv {Math.floor(todayXP / 100) + 1} · {todayXP % 100}/100</span>}
+          sub={<span className="text-warning dark:text-warning/80">Lv {Math.floor(todayXP / 100) + 1} · {todayXP % 100}/100</span>}
         />
       </section>
 
@@ -1049,7 +1051,7 @@ export default function DailyTracker() {
                         className={cn(
                           'inline-flex items-center gap-0.5 text-[11px] tabular-nums rounded px-1 py-0.5 hover:bg-accent transition-colors',
                           isLate
-                            ? 'text-red-500 dark:text-red-400'
+                            ? 'text-destructive dark:text-destructive/80'
                             : 'text-primary',
                         )}
                         title={

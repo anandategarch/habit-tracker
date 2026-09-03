@@ -102,7 +102,7 @@ export default function FinanceBudgets({
               </div>
             ) : historyError ? (
               <div className="text-center py-4">
-                <p className="text-xs text-red-500 font-medium">Gagal memuat history budget</p>
+                <p className="text-xs text-destructive font-medium">Gagal memuat history budget</p>
                 <p className="text-xs text-muted-foreground mt-1">Coba tutup dan buka kembali.</p>
               </div>
             ) : sortedMonths.length === 0 ? (
@@ -122,13 +122,13 @@ export default function FinanceBudgets({
                         <span className="text-xs font-semibold">{month}</span>
                         <div className="flex items-center gap-2 text-xs">
                           {totalRollover > 0 && (
-                            <span className="text-green-500 flex items-center gap-0.5">
+                            <span className="text-success flex items-center gap-0.5">
                               <TrendingUp className="h-3 w-3" /> +{formatRupiah(totalRollover)}
                             </span>
                           )}
                           <span className={cn(
                             'font-semibold px-1.5 py-0.5 rounded-full',
-                            totalPct > 100 ? 'bg-red-500/10 text-red-600' : totalPct >= 80 ? 'bg-amber-500/10 text-amber-600' : 'bg-green-500/10 text-green-600'
+                            totalPct > 100 ? 'bg-destructive/10 text-destructive' : totalPct >= 80 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
                           )}>
                             {totalPct}%
                           </span>
@@ -138,7 +138,7 @@ export default function FinanceBudgets({
                         <span>Terpakai: {formatRupiah(totalSpent)}</span>
                         <span>Budget: {formatRupiah(totalBudget)}</span>
                       </div>
-                      <Progress value={Math.min(totalPct, 100)} className={cn('h-1.5', totalPct > 100 && '[&>div]:bg-red-500')} />
+                      <Progress value={Math.min(totalPct, 100)} className={cn('h-1.5', totalPct > 100 && '[&>div]:bg-destructive')} />
                       {/* Per-category detail */}
                       <div className="mt-2 space-y-1">
                         {snaps.map(snap => {
@@ -148,12 +148,12 @@ export default function FinanceBudgets({
                               <span className="flex items-center gap-1 truncate">
                                 {meta.emoji} {snap.category}
                                 {snap.rolloverIn > 0 && (
-                                  <span className="text-green-500 text-[11px]">(+{formatRupiah(snap.rolloverIn)})</span>
+                                  <span className="text-success text-[11px]">(+{formatRupiah(snap.rolloverIn)})</span>
                                 )}
                               </span>
                               <span className={cn(
                                 'font-medium shrink-0',
-                                snap.percentage > 100 ? 'text-red-500' : 'text-muted-foreground'
+                                snap.percentage > 100 ? 'text-destructive' : 'text-muted-foreground'
                               )}>
                                 {formatRupiah(snap.spentAmount)}/{formatRupiah(snap.effectiveBudget)}
                               </span>
@@ -226,7 +226,7 @@ export default function FinanceBudgets({
                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onEditBudget(b)}>
                       <Edit3 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-red-500 hover:text-red-600" onClick={() => onDeleteBudget(b.id)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => onDeleteBudget(b.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -241,7 +241,7 @@ export default function FinanceBudgets({
                     </div>
                     <span className={cn(
                       'text-xs font-semibold px-2 py-0.5 rounded-full',
-                      isOver ? 'bg-red-500/10 text-red-600' : isWarning ? 'bg-amber-500/10 text-amber-600' : 'bg-green-500/10 text-green-600'
+                      isOver ? 'bg-destructive/10 text-destructive' : isWarning ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
                     )}>
                       {pct}%
                     </span>
@@ -250,12 +250,12 @@ export default function FinanceBudgets({
                   {/* Progress bar */}
                   <Progress
                     value={Math.min(pct, 100)}
-                    className={cn('h-2 anim-progress-fill', isOver && '[&>div]:bg-red-500', isWarning && '[&>div]:bg-amber-500')}
+                    className={cn('h-2 anim-progress-fill', isOver && '[&>div]:bg-destructive', isWarning && '[&>div]:bg-warning')}
                   />
 
                   {/* Footer: remaining + daily rate */}
                   <div className="flex flex-wrap justify-between gap-x-3 gap-y-0.5 mt-1">
-                    <span className={cn('text-xs font-medium', isOver ? 'text-red-500' : 'text-primary')}>
+                    <span className={cn('text-xs font-medium', isOver ? 'text-destructive' : 'text-primary')}>
                       {isOver
                         ? `⚠️ Over ${formatRupiah(spent - b.amount)}`
                         : `✓ Sisa ${formatRupiah(remaining)}`

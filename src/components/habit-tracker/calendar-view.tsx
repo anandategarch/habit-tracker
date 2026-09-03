@@ -110,18 +110,18 @@ const MOOD_EMOJIS: Record<number, string> = {
 
 function getHeatmapColor(rate: number | null): string {
   if (rate === null) return 'bg-gray-100 dark:bg-gray-800/50';
-  if (rate === 0) return 'bg-red-200 dark:bg-red-900/40';
+  if (rate === 0) return 'bg-destructive/30 dark:bg-destructive/15';
   if (rate < 25) return 'bg-orange-200 dark:bg-orange-900/40';
-  if (rate < 50) return 'bg-yellow-200 dark:bg-yellow-900/40';
+  if (rate < 50) return 'bg-warning/30 dark:bg-warning/15';
   if (rate < 75) return 'bg-lime-200 dark:bg-lime-900/40';
-  return 'bg-green-300 dark:bg-green-800/50';
+  return 'bg-success/30 dark:bg-success/15';
 }
 
 function getHeatmapTextColor(rate: number | null): string {
   if (rate === null) return 'text-gray-400 dark:text-gray-500';
-  if (rate === 0) return 'text-red-700 dark:text-red-300';
-  if (rate < 50) return 'text-yellow-800 dark:text-yellow-200';
-  return 'text-green-800 dark:text-green-200';
+  if (rate === 0) return 'text-destructive dark:text-destructive/80';
+  if (rate < 50) return 'text-warning dark:text-warning/80';
+  return 'text-success dark:text-success/80';
 }
 
 function generateMonthOptions(): { value: string; label: string }[] {
@@ -502,11 +502,11 @@ export default function CalendarView() {
                 <div className="flex flex-wrap items-center gap-3">
                   {[
                     { label: 'No data', color: 'bg-gray-100 dark:bg-gray-800/50' },
-                    { label: '0%', color: 'bg-red-200 dark:bg-red-900/40' },
+                    { label: '0%', color: 'bg-destructive/30 dark:bg-destructive/15' },
                     { label: '25%', color: 'bg-orange-200 dark:bg-orange-900/40' },
-                    { label: '50%', color: 'bg-yellow-200 dark:bg-yellow-900/40' },
+                    { label: '50%', color: 'bg-warning/30 dark:bg-warning/15' },
                     { label: '75%', color: 'bg-lime-200 dark:bg-lime-900/40' },
-                    { label: '100%', color: 'bg-green-300 dark:bg-green-800/50' },
+                    { label: '100%', color: 'bg-success/30 dark:bg-success/15' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-2">
                       <div

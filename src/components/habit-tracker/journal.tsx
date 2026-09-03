@@ -136,11 +136,11 @@ function getEnergyLabel(energy: number): string {
 function getMoodColor(mood: number): string {
   switch (mood) {
     case 1:
-      return 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400';
+      return 'bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80';
     case 2:
       return 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400';
     case 3:
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400';
+      return 'bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80';
     case 4:
       return 'bg-lime-100 text-lime-700 dark:bg-lime-950 dark:text-lime-400';
     case 5:
@@ -157,11 +157,11 @@ function getStressColor(stress: number): string {
     case 2:
       return 'text-lime-600 dark:text-lime-400';
     case 3:
-      return 'text-amber-600 dark:text-amber-400';
+      return 'text-warning dark:text-warning/80';
     case 4:
       return 'text-orange-600 dark:text-orange-400';
     case 5:
-      return 'text-red-600 dark:text-red-400';
+      return 'text-destructive dark:text-destructive/80';
     default:
       return 'text-muted-foreground';
   }
@@ -170,11 +170,11 @@ function getStressColor(stress: number): string {
 function getEnergyColor(energy: number): string {
   switch (energy) {
     case 1:
-      return 'text-red-600 dark:text-red-400';
+      return 'text-destructive dark:text-destructive/80';
     case 2:
       return 'text-orange-600 dark:text-orange-400';
     case 3:
-      return 'text-amber-600 dark:text-amber-400';
+      return 'text-warning dark:text-warning/80';
     case 4:
       return 'text-lime-600 dark:text-lime-400';
     case 5:
@@ -185,8 +185,8 @@ function getEnergyColor(energy: number): string {
 }
 
 function getSleepColor(sleep: number): string {
-  if (sleep < 6) return 'text-red-500';
-  if (sleep < 7) return 'text-amber-500';
+  if (sleep < 6) return 'text-destructive';
+  if (sleep < 7) return 'text-warning';
   if (sleep < 9) return 'text-primary';
   return 'text-primary';
 }
@@ -338,7 +338,6 @@ export default function JournalTab() {
         <DialogTrigger asChild>
           <Button
             onClick={openNewForm}
-            className="bg-primary hover:bg-primary text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Entry
@@ -505,7 +504,7 @@ export default function JournalTab() {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-primary hover:bg-primary text-white min-w-[120px]"
+                className="min-w-[120px]"
               >
                 {saving ? 'Saving...' : 'Save Entry'}
               </Button>
@@ -583,7 +582,7 @@ export default function JournalTab() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15"
                 onClick={() => setDeleteTarget(entry)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -640,7 +639,7 @@ export default function JournalTab() {
 
               {entry.lessonLearned && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-warning dark:text-warning/80 mb-1">
                     Lesson Learned
                   </h4>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -731,7 +730,7 @@ export default function JournalTab() {
             </p>
             <Button
               onClick={openNewForm}
-              className="mt-4 bg-primary hover:bg-primary text-white"
+              className="mt-4"
             >
               <Plus className="h-4 w-4 mr-2" />
               Write First Entry
@@ -766,7 +765,7 @@ export default function JournalTab() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive hover:bg-destructive text-white"
             >
               Delete
             </AlertDialogAction>

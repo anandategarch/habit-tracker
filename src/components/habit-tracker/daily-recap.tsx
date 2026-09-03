@@ -273,8 +273,9 @@ function catmullRomPath(points: Array<{ x: number; y: number }>): string {
 }
 
 // ── Sparkline (premium fintech line chart) ────────────────────────────────
-// Smooth curved line with vibrant blue→purple gradient stroke (#5B5FFB →
-// #7C6CFF) and a very soft translucent area fill (12% opacity) with subtle
+// FIX-COLOR-P2: was "vibrant blue→purple gradient stroke (#5B5FFB → #7C6CFF)"
+// — replaced with theme-following var(--chart-1) (defaults to emerald-500).
+// Smooth curved line with a soft translucent area fill (12% opacity) with subtle
 // Gaussian blur beneath. Minimalist — only the "today" point is highlighted
 // with a soft glow halo + background ring.
 
@@ -304,16 +305,18 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
     <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-12" preserveAspectRatio="none">
         <defs>
-          {/* Horizontal gradient for stroke: vibrant blue → purple */}
+          {/* FIX-COLOR-P2: was #5B5FFB → #7C6CFF (blue→purple). Now uses var(--chart-1)
+              which defaults to emerald-500 and follows the user's chosen theme. */}
+          {/* Horizontal gradient for stroke */}
           <linearGradient id="spark-stroke" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#5B5FFB" />
-            <stop offset="100%" stopColor="#7C6CFF" />
+            <stop offset="0%" stopColor="var(--chart-1)" />
+            <stop offset="100%" stopColor="var(--chart-1)" />
           </linearGradient>
           {/* Vertical gradient for area fill: 15% opacity → 0% (top → bottom) */}
           <linearGradient id="spark-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5B5FFB" stopOpacity="0.15" />
-            <stop offset="50%" stopColor="#7C6CFF" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#7C6CFF" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity="0.15" />
+            <stop offset="50%" stopColor="var(--chart-1)" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity="0" />
           </linearGradient>
           {/* REMOVED: feGaussianBlur filters — SVG blur is extremely GPU-
               expensive and was the #1 cause of "lag when data finishes
@@ -330,7 +333,7 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
           />
         )}
 
-        {/* Smooth curved line with blue→purple gradient */}
+        {/* Smooth curved line with theme-following gradient */}
         <path
           d={linePath}
           fill="none"
@@ -349,7 +352,7 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
               cx={todayPoint.x}
               cy={todayPoint.y}
               r="5"
-              fill="#7C6CFF"
+              fill="var(--chart-1)"
               opacity="0.2"
             />
             {/* Background ring (matches card bg — creates cutout from the line) */}
@@ -365,7 +368,7 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
               cx={todayPoint.x}
               cy={todayPoint.y}
               r="2.5"
-              fill="#7C6CFF"
+              fill="var(--chart-1)"
             />
           </g>
         )}
@@ -382,7 +385,7 @@ function MiniSparkline({ data }: { data: Array<{ date: string; amount: number; i
             className={cn(
               'flex-1 text-center text-[11px] tabular-nums leading-tight',
               d.isToday
-                ? 'font-bold text-[#7C6CFF]'
+                ? 'font-bold text-primary'
                 : 'text-muted-foreground'
             )}
           >
@@ -415,10 +418,10 @@ function ProgressRing({
   const offset = circumference - (clampedPct / 100) * circumference;
 
   const colorClass =
-    status === 'over' ? 'text-red-500'
-    : status === 'nearing' ? 'text-amber-500'
+    status === 'over' ? 'text-destructive'
+    : status === 'nearing' ? 'text-warning'
     : status === 'on_track' ? 'text-primary'
-    : 'text-emerald-500';
+    : 'text-success';
 
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
@@ -493,9 +496,9 @@ function HourlyHeatmap({ hourly }: { hourly: number[] }) {
           const isAfternoon = hour >= 12 && hour < 18;
           const color = amt === 0 ? 'bg-muted/30'
             : isLateNight ? 'bg-purple-400 dark:bg-purple-500'
-            : isMorning ? 'bg-amber-400 dark:bg-amber-500'
+            : isMorning ? 'bg-warning/80 dark:bg-warning'
             : isAfternoon ? 'bg-primary'
-            : 'bg-blue-400 dark:bg-blue-500';
+            : 'bg-success/80 dark:bg-success';
           // Use native title attribute instead of Tooltip component.
           // 48 Tooltip wrappers = 48 event listeners + 48 React state
           // instances = heavy. Native title is zero-JS, zero-cost.
@@ -609,7 +612,7 @@ function BudgetDialog({
               size="sm"
               onClick={onRemove}
               disabled={isPending}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15"
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" />
               Hapus
@@ -665,8 +668,8 @@ function CategoryInsightRow({
   const isAtAvg = delta === 0;
 
   const deltaColorClass = isAtAvg ? 'text-muted-foreground'
-    : isBelow ? 'text-emerald-600 dark:text-emerald-400'
-    : 'text-red-600 dark:text-red-400';
+    : isBelow ? 'text-success dark:text-success/80'
+    : 'text-destructive dark:text-destructive/80';
   const DeltaIcon = isAtAvg ? Minus : isBelow ? TrendingDown : TrendingUp;
 
   // Select the 4 metrics based on the active period tab.
@@ -711,7 +714,7 @@ function CategoryInsightRow({
             a retry button instead of getting stuck on "Memuat…" forever. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 pl-5 text-[11px] text-muted-foreground">
         {allTimeError ? (
-          <span className="inline-flex items-center gap-1 text-red-500">
+          <span className="inline-flex items-center gap-1 text-destructive">
             <span>Gagal memuat</span>
             {onRetryAllTime && (
               <button
@@ -767,8 +770,8 @@ function ComparisonPill({ changePct, direction, label }: { changePct: number | n
   const isSame = direction === 'same';
   // For expense, "down" is good (green), "up" is bad (red)
   const colorClass = isSame ? 'text-muted-foreground'
-    : isUp ? 'text-red-500'
-    : 'text-emerald-500';
+    : isUp ? 'text-destructive'
+    : 'text-success';
   const Icon = isSame ? Minus : isUp ? TrendingUp : TrendingDown;
   return (
     <div className={cn('flex items-center gap-1 text-xs font-medium min-w-0', colorClass)}>
@@ -782,9 +785,9 @@ function ComparisonPill({ changePct, direction, label }: { changePct: number | n
 
 function AlertChip({ alert }: { alert: DailyRecap['alerts'][number] }) {
   const severityClass =
-    alert.severity === 'danger' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
-    : alert.severity === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
-    : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900';
+    alert.severity === 'danger' ? 'bg-destructive/10 text-destructive border-destructive/30 dark:bg-destructive/15 dark:text-destructive/80 dark:border-destructive/30'
+    : alert.severity === 'warning' ? 'bg-warning/10 text-warning border-warning/30 dark:bg-warning/15 dark:text-warning/80 dark:border-warning/30'
+    : 'bg-primary/10 text-primary border-primary/20';
   const Icon = alert.type === 'late_night' ? Moon
     : alert.type === 'big_ticket' ? Zap
     : alert.type === 'over_budget' ? AlertTriangle
@@ -1028,7 +1031,7 @@ export default function DailyRecap() {
     return (
       <Card className="overflow-hidden">
         <div className="p-4 flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400 shrink-0">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80 shrink-0">
             <AlertCircle className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0">
@@ -1076,11 +1079,11 @@ export default function DailyRecap() {
   if (isEmpty) {
     return (
       <Card className="overflow-hidden anim-stagger contain-card">
-        <div className="bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
+        <div className="bg-gradient-to-br from-primary/[0.025] via-primary/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-xs text-muted-foreground font-medium mb-1">Hari Ini</p>
-              <p className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-500">
+              <p className="text-xl sm:text-2xl font-bold tracking-tight text-success">
                 Rp 0
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -1154,7 +1157,7 @@ export default function DailyRecap() {
   return (
     <Card className="overflow-hidden anim-stagger contain-card">
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
-      <div className="relative bg-gradient-to-br from-[#5B5FFB]/[0.025] via-[#7C6CFF]/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
+      <div className="relative bg-gradient-to-br from-primary/[0.025] via-primary/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
         {/* Top row: label + date + budget ring */}
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
@@ -1169,7 +1172,7 @@ export default function DailyRecap() {
             </div>
             <p className={cn(
               'text-xl sm:text-3xl font-bold tracking-tight break-words',
-              today.expense > 0 ? 'text-foreground' : 'text-emerald-500'
+              today.expense > 0 ? 'text-foreground' : 'text-success'
             )}>
               <CountUpRupiah amount={today.expense} />
             </p>
@@ -1229,7 +1232,7 @@ export default function DailyRecap() {
           {predictions.trendDirection.direction !== 'flat' && (
             <div className={cn(
               'flex items-center gap-1 text-xs font-medium min-w-0',
-              predictions.trendDirection.direction === 'up' ? 'text-red-500' : 'text-emerald-500'
+              predictions.trendDirection.direction === 'up' ? 'text-destructive' : 'text-success'
             )}>
               {predictions.trendDirection.direction === 'up' ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
               <span className="truncate">Tren {predictions.trendDirection.direction === 'up' ? 'naik' : 'turun'}</span>
@@ -1265,8 +1268,8 @@ export default function DailyRecap() {
             label="Masuk"
             value={<span className="tabular-nums">{compactRupiahSafe(today.income)}</span>}
             icon={ArrowUpRight}
-            iconClass="bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"
-            valueClass="text-emerald-600 dark:text-emerald-400"
+            iconClass="bg-success/10 text-success dark:bg-success/15 dark:text-success/80"
+            valueClass="text-success dark:text-success/80"
           />
         </div>
         <div className="px-2 py-2.5 sm:px-3">
@@ -1274,8 +1277,8 @@ export default function DailyRecap() {
             label="Keluar"
             value={<span className="tabular-nums">{compactRupiahSafe(today.expense)}</span>}
             icon={ArrowDownRight}
-            iconClass="bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400"
-            valueClass="text-red-600 dark:text-red-400"
+            iconClass="bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80"
+            valueClass="text-destructive dark:text-destructive/80"
           />
         </div>
         <div className="px-2 py-2.5 sm:px-3">
@@ -1285,9 +1288,9 @@ export default function DailyRecap() {
             icon={Activity}
             iconClass={cn(
               'bg-muted/50',
-              today.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+              today.net >= 0 ? 'text-success dark:text-success/80' : 'text-destructive dark:text-destructive/80'
             )}
-            valueClass={today.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
+            valueClass={today.net >= 0 ? 'text-success dark:text-success/80' : 'text-destructive dark:text-destructive/80'}
           />
         </div>
       </div>
@@ -1296,17 +1299,17 @@ export default function DailyRecap() {
       {dailyBudget && dailyBudget.target && dailyBudget.status === 'over' && (
         <>
           <div className="border-t border-border" />
-          <div className="px-4 py-2.5 sm:px-6 bg-red-50/50 dark:bg-red-950/20 anim-flash-red">
+          <div className="px-4 py-2.5 sm:px-6 bg-destructive/10 dark:bg-destructive/15 anim-flash-red">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
+              <span className="text-xs font-medium text-destructive dark:text-destructive/80 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Over budget
               </span>
-              <span className="text-xs font-bold text-red-600 dark:text-red-400">
+              <span className="text-xs font-bold text-destructive dark:text-destructive/80">
                 +{formatRupiah(Math.abs(dailyBudget.remaining))}
               </span>
             </div>
-            <Progress value={Math.min(dailyBudget.percentage, 100)} className="h-1.5 bg-red-100 dark:bg-red-950/50" />
+            <Progress value={Math.min(dailyBudget.percentage, 100)} className="h-1.5 bg-destructive/10 dark:bg-destructive/15" />
           </div>
         </>
       )}
@@ -1328,19 +1331,19 @@ export default function DailyRecap() {
             </div>
           )}
           {streaks.smartSpenderStreak >= 2 && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs font-medium">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success dark:bg-success/15 dark:text-success/80 text-xs font-medium">
               <Flame className="h-3 w-3" />
               {streaks.smartSpenderStreak}× hemat
             </div>
           )}
           {streaks.budgetStreak >= 2 && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-xs font-medium">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <Target className="h-3 w-3" />
               {streaks.budgetStreak}× on budget
             </div>
           )}
           {gamification.comboMultiplier > 1 && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs font-bold">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80 text-xs font-bold">
               🔥 {gamification.comboMultiplier}× Combo
             </div>
           )}
@@ -1414,10 +1417,10 @@ export default function DailyRecap() {
                     <div className={cn(
                       'px-2 py-1 rounded-full text-[11px] font-medium border',
                       predictions.projectionConfidence === 'high'
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900'
+                        ? 'bg-success/10 text-success border-success/30 dark:bg-success/15 dark:text-success/80 dark:border-success/30'
                         : predictions.projectionConfidence === 'medium'
-                        ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900'
-                        : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900'
+                        ? 'bg-warning/10 text-warning border-warning/30 dark:bg-warning/15 dark:text-warning/80 dark:border-warning/30'
+                        : 'bg-destructive/10 text-destructive border-destructive/30 dark:bg-destructive/15 dark:text-destructive/80 dark:border-destructive/30'
                     )}>
                       {predictions.projectionConfidence === 'high' ? '🎯 Akurat' : predictions.projectionConfidence === 'medium' ? '⚖️ Cukup' : '🎲 Kasar'}
                     </div>
@@ -1432,12 +1435,12 @@ export default function DailyRecap() {
                   title={`Bulan lalu: proyeksi ${compactRupiahSafe(predictions.lastMonthAccuracy.projected)} vs aktual ${compactRupiahSafe(predictions.lastMonthAccuracy.actual)} (selisih ${predictions.lastMonthAccuracy.deviationPct}%)`}
                 >
                   {predictions.lastMonthAccuracy.tier === 'accurate' && (
-                    <span className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 inline-flex items-center gap-0.5">
+                    <span className="text-success dark:text-success/80 border-success/30 dark:border-success/30 inline-flex items-center gap-0.5">
                       <Award className="h-2.5 w-2.5" /> Proyektor Andal
                     </span>
                   )}
                   {predictions.lastMonthAccuracy.tier === 'close' && (
-                    <span className="text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900">
+                    <span className="text-warning dark:text-warning/80 border-warning/30 dark:border-warning/30">
                       ±{predictions.lastMonthAccuracy.deviationPct}% bulan lalu
                     </span>
                   )}
@@ -1563,7 +1566,7 @@ export default function DailyRecap() {
                     <span className="text-sm font-bold tabular-nums text-primary">
                       {formatRupiah(adjustedRounded)}
                     </span>
-                    <span className="text-[10px] text-emerald-500 font-medium shrink-0 ml-auto">
+                    <span className="text-[10px] text-success font-medium shrink-0 ml-auto">
                       −{compactRupiahSafe(savings)}
                     </span>
                   </div>
@@ -1593,9 +1596,9 @@ export default function DailyRecap() {
                 <span className="text-[11px] text-muted-foreground">Kemungkinan on budget</span>
                 <span className={cn(
                   'text-[11px] font-bold tabular-nums',
-                  predictions.budgetCompliancePct >= 70 ? 'text-emerald-500'
-                  : predictions.budgetCompliancePct >= 40 ? 'text-amber-500'
-                  : 'text-red-500'
+                  predictions.budgetCompliancePct >= 70 ? 'text-success'
+                  : predictions.budgetCompliancePct >= 40 ? 'text-warning'
+                  : 'text-destructive'
                 )}>
                   {predictions.budgetCompliancePct}%
                 </span>
@@ -1604,9 +1607,9 @@ export default function DailyRecap() {
                 <div
                   className={cn(
                     'h-full rounded-full transition-all duration-700',
-                    predictions.budgetCompliancePct >= 70 ? 'bg-emerald-500'
-                    : predictions.budgetCompliancePct >= 40 ? 'bg-amber-500'
-                    : 'bg-red-500'
+                    predictions.budgetCompliancePct >= 70 ? 'bg-success'
+                    : predictions.budgetCompliancePct >= 40 ? 'bg-warning'
+                    : 'bg-destructive'
                   )}
                   style={{ width: `${predictions.budgetCompliancePct}%` }}
                 />
@@ -1626,7 +1629,7 @@ export default function DailyRecap() {
             )}
             {predictions.daysUntilBudgetOut !== null && predictions.daysUntilBudgetOut > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/60">
-                <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
                 <span className="text-[11px] text-muted-foreground">
                   Budget habis dalam <span className="font-semibold text-foreground">{predictions.daysUntilBudgetOut} hari</span>
                 </span>
@@ -1651,9 +1654,9 @@ export default function DailyRecap() {
 
           {/* Over budget warning */}
           {predictions.budgetETA && predictions.budgetETA.willExceed && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50">
-              <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-              <span className="text-[11px] text-red-600 dark:text-red-400">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 dark:bg-destructive/15 border border-destructive/30 dark:border-destructive/30">
+              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <span className="text-[11px] text-destructive dark:text-destructive/80">
                 Over budget <span className="font-bold">{formatRupiah(predictions.budgetETA.projectedOver)}</span>
               </span>
             </div>
@@ -1670,7 +1673,7 @@ export default function DailyRecap() {
             ?? today.categories.find((c) => c.name === topCat);
           return (
             <div className="flex items-center gap-1.5 text-xs min-w-0">
-              <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <Trophy className="h-3.5 w-3.5 text-warning shrink-0" />
               <span className="text-muted-foreground shrink-0">Terbesar:</span>
               {meta && <span className="text-sm shrink-0">{meta.emoji}</span>}
               <span className="font-medium truncate">{topCat}</span>
@@ -1783,18 +1786,18 @@ export default function DailyRecap() {
           <div className={cn(
             'rounded-lg p-2.5 border',
             gamification.personalRecord.isRecord
-              ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900'
+              ? 'bg-warning/10 border-warning/30 dark:bg-warning/15 dark:border-warning/30'
               : 'bg-muted/30 border-border/50'
           )}>
             <div className="flex items-center gap-2">
               <Award className={cn(
                 'h-4 w-4 shrink-0',
-                gamification.personalRecord.isRecord ? 'text-amber-500' : 'text-muted-foreground'
+                gamification.personalRecord.isRecord ? 'text-warning' : 'text-muted-foreground'
               )} />
               <div className="flex-1 min-w-0">
                 {gamification.personalRecord.isRecord ? (
                   <>
-                    <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <p className="text-xs font-bold text-warning dark:text-warning/80">
                       🏆 NEW RECORD! Pengeluaran terendah {gamification.personalRecord.totalDays} hari
                     </p>
                   </>
@@ -1813,7 +1816,7 @@ export default function DailyRecap() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             {patterns.bestDayThisMonth && (
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-emerald-500 shrink-0">🏆</span>
+                <span className="text-success shrink-0">🏆</span>
                 <span className="text-muted-foreground shrink-0">Best:</span>
                 <span className="font-medium shrink-0">{formatDateShort(patterns.bestDayThisMonth.date)}</span>
                 <span className="text-muted-foreground shrink-0">·</span>
@@ -1822,7 +1825,7 @@ export default function DailyRecap() {
             )}
             {patterns.worstDayThisMonth && (
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-red-500 shrink-0">📉</span>
+                <span className="text-destructive shrink-0">📉</span>
                 <span className="text-muted-foreground shrink-0">Worst:</span>
                 <span className="font-medium shrink-0">{formatDateShort(patterns.worstDayThisMonth.date)}</span>
                 <span className="text-muted-foreground shrink-0">·</span>
@@ -1842,9 +1845,9 @@ export default function DailyRecap() {
             </div>
             <p className={cn(
               'text-sm font-bold',
-              patterns.cashFlowHealth.status === 'healthy' ? 'text-emerald-500'
-              : patterns.cashFlowHealth.status === 'warning' ? 'text-amber-500'
-              : 'text-red-500'
+              patterns.cashFlowHealth.status === 'healthy' ? 'text-success'
+              : patterns.cashFlowHealth.status === 'warning' ? 'text-warning'
+              : 'text-destructive'
             )}>
               {patterns.cashFlowHealth.status === 'healthy' ? 'Sehat'
               : patterns.cashFlowHealth.status === 'warning' ? 'Hati-hati'
@@ -1858,9 +1861,9 @@ export default function DailyRecap() {
             </div>
             <p className={cn(
               'text-sm font-bold',
-              patterns.savingsRate >= 50 ? 'text-emerald-500'
-              : patterns.savingsRate >= 0 ? 'text-amber-500'
-              : 'text-red-500'
+              patterns.savingsRate >= 50 ? 'text-success'
+              : patterns.savingsRate >= 0 ? 'text-warning'
+              : 'text-destructive'
             )}>
               {patterns.savingsRate}%
             </p>
@@ -1869,13 +1872,13 @@ export default function DailyRecap() {
 
         {/* Category anomaly (if any anomaly detected) */}
         {patterns.categoryAnomaly.filter((c) => c.isAnomaly).length > 0 && (
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-2.5">
+          <div className="rounded-lg bg-warning/10 dark:bg-warning/15 border border-warning/30 dark:border-warning/30 p-2.5">
             <div className="flex items-center gap-1 mb-1">
-              <AlertTriangle className="h-3 w-3 text-amber-500" />
-              <span className="text-[11px] text-amber-700 dark:text-amber-400 uppercase tracking-wide font-medium">Anomali terdeteksi</span>
+              <AlertTriangle className="h-3 w-3 text-warning" />
+              <span className="text-[11px] text-warning dark:text-warning/80 uppercase tracking-wide font-medium">Anomali terdeteksi</span>
             </div>
             {patterns.categoryAnomaly.filter((c) => c.isAnomaly).map((c) => (
-              <p key={c.category} className="text-xs text-amber-700 dark:text-amber-400">
+              <p key={c.category} className="text-xs text-warning dark:text-warning/80">
                 {c.category} {formatRupiah(c.amount)} — {c.zScore}σ di atas normal ({compactRupiah(c.avgAmount)})
               </p>
             ))}
@@ -1910,7 +1913,7 @@ export default function DailyRecap() {
                   </div>
                   <span className={cn(
                     'font-semibold tabular-nums shrink-0',
-                    tx.type === 'income' ? 'text-emerald-500' : 'text-red-500'
+                    tx.type === 'income' ? 'text-success' : 'text-destructive'
                   )}>
                     {tx.type === 'income' ? '+' : '−'}{compactRupiahSafe(tx.amount)}
                   </span>

@@ -483,16 +483,16 @@ export default function LearningTab() {
             <Separator className="my-4" />
 
             {/* Fun Fact */}
-            <div className="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-4">
-              <div className="mt-0.5 shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <div className="flex items-start gap-3 rounded-lg bg-warning/10 dark:bg-warning/15 border border-warning/30 dark:border-warning/30 p-4">
+              <div className="mt-0.5 shrink-0 w-8 h-8 rounded-full bg-warning/10 dark:bg-warning/15 flex items-center justify-center">
+                <Lightbulb className="h-4 w-4 text-warning dark:text-warning/80" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1">
+                <p className="text-xs font-semibold text-warning dark:text-warning/80 mb-1 flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
                   Fun Fact
                 </p>
-                <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                <p className="text-sm text-warning dark:text-warning/80 leading-relaxed">
                   {article.funFact}
                 </p>
               </div>
@@ -562,7 +562,7 @@ export default function LearningTab() {
         </Card>
         <Card className="p-4 text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Flame className="h-4 w-4 text-yellow-500" />
+            <Flame className="h-4 w-4 text-warning" />
             <span className="text-xs text-muted-foreground font-medium">Streak Terpanjang</span>
           </div>
           <div className="text-2xl font-bold">{status.longestStreak}</div>

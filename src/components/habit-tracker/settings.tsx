@@ -728,7 +728,7 @@ export default function Settings() {
                           </>
                         )}
                       </div>
-                      <p className="text-amber-600 dark:text-amber-400 text-xs font-medium">
+                      <p className="text-warning dark:text-warning/80 text-xs font-medium">
                         Data yang ada saat ini akan <strong>ditimpa</strong> oleh data dari backup.
                       </p>
                     </div>
@@ -744,7 +744,7 @@ export default function Settings() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium text-red-600 dark:text-red-400">Hapus Semua Data</Label>
+                <Label className="text-sm font-medium text-destructive dark:text-destructive/80">Hapus Semua Data</Label>
                 <p className="text-xs text-muted-foreground">Hapus semua habits, log, transaksi, budget, dan data lainnya</p>
               </div>
               <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
@@ -752,7 +752,7 @@ export default function Settings() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-950/50 dark:text-red-400 dark:hover:text-red-300"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive dark:border-destructive/30 dark:hover:bg-destructive/15 dark:text-destructive/80 dark:hover:text-destructive/80"
                   >
                     <Trash2 className="h-4 w-4 mr-1.5" />
                     Hapus Semua
@@ -761,13 +761,13 @@ export default function Settings() {
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
                       Hapus Semua Data?
                     </AlertDialogTitle>
                     <AlertDialogDescription asChild>
                       <div className="space-y-2">
                         <p>
-                          Tindakan ini akan <span className="font-semibold text-red-600 dark:text-red-400">menghapus secara permanen</span> semua data kamu, termasuk:
+                          Tindakan ini akan <span className="font-semibold text-destructive dark:text-destructive/80">menghapus secara permanen</span> semua data kamu, termasuk:
                         </p>
                         <ul className="list-disc list-inside text-sm space-y-0.5 text-muted-foreground">
                           <li>Semua Habit dan log tracking</li>
@@ -779,7 +779,7 @@ export default function Settings() {
                           <li>Semua transaksi keuangan & budget</li>
                           <li>Kategori keuangan</li>
                         </ul>
-                        <p className="text-red-600 dark:text-red-400 font-medium">
+                        <p className="text-destructive dark:text-destructive/80 font-medium">
                           Data yang sudah dihapus tidak bisa dikembalikan!
                         </p>
                       </div>

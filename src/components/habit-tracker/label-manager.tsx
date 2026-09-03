@@ -265,7 +265,7 @@ export default function LabelManager() {
                         onClick={handleSaveEdit}
                         disabled={saving}
                       >
-                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
                       </Button>
                       <Button
                         size="icon"
@@ -358,7 +358,7 @@ export default function LabelManager() {
                     onClick={handleSaveAdd}
                     disabled={saving}
                   >
-                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
                   </Button>
                   <Button
                     size="icon"

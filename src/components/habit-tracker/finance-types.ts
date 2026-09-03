@@ -89,12 +89,12 @@ export const FALLBACK_EXPENSE = [
   { value: 'Belanja', emoji: '🛍️', color: '#eab308' },
   { value: 'Hiburan', emoji: '🎮', color: '#a855f7' },
   { value: 'Kesehatan', emoji: '🏥', color: '#ec4899' },
-  { value: 'Pendidikan', emoji: '📚', color: '#3b82f6' },
-  { value: 'Tagihan & Utilitas', emoji: '📋', color: '#6366f1' },
+  { value: 'Pendidikan', emoji: '📚', color: '#8b5cf6' },
+  { value: 'Tagihan & Utilitas', emoji: '📋', color: '#a855f7' },
   { value: 'Tabungan & Investasi', emoji: '🏦', color: '#14b8a6' },
   { value: 'Lainnya', emoji: '📦', color: '#78716c' },
   // Internal movement categories (created by system, not user-created)
-  { value: 'Transfer Antar Sumber', emoji: '🔄', color: '#0ea5e9' },
+  { value: 'Transfer Antar Sumber', emoji: '🔄', color: '#14b8a6' },
   { value: 'Penyesuaian Saldo', emoji: '🔧', color: '#64748b' },
 ];
 
@@ -105,7 +105,7 @@ export const FALLBACK_INCOME = [
   { value: 'Bisnis', emoji: '🏢', color: '#8b5cf6' },
   { value: 'Lainnya', emoji: '💸', color: '#78716c' },
   // Internal movement categories (created by system, not user-created)
-  { value: 'Transfer Antar Sumber', emoji: '🔄', color: '#0ea5e9' },
+  { value: 'Transfer Antar Sumber', emoji: '🔄', color: '#14b8a6' },
   { value: 'Penyesuaian Saldo', emoji: '🔧', color: '#64748b' },
 ];
 
@@ -128,7 +128,7 @@ export const FALLBACK_SOURCES = [
   { value: 'E-Money Lainnya', emoji: '💳' },
 ];
 
-export const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#3b82f6', '#6366f1', '#14b8a6', '#22c55e', '#78716c'];
+export const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#8b5cf6', '#a855f7', '#14b8a6', '#22c55e', '#78716c'];
 
 // ── Utilities ───────────────────────────────────────────────────────────
 

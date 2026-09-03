@@ -43,7 +43,7 @@ export const DEFAULT_EMOJIS = ['🎯', '💪', '📚', '🧘', '🏃', '💧', '
 
 export const GROUP_EMOJIS = ['🌅', '🏃‍♂️', '💪', '📖', '🧘', '💤', '🧹', '🍳', '💼', '📱', '🎯', '📝', '🏠', '💧', '💊', '✨', '🌟'];
 
-export const GROUP_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+export const GROUP_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 export const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',

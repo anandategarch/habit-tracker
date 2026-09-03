@@ -71,7 +71,7 @@ export function QuickAddBar({
           <Button
             onClick={handleQuickAdd}
             disabled={quickAdding || !quickName.trim()}
-            className="bg-primary hover:bg-primary text-white gap-1 shrink-0"
+            className="gap-1 shrink-0"
             size="sm"
           >
             <Plus className="h-4 w-4" />

@@ -407,7 +407,7 @@ export default function HabitMaster() {
           <DialogTrigger asChild>
             <Button
               onClick={openAdd}
-              className="bg-primary hover:bg-primary text-white gap-2 w-full sm:w-auto"
+              className="gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
               Add Habit
@@ -426,7 +426,7 @@ export default function HabitMaster() {
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="habit-name">
-                    Name <span className="text-red-500">*</span>
+                    Name <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="habit-name"
@@ -790,7 +790,6 @@ export default function HabitMaster() {
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !form.name.trim()}
-                  className="bg-primary hover:bg-primary text-white"
                 >
                   {submitting ? 'Saving...' : editingId ? 'Update Habit' : 'Create Habit'}
                 </Button>
@@ -869,7 +868,7 @@ export default function HabitMaster() {
             {habits.length === 0 && (
               <Button
                 onClick={openAdd}
-                className="mt-4 bg-primary hover:bg-primary text-white"
+                className="mt-4"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Habit
@@ -918,7 +917,7 @@ export default function HabitMaster() {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+              className="bg-destructive hover:bg-destructive text-white focus:ring-destructive"
             >
               {deleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>

@@ -96,9 +96,9 @@ const STATUS_CONFIG: Record<
   },
   failed: {
     label: 'Failed',
-    color: 'text-red-700',
-    bg: 'bg-red-50',
-    border: 'border-red-200',
+    color: 'text-destructive',
+    bg: 'bg-destructive/10',
+    border: 'border-destructive/30',
   },
   cancelled: {
     label: 'Cancelled',
@@ -390,7 +390,6 @@ export default function Challenges() {
           <DialogTrigger asChild>
             <Button
               onClick={openNewDialog}
-              className="bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               New Challenge
@@ -463,7 +462,6 @@ export default function Challenges() {
                 </Button>
                 <Button
                   onClick={handleSave}
-                  className="bg-primary text-white hover:bg-primary"
                 >
                   {editingChallenge ? 'Update' : 'Create'}
                 </Button>
@@ -612,7 +610,7 @@ export default function Challenges() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => setDeleteTarget(challenge)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -645,7 +643,7 @@ export default function Challenges() {
                     challenge.status === 'completed'
                       ? 'border-primary/20'
                       : challenge.status === 'failed'
-                        ? 'border-red-100'
+                        ? 'border-destructive/30'
                         : 'border-border'
                   )}
                 >
@@ -659,7 +657,7 @@ export default function Challenges() {
                               challenge.status === 'completed'
                                 ? 'text-primary'
                                 : challenge.status === 'failed'
-                                  ? 'text-red-400'
+                                  ? 'text-destructive/80'
                                   : 'text-muted-foreground'
                             )}
                           />
@@ -693,7 +691,7 @@ export default function Challenges() {
                           challenge.status === 'completed'
                             ? '[&>div]:bg-primary'
                             : challenge.status === 'failed'
-                              ? '[&>div]:bg-red-400'
+                              ? '[&>div]:bg-destructive/80'
                               : '[&>div]:bg-gray-400'
                         )}
                       />
@@ -717,7 +715,7 @@ export default function Challenges() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                           onClick={() => setDeleteTarget(challenge)}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -747,7 +745,7 @@ export default function Challenges() {
             </div>
             <Button
               onClick={openNewDialog}
-              className="mt-2 bg-primary text-white hover:bg-primary"
+              className="mt-2"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Challenge
@@ -770,7 +768,7 @@ export default function Challenges() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-destructive text-white hover:bg-destructive"
             >
               Delete
             </AlertDialogAction>

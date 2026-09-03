@@ -216,7 +216,6 @@ export default function Badges() {
           <DialogTrigger asChild>
             <Button
               onClick={openDialog}
-              className="bg-primary text-white hover:bg-primary"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Badge
@@ -281,7 +280,6 @@ export default function Badges() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  className="bg-primary text-white hover:bg-primary"
                 >
                   Create
                 </Button>
@@ -412,7 +410,7 @@ export default function Badges() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-red-600"
+                    className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-destructive"
                     onClick={() => handleDelete(badge)}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -439,7 +437,7 @@ export default function Badges() {
             </div>
             <Button
               onClick={openDialog}
-              className="mt-2 bg-primary text-white hover:bg-primary"
+              className="mt-2"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Badge

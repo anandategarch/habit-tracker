@@ -16,19 +16,23 @@ import { toast } from 'sonner';
 import { FlashRupiah } from '@/components/habit-tracker/flash-number';
 import { ResponsiveContainer, AreaChart, Area, YAxis } from 'recharts';
 
-// Source accent colors — each source gets a unique vibrant color
+// Source accent colors — each source gets a unique vibrant color.
+// FIX-COLOR-P2: removed all blue/indigo/cyan/violet entries — replaced with
+// green/teal/amber/rose alternatives (user pref: NO indigo/blue).
 const SOURCE_COLORS: Record<string, { bg: string; text: string; gradient: string; sparkline: string }> = {
   'Kas': { bg: '#F97316', text: '#F97316', gradient: 'from-orange-500/10 to-orange-500/5', sparkline: '#F97316' },
   'Bank CIMB': { bg: '#EF4444', text: '#EF4444', gradient: 'from-red-500/10 to-red-500/5', sparkline: '#EF4444' },
-  'Bank BRI': { bg: '#3B82F6', text: '#3B82F6', gradient: 'from-blue-500/10 to-blue-500/5', sparkline: '#3B82F6' },
-  'Bank Superbank': { bg: '#8B5CF6', text: '#8B5CF6', gradient: 'from-violet-500/10 to-violet-500/5', sparkline: '#8B5CF6' },
+  'Bank BRI': { bg: '#14B8A6', text: '#14B8A6', gradient: 'from-teal-500/10 to-teal-500/5', sparkline: '#14B8A6' },
+  'Bank Superbank': { bg: '#A855F7', text: '#A855F7', gradient: 'from-purple-500/10 to-purple-500/5', sparkline: '#A855F7' },
   'GoPay': { bg: '#22C55E', text: '#22C55E', gradient: 'from-green-500/10 to-green-500/5', sparkline: '#22C55E' },
-  'OVO': { bg: '#8B5CF6', text: '#8B5CF6', gradient: 'from-violet-500/10 to-violet-500/5', sparkline: '#8B5CF6' },
-  'DANA': { bg: '#06B6D4', text: '#06B6D4', gradient: 'from-cyan-500/10 to-cyan-500/5', sparkline: '#06B6D4' },
+  'OVO': { bg: '#84CC16', text: '#84CC16', gradient: 'from-lime-500/10 to-lime-500/5', sparkline: '#84CC16' },
+  'DANA': { bg: '#10B981', text: '#10B981', gradient: 'from-emerald-500/10 to-emerald-500/5', sparkline: '#10B981' },
   'ShopeePay': { bg: '#EC4899', text: '#EC4899', gradient: 'from-pink-500/10 to-pink-500/5', sparkline: '#EC4899' },
 };
 
-const DEFAULT_COLOR = { bg: '#6366F1', text: '#6366F1', gradient: 'from-indigo-500/10 to-indigo-500/5', sparkline: '#6366F1' };
+// FIX-COLOR-P2: was #6366F1 indigo (every new finance source got indigo).
+// Now defaults to the app's primary green so unknown sources match the theme.
+const DEFAULT_COLOR = { bg: '#22C55E', text: '#22C55E', gradient: 'from-green-500/10 to-green-500/5', sparkline: '#22C55E' };
 
 // ── Types for balance-history API response ───────────────────────────────
 
@@ -259,11 +263,12 @@ export default function SourceBalanceSection() {
       <div
         className="relative overflow-hidden rounded-3xl p-6 sm:p-8 anim-gradient-shift"
         style={{
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.06), rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.06))',
+          // FIX-COLOR-P2: replaced indigo/cyan/violet rgba with green/teal/amber
+          background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(20, 184, 166, 0.06), rgba(245, 158, 11, 0.05), rgba(34, 197, 94, 0.06))',
           backgroundSize: '200% 200%',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 32px rgba(99, 102, 241, 0.06)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 32px rgba(34, 197, 94, 0.06)',
           backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(99, 102, 241, 0.1)',
+          border: '1px solid rgba(34, 197, 94, 0.1)',
         }}
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -278,21 +283,22 @@ export default function SourceBalanceSection() {
 
             {/* Stat chips */}
             <div className="flex flex-wrap gap-3">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-xs font-medium text-green-600 dark:text-green-400">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10">
+                <div className="w-2 h-2 rounded-full bg-success" />
+                <span className="text-xs font-medium text-success dark:text-success/80">
                   Pemasukan {formatRupiah(todayTotalIncome)}
                 </span>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-xs font-medium text-red-600 dark:text-red-400">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10">
+                <div className="w-2 h-2 rounded-full bg-destructive" />
+                <span className="text-xs font-medium text-destructive dark:text-destructive/80">
                   Pengeluaran {formatRupiah(todayTotalExpense)}
                 </span>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              {/* FIX-COLOR-P2: was bg-blue-500/10 text-blue-600 — now primary green */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <span className="text-xs font-medium text-primary">
                   {sources.length} Akun
                 </span>
               </div>
@@ -305,15 +311,19 @@ export default function SourceBalanceSection() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={summaryChartData}>
                   <defs>
+                    {/* FIX-COLOR-P3: now uses var(--primary) so the summary
+                        sparkline follows the user's chosen theme (was hardcoded
+                        #22c55e after FIX-COLOR-P2, which was hardcoded #6366F1
+                        indigo before that). */}
                     <linearGradient id="summaryGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366F1" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <Area
                     type="monotone"
                     dataKey="v"
-                    stroke="#6366F1"
+                    stroke="var(--primary)"
                     strokeWidth={2.5}
                     fill="url(#summaryGrad)"
                     dot={false}
@@ -390,7 +400,7 @@ export default function SourceBalanceSection() {
                   }}
                   title="Klik untuk adjust saldo"
                 >
-                  <span className={isPositive ? 'text-foreground' : 'text-red-500'}>
+                  <span className={isPositive ? 'text-foreground' : 'text-destructive'}>
                     {formatRupiah(src.balance)}
                   </span>
                   <Pencil className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/balance:opacity-100 transition-opacity" />
@@ -401,7 +411,7 @@ export default function SourceBalanceSection() {
               <div className="flex items-center justify-between mt-2">
                 <div className={cn(
                   'inline-flex items-center gap-0.5 text-xs font-medium',
-                  isPositive ? 'text-green-500' : 'text-red-500'
+                  isPositive ? 'text-success' : 'text-destructive'
                 )}>
                   {isPositive ? (
                     <ArrowUpRight className="w-3 h-3" />

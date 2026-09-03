@@ -33,7 +33,7 @@ export function burstFromElement(el: HTMLElement | null, opts?: {
     origin: { x, y },
     scalar: 0.9,
     ticks: 120,
-    colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
+    colors: ['#f59e0b', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
   });
 
   // Emoji burst (optional) — fires slightly after particle burst.
@@ -59,7 +59,7 @@ export function burstFromElement(el: HTMLElement | null, opts?: {
 export function celebrate(opts?: { emojis?: string[] }) {
   if (prefersReducedMotion()) return;
 
-  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+  const colors = ['#f59e0b', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
   // Left side cannon
   confetti({
@@ -120,6 +120,6 @@ export function smallPop(el?: HTMLElement | null) {
     origin,
     scalar: 0.7,
     ticks: 60,
-    colors: ['#6366f1', '#10b981', '#f59e0b'],
+    colors: ['#f59e0b', '#10b981', '#f59e0b'],
   });
 }

@@ -227,8 +227,8 @@ function MoodEmoji({ mood }: { mood: string }) {
   };
   const emoji = emojiMap[rounded] || '😐';
   const colorMap: Record<number, string> = {
-    1: 'text-red-500', 2: 'text-orange-500', 3: 'text-yellow-500',
-    4: 'text-emerald-500', 5: 'text-emerald-500',
+    1: 'text-destructive', 2: 'text-orange-500', 3: 'text-warning',
+    4: 'text-success', 5: 'text-success',
   };
   return (
     <span className={cn('text-2xl', colorMap[rounded] || 'text-muted-foreground')}>
@@ -351,6 +351,9 @@ export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const queryClient = useQueryClient();
   const primaryColor = useThemeColor('primary');
+  // FIX-COLOR-P3: added destructiveColor so the "missed target" mini-bar
+  // follows the user's theme (was hardcoded #ef4444).
+  const destructiveColor = useThemeColor('destructive');
   const [period, setPeriod] = useState<Period>('all');
   const [retryCount, setRetryCount] = useState(0);
 
@@ -419,7 +422,7 @@ export default function Dashboard() {
     if (data.weeklyChartData.length > 0) {
       const bestDay = data.weeklyChartData.reduce((best, d) => (d.rate > best.rate ? d : best), data.weeklyChartData[0]);
       items.push({
-        icon: <Trophy className="h-4 w-4 text-yellow-500" />,
+        icon: <Trophy className="h-4 w-4 text-warning" />,
         text: `Your best day this week was ${bestDay.day} (${bestDay.rate}%).`,
         type: 'info',
       });
@@ -560,13 +563,13 @@ export default function Dashboard() {
             { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Active habits', key: 'habits' },
             { label: 'Completion Rate', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
             { label: 'Current Streak', icon: Flame, iconColor: 'text-orange-500', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'days', key: 'streak' },
-            { label: 'Longest Streak', icon: Trophy, iconColor: 'text-yellow-500', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'days', key: 'longest' },
+            { label: 'Longest Streak', icon: Trophy, iconColor: 'text-warning', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'days', key: 'longest' },
             { label: 'Success Today', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
             { label: 'Weekly', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
             { label: 'Monthly', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
             { label: 'Total XP', icon: Star, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, iconColor: 'text-primary', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
-            { label: 'Badges', icon: Award, iconColor: 'text-yellow-500', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
+            { label: 'Badges', icon: Award, iconColor: 'text-warning', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
             { label: 'Productivity', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
             { label: 'Challenges', icon: Swords, iconColor: 'text-primary', value: <CountUpNumber value={displayData.challengeProgress} suffix="%" />, sub: null, progress: displayData.challengeProgress, key: 'challenges' },
             { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
@@ -677,8 +680,8 @@ export default function Dashboard() {
                           <span className={cn(
                             'text-xs font-mono font-semibold px-2 py-0.5 rounded',
                             th.targetTime && th.todayTime <= th.targetTime
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                              ? 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80'
+                              : 'bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80'
                           )}>
                             {th.todayTime}
                           </span>
@@ -690,7 +693,7 @@ export default function Dashboard() {
                         {th.trend !== null && (
                           <span className={cn(
                             'text-xs font-medium flex items-center gap-0.5',
-                            th.trend < 0 ? 'text-emerald-600 dark:text-emerald-400' : th.trend > 0 ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
+                            th.trend < 0 ? 'text-success dark:text-success/80' : th.trend > 0 ? 'text-destructive dark:text-destructive/80' : 'text-muted-foreground'
                           )}>
                             {th.trend < 0 ? <ArrowDownRight className="h-3 w-3" /> : th.trend > 0 ? <ArrowUpRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                             {th.trend === 0 ? 'sama' : `${Math.abs(th.trend)}mnt`}
@@ -709,7 +712,7 @@ export default function Dashboard() {
                                 height: `${Math.max(4, (wt.minutes / 1440) * 100)}%`,
                                 minHeight: '4px',
                                 backgroundColor: th.targetTime
-                                  ? (wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : '#ef4444')
+                                  ? (wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : destructiveColor)
                                   : primaryColor,
                                 opacity: wt.minutes !== null ? 1 : 0.2,
                               }}
@@ -726,7 +729,7 @@ export default function Dashboard() {
                     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-2 text-xs text-muted-foreground">
                       <span>Rata-rata: <strong className="text-foreground">{th.weekAvg || '-'}</strong></span>
                       {th.targetTime && (
-                        <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
+                        <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-success dark:text-success/80' : 'text-warning dark:text-warning/80'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
                       )}
                       {th.prevAvg && (
                         <span className="hidden sm:inline">Minggu lalu: {th.prevAvg}</span>
@@ -762,7 +765,7 @@ export default function Dashboard() {
                     key={item.id}
                     className={cn(
                       'flex items-center justify-between rounded-lg border p-3 transition-colors',
-                      item.overdue ? 'border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900' : 'hover:bg-muted/30'
+                      item.overdue ? 'border-destructive/30 bg-destructive/10 dark:bg-destructive/15 dark:border-destructive/30' : 'hover:bg-muted/30'
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -782,11 +785,11 @@ export default function Dashboard() {
                         <span className={cn(
                           'text-xs font-semibold px-2 py-0.5 rounded-full',
                           item.overdue
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                            ? 'bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80'
                             : item.daysAgo === 0
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              ? 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80'
                               : item.daysAgo <= 2
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                ? 'bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80'
                                 : 'bg-muted text-muted-foreground'
                         )}>
                           {item.daysAgo === 0 ? 'Hari ini' : `${item.daysAgo} hari lalu`}
@@ -795,7 +798,7 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground">Belum pernah</span>
                       )}
                       {item.overdue && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
                       )}
                     </div>
                   </div>
@@ -823,7 +826,7 @@ export default function Dashboard() {
                 <div className="text-2xl">{displayData.bestHabit.icon}</div>
                 <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
                 <span className="text-lg font-bold text-primary">{displayData.bestHabit.rate}%</span>
-                <Crown className="h-4 w-4 text-yellow-500" />
+                <Crown className="h-4 w-4 text-warning" />
               </div>
               <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 flex flex-col items-center text-center gap-2">
                 <div className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
@@ -905,12 +908,12 @@ export default function Dashboard() {
                 </span>
               </div>
               {/* Expense */}
-              <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-3 flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 dark:bg-destructive/15 dark:border-destructive/30 p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-destructive dark:text-destructive/80">
                   <TrendingDown className="h-3.5 w-3.5" />
                   Pengeluaran
                 </div>
-                <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                <span className="text-lg font-bold text-destructive dark:text-destructive/80">
                   {displayData.financeOverview.totalExpense.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
@@ -924,7 +927,7 @@ export default function Dashboard() {
                   'text-lg font-bold',
                   displayData.financeOverview.netBalance >= 0
                     ? 'text-teal-700 dark:text-teal-300'
-                    : 'text-red-700 dark:text-red-300'
+                    : 'text-destructive dark:text-destructive/80'
                 )}>
                   {displayData.financeOverview.netBalance.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
@@ -941,7 +944,7 @@ export default function Dashboard() {
                   Status Anggaran
                 </div>
                 {displayData.financeOverview.budgetExceeded > 0 ? (
-                  <span className="text-sm font-bold text-red-600 dark:text-red-400">
+                  <span className="text-sm font-bold text-destructive dark:text-destructive/80">
                     {displayData.financeOverview.budgetExceeded} melebihi batas
                   </span>
                 ) : displayData.financeOverview.budgetWarning > 0 ? (

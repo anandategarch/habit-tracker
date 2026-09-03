@@ -120,7 +120,7 @@ export function HabitGroupsSection({
               <Button
                 onClick={handleCreateGroup}
                 disabled={addingGroup || !newGroupName.trim()}
-                className="bg-primary hover:bg-primary text-white h-8 gap-1 shrink-0"
+                className="h-8 gap-1 shrink-0"
                 size="sm"
               >
                 <Plus className="h-3.5 w-3.5" />
