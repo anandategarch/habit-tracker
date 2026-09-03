@@ -51,15 +51,38 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 const DashboardCharts = dynamic(() => import('./dashboard-charts'), {
   ssr: false,
   loading: () => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Skeleton className="h-80 rounded-xl" />
-        <Skeleton className="h-80 rounded-xl" />
+    <div className="space-y-4 max-w-6xl mx-auto">
+      {/* KPI grid skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="skel-card skel-hybrid skel-stagger p-4"
+            style={{ animationDelay: `${i * 60}ms` }}
+          >
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="h-3 w-3 skel-hybrid skel-circle" style={{ animationDelay: `${i * 60 + 30}ms` }} />
+              <div className="h-3 w-20 skel-hybrid" style={{ animationDelay: `${i * 60 + 60}ms` }} />
+            </div>
+            <div className="h-7 w-16 skel-hybrid mb-1" style={{ animationDelay: `${i * 60 + 90}ms` }} />
+            <div className="h-3 w-24 skel-hybrid" style={{ animationDelay: `${i * 60 + 120}ms` }} />
+          </div>
+        ))}
       </div>
-      <Skeleton className="h-72 rounded-xl" />
+      {/* Chart skeleton */}
+      <div
+        className="skel-card skel-hybrid skel-stagger h-64"
+        style={{ animationDelay: '300ms' }}
+      />
+      {/* Leaderboard skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div
+            key={i}
+            className="skel-card skel-hybrid skel-stagger h-56"
+            style={{ animationDelay: `${400 + i * 60}ms` }}
+          />
+        ))}
       </div>
     </div>
   ),
@@ -467,23 +490,56 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-28 w-full rounded-xl" />
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          {Array.from({ length: 15 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+      <div className="space-y-6 max-w-6xl mx-auto">
+        {/* Quote card skeleton */}
+        <div
+          className="skel-card skel-hybrid skel-stagger p-5 h-28"
+          style={{ animationDelay: '0ms' }}
+        />
+        {/* Period selector skeleton */}
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-14 skel-hybrid skel-stagger" style={{ animationDelay: '60ms' }} />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-8 w-16 skel-hybrid skel-stagger skel-card"
+              style={{ animationDelay: `${90 + i * 40}ms` }}
+            />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-80 w-full rounded-xl" />
-          <Skeleton className="h-80 w-full rounded-xl" />
-          <Skeleton className="h-80 w-full rounded-xl" />
+        {/* KPI grid skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="skel-card skel-hybrid skel-stagger h-24"
+              style={{ animationDelay: `${300 + i * 60}ms` }}
+            />
+          ))}
         </div>
-        <Skeleton className="h-72 w-full rounded-xl" />
+        {/* Charts grid skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="skel-card skel-hybrid skel-stagger h-80"
+              style={{ animationDelay: `${700 + i * 60}ms` }}
+            />
+          ))}
+        </div>
+        {/* Bottom cards skeleton */}
+        <div
+          className="skel-card skel-hybrid skel-stagger h-72"
+          style={{ animationDelay: '900ms' }}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-64 w-full rounded-xl" />
-          <Skeleton className="h-64 w-full rounded-xl" />
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="skel-card skel-hybrid skel-stagger h-64"
+              style={{ animationDelay: `${960 + i * 60}ms` }}
+            />
+          ))}
         </div>
       </div>
     );

@@ -244,9 +244,43 @@
   will-change: background-position;
 }
 
-/* Respect reduced motion — disable shimmer animation too */
+/* ── Hybrid Skeleton (Opsi 5): content-aware shapes + shimmer + stagger ──
+   Premium skeleton system that matches actual content layout (CLS = 0).
+   - .skel-hybrid: shimmer sweep over content-aware shapes
+   - .skel-stagger: 60ms stagger entrance between sibling skeleton blocks
+   - .skel-circle: circular placeholder (icons, avatars)
+   - .skel-bar: thin horizontal bar (text lines, progress)
+   - .skel-card: full card placeholder with proper aspect ratio */
+.skel-hybrid {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--accent) / 0.6) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite linear;
+  will-change: background-position;
+  border-radius: 0.5rem;
+}
+.skel-stagger {
+  animation: shimmer 1.8s infinite linear,
+             skel-fade-in 0.4s ease-out backwards;
+  will-change: background-position, opacity, transform;
+}
+@keyframes skel-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.skel-circle { border-radius: 9999px; }
+.skel-bar    { height: 0.75rem; border-radius: 0.25rem; }
+.skel-card   { border-radius: 0.75rem; }
+
+/* Respect reduced motion — disable shimmer + stagger animation */
 @media (prefers-reduced-motion: reduce) {
-  .shimmer {
+  .shimmer,
+  .skel-hybrid,
+  .skel-stagger {
     animation: none;
     background: var(--muted);
   }
