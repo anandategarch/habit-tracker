@@ -1,7 +1,9 @@
-const CACHE_NAME = 'habit-tracker-v4';
+const CACHE_NAME = 'habit-tracker-v5';
 
-// Bump cache version (v1 -> v2) to purge any stale /api/ responses that
+// Bump cache version (v1 -> v2 -> ... -> v5) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
+// v5: morph bump nav redesign — purge old JS chunks that contain the old
+// flat-pill nav code so browsers fetch fresh JS with morph-bump styles.
 
 // Install: pre-cache shell
 self.addEventListener('install', (event) => {
