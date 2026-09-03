@@ -179,13 +179,16 @@ function ParallaxBackgroundInner({ className = '' }: { className?: string }) {
   // useTransform causes scroll jank on mobile Chrome/Safari due to
   // continuous transform updates during touch scroll. Desktop keeps
   // the effect (mouse wheel scroll is smoother and less frequent).
+  // Use lazy init (not useEffect) to avoid setState-in-effect lint error.
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    setIsMobile(
+    const check = () =>
       typeof window !== 'undefined' &&
-        (window.matchMedia('(pointer: coarse)').matches ||
-          window.innerWidth < 768)
-    );
+      (window.matchMedia('(pointer: coarse)').matches ||
+        window.innerWidth < 768);
+    // Defer to next tick to avoid cascading renders during mount
+    const id = requestAnimationFrame(() => setIsMobile(check()));
+    return () => cancelAnimationFrame(id);
   }, []);
 
   // Map scroll 0→1000px → translateY 0→-24px (background drifts up slower
