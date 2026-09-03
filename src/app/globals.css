@@ -686,17 +686,36 @@
 /* ── #3b Bottom nav morph bump: Material You spring emerge ──
    Active tab's gradient circle emerges with a spring overshoot,
    giving a playful 3D bump-up effect. The cubic-bezier has a
-   slight overshoot (values > 1) for the bounce. */
+   slight overshoot (values > 1) for the bounce.
+   CSS-AUDIT-1: `background-color: var(--primary)` is a SOLID-COLOR
+   FALLBACK for browsers that don't support the `linear-gradient(... in oklab, ...)`
+   interpolation syntax (Chrome < 111, ~May 2023). On those browsers
+   the `bg-gradient-to-br` Tailwind class generates an INVALID gradient
+   declaration (because of the `in oklab` interpolation hint) → the
+   `background-image` is discarded → `background-color` shows through.
+   On modern browsers the gradient covers the solid color (no visual
+   change). This rule is also a defense in depth even when the JSX
+   already includes `bg-primary`, in case Tailwind class order changes. */
 .anim-nav-bump {
+  background-color: var(--primary);
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
               opacity 0.25s ease;
 }
 
 /* Subtle pulse on the bump circle when active — keeps it feeling alive.
-   Disabled for users who prefer reduced motion. */
+   Disabled for users who prefer reduced motion.
+   CSS-AUDIT-1: Replaced INVALID `hsl(var(--primary) / 0.3)` with
+   `color-mix(in oklab, var(--primary) 30%, transparent)`. The old
+   syntax was always invalid because `--primary` is `oklch(...)` (or a
+   hex value from themeBootstrap) — NOT HSL components — so the entire
+   `hsl()` function evaluated to an invalid value, the `box-shadow`
+   declaration was discarded, and the active bump's pulse shadow was
+   silently dropped (no visible shadow at all during the infinite
+   animation). `color-mix()` accepts any color format and works on
+   Chrome 111+, Safari 16.2+, Firefox 113+. */
 @keyframes anim-nav-bump-pulse {
-  0%, 100% { box-shadow: 0 4px 12px -2px hsl(var(--primary) / 0.3); }
-  50%      { box-shadow: 0 6px 16px -2px hsl(var(--primary) / 0.45); }
+  0%, 100% { box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--primary) 30%, transparent); }
+  50%      { box-shadow: 0 6px 16px -2px color-mix(in oklab, var(--primary) 45%, transparent); }
 }
 .anim-nav-bump:not([class*="opacity-0"]) {
   animation: anim-nav-bump-pulse 2.5s ease-in-out infinite;

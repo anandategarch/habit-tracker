@@ -1,27 +1,53 @@
-const CACHE_NAME = 'habit-tracker-v5';
+const CACHE_NAME = 'habit-tracker-v6';
 
-// Bump cache version (v1 -> v2 -> ... -> v5) to purge any stale /api/ responses that
+// Bump cache version (v1 -> v2 -> ... -> v6) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
 // v5: morph bump nav redesign — purge old JS chunks that contain the old
 // flat-pill nav code so browsers fetch fresh JS with morph-bump styles.
+// v6: SW activate bug fix — `clients.claim()` now runs inside
+// `event.waitUntil()` so the new SW reliably takes control of open tabs
+// (previously could be terminated before claim finished, leaving the
+// user stuck on the old SW). Also adds page-side `SKIP_WAITING` message
+// handler so sw-register.tsx can nudge a waiting worker into activation.
 
 // Install: pre-cache shell
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches (including v1)
+// Activate: clean old caches (including v1) AND claim all open clients.
+// CRITICAL: `self.clients.claim()` MUST be inside `event.waitUntil()`.
+// If it's outside (as it was previously), the browser may terminate the
+// SW after the cache-cleanup promise resolves but BEFORE clients.claim()
+// finishes — meaning the new SW never takes control of existing tabs,
+// `controllerchange` never fires on the client, and the auto-reload
+// never happens. Result: user is stuck on the old SW forever (until
+// they manually close all tabs). This was the silent bug behind the
+// morph-bump nav not appearing on returning users' Android Chrome.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
         keys
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
-      )
-    )
+      );
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
+});
+
+// Allow the page to trigger skipWaiting from the client side. The SW
+// already calls self.skipWaiting() in the install event, but if the
+// user's previously-installed SW is OLDER (and doesn't have skipWaiting
+// in install), the new SW gets stuck in "waiting" state. The page's
+// sw-register.tsx detects this via `reg.waiting` / `updatefound` and
+// sends this message to nudge the waiting worker into activation.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Fetch strategy

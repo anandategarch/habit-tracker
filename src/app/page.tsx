@@ -297,13 +297,20 @@ export default function Home() {
                 >
                   {/* Morph bump circle — gradient background that emerges
                       when active. Always rendered for smooth morph animation.
-                      Uses scale + translateY for the bump-up effect. */}
+                      Uses scale + translateY for the bump-up effect.
+                      CSS-AUDIT-1: `bg-primary` provides a SOLID-COLOR FALLBACK
+                      for browsers that don't support the `linear-gradient(... in oklab, ...)`
+                      interpolation syntax (Chrome < 111). Without it, the gradient
+                      is invalid → bump circle is invisible → user sees flat nav.
+                      background-color sits BELOW background-image, so on modern
+                      browsers the gradient covers the solid color (no visual
+                      change), but on old browsers the solid color shows through. */}
                   <span
                     aria-hidden="true"
                     className={cn(
                       'absolute top-2 left-1/2 -translate-x-1/2',
                       'w-12 h-12 rounded-full',
-                      'bg-gradient-to-br from-primary to-primary/85',
+                      'bg-primary bg-gradient-to-br from-primary to-primary/85',
                       'shadow-lg shadow-primary/30',
                       'transition-all duration-300 ease-out',
                       'anim-nav-bump',
