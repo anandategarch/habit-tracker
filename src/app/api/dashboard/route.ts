@@ -282,33 +282,18 @@ export async function GET(request: NextRequest) {
       ? Math.round(((totalXP - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100)
       : 100;
 
-    // ── Parallel fetch: badges, challenges, goals, dailyLogs, learningHabit ──
-    // These 6 queries are independent of each other and of `habits`/`allLogs`.
+    // ── Parallel fetch: goals, dailyLogs, learningHabit ──
+    // These queries are independent of each other and of `habits`/`allLogs`.
     // Running them in parallel via Promise.all cuts wait time from sum() to max().
     const [
-      unlockedBadgesCount,
-      totalBadgesCount,
-      activeChallenges,
       activeGoals,
       recentDailyLogs,
       learningHabit,
     ] = await Promise.all([
-      safe(db.badge.count({ where: { unlocked: true } }), 0),
-      safe(db.badge.count(), 0),
-      safe(db.challenge.findMany({ where: { status: 'active' } }), []),
       safe(db.goal.findMany({ where: { status: 'active' } }), []),
       safe(db.dailyLog.findMany({ where: { date: { gte: subDays(today, 30) } } }), []),
       safe(db.habit.findFirst({ where: { name: 'Daily Learning' } }), null),
     ]);
-
-    // ── Badges ───────────────────────────────────────────────────────
-    const unlockedBadges = unlockedBadgesCount;
-    const totalBadges = totalBadgesCount;
-
-    // ── Challenge progress ───────────────────────────────────────────
-    const challengeProgress = activeChallenges.length > 0
-      ? Math.round(activeChallenges.reduce((s, c) => s + c.progress, 0) / activeChallenges.length)
-      : 0;
 
     // ── Goal progress ────────────────────────────────────────────────
     const goalProgress = activeGoals.length > 0
@@ -802,9 +787,6 @@ export async function GET(request: NextRequest) {
       nextLevelXP,
       currentLevelXP,
       levelProgress,
-      unlockedBadges,
-      totalBadges,
-      challengeProgress,
       goalProgress,
       moodAverage,
       sleepAverage,

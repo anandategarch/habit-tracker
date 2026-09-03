@@ -7,9 +7,6 @@ interface ImportPayload {
   dailyLogs?: Record<string, unknown>[];
   journals?: Record<string, unknown>[];
   goals?: Record<string, unknown>[];
-  challenges?: Record<string, unknown>[];
-  badges?: Record<string, unknown>[];
-  rewards?: Record<string, unknown>[];
   transactions?: Record<string, unknown>[];
   budgets?: Record<string, unknown>[];
   financeCategories?: Record<string, unknown>[];
@@ -45,11 +42,14 @@ function isValidPayload(body: unknown): body is ImportPayload {
   if (typeof body !== 'object' || body === null) return false;
   const allowedKeys = new Set([
     'habits', 'habitLogs', 'dailyLogs', 'journals', 'goals',
-    'challenges', 'badges', 'rewards', 'transactions',
+    'transactions',
     'budgets', 'financeCategories', 'settings',
     // Added 6 missing tables
     'fundSources', 'weeklyBudgets', 'budgetSnapshots',
     'habitGroups', 'learningTopics', 'habitOptions',
+    // Old backups may contain these keys from the removed features —
+    // kept in allowedKeys so old backups import gracefully (silently ignored).
+    'challenges', 'badges', 'rewards',
   ]);
   for (const key of Object.keys(body as Record<string, unknown>)) {
     if (!allowedKeys.has(key)) return false;
@@ -100,15 +100,6 @@ export async function POST(request: NextRequest) {
       }
       if (body.goals && body.goals.length > 0) {
         await tx.goal.deleteMany();
-      }
-      if (body.challenges && body.challenges.length > 0) {
-        await tx.challenge.deleteMany();
-      }
-      if (body.badges && body.badges.length > 0) {
-        await tx.badge.deleteMany();
-      }
-      if (body.rewards && body.rewards.length > 0) {
-        await tx.reward.deleteMany();
       }
       if (body.transactions && body.transactions.length > 0) {
         await tx.transaction.deleteMany();
@@ -231,24 +222,6 @@ export async function POST(request: NextRequest) {
         const data = stripAutoFields(body.goals);
         const res = await tx.goal.createMany({ data });
         counts.goals = res.count;
-      }
-
-      if (body.challenges && body.challenges.length > 0) {
-        const data = stripAutoFields(body.challenges);
-        const res = await tx.challenge.createMany({ data });
-        counts.challenges = res.count;
-      }
-
-      if (body.badges && body.badges.length > 0) {
-        const data = stripAutoFields(body.badges);
-        const res = await tx.badge.createMany({ data });
-        counts.badges = res.count;
-      }
-
-      if (body.rewards && body.rewards.length > 0) {
-        const data = stripAutoFields(body.rewards);
-        const res = await tx.reward.createMany({ data });
-        counts.rewards = res.count;
       }
 
       if (body.financeCategories && body.financeCategories.length > 0) {

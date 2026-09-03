@@ -59,9 +59,6 @@ export async function GET() {
       dailyLogs,
       journals,
       goals,
-      challenges,
-      badges,
-      rewards,
       transactions,
       budgets,
       financeCategories,
@@ -78,9 +75,6 @@ export async function GET() {
       db.dailyLog.findMany({ orderBy: { date: 'asc' } }),
       db.journal.findMany({ orderBy: { date: 'asc' } }),
       db.goal.findMany({ orderBy: { createdAt: 'asc' } }),
-      db.challenge.findMany({ orderBy: { createdAt: 'asc' } }),
-      db.badge.findMany({ orderBy: { createdAt: 'asc' } }),
-      db.reward.findMany({ orderBy: { createdAt: 'asc' } }),
       db.transaction.findMany({ orderBy: { date: 'asc' } }),
       db.budget.findMany(),
       db.financeCategory.findMany({ orderBy: { createdAt: 'asc' } }),
@@ -144,36 +138,9 @@ export async function GET() {
       )
     );
 
-    // 6. Challenges
+    // 6. Transactions
     zip.file(
-      `6-challenges-${today}.csv`,
-      toCSV(
-        ['ID', 'Judul', 'Deskripsi', 'Durasi (hari)', 'Tanggal Mulai', 'Tanggal Selesai', 'Status', 'Progress (%)', 'Dibuat', 'Diubah'],
-        challenges.map((c) => [c.id, c.title, c.description ?? '', c.duration, fmtDate(c.startDate), c.endDate ? fmtDate(c.endDate) : '', c.status, c.progress, fmtDateTime(c.createdAt), fmtDateTime(c.updatedAt)])
-      )
-    );
-
-    // 7. Badges
-    zip.file(
-      `7-badges-${today}.csv`,
-      toCSV(
-        ['ID', 'Nama', 'Deskripsi', 'Ikon', 'Syarat', 'Terbuka', 'Tanggal Terbuka', 'Dibuat', 'Diubah'],
-        badges.map((b) => [b.id, b.name, b.description, b.icon, b.requirement, b.unlocked ? 'Ya' : 'Tidak', b.unlockedAt ? fmtDateTime(b.unlockedAt) : '', fmtDateTime(b.createdAt), fmtDateTime(b.updatedAt)])
-      )
-    );
-
-    // 8. Rewards
-    zip.file(
-      `8-rewards-${today}.csv`,
-      toCSV(
-        ['ID', 'Nama', 'Deskripsi', 'Syarat Buka', 'XP Cost', 'Status', 'Tanggal Terbuka', 'Tanggal Digunakan', 'Dibuat', 'Diubah'],
-        rewards.map((r) => [r.id, r.name, r.description ?? '', r.unlockCondition, r.xpCost, r.status, r.unlockedAt ? fmtDateTime(r.unlockedAt) : '', r.redeemedAt ? fmtDateTime(r.redeemedAt) : '', fmtDateTime(r.createdAt), fmtDateTime(r.updatedAt)])
-      )
-    );
-
-    // 9. Transactions
-    zip.file(
-      `9-transaksi-${today}.csv`,
+      `6-transaksi-${today}.csv`,
       toCSV(
         ['ID', 'Tanggal', 'Tipe', 'Kategori', 'Jumlah (Rp)', 'Deskripsi', 'Catatan', 'Dibuat', 'Diubah'],
         transactions.map((t) => [t.id, fmtDate(t.date), t.type === 'income' ? 'Pemasukan' : 'Pengeluaran', t.category, t.amount, t.description ?? '', t.notes ?? '', fmtDateTime(t.createdAt), fmtDateTime(t.updatedAt)])
@@ -279,7 +246,7 @@ export async function GET() {
     // Generate ZIP
     const zipBuffer = await zip.generateAsync({ type: 'uint8array' });
 
-    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + challenges.length + badges.length + rewards.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + learningTopics.length + habitOptions.length + appSettings.length;
+    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + learningTopics.length + habitOptions.length + appSettings.length;
 
     // Convert Uint8Array to a Blob for Response BodyInit compatibility.
     // Some TS lib versions reject Uint8Array<ArrayBufferLike> directly.

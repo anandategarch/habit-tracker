@@ -6,9 +6,6 @@ export type TabId =
   | 'tracker'
   | 'calendar'
   | 'goals'
-  | 'challenges'
-  | 'rewards'
-  | 'badges'
   | 'finance'
   | 'settings';
 

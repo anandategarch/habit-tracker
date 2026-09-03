@@ -115,44 +115,6 @@ model Goal {
   updatedAt   DateTime @updatedAt
 }
 
-model Challenge {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  duration    Int      @default(30)
-  startDate   DateTime @default(now())
-  endDate     DateTime?
-  status      String   @default("active")
-  progress    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Badge {
-  id          String    @id @default(cuid())
-  name        String
-  description String
-  icon        String    @default("🏅")
-  requirement String
-  unlocked    Boolean   @default(false)
-  unlockedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model Reward {
-  id               String    @id @default(cuid())
-  name             String
-  description      String?
-  unlockCondition  String
-  xpCost           Int       @default(0)
-  status           String    @default("locked")
-  unlockedAt       DateTime?
-  redeemedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-}
-
 // ==================== FINANCE TRACKER ====================
 
 model FinanceCategory {

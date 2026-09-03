@@ -13,9 +13,7 @@ import {
   CheckSquare,
   CalendarDays,
   Target,
-  Trophy,
-  Gift,
-  Medal,
+
   Wallet,
   Settings as SettingsIcon,
   PanelLeftClose,
@@ -32,9 +30,7 @@ const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), 
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false });
-const Challenges = dynamic(() => import('@/components/habit-tracker/challenges'), { ssr: false });
-const Rewards = dynamic(() => import('@/components/habit-tracker/rewards'), { ssr: false });
-const Badges = dynamic(() => import('@/components/habit-tracker/badges'), { ssr: false });
+
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false });
 
@@ -43,9 +39,7 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'tracker', label: 'Daily Tracker', icon: CheckSquare },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'goals', label: 'Goals', icon: Target },
-  { id: 'challenges', label: 'Challenges', icon: Trophy },
-  { id: 'rewards', label: 'Rewards', icon: Gift },
-  { id: 'badges', label: 'Badges', icon: Medal },
+
   { id: 'finance', label: 'Finance', icon: Wallet },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
@@ -65,17 +59,15 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   tracker: DailyTracker,
   calendar: CalendarView,
   goals: Goals,
-  challenges: Challenges,
-  rewards: Rewards,
-  badges: Badges,
+
   finance: Finance,
   settings: SettingsTab,
 };
 
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
-  'dashboard', 'tracker', 'calendar', 'goals', 'challenges',
-  'rewards', 'badges', 'finance', 'settings',
+  'dashboard', 'tracker', 'calendar', 'goals',
+  'finance', 'settings',
 ]);
 
 export default function Home() {

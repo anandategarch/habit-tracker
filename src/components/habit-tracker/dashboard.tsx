@@ -135,9 +135,6 @@ interface DashboardData {
   nextLevelXP: number;
   currentLevelXP: number;
   levelProgress: number;
-  unlockedBadges: number;
-  totalBadges: number;
-  challengeProgress: number;
   goalProgress: number;
   moodAverage: string;
   sleepAverage: string;
@@ -311,9 +308,6 @@ const DEFAULT_DATA: DashboardData = {
   nextLevelXP: 100,
   currentLevelXP: 0,
   levelProgress: 0,
-  unlockedBadges: 0,
-  totalBadges: 0,
-  challengeProgress: 0,
   goalProgress: 0,
   moodAverage: '3.0',
   sleepAverage: '7.0',
@@ -630,9 +624,7 @@ export default function Dashboard() {
             { label: 'Monthly', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
             { label: 'Total XP', icon: Star, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, iconColor: 'text-primary', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
-            { label: 'Badges', icon: Award, iconColor: 'text-warning', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
             { label: 'Productivity', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
-            { label: 'Challenges', icon: Swords, iconColor: 'text-primary', value: <CountUpNumber value={displayData.challengeProgress} suffix="%" />, sub: null, progress: displayData.challengeProgress, key: 'challenges' },
             { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
             { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
             { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
@@ -643,7 +635,7 @@ export default function Dashboard() {
             // Hidden: longest, success, weekly, monthly, level, badges,
             // productivity, challenges, goals.
             // Visible: habits, completion, streak, xp, mood, sleep.
-            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'challenges', 'goals']);
+            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'productivity', 'goals']);
             const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
             return (
               <StaggerItem

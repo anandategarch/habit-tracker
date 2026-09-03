@@ -48,14 +48,10 @@ export async function DELETE(request: Request) {
       db.habit.deleteMany(),
       db.habitGroup.deleteMany(),
       db.habitOption.deleteMany(),
-      // Daily logs / journals / goals / challenges
+      // Daily logs / journals / goals
       db.dailyLog.deleteMany(),
       db.journal.deleteMany(),
       db.goal.deleteMany(),
-      db.challenge.deleteMany(),
-      // Badges & rewards
-      db.badge.deleteMany(),
-      db.reward.deleteMany(),
       // Finance — transactions first (referenced by source balance), then
       // sources/categories/budgets/weekly-budget/snapshots
       db.transaction.deleteMany(),

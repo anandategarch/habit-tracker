@@ -770,8 +770,6 @@ export default function Settings() {
                           <li>Daily log (mood, energi, tidur)</li>
                           <li>Journal entries</li>
                           <li>Goals & milestones</li>
-                          <li>Challenges</li>
-                          <li>Badges & Rewards</li>
                           <li>Semua transaksi keuangan & budget</li>
                           <li>Kategori keuangan</li>
                         </ul>
