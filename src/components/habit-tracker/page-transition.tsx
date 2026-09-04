@@ -56,19 +56,21 @@ export function PageTransition({ children, tabId }: { children: ReactNode; tabId
         exit: { opacity: 0 },
       }
     : {
-        initial: { opacity: 0, x: 8 },
+        initial: { opacity: 0, x: 4 },
         animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -8 },
+        exit: { opacity: 0, x: -4 },
       };
 
+  // SNAPPY: removed `mode="wait"` so exit+enter overlap (no blank gap).
+  // Duration 0.18s → 0.1s, slide 8px → 4px — feels instant but still smooth.
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence initial={false}>
       <m.div
         key={tabId}
         initial={variants.initial}
         animate={variants.animate}
         exit={variants.exit}
-        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.1, ease: [0.16, 1, 0.3, 1] }}
         style={{ willChange: 'transform, opacity' }}
       >
         {children}
