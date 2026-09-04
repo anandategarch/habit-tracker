@@ -1,6 +1,8 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface DotWaveProps {
@@ -87,7 +89,7 @@ export function DotWave({ size = 'sm', className }: DotWaveProps) {
       style={containerStyle}
     >
       {[0, 1, 2].map((i) => (
-        <motion.span
+        <m.span
           key={i}
           style={dotBase}
           animate={{ y: [0, -dims.lift, 0] }}

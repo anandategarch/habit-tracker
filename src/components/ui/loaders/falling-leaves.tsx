@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface FallingLeavesProps {
@@ -91,7 +93,7 @@ export function FallingLeaves({
       )}
     >
       {leaves.map((leaf) => (
-        <motion.div
+        <m.div
           key={leaf.id}
           className="absolute"
           style={{
@@ -110,7 +112,7 @@ export function FallingLeaves({
         >
           {/* Inner sway: nested so x-sway doesn't cancel with the fall's
               rotate transform (different transform contexts). */}
-          <motion.div
+          <m.div
             style={{ willChange: 'transform' }}
             animate={{ x: [0, leaf.swayAmount, 0, -leaf.swayAmount, 0] }}
             transition={{
@@ -125,8 +127,8 @@ export function FallingLeaves({
               color={leaf.hue}
               opacity={leaf.opacity}
             />
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       ))}
       <span className="sr-only">Memuat...</span>
     </div>

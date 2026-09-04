@@ -1,6 +1,10 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { format, subDays } from 'date-fns';
+import { format, subDays } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns and helpers used
+// here (yyyy-MM-dd, d MMM + subDays) — verified via test script in
+// worklog FIX-TIER3 entry.
 import { jakartaToday, jakartaDateKey } from '@/lib/timezone';
 
 // GET /api/finance/sources/balance-history?period=7d|1m|3m

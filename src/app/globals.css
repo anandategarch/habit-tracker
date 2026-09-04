@@ -187,43 +187,6 @@
   from { stroke-dashoffset: 251; }
 }
 
-/* Fade in animation */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-/* Habit heatmap cell */
-.heatmap-cell {
-  transition: all 0.15s ease;
-}
-.heatmap-cell:hover {
-  transform: scale(1.3);
-  z-index: 10;
-}
-/* ── Additional animations for mobile polish ─────────────────────────── */
-
-/* Slide up for tab content transitions */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-up {
-  animation: slideUp 0.25s ease-out forwards;
-}
-
-/* Scale-in for cards */
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
-}
-.animate-scale-in {
-  animation: scaleIn 0.2s ease-out forwards;
-}
-
 /* Skeleton shimmer — premium gradient sweep (light + dark mode aware).
    Uses CSS variables (--muted, --primary) so it adapts to theme.
    will-change: background-position hints the browser to optimize the
@@ -255,7 +218,6 @@
    - .skel-hybrid: shimmer sweep over content-aware shapes
    - .skel-stagger: 60ms stagger entrance between sibling skeleton blocks
    - .skel-circle: circular placeholder (icons, avatars)
-   - .skel-bar: thin horizontal bar (text lines, progress)
    - .skel-card: full card placeholder with proper aspect ratio */
 .skel-hybrid {
   background: linear-gradient(
@@ -279,7 +241,6 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .skel-circle { border-radius: 9999px; }
-.skel-bar    { height: 0.75rem; border-radius: 0.25rem; }
 .skel-card   { border-radius: 0.75rem; }
 
 /* Respect reduced motion — disable shimmer + stagger animation.
@@ -495,7 +456,6 @@
 
 /* ── Category pastel tints (icon container backgrounds) ── */
 .cat-emerald    { background-color: oklch(0.522 0.154 142 / 0.12); }
-.cat-indigo     { background-color: oklch(0.5   0.2   270 / 0.12); }
 .cat-orange     { background-color: oklch(0.65  0.18  35  / 0.12); }
 .cat-teal       { background-color: oklch(0.52  0.12  180 / 0.12); }
 .cat-sky        { background-color: oklch(0.6   0.15  230 / 0.12); }
@@ -505,18 +465,6 @@
 .cat-red        { background-color: oklch(0.6   0.2   25  / 0.12); }
 .cat-slate      { background-color: oklch(0.6   0.01  250 / 0.12); }
 
-/* Legacy aliases (kept for any references) */
-.habit-cat-Productivity { background-color: oklch(0.522 0.154 142 / 0.12); }
-.habit-cat-Learning     { background-color: oklch(0.5   0.2   270 / 0.12); }
-.habit-cat-Fitness      { background-color: oklch(0.65  0.18  35  / 0.12); }
-.habit-cat-Health       { background-color: oklch(0.52  0.12  180 / 0.12); }
-.habit-cat-Reading      { background-color: oklch(0.6   0.15  230 / 0.12); }
-.habit-cat-Personal     { background-color: oklch(0.6   0.2   350 / 0.12); }
-.habit-cat-Creative     { background-color: oklch(0.62  0.2   300 / 0.12); }
-.habit-cat-Mindfulness  { background-color: oklch(0.58  0.18  280 / 0.12); }
-.habit-cat-Social       { background-color: oklch(0.6   0.2   25  / 0.12); }
-.habit-cat-General      { background-color: oklch(0.6   0.01  250 / 0.12); }
-
 /* ── KPI cards — soft gradient surfaces
    (base .kpi-card removed in FIX-DESIGN-P7-8 — now applied to shadcn <Card>;
    these modifier classes provide only the accent gradient tints). */
@@ -524,8 +472,6 @@
 .kpi-card-orange { background: linear-gradient(135deg, oklch(0.65  0.18  35  / 0.10), oklch(0.65  0.18  35  / 0.02)); }
 .kpi-card-rose   { background: linear-gradient(135deg, oklch(0.6   0.2   350 / 0.10), oklch(0.6   0.2   350 / 0.02)); }
 .kpi-card-amber  { background: linear-gradient(135deg, oklch(0.7   0.15  75  / 0.10), oklch(0.7   0.15  75  / 0.02)); }
-.kpi-card-purple { background: linear-gradient(135deg, oklch(0.5   0.2   270 / 0.10), oklch(0.5   0.2   270 / 0.02)); }
-.kpi-card-blue   { background: linear-gradient(135deg, oklch(0.5   0.2   250 / 0.10), oklch(0.5   0.2   250 / 0.02)); }
 
 /* ── Daily notes card ── */
 .daily-notes-card {
@@ -766,45 +712,6 @@
   will-change: opacity;
 }
 
-/* ── Chart draw: bars grow from bottom, lines draw left-to-right ── */
-@keyframes anim-chart-grow {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
-}
-.anim-chart-bar {
-  transform-origin: bottom;
-  animation: anim-chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform;
-}
-
-/* ── Chart line draw: stroke-dashoffset animates from full → 0 ──
-   Apply to SVG <path>/<<line>> with stroke. Caller MUST set:
-   stroke-dasharray and stroke-dashoffset equal to path length (or a
-   large number like 2000) inline OR via the .anim-chart-line-draw--setup
-   helper class below. */
-@keyframes anim-chart-line-draw {
-  from { stroke-dashoffset: var(--anim-line-length, 2000); }
-  to   { stroke-dashoffset: 0; }
-}
-.anim-chart-line-draw {
-  stroke-dasharray: var(--anim-line-length, 2000);
-  stroke-dashoffset: var(--anim-line-length, 2000);
-  animation: anim-chart-line-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: stroke-dashoffset;
-}
-
-/* ── Pie / donut chart entrance: rotate-in + scale-in ── */
-@keyframes anim-chart-pie-in {
-  0%   { transform: scale(0.4) rotate(-90deg); opacity: 0; }
-  60%  { transform: scale(1.05) rotate(8deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-.anim-chart-pie {
-  transform-origin: center;
-  animation: anim-chart-pie-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  will-change: transform, opacity;
-}
-
 /* ══════════════════════════════════════════════════════════════════════
    ANIM-2 / Feature 3 — Finance Counter Roll-Up
    Money-particles + number flash (green up / red down) + chart draw-in
@@ -872,28 +779,6 @@
   will-change: transform, opacity;
 }
 
-/* ── #2 Expand/collapse: smooth height + fade using grid-template-rows ── */
-.anim-expand {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.3s ease;
-  opacity: 1;
-  overflow: hidden;
-}
-.anim-expand > * {
-  overflow: hidden;
-}
-.anim-expand-collapsed {
-  grid-template-rows: 0fr;
-  opacity: 0;
-}
-
-/* ── #3 Bottom nav active indicator: slide between positions ── */
-.anim-nav-pill {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.2s ease;
-}
 
 /* ── #3b Bottom nav morph bump: Material You spring emerge ──
    Active tab's gradient circle emerges with a spring overshoot,
@@ -927,23 +812,6 @@
   }
 }
 
-/* ── #4 Modal/dialog: scale 0.95→1 + fade in (enhance shadcn defaults) ── */
-@keyframes anim-modal-enter {
-  from { opacity: 0; transform: scale(0.95) translateY(8px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
-}
-.anim-modal-enter {
-  animation: anim-modal-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
-}
-@keyframes anim-modal-exit {
-  from { opacity: 1; transform: scale(1) translateY(0); }
-  to   { opacity: 0; transform: scale(0.95) translateY(8px); }
-}
-.anim-modal-exit {
-  animation: anim-modal-exit 0.2s ease-in forwards;
-}
-
 /* ── #6 Habit card check: enhanced pop with checkmark scale-in ── */
 @keyframes anim-check-pop {
   0%   { transform: scale(1); }
@@ -954,13 +822,6 @@
 .anim-check-pop {
   animation: anim-check-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-@keyframes anim-checkmark-in {
-  from { opacity: 0; transform: scale(0.3); }
-  to   { opacity: 1; transform: scale(1); }
-}
-.anim-checkmark-in {
-  animation: anim-checkmark-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
 
 /* ── #7 Scroll reveal: fade-up when element enters viewport ── */
 @keyframes anim-scroll-reveal {
@@ -970,23 +831,6 @@
 .anim-scroll-reveal {
   animation: anim-scroll-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
-}
-
-/* ── #8 Drawer/sheet: slide up from bottom ── */
-@keyframes anim-sheet-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-.anim-sheet-up {
-  animation: anim-sheet-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform;
-}
-@keyframes anim-sheet-down {
-  from { transform: translateY(0); }
-  to   { transform: translateY(100%); }
-}
-.anim-sheet-down {
-  animation: anim-sheet-down 0.25s ease-in forwards;
 }
 
 /* ── #4/#8 Enhance shadcn Dialog/Drawer/Sheet with premium easing ── */
@@ -1006,18 +850,8 @@
 @media (prefers-reduced-motion: reduce) {
   .anim-tab-enter,
   .anim-tab-fade-up,
-  .anim-expand,
-  .anim-expand-collapsed,
-  .anim-modal-enter,
-  .anim-modal-exit,
   .anim-check-pop,
-  .anim-checkmark-in,
   .anim-scroll-reveal,
-  .anim-sheet-up,
-  .anim-sheet-down,
-  .anim-nav-pill,
-  .anim-chart-line-draw,
-  .anim-chart-pie,
   .anim-money-particle,
   .anim-flash-up,
   .anim-flash-down {
@@ -1035,15 +869,6 @@
    Added: premium micro-interactions for hero cards, forms, and milestones
    ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Bounce in: slight overshoot for satisfying entrance ── */
-@keyframes anim-bounce-in {
-  0% { transform: scale(0.8); opacity: 0; }
-  60% { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.anim-bounce-in {
-  animation: anim-bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
 
 /* ── Progress bar fill: animates width from 0 to target on mount ── */
 @keyframes anim-fill-bar {
@@ -1062,16 +887,6 @@
 .anim-gradient-shift {
   background-size: 200% 200%;
   animation: anim-gradient-shift 8s ease-in-out infinite;
-}
-
-/* ── Shake: horizontal shake for form validation errors ── */
-@keyframes anim-shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-  20%, 40%, 60%, 80% { transform: translateX(4px); }
-}
-.anim-shake {
-  animation: anim-shake 0.4s ease-in-out;
 }
 
 /* ── Pulse ring: expanding ring for primary action buttons ── */
@@ -1093,36 +908,6 @@
   position: relative;
 }
 
-/* ── Sparkle: twinkling sparkle for milestones ── */
-@keyframes anim-sparkle {
-  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
-  50% { opacity: 1; transform: scale(1) rotate(180deg); }
-}
-.anim-sparkle {
-  animation: anim-sparkle 1.5s ease-in-out infinite;
-  display: inline-block;
-}
-
-/* ── Slide in from left (for drawer / panel) ── */
-@keyframes anim-slide-in-left {
-  from { transform: translateX(-100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-.anim-slide-in-left {
-  animation: anim-slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* ── Number pop: brief scale-up when a number value changes ── */
-@keyframes anim-number-pop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-}
-.anim-number-pop {
-  animation: anim-number-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  display: inline-block;
-}
-
 /* ── Press scale: tactile feedback for all clickable elements ── */
 .anim-press {
   transition: transform 0.1s ease;
@@ -1141,15 +926,10 @@
 
 /* ── Reduced motion: disable all delight animations ── */
 @media (prefers-reduced-motion: reduce) {
-  .anim-bounce-in,
   .anim-fill-bar,
   .anim-gradient-shift,
-  .anim-shake,
   .anim-pulse-ring,
   .anim-pulse-ring::before,
-  .anim-sparkle,
-  .anim-slide-in-left,
-  .anim-number-pop,
   .anim-press,
   .anim-progress-fill [data-slot="progress-indicator"] {
     animation: none !important;
@@ -1327,16 +1107,6 @@
   will-change: transform, opacity;
 }
 
-/* ── Slide-in from left (drill-up: back navigation) ── */
-@keyframes anim-slide-in-left {
-  from { opacity: 0; transform: translateX(-24px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-.anim-slide-in-left {
-  animation: anim-slide-in-left 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
-}
-
 /* ── Single red flash for over-budget elements (bars, alerts) ── */
 @keyframes anim-flash-red {
   0%, 100% { background-color: var(--bg, transparent); }
@@ -1384,42 +1154,16 @@
   animation: anim-micro-pulse 0.5s ease-out 1;
 }
 
-/* ── Liquid fill bar (premium progress, Apple Fitness style) ── */
-/* Apply to a ::before pseudo or inner div. Uses gradient + slow sweep. */
-@keyframes anim-liquid-sweep {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-.anim-liquid-fill {
-  position: relative;
-  overflow: hidden;
-}
-.anim-liquid-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    oklch(1 0 0 / 0.15) 50%,
-    transparent 100%
-  );
-  animation: anim-liquid-sweep 2.5s ease-in-out infinite;
-  pointer-events: none;
-}
-
 /* ── Reduced motion: disable all new premium animations ── */
 @media (prefers-reduced-motion: reduce) {
   .anim-color-smooth { transition: none; }
   .anim-row-stagger,
   .anim-slide-in-right,
-  .anim-slide-in-left,
   .anim-flash-red,
   .anim-glow-breathe,
   .anim-urgency-pulse,
   .anim-float-subtle,
-  .anim-micro-pulse,
-  .anim-liquid-fill::after {
+  .anim-micro-pulse {
     animation: none !important;
   }
   .anim-row-stagger { opacity: 1; }
@@ -1429,29 +1173,12 @@
    PERFORMANCE — smooth loading transitions
    ══════════════════════════════════════════════════════════════════════ */
 
-/* Smooth fade-in for data-loaded content (replaces jarring skeleton→data swap).
-   Apply to containers that transition from loading to data state.
-   Uses opacity-only transition (GPU-composited, no layout thrash). */
-.anim-data-enter {
-  animation: anim-data-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity;
-}
-@keyframes anim-data-enter {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
 /* Content-visibility: auto for long lists — browser skips rendering
    offscreen items until scrolled into view. Massive perf win for
    transaction lists, habit lists, etc. */
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 50px;
-}
-
-/* Reduce motion: disable data-enter animation */
-@media (prefers-reduced-motion: reduce) {
-  .anim-data-enter { animation: none; opacity: 1; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1523,13 +1250,6 @@
   0%, 100% { filter: drop-shadow(0 0 0 oklch(0.622 0.174 142 / 0)); }
   50%      { filter: drop-shadow(0 0 6px oklch(0.622 0.174 142 / 0.45)); }
 }
-@keyframes anim-sprout-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.anim-sprout-refreshing {
-  animation: anim-sprout-spin 1s linear infinite;
-}
 
 /* ── Card Flip 3D ──
    .perspective-1000 goes on the PARENT of the rotating element so the
@@ -1562,8 +1282,7 @@
    component (front always shown), and transitions are flattened. */
 @media (prefers-reduced-motion: reduce) {
   .anim-sprout,
-  .anim-sprout-ready,
-  .anim-sprout-refreshing {
+  .anim-sprout-ready {
     animation: none !important;
     transition: none !important;
   }

@@ -1,6 +1,10 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns and helpers used
+// here (yyyy-MM + subMonths/startOfMonth/endOfMonth) — verified via test
+// script in worklog FIX-TIER3 entry.
 import { jakartaMonthString, jakartaDateKey } from '@/lib/timezone';
 
 // POST /api/finance/budgets/snapshot

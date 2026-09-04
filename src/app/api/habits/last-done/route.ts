@@ -1,6 +1,10 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
-import { format, differenceInCalendarDays, subDays } from 'date-fns';
+import { format, differenceInCalendarDays, subDays } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns and helpers used
+// here (yyyy-MM-dd + differenceInCalendarDays/subDays) — verified via
+// test script in worklog FIX-TIER3 entry.
 import { jakartaToday, jakartaDateKey, jakartaTimeMinutes } from '@/lib/timezone';
 
 // GET /api/habits/last-done
@@ -25,16 +29,24 @@ export async function GET() {
 
     const habitIds = trackedHabits.map(h => h.id);
 
-    // Get the latest completed log for each tracked habit
+    // Get the latest completed log for each tracked habit.
+    // PERF-API-1 FIX-TIER1: previously fetched ALL completed logs for ALL
+    // tracked habits (unbounded — could be thousands of rows over years of
+    // usage). `distinct: ['habitId']` + `orderBy: { date: 'desc' }` makes
+    // Prisma return exactly ONE row per habitId — the latest. Mirrors the
+    // pattern used in /api/dashboard line 700-708.
     const lastLogs = await db.habitLog.findMany({
       where: {
         habitId: { in: habitIds },
         completed: true,
       },
+      distinct: ['habitId'],
       orderBy: { date: 'desc' },
     });
 
-    // Build map: habitId -> latest log
+    // Build map: habitId -> latest log. (Defensive dedupe — `distinct`
+    // already returns one row per habitId, so this loop is a no-op, but
+    // kept as a safety net in case of future query changes.)
     const lastLogMap = new Map<string, { date: Date; completedAt: string | null }>();
     for (const log of lastLogs) {
       if (!lastLogMap.has(log.habitId)) {

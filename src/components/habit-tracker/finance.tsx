@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useDeferredValue } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,11 @@ import {
   BarChart3,
   PieChart,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
+import { format, id as idLocale } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns used here
+// ('yyyy-MM', 'MMMM yyyy' with id locale) — verified via test script in
+// worklog FIX-TIER3 entry.
 import { jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
 import { useAppStore } from '@/store/app-store';
 import { MoneyParticles } from './money-particles';
@@ -169,14 +172,31 @@ export default function Finance() {
     staleTime: 30_000,
   });
 
+  // PERF-FIX (FIX-TIER3 / Fix 18): debounce the search input.
+  // Previously `txFilter.search` was used directly in the queryKey, so
+  // every keystroke triggered a React Query refetch — even though the
+  // API route ignores the `search` param (FIN-BUG-6 fix: Prisma
+  // `contains` is case-sensitive on SQLite, so filtering is done
+  // client-side). The refetch returned the same data each time, wasting
+  // a network round-trip per keystroke.
+  //
+  // `useDeferredValue` lets the input update immediately (no input lag)
+  // while deferring the queryKey update until React's render budget
+  // allows — effectively debouncing rapid keystrokes into a single
+  // refetch once the user pauses typing. The client-side
+  // `filteredTransactions` filter (line ~294) still uses the immediate
+  // `txFilter.search`, so the displayed list updates instantly; only
+  // the API refetch is debounced.
+  const debouncedSearch = useDeferredValue(txFilter.search);
+
   const { data: transactions = [] } = useQuery<Transaction[]>({
-    queryKey: ['finance', 'transactions', selectedMonth, txFilter],
+    queryKey: ['finance', 'transactions', selectedMonth, { ...txFilter, search: debouncedSearch }],
     queryFn: async () => {
       const params = new URLSearchParams({ month: selectedMonth });
       if (txFilter.type !== 'all') params.set('type', txFilter.type);
       if (txFilter.category !== 'all') params.set('category', txFilter.category);
       if (txFilter.source !== 'all') params.set('source', txFilter.source);
-      if (txFilter.search.trim()) params.set('search', txFilter.search.trim());
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       const res = await fetch(`/api/finance/transactions?${params}`);
       if (!res.ok) return [];
       return res.json();

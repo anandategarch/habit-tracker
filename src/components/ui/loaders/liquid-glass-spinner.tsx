@@ -1,6 +1,8 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface LiquidGlassSpinnerProps {
@@ -103,7 +105,7 @@ export function LiquidGlassSpinner({
         aria-hidden="true"
       />
       {/* Rotating highlight arc */}
-      <motion.svg
+      <m.svg
         viewBox="0 0 100 100"
         width={size}
         height={size}
@@ -134,7 +136,7 @@ export function LiquidGlassSpinner({
           strokeDasharray="60 240"
           transform="rotate(-90 50 50)"
         />
-      </motion.svg>
+      </m.svg>
       <span className="sr-only">Memuat...</span>
     </div>
   );

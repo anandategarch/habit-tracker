@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, format, startOfWeek, startOfMonth,
   subMonths, eachDayOfInterval, differenceInDays,
-} from 'date-fns';
+} from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for all patterns and helpers used
+// here (yyyy-MM-dd, MMM dd, MMM yyyy + startOfDay/subDays/startOfWeek/
+// startOfMonth/subMonths/eachDayOfInterval/differenceInDays) — verified
+// via test script in worklog FIX-TIER3 entry.
 import { jakartaToday } from '@/lib/timezone';
 
 export async function GET(request: NextRequest) {

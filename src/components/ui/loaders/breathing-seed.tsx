@@ -1,6 +1,8 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface BreathingSeedProps {
@@ -80,7 +82,7 @@ export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
       style={wrapperStyle}
     >
       {/* Ripple 1 */}
-      <motion.div
+      <m.div
         className="absolute inset-0 rounded-full"
         style={{
           border: '1.5px solid #22c55e',
@@ -97,7 +99,7 @@ export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
         aria-hidden="true"
       />
       {/* Ripple 2 (offset by half cycle) */}
-      <motion.div
+      <m.div
         className="absolute inset-0 rounded-full"
         style={{
           border: '1.5px solid #22c55e',
@@ -114,7 +116,7 @@ export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
         aria-hidden="true"
       />
       {/* Breathing core */}
-      <motion.div
+      <m.div
         className="absolute inset-0 rounded-full"
         style={{
           background:
@@ -130,7 +132,7 @@ export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
         }}
         aria-hidden="true"
       />
-      <motion.span
+      <m.span
         className="relative select-none"
         style={{ fontSize: size * 0.4, lineHeight: 1, willChange: 'transform' }}
         animate={{ scale: [1, 1.1, 1] }}
@@ -142,7 +144,7 @@ export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
         aria-hidden="true"
       >
         🌱
-      </motion.span>
+      </m.span>
       <span className="sr-only">Memuat...</span>
     </div>
   );

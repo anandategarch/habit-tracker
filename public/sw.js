@@ -48,6 +48,93 @@ self.addEventListener('activate', (event) => {
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       );
+
+      // PERF-FIX (FIX-TIER3 / Fix 16): LRU eviction + max-age cleanup for
+      // the current cache. The SW caches static assets (JS/CSS/fonts/
+      // images) on a stale-while-revalidate basis. Over many deploys +
+      // many sessions the cache can accumulate stale entries from older
+      // builds (immutable chunks that are no longer referenced by the
+      // current HTML). Without eviction this grows unbounded —
+      // eventually hitting the browser's per-origin storage quota.
+      //
+      // Two cleanup passes:
+      //   1. MAX-AGE: delete any entry whose `date` response header is
+      //      older than 30 days. These are almost certainly from old
+      //      builds — Vercel serves static assets with far-future
+      //      `Cache-Control: max-age=31536000, immutable`, so a fresh
+      //      response is fetched whenever the URL changes (new build
+      //      hash). Old-URL entries linger forever without this cleanup.
+      //   2. LRU: if more than 60 entries remain, delete the oldest
+      //      (by `date` header) down to 60. 60 is well above the
+      //      per-build chunk count (~30-50) so a single deploy's
+      //      working set always fits; the cap protects against pathological
+      //      growth from many rapid deploys.
+      //
+      // Both passes use the HTTP `date` header (set by the origin
+      // server when the response was generated) — NOT the time the
+      // entry was added to the cache. This is correct: a revalidated
+      // 304 response updates the cache entry's freshness without
+      // changing the underlying resource age.
+      //
+      // Wrapped in try/catch so a malformed `date` header or unexpected
+      // cache API error can't break activation (which would leave the
+      // new SW stuck in waiting state forever).
+      try {
+        const MAX_ENTRIES = 60;
+        const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+        const now = Date.now();
+
+        const cache = await caches.open(CACHE_NAME);
+        const keys = await cache.keys();
+
+        // Fetch all responses in parallel to read their `date` headers.
+        // Promise.all returns a stable order matching `keys`.
+        const items = await Promise.all(
+          keys.map(async (key) => {
+            const response = await cache.match(key);
+            const dateHeader = response?.headers.get('date');
+            const timestamp = dateHeader ? new Date(dateHeader).getTime() : 0;
+            return { key, timestamp };
+          })
+        );
+
+        // Pass 1: max-age cleanup. Any entry whose `date` is older than
+        // 30 days (or has no/invalid `date` header — treat as age 0 to
+        // be safe, these get evicted first under LRU below).
+        const expired = items.filter(
+          (item) =>
+            item.timestamp === 0 || now - item.timestamp > MAX_AGE_MS
+        );
+        await Promise.all(expired.map((item) => cache.delete(item.key)));
+
+        // Pass 2: LRU eviction. Re-read keys (Pass 1 may have deleted
+        // some) and if we're still over the cap, sort ascending by
+        // timestamp and delete the oldest (cap - current) entries.
+        const remainingKeys = await cache.keys();
+        if (remainingKeys.length > MAX_ENTRIES) {
+          const remainingItems = await Promise.all(
+            remainingKeys.map(async (key) => {
+              const response = await cache.match(key);
+              const dateHeader = response?.headers.get('date');
+              const timestamp = dateHeader
+                ? new Date(dateHeader).getTime()
+                : 0;
+              return { key, timestamp };
+            })
+          );
+          // Sort ascending by timestamp (oldest first).
+          remainingItems.sort((a, b) => a.timestamp - b.timestamp);
+          const toDelete = remainingItems.slice(
+            0,
+            remainingItems.length - MAX_ENTRIES
+          );
+          await Promise.all(toDelete.map((item) => cache.delete(item.key)));
+        }
+      } catch (e) {
+        // Cleanup is best-effort — never block activation on it.
+        console.warn('SW cache cleanup failed (non-fatal):', e);
+      }
+
       await self.clients.claim();
     })()
   );

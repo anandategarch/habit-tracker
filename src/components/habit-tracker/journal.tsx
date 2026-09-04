@@ -44,7 +44,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { format } from 'date-fns';
+import { format } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns used here
+// ('EEEE, MMM d, yyyy' and 'MMMM d, yyyy') — verified via test script in
+// worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 

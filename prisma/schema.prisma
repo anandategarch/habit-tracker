@@ -73,6 +73,12 @@ model HabitLog {
 
   @@unique([habitId, date])
   @@index([completed])
+  // PERF-API-1 FIX-TIER1: single-column index on `date` — used by
+  // dashboard/statistics/analytics/ai-insights for date-range scans
+  // (date gte/lte). Previously only @@unique([habitId, date]) existed,
+  // which only helps habitId-prefix queries — date-only queries did a
+  // full table scan.
+  @@index([date])
 }
 
 model DailyLog {

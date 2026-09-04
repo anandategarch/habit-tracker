@@ -16,7 +16,13 @@ import {
   endOfWeek,
   isBefore,
   startOfDay,
-} from 'date-fns';
+} from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for all patterns and helpers used
+// here (yyyy-MM, MMMM yyyy, yyyy-MM-dd, MMM d + startOfMonth/endOfMonth/
+// startOfWeek/endOfWeek/eachDayOfInterval/isToday/isSameMonth/isBefore/
+// startOfDay/addMonths/subMonths) — verified via test script in worklog
+// FIX-TIER3 entry.
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';

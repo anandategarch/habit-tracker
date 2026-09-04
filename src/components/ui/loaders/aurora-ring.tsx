@@ -1,6 +1,8 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface AuroraRingProps {
@@ -101,7 +103,7 @@ export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
             transform="rotate(-90 50 50)"
           />
         ) : (
-          <motion.circle
+          <m.circle
             cx={center}
             cy={center}
             r={radius}
@@ -134,7 +136,7 @@ export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
         )}
       </svg>
       {/* Center sprout icon */}
-      <motion.span
+      <m.span
         className="absolute select-none"
         style={{
           fontSize: px * 0.32,
@@ -153,7 +155,7 @@ export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
         aria-hidden="true"
       >
         🌱
-      </motion.span>
+      </m.span>
       <span className="sr-only">Memuat...</span>
     </div>
   );

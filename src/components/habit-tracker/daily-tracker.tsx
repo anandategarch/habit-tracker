@@ -30,7 +30,10 @@ import {
   parseISO,
   getDaysInMonth,
   getDate,
-} from 'date-fns';
+} from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns and helpers used
+// here — verified via test script in worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
 import { Clock } from 'lucide-react';
 
@@ -90,6 +93,18 @@ export default function DailyTracker() {
   // debounced save was cancelled on unmount, so typing-then-navigating within
   // 600ms lost the user's notes silently.
   const pendingSaveRef = useRef<{ date: string; notes?: string } | null>(null);
+
+  // PERF-REACT-1 fix: mirror `completionMap` into a ref so toggleHabit and
+  // handleHabitCheck can read the latest value WITHOUT having `completionMap`
+  // in their useCallback deps. Without this, every toggle (which updates
+  // completionMap) would create new handler identities, which would defeat
+  // React.memo on HabitCard and re-render every card in the grid — even
+  // untouched ones. With the ref, handlers stay stable across toggles, so
+  // only the actually-toggled card re-renders.
+  const completionMapRef = useRef(completionMap);
+  useEffect(() => {
+    completionMapRef.current = completionMap;
+  }, [completionMap]);
 
   // ---- TanStack Query: habits, daily-log ----
   const { data: habits = [] } = useQuery<Habit[]>({
@@ -262,193 +277,232 @@ export default function DailyTracker() {
     [selectedDate, queryClient],
   );
 
-  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNotes(e.target.value);
-    debouncedSave({ notes: e.target.value });
-  };
+  const handleNotesChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setNotes(e.target.value);
+      debouncedSave({ notes: e.target.value });
+    },
+    [debouncedSave],
+  );
 
   // ---- handlers ----
   // Ref to track the element that triggered a habit completion (for confetti position).
   // Set in handleHabitCheck, read in toggleHabit after successful API response.
   const confettiElRef = useRef<HTMLElement | null>(null);
 
-  const handleHabitCheck = (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
-    const next = !(completionMap[habit.id] ?? false);
-    if (!next) {
-      toggleHabit(habit.id, null);
-      return;
-    }
-    // Store the triggering element for confetti positioning (used in toggleHabit
-    // after successful API response — ensures confetti only fires on actual completion).
-    // For checkbox clicks, event.currentTarget is the checkbox; for card clicks,
-    // it's the card div. Both are valid origins for the confetti burst.
-    //
-    // BUG-5 fix: only OVERWRITE the ref when an event is provided. The checkbox's
-    // onClick handler sets confettiElRef to the checkbox button right before
-    // onCheckedChange fires (which calls handleHabitCheck with no event). The
-    // previous code did `confettiElRef.current = event ? ... : null`, which
-    // overwrote the checkbox ref with null — defeating the FIX-BUGS-1 fix.
-    if (event && 'currentTarget' in event) {
-      confettiElRef.current = event.currentTarget as HTMLElement;
-    }
+  // PERF-REACT-1 fix: toggleHabit is declared BEFORE handleHabitCheck and
+  // handleTimeDialogSubmit (which call it) so the useCallback deps arrays
+  // can reference it without temporal-dead-zone errors. Reads
+  // `completionMap` via `completionMapRef.current` (not directly) so the
+  // callback identity stays stable across toggles — this is what lets
+  // React.memo on HabitCard actually skip re-renders for untouched cards.
+  const toggleHabit = useCallback(
+    async (habitId: string, completedAt: string | null) => {
+      const next = !(completionMapRef.current[habitId] ?? false);
 
-    if (habit.trackTime) {
-      // BUG-17 fix: use jakartaNowParts() (TZ-explicit) instead of
-      // new Date().getHours()/getMinutes() (browser-local TZ). On a non-Jakarta
-      // browser the local hours would be displayed but stored as Jakarta ISO,
-      // causing the time picker to show the wrong initial value.
-      const now = jakartaNowParts();
-      setTimeDialogHabit(habit);
-      setManualDate(selectedDate);
-      setManualTime(
-        `${String(now.hours).padStart(2, '0')}:${String(now.minutes).padStart(2, '0')}`,
-      );
-    } else {
-      toggleHabit(habit.id, null);
-    }
-  };
+      setCompletionMap((p) => ({ ...p, [habitId]: next }));
+      setTogglingIds((p) => new Set(p).add(habitId));
 
-  const handleTimeDialogSubmit = async (useNow: boolean) => {
-    if (!timeDialogHabit) return;
-    setTimeSubmitting(true);
-    try {
-      let completedAtISO: string | null = null;
-      if (useNow) {
-        // BUG-17 fix: use jakartaNowIso() (returns ISO with +07:00 offset,
-        // independent of browser TZ) instead of toLocalISO(new Date()) which
-        // uses the browser's local offset.
-        completedAtISO = jakartaNowIso();
-      } else if (manualTime) {
-        // BUG-17 fix: construct the ISO with +07:00 offset directly. The user
-        // enters manualTime in Jakarta wall-clock (the rest of the app uses
-        // Jakarta), so we just append the offset. Previously toLocalISO() was
-        // used, which interpreted the input as browser-local TZ and produced
-        // a different ISO on non-Jakarta browsers.
-        completedAtISO = `${manualDate}T${manualTime}:00+07:00`;
+      if (next) {
+        setRecentlyCompleted((p) => new Set(p).add(habitId));
+        setTimeout(() => {
+          setRecentlyCompleted((p) => {
+            const s = new Set(p);
+            s.delete(habitId);
+            return s;
+          });
+        }, 700);
       }
-      await toggleHabit(timeDialogHabit.id, completedAtISO);
-      setTimeDialogHabit(null);
-    } catch {
-      toast.error('Failed to save time');
-    } finally {
-      setTimeSubmitting(false);
-    }
-  };
 
-  const toggleHabit = async (habitId: string, completedAt: string | null) => {
-    const next = !(completionMap[habitId] ?? false);
+      try {
+        const res = await fetch(`/api/habits/${habitId}/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: selectedDate,
+            completed: next,
+            completedAt: next ? completedAt : undefined,
+          }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
 
-    setCompletionMap((p) => ({ ...p, [habitId]: next }));
-    setTogglingIds((p) => new Set(p).add(habitId));
+        // update month cache
+        const month = selectedDate.slice(0, 7);
+        const cache = monthLogsCacheRef.current[month];
+        if (cache) {
+          const logs = cache[habitId] || [];
+          const idx = logs.findIndex((l) => toDateString(l.date) === selectedDate);
+          const entry = {
+            id: '',
+            habitId,
+            date: new Date(selectedDate + 'T12:00:00').toISOString(),
+            completed: next,
+            value: 1,
+            completedAt: next && completedAt ? completedAt : null,
+          };
+          if (idx >= 0) {
+            logs[idx] = { ...logs[idx], ...entry };
+          } else {
+            logs.push(entry);
+          }
+        }
 
-    if (next) {
-      setRecentlyCompleted((p) => new Set(p).add(habitId));
-      setTimeout(() => {
-        setRecentlyCompleted((p) => {
+        if (next && completedAt) {
+          setCompletedAtMap((p) => ({
+            ...p,
+            [habitId]: formatJakartaTime(completedAt),
+          }));
+        } else {
+          setCompletedAtMap((p) => {
+            const np = { ...p };
+            delete np[habitId];
+            return np;
+          });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['habits'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+
+        if (next) {
+          toast.success('Habit completed! 🎉');
+
+          // ── Confetti — ONLY after successful API response ──
+          // BUG-1 fix: the month cache was already mutated above (lines 619-636
+          // in the original) to include today's completion, so computeStreak
+          // already counts today. The previous `newStreak = currentStreak + 1`
+          // double-counted today, firing milestone confetti (7/30/100/365) one
+          // day early. Now `newStreak = currentStreak`.
+          // BUG-18 fix: when no cache exists, return 0 (not _count.logs which
+          // was the total log count — completely unrelated to a streak).
+          const currentStreak = cache ? computeStreak(cache[habitId] || [], selectedDate) : 0;
+          const newStreak = currentStreak;
+          const el = confettiElRef.current;
+
+          if ([7, 30, 100, 365].includes(newStreak)) {
+            // Big milestone — dispatch to the correct tier-based
+            // full-screen celebration (🌱 → ⚡🔥 → 💯🔥 → 🏆⭐🔥).
+            milestoneForStreak(newStreak);
+          } else {
+            // Regular completion — burst from the clicked element
+            burstFromElement(el, { count: 20 });
+          }
+          // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
+          confettiElRef.current = null;
+        }
+      } catch (e) {
+        setCompletionMap((p) => ({ ...p, [habitId]: !next }));
+        toast.error(e instanceof Error ? e.message : 'Failed to update habit');
+        confettiElRef.current = null;
+      } finally {
+        setTogglingIds((p) => {
           const s = new Set(p);
           s.delete(habitId);
           return s;
         });
-      }, 700);
-    }
+      }
+    },
+    [selectedDate, queryClient],
+  );
 
-    try {
-      const res = await fetch(`/api/habits/${habitId}/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: selectedDate,
-          completed: next,
-          completedAt: next ? completedAt : undefined,
-        }),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}`);
+  const handleHabitCheck = useCallback(
+    (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
+      const next = !(completionMapRef.current[habit.id] ?? false);
+      if (!next) {
+        toggleHabit(habit.id, null);
+        return;
+      }
+      // Store the triggering element for confetti positioning (used in toggleHabit
+      // after successful API response — ensures confetti only fires on actual completion).
+      // For checkbox clicks, event.currentTarget is the checkbox; for card clicks,
+      // it's the card div. Both are valid origins for the confetti burst.
+      //
+      // BUG-5 fix: only OVERWRITE the ref when an event is provided. The checkbox's
+      // onClick handler sets confettiElRef to the checkbox button right before
+      // onCheckedChange fires (which calls handleHabitCheck with no event). The
+      // previous code did `confettiElRef.current = event ? ... : null`, which
+      // overwrote the checkbox ref with null — defeating the FIX-BUGS-1 fix.
+      if (event && 'currentTarget' in event) {
+        confettiElRef.current = event.currentTarget as HTMLElement;
       }
 
-      // update month cache
-      const month = selectedDate.slice(0, 7);
-      const cache = monthLogsCacheRef.current[month];
-      if (cache) {
-        const logs = cache[habitId] || [];
-        const idx = logs.findIndex((l) => toDateString(l.date) === selectedDate);
-        const entry = {
-          id: '',
-          habitId,
-          date: new Date(selectedDate + 'T12:00:00').toISOString(),
-          completed: next,
-          value: 1,
-          completedAt: next && completedAt ? completedAt : null,
-        };
-        if (idx >= 0) {
-          logs[idx] = { ...logs[idx], ...entry };
-        } else {
-          logs.push(entry);
-        }
-      }
-
-      if (next && completedAt) {
-        setCompletedAtMap((p) => ({
-          ...p,
-          [habitId]: formatJakartaTime(completedAt),
-        }));
+      if (habit.trackTime) {
+        // BUG-17 fix: use jakartaNowParts() (TZ-explicit) instead of
+        // new Date().getHours()/getMinutes() (browser-local TZ). On a non-Jakarta
+        // browser the local hours would be displayed but stored as Jakarta ISO,
+        // causing the time picker to show the wrong initial value.
+        const now = jakartaNowParts();
+        setTimeDialogHabit(habit);
+        setManualDate(selectedDate);
+        setManualTime(
+          `${String(now.hours).padStart(2, '0')}:${String(now.minutes).padStart(2, '0')}`,
+        );
       } else {
-        setCompletedAtMap((p) => {
-          const np = { ...p };
-          delete np[habitId];
-          return np;
-        });
+        toggleHabit(habit.id, null);
       }
+    },
+    [toggleHabit, selectedDate],
+  );
 
-      queryClient.invalidateQueries({ queryKey: ['habits'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-
-      if (next) {
-        toast.success('Habit completed! 🎉');
-
-        // ── Confetti — ONLY after successful API response ──
-        // BUG-1 fix: the month cache was already mutated above (lines 619-636
-        // in the original) to include today's completion, so computeStreak
-        // already counts today. The previous `newStreak = currentStreak + 1`
-        // double-counted today, firing milestone confetti (7/30/100/365) one
-        // day early. Now `newStreak = currentStreak`.
-        // BUG-18 fix: when no cache exists, return 0 (not _count.logs which
-        // was the total log count — completely unrelated to a streak).
-        const currentStreak = cache ? computeStreak(cache[habitId] || [], selectedDate) : 0;
-        const newStreak = currentStreak;
-        const el = confettiElRef.current;
-
-        if ([7, 30, 100, 365].includes(newStreak)) {
-          // Big milestone — dispatch to the correct tier-based
-          // full-screen celebration (🌱 → ⚡🔥 → 💯🔥 → 🏆⭐🔥).
-          milestoneForStreak(newStreak);
-        } else {
-          // Regular completion — burst from the clicked element
-          burstFromElement(el, { count: 20 });
+  const handleTimeDialogSubmit = useCallback(
+    async (useNow: boolean) => {
+      if (!timeDialogHabit) return;
+      setTimeSubmitting(true);
+      try {
+        let completedAtISO: string | null = null;
+        if (useNow) {
+          // BUG-17 fix: use jakartaNowIso() (returns ISO with +07:00 offset,
+          // independent of browser TZ) instead of toLocalISO(new Date()) which
+          // uses the browser's local offset.
+          completedAtISO = jakartaNowIso();
+        } else if (manualTime) {
+          // BUG-17 fix: construct the ISO with +07:00 offset directly. The user
+          // enters manualTime in Jakarta wall-clock (the rest of the app uses
+          // Jakarta), so we just append the offset. Previously toLocalISO() was
+          // used, which interpreted the input as browser-local TZ and produced
+          // a different ISO on non-Jakarta browsers.
+          completedAtISO = `${manualDate}T${manualTime}:00+07:00`;
         }
-        // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
-        confettiElRef.current = null;
+        await toggleHabit(timeDialogHabit.id, completedAtISO);
+        setTimeDialogHabit(null);
+      } catch {
+        toast.error('Failed to save time');
+      } finally {
+        setTimeSubmitting(false);
       }
-    } catch (e) {
-      setCompletionMap((p) => ({ ...p, [habitId]: !next }));
-      toast.error(e instanceof Error ? e.message : 'Failed to update habit');
-      confettiElRef.current = null;
-    } finally {
-      setTogglingIds((p) => {
-        const s = new Set(p);
-        s.delete(habitId);
-        return s;
-      });
-    }
-  };
+    },
+    [timeDialogHabit, toggleHabit, manualDate, manualTime],
+  );
+
+  // PERF-REACT-1 fix: stable callback wrappers for the inline arrow functions
+  // previously passed to HabitCard (onSetConfettiEl, onOpenAnalysis). Without
+  // useCallback, those arrows created new function identities every render,
+  // defeating React.memo on HabitCard. Both wrappers have empty deps because
+  // they only call ref mutation / setState setter (both stable for the
+  // lifetime of the component).
+  const handleSetConfettiEl = useCallback((el: HTMLElement | null) => {
+    confettiElRef.current = el;
+  }, []);
+
+  const handleOpenAnalysis = useCallback((habitId: string) => {
+    setAnalysisHabitId(habitId);
+  }, []);
 
   // ---- date navigation ----
-  const goToPrevDay = () =>
-    setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd'));
-  const goToNextDay = () =>
-    setSelectedDate(format(addDays(dateObj, 1), 'yyyy-MM-dd'));
-  const goToToday = () => setSelectedDate(todayStr);
+  const goToPrevDay = useCallback(
+    () => setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd')),
+    [dateObj, setSelectedDate],
+  );
+  const goToNextDay = useCallback(
+    () => setSelectedDate(format(addDays(dateObj, 1), 'yyyy-MM-dd')),
+    [dateObj, setSelectedDate],
+  );
+  const goToToday = useCallback(
+    () => setSelectedDate(todayStr),
+    [todayStr, setSelectedDate],
+  );
 
   // ---- effects ----
   useEffect(() => {
@@ -630,10 +684,8 @@ export default function DailyTracker() {
                   categoryColor={categoryMap[habit.category]?.color || 'slate'}
                   primaryColor={primaryColor}
                   onToggleHabit={handleHabitCheck}
-                  onSetConfettiEl={(el) => {
-                    confettiElRef.current = el;
-                  }}
-                  onOpenAnalysis={(habitId) => setAnalysisHabitId(habitId)}
+                  onSetConfettiEl={handleSetConfettiEl}
+                  onOpenAnalysis={handleOpenAnalysis}
                 />
               );
             })}

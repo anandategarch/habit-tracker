@@ -1,5 +1,13 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "prisma generate && next build"
+  "buildCommand": "prisma generate && next build",
+  "headers": [
+    {
+      "source": "/(icon-.*\\.png|apple-touch-icon\\.png|favicon\\.ico|manifest\\.webmanifest|robots\\.txt)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=2592000, immutable" }
+      ]
+    }
+  ]
 }

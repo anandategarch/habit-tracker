@@ -1,6 +1,8 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface MorphingSproutProps {
@@ -121,7 +123,7 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
       className={cn('inline-flex items-center justify-center', className)}
       style={{ width: size, height: size, willChange: 'opacity' }}
     >
-      <motion.svg
+      <m.svg
         viewBox="0 0 100 100"
         width={size}
         height={size}
@@ -135,7 +137,7 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
         }}
         style={{ willChange: 'transform' }}
       >
-        <motion.path
+        <m.path
           fill="#22c55e"
           animate={{
             d: [SPROUT_PATH, CIRCLE_PATH, SQUARE_PATH, SPROUT_PATH],
@@ -147,7 +149,7 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
             times: [0, 0.33, 0.66, 1],
           }}
         />
-      </motion.svg>
+      </m.svg>
       <span className="sr-only">Memuat...</span>
     </div>
   );

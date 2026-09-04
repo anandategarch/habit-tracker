@@ -1,6 +1,8 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
+// deferred (requires <LazyMotion features={domAnimation}> at app root).
+import { m, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface SproutGrowProps {
@@ -17,7 +19,7 @@ export interface SproutGrowProps {
  * paths fade out and the loop repeats — evoking the daily-habit metaphor
  * of growing something new each day.
  *
- * Animation: 3 `motion.path` elements animate `pathLength` 0→1 sequentially
+ * Animation: 3 `m.path` elements animate `pathLength` 0→1 sequentially
  * (stem → left leaf → right leaf), total loop ~2.5s with easeInOut timing.
  *
  * Accessibility:
@@ -53,7 +55,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
         className={cn('inline-flex items-center justify-center', className)}
         style={wrapperStyle}
       >
-        <motion.svg
+        <m.svg
           viewBox="0 0 100 100"
           width={size}
           height={size}
@@ -93,7 +95,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-        </motion.svg>
+        </m.svg>
         <span className="sr-only">Memuat Rutina</span>
       </div>
     );
@@ -108,7 +110,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
       className={cn('inline-flex items-center justify-center', className)}
       style={wrapperStyle}
     >
-      <motion.svg
+      <m.svg
         viewBox="0 0 100 100"
         width={size}
         height={size}
@@ -131,7 +133,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
           opacity={0.4}
         />
         {/* Stem */}
-        <motion.path
+        <m.path
           d="M 50 90 Q 48 70 50 55"
           stroke="#22c55e"
           strokeWidth={3.5}
@@ -146,7 +148,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
           }}
         />
         {/* Left leaf */}
-        <motion.path
+        <m.path
           d="M 50 62 Q 32 55 18 42 Q 36 50 50 56"
           stroke="#22c55e"
           strokeWidth={3}
@@ -162,7 +164,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
           }}
         />
         {/* Right leaf */}
-        <motion.path
+        <m.path
           d="M 50 56 Q 68 48 82 34 Q 64 48 50 50"
           stroke="#22c55e"
           strokeWidth={3}
@@ -177,7 +179,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
             times: [0, 0.34, 0.52, 0.95, 1],
           }}
         />
-      </motion.svg>
+      </m.svg>
       <span className="sr-only">Memuat Rutina</span>
     </div>
   );

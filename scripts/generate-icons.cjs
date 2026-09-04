@@ -26,8 +26,6 @@
  *      the maskable safe zone (center 80%).
  *  - apple-touch-icon.png (180x180): full-bleed green bg + white sprout.
  *      iOS applies its own corner rounding.
- *  - icon-96.png / badge-72.png: transparent bg + white sprout, used by
- *      sw.js for push notification icon/badge.
  *  - favicon.ico: multi-size (16, 32, 48), transparent bg + green sprout.
  *
  * Run:  node scripts/generate-icons.cjs
@@ -137,7 +135,8 @@ async function main() {
   });
   await renderPng(anySvg, 192, path.join(PUBLIC_DIR, 'icon-192.png'));
   await renderPng(anySvg, 512, path.join(PUBLIC_DIR, 'icon-512.png'));
-  await renderPng(anySvg, 96, path.join(PUBLIC_DIR, 'icon-96.png'));
+  // PERF-ASSETS-1 FIX-TIER1: icon-96.png removed — was for push
+  // notifications, but push notifications were removed in SW v9.
 
   // ── "maskable" purpose icons (full-bleed green bg, white sprout) ─────
   // Content sized at ~72% of canvas (scale 3 -> 24*3=72 in 100-space,
@@ -168,16 +167,11 @@ async function main() {
     path.join(PUBLIC_DIR, 'apple-touch-icon.png')
   );
 
-  // ── Push notification badge (transparent bg, white sprout) ───────────
-  // Android expects a small badge icon; transparent + white reads cleanly
-  // against the status bar background.
-  const badgeSvg = buildSvg({
-    bg: 'transparent',
-    stroke: WHITE,
-    scale: 3,
-    strokeWidth: 1.8,
-  });
-  await renderPng(badgeSvg, 72, path.join(PUBLIC_DIR, 'badge-72.png'));
+  // PERF-ASSETS-1 FIX-TIER1: badge-72.png generation block removed —
+  // was for push notification badge, but push notifications were removed
+  // in SW v9 (per worklog CONSOLIDATION + BUG-SCAN-2 entries). The
+  // transparent-bg + white-sprout SVG was identical to `anySvg` above
+  // anyway, so no `buildSvg` call needs to be retained.
 
   // ── favicon.ico (multi-size: 16, 32, 48) ─────────────────────────────
   // Transparent bg + green sprout, scaled to read at tiny sizes (bolder

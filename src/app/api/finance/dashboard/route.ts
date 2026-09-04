@@ -1,6 +1,9 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { format } from 'date-fns';
+// PERF-FIX (FIX-TIER3 / Fix 15): removed unused `format` import from
+// `date-fns`. The `format` symbol was imported but never called in this
+// file (verified via grep — the `startOfMonth`/`endOfMonth` references
+// below are LOCAL const declarations, not date-fns function calls).
 import { dayToWeek, jakartaDateKey, jakartaMonthString, jakartaNowParts } from '@/lib/timezone';
 
 // GET /api/finance/dashboard?month=2025-01

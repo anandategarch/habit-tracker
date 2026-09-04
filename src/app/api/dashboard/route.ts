@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   startOfDay, subDays, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, format, differenceInCalendarDays,
-} from 'date-fns';
+} from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for all patterns and helpers used
+// here (yyyy-MM-dd, EEE, MMM dd + startOfDay/subDays/startOfWeek/endOfWeek/
+// startOfMonth/endOfMonth/differenceInCalendarDays) — verified via test
+// script in worklog FIX-TIER3 entry.
 import { jakartaToday, jakartaTimeMinutes, jakartaDateKey } from '@/lib/timezone';
 
 // ── Helper: wrap a promise with a fallback value if it rejects ──────────
@@ -53,23 +58,64 @@ export async function GET(request: NextRequest) {
     const monthStart = startOfMonth(today);
     const monthEnd = endOfMonth(today);
 
-    // Build XP map from database (graceful fallback if HabitOption table doesn't exist)
+    // PERF-FIX (FIX-TIER3 / Fix 17): Phase 1 — parallel fetch of ALL
+    // independent queries. Previously these ran sequentially (habitOption
+    // → habits → allLogs → goals+dailyLogs+learningHabit → monthTransactions+
+    // budgets). Running them in one Promise.all cuts total wait time from
+    // sum(durations) to max(durations) — for 7 queries averaging 200ms
+    // each, that's ~1.4s → ~200ms.
+    //
+    // Each query is wrapped in `safe()` so one failure (e.g. missing table
+    // on a fresh DB) doesn't abort the others — same resilience pattern as
+    // the original code. `select` clauses drop unused columns to reduce
+    // payload + DB wire time.
+    //
+    // IMPORTANT: response shape is UNCHANGED — only internal query
+    // parallelization + column selection. The frontend's expected JSON
+    // shape is identical.
+    const [
+      diffOptions,
+      habits,
+      activeGoals,
+      recentDailyLogs,
+      learningHabit,
+      monthTransactions,
+      budgets,
+    ] = await Promise.all([
+      safe(db.habitOption.findMany({
+        where: { type: 'difficulty' },
+        select: { name: true, xp: true },
+      }), []),
+      safe(db.habit.findMany({ where: { status: 'active' } }), []),
+      safe(db.goal.findMany({
+        where: { status: 'active' },
+        select: { progress: true },
+      }), []),
+      safe(db.dailyLog.findMany({
+        where: { date: { gte: subDays(today, 30) } },
+        select: { mood: true, sleep: true },
+      }), []),
+      safe(db.habit.findFirst({
+        where: { name: 'Daily Learning' },
+        select: { id: true },
+      }), null),
+      safe(db.transaction.findMany({
+        where: { date: { gte: monthStart, lte: monthEnd } },
+        select: { type: true, amount: true, category: true },
+      }), []),
+      safe(db.budget.findMany({
+        select: { category: true, amount: true },
+      }), []),
+    ]);
+
+    // Build XP map from database (graceful fallback if HabitOption table is empty)
     const xpMap: Record<string, number> = {};
-    try {
-      const diffOptions = await db.habitOption.findMany({ where: { type: 'difficulty' } });
-      diffOptions.forEach(d => { xpMap[d.name] = d.xp; });
-    } catch {
-      // HabitOption table may not exist yet — use default XP values
+    diffOptions.forEach(d => { xpMap[d.name] = d.xp; });
+    if (Object.keys(xpMap).length === 0) {
       xpMap['Easy'] = 10;
       xpMap['Medium'] = 20;
       xpMap['Hard'] = 40;
     }
-
-    // Fetch all active habits (resilient — won't crash on schema mismatch)
-    let habits: Awaited<ReturnType<typeof db.habit.findMany>> = [];
-    try {
-      habits = await db.habit.findMany({ where: { status: 'active' } });
-    } catch (e) { console.error('Dashboard: habits query failed:', e); }
 
     const totalHabits = habits.length;
 
@@ -102,15 +148,73 @@ export async function GET(request: NextRequest) {
       365
     );
 
-    // ── Fetch all logs in the period (only for active habits) ────────
     const activeHabitIds = new Set(habits.map(h => h.id));
-    let allLogs: Awaited<ReturnType<typeof db.habitLog.findMany<{ include: { habit: true } }>>> = [];
-    try {
-      allLogs = (await db.habitLog.findMany({
+    // Pre-compute time-tracked + last-done habit ID lists for Phase 2.
+    // (timeHabits/lastDoneHabits arrays are derived later from `habits`
+    // — but the ID lists are needed now for the parallel habitLog queries.)
+    const timeHabitIds = habits.filter(h => h.trackTime).map(h => h.id);
+    const lastDoneIds = habits.filter(h => h.trackLastDone).map(h => h.id);
+
+    // PERF-FIX (Fix 17): Phase 2 — parallel fetch of dependent queries.
+    // Previously allLogs → learningLogs → allTimeLogs → latestLogs ran
+    // sequentially. Now they run in parallel. Each is conditional (skipped
+    // when there are no relevant habits) to avoid needless DB round-trips.
+    //
+    // `select` clauses drop unused columns — payload reduction is most
+    // significant for allLogs (the largest result set, often 100+ rows for
+    // a 90-day period). The original `include: { habit: true }` on allLogs
+    // returned the FULL habit row (12 columns) for every log — now we
+    // select only `habit.difficulty` (the only field actually consumed,
+    // for XP calculation at line ~280).
+    const [
+      allLogsRaw,
+      learningLogs,
+      allTimeLogs,
+      latestLogs,
+    ] = await Promise.all([
+      safe(db.habitLog.findMany({
         where: { date: { gte: periodStart, lte: today } },
-        include: { habit: true },
-      })).filter(l => activeHabitIds.has(l.habitId));
-    } catch (e) { console.error('Dashboard: habitLogs query failed:', e); }
+        select: {
+          date: true,
+          habitId: true,
+          completed: true,
+          completedAt: true,
+          habit: { select: { difficulty: true } },
+        },
+      }), []),
+      learningHabit
+        ? safe(db.habitLog.findMany({
+            where: { habitId: learningHabit.id, completed: true },
+            orderBy: { date: 'asc' },
+            select: { date: true },
+          }), [])
+        : Promise.resolve([] as { date: Date }[]),
+      timeHabitIds.length > 0
+        ? safe(db.habitLog.findMany({
+            where: {
+              habitId: { in: timeHabitIds },
+              completed: true,
+              completedAt: { not: null },
+              date: { gte: subDays(weekStart, 7), lte: weekEnd },
+            },
+            orderBy: { date: 'asc' },
+            select: { date: true, completedAt: true, habitId: true },
+          }), [])
+        : Promise.resolve([] as { date: Date; completedAt: string | null; habitId: string }[]),
+      lastDoneIds.length > 0
+        ? safe(db.habitLog.findMany({
+            where: { habitId: { in: lastDoneIds }, completed: true },
+            distinct: ['habitId'],
+            orderBy: { date: 'desc' },
+            select: { date: true, completedAt: true, habitId: true },
+          }), [])
+        : Promise.resolve([] as { date: Date; completedAt: string | null; habitId: string }[]),
+    ]);
+
+    // Filter allLogs to only active habits (post-query, since the DB query
+    // can't filter on a JS Set). `allLogs` is the filtered view used by all
+    // downstream processing; `allLogsRaw` is discarded.
+    const allLogs = allLogsRaw.filter(l => activeHabitIds.has(l.habitId));
 
     // Build a map: "habitId|dateStr" -> log
     const logMap = new Map<string, { completed: boolean; habitId: string }>();
@@ -282,18 +386,10 @@ export async function GET(request: NextRequest) {
       ? Math.round(((totalXP - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100)
       : 100;
 
-    // ── Parallel fetch: goals, dailyLogs, learningHabit ──
-    // These queries are independent of each other and of `habits`/`allLogs`.
-    // Running them in parallel via Promise.all cuts wait time from sum() to max().
-    const [
-      activeGoals,
-      recentDailyLogs,
-      learningHabit,
-    ] = await Promise.all([
-      safe(db.goal.findMany({ where: { status: 'active' } }), []),
-      safe(db.dailyLog.findMany({ where: { date: { gte: subDays(today, 30) } } }), []),
-      safe(db.habit.findFirst({ where: { name: 'Daily Learning' } }), null),
-    ]);
+    // PERF-FIX (Fix 17): `activeGoals`, `recentDailyLogs`, `learningHabit`
+    // are now fetched in the Phase 1 parallel batch at the top of the
+    // handler. The original Promise.all here was redundant after the
+    // restructure — removed to avoid double-fetching.
 
     // ── Goal progress ────────────────────────────────────────────────
     const goalProgress = activeGoals.length > 0
@@ -376,16 +472,11 @@ export async function GET(request: NextRequest) {
       .map(h => ({ id: h.id, name: h.name, icon: h.icon, priority: h.priority }));
 
     // ── Daily Learning Status ────────────────────────────────────────
-    // (learningHabit already fetched in the parallel batch above)
+    // PERF-FIX (Fix 17): `learningLogs` is now fetched in the Phase 2
+    // parallel batch at the top of the handler. The original sequential
+    // query here was redundant after the restructure — removed.
     let learningStatus = { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 };
     if (learningHabit) {
-      let learningLogs: Awaited<ReturnType<typeof db.habitLog.findMany>> = [];
-      try {
-        learningLogs = await db.habitLog.findMany({
-          where: { habitId: learningHabit.id, completed: true },
-          orderBy: { date: 'asc' },
-        });
-      } catch (e) { console.error('Dashboard: learningLogs query failed:', e); }
       const learningTodayLog = learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
       learningStatus.completedToday = !!learningTodayLog;
       learningStatus.totalDays = learningLogs.length;
@@ -506,14 +597,10 @@ export async function GET(request: NextRequest) {
     };
 
     try {
-      // Parallel fetch: monthTransactions + budgets (wrapped in safe for resilience)
-      const [monthTransactions, budgets] = await Promise.all([
-        safe(db.transaction.findMany({
-          where: { date: { gte: monthStart, lte: monthEnd } },
-        }), []),
-        safe(db.budget.findMany(), []),
-      ]);
-
+      // PERF-FIX (Fix 17): `monthTransactions` + `budgets` are now fetched
+      // in the Phase 1 parallel batch at the top of the handler. The
+      // original Promise.all here was redundant after the restructure —
+      // removed to avoid double-fetching.
       financeOverview.totalIncome = monthTransactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
@@ -574,23 +661,10 @@ export async function GET(request: NextRequest) {
       return `${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
     }
 
-    // Bulk-fetch all time-tracked logs (this week + last week) in one query
-    const timeHabitIds = timeHabits.map(h => h.id);
-    let allTimeLogs: Awaited<ReturnType<typeof db.habitLog.findMany>> = [];
-    try {
-      allTimeLogs = timeHabitIds.length > 0
-        ? await db.habitLog.findMany({
-            where: {
-              habitId: { in: timeHabitIds },
-              completed: true,
-              completedAt: { not: null },
-              date: { gte: subDays(weekStart, 7), lte: weekEnd },
-            },
-            orderBy: { date: 'asc' },
-          })
-        : [];
-    } catch (e) { console.error('Dashboard: timeLogs query failed:', e); }
-
+    // PERF-FIX (Fix 17): `allTimeLogs` is now fetched in the Phase 2
+    // parallel batch at the top of the handler. The original sequential
+    // query here was redundant after the restructure — removed.
+    // `timeHabitIds` is also pre-computed in Phase 1 (line ~155).
     // Group by habitId
     const timeLogsByHabit = new Map<string, typeof allTimeLogs>();
     for (const log of allTimeLogs) {
@@ -695,18 +769,10 @@ export async function GET(request: NextRequest) {
       return match[2] === 'w' ? val * 7 : val;
     }
 
-    // Bulk-fetch latest completed log for each last-done habit
-    const lastDoneIds = lastDoneHabits.map(h => h.id);
-    let latestLogs: Awaited<ReturnType<typeof db.habitLog.findMany>> = [];
-    try {
-      latestLogs = lastDoneIds.length > 0
-        ? await db.habitLog.findMany({
-            where: { habitId: { in: lastDoneIds }, completed: true },
-            distinct: ['habitId'],
-            orderBy: { date: 'desc' },
-          })
-        : [];
-    } catch (e) { console.error('Dashboard: latestLogs query failed:', e); }
+    // PERF-FIX (Fix 17): `latestLogs` is now fetched in the Phase 2
+    // parallel batch at the top of the handler. The original sequential
+    // query here was redundant after the restructure — removed.
+    // `lastDoneIds` is also pre-computed in Phase 1.
     const latestLogMap = new Map(latestLogs.map(l => [l.habitId, l]));
 
     for (const habit of lastDoneHabits) {

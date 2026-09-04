@@ -11,7 +11,12 @@ import {
   format,
   addDays,
   parseISO,
-} from 'date-fns';
+} from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for all patterns and helpers used
+// here (yyyy-MM-dd, EEE + startOfWeek/endOfWeek/startOfMonth/endOfMonth/
+// subWeeks/subMonths/subDays/addDays/parseISO) — verified via test script
+// in worklog FIX-TIER3 entry.
 import { jakartaToday, jakartaTimeMinutes } from '@/lib/timezone';
 
 interface DayData {

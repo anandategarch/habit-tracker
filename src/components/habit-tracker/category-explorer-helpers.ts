@@ -13,8 +13,11 @@
 //     special-cases <1000 via formatRupiah — kept separate).
 // ---------------------------------------------------------------------------
 
-import { format as formatDate } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
+import { format as formatDate, id as idLocale } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the pattern used here
+// ('MMM yyyy' with id locale) — verified via test script in worklog
+// FIX-TIER3 entry.
 import { compactRupiah } from './finance-types';
 
 export function monthLabel(ym: string): string {

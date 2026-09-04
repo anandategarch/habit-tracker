@@ -40,6 +40,16 @@ import { DayView } from './finance-explorer-day-view';
 import { TransactionsView } from './finance-explorer-transactions-view';
 import { BudgetDialog } from './finance-explorer-budget-dialog';
 
+// PERF-REACT-1 fix: hoisted to module scope so the array reference is stable
+// across renders. Previously `EXCLUDED_CATEGORIES` was declared inside the
+// component, which meant every render created a new array — and since it
+// was used in `allTxRaw.filter(...)`, the resulting `allTx` array was also
+// a fresh reference every render. That defeated the downstream useMemo chain
+// (weekData, dayData, transactionList, kpis all declare `allTx` as a dep but
+// the dep changed every render, so they all recomputed every render).
+// Hoisting + wrapping allTx in useMemo restores the memoization chain.
+const EXCLUDED_CATEGORIES = ['Penyesuaian Saldo', 'Transfer Antar Sumber'];
+
 // ── Component ───────────────────────────────────────────────────────────
 
 export default function FinanceExplorer({
@@ -97,8 +107,17 @@ export default function FinanceExplorer({
   // explorer calculations. These are internal movements, not real expenses.
   // Filter once here so all derived data (weekData, dayData, stats) uses
   // the clean set.
-  const EXCLUDED_CATEGORIES = ['Penyesuaian Saldo', 'Transfer Antar Sumber'];
-  const allTx = allTxRaw.filter((tx) => !EXCLUDED_CATEGORIES.includes(tx.category));
+  //
+  // PERF-REACT-1 fix: this was previously `const allTx = allTxRaw.filter(...)`
+  // WITHOUT useMemo — every render produced a new array reference, defeating
+  // the downstream useMemo chain (weekData/dayData/transactionList/kpis all
+  // declare `allTx` as a dep). Wrapping in useMemo with `[allTxRaw]` dep
+  // means allTx only changes when the raw query data actually changes —
+  // which in turn makes the downstream memos actually effective.
+  const allTx = useMemo(
+    () => allTxRaw.filter((tx) => !EXCLUDED_CATEGORIES.includes(tx.category)),
+    [allTxRaw],
+  );
 
   // Also fetch 6-month overview for Level 1 bar chart
   const { data: monthlyData = [], isError: monthlyError } = useQuery<MonthData[]>({

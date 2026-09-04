@@ -3,7 +3,11 @@
 // Extracted from daily-tracker.tsx during SPLIT-PHASE3.
 // ---------------------------------------------------------------------------
 
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays, parseISO } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns used here
+// ('yyyy-MM-dd') and the `subDays`/`parseISO` helpers — verified via
+// test script in worklog FIX-TIER3 entry.
 import { jakartaDateKey } from '@/lib/timezone';
 import type { HabitLog } from './daily-tracker-types';
 

@@ -15,27 +15,35 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const categoryNames = trackedCategories.map(c => c.name);
+    // PERF-API-1 FIX-TIER1: previously fetched ALL transactions for tracked
+    // categories (unbounded — could be thousands of rows). Replaced with a
+    // parallel `findFirst({ orderBy: date desc })` per category — exactly
+    // one row per category (the latest), fetched in parallel. Bounded by
+    // trackedCategories.length queries (typically 5-20) instead of one
+    // huge unbounded query.
+    //
+    // Note: this avoids the `distinct: ['category'] + orderBy: { date: 'desc' }`
+    // pattern that Prisma docs warn against (combining distinct with orderBy
+    // on a non-distinct field yields implementation-defined results on
+    // SQLite). `findFirst` per category is the safe equivalent.
+    const lastTransactions = await Promise.all(
+      trackedCategories.map((c) =>
+        db.transaction.findFirst({
+          where: { category: c.name },
+          orderBy: { date: 'desc' },
+        })
+      )
+    );
 
-    // Get the latest transaction for each tracked category.
-    // Previously used `distinct: ['category']` + `orderBy: { date: 'desc' }`,
-    // which Prisma docs forbid (combining distinct with orderBy on a
-    // non-distinct field yields implementation-defined results). The JS
-    // dedupe below already picks the latest per category because the
-    // `orderBy: date desc` ensures the newest transaction is seen first.
-    // So we just drop the `distinct` and let the dedupe handle it.
-    const lastTransactions = await db.transaction.findMany({
-      where: { category: { in: categoryNames } },
-      orderBy: { date: 'desc' },
-    });
-
-    // Build a map of category name -> last transaction
+    // Build a map of category name -> last transaction.
+    // `findFirst` returns null if no transactions exist for that category.
     const lastTxMap = new Map<string, { date: Date; amount: number; description: string | null }>();
-    for (const tx of lastTransactions) {
-      if (!lastTxMap.has(tx.category)) {
-        lastTxMap.set(tx.category, { date: tx.date, amount: tx.amount, description: tx.description });
+    trackedCategories.forEach((c, i) => {
+      const tx = lastTransactions[i];
+      if (tx) {
+        lastTxMap.set(c.name, { date: tx.date, amount: tx.amount, description: tx.description });
       }
-    }
+    });
 
     // BUG-2 fix: replace legacy getTimezoneOffset() shifted-epoch pattern
     // with proper Intl-based helpers from lib/timezone. The old pattern

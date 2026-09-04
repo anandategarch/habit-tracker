@@ -85,12 +85,41 @@ export async function GET(request: NextRequest) {
     // (all callers use `month` or `startDate/endDate` only); the `search`
     // URL param is still accepted for backward compat but ignored.
 
-    // Resilient query — return empty array on DB error instead of 500
-    let transactions: Awaited<ReturnType<typeof db.transaction.findMany>> = [];
+    // PERF-API-1 FIX-TIER1: cap results at 500 rows (safety net against
+    // unbounded growth for long-term users) and `select` only the 7
+    // columns the client actually consumes (id/type/amount/category/
+    // description/date/source). Drops notes/groupId/createdAt/updatedAt
+    // — ~30% payload reduction. The post-query month filter below only
+    // touches `t.date`, which is included in the select.
+    //
+    // FIX-TIER3: type annotation narrowed to match the selected shape so
+    // the reassignment below type-checks. Previously the variable was
+    // annotated as the full Transaction type (all 11 columns), which
+    // caused a TS2322 error after the `select` clause was added.
+    type TransactionRow = {
+      id: string;
+      type: string;
+      amount: number;
+      category: string;
+      description: string | null;
+      date: Date;
+      source: string;
+    };
+    let transactions: TransactionRow[] = [];
     try {
       transactions = await db.transaction.findMany({
         where,
         orderBy: { date: 'desc' },
+        take: 500,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          category: true,
+          description: true,
+          date: true,
+          source: true,
+        },
       });
       // Post-query filter: if month param was given, filter by Jakarta date
       // key to get the exact month (the query fetched a 7h buffer on each

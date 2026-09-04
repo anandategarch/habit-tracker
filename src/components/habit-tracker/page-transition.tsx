@@ -1,8 +1,14 @@
 'use client';
 
 import { type ReactNode, useState, useEffect } from 'react';
+// PERF-BUNDLE-1 Fix 10: Switched from `motion` to `m` so the framer-motion
+// core runtime is deferred to a lazy chunk (loaded on first animation
+// trigger). Requires <LazyMotion features={domAnimation}> at the app root
+// (added in src/app/layout.tsx). Hooks (useReducedMotion/useScroll/
+// useTransform) + AnimatePresence still import from 'framer-motion'
+// directly — they're separate from the deferred DOM-animation bundle.
 import {
-  motion,
+  m,
   AnimatePresence,
   useReducedMotion,
   useScroll,
@@ -57,7 +63,7 @@ export function PageTransition({ children, tabId }: { children: ReactNode; tabId
 
   return (
     <AnimatePresence mode="wait" initial={false}>
-      <motion.div
+      <m.div
         key={tabId}
         initial={variants.initial}
         animate={variants.animate}
@@ -66,7 +72,7 @@ export function PageTransition({ children, tabId }: { children: ReactNode; tabId
         style={{ willChange: 'transform, opacity' }}
       >
         {children}
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 }
@@ -122,7 +128,7 @@ export function StaggerGroup({
 }) {
   const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       className={className}
       initial="hidden"
       animate="visible"
@@ -131,7 +137,7 @@ export function StaggerGroup({
       transition={prefersReducedMotion ? { duration: 0 } : undefined}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -144,13 +150,13 @@ export function StaggerItem({
 }) {
   const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       className={className}
       variants={prefersReducedMotion ? itemVariantsReduced : itemVariants}
       style={{ willChange: 'transform, opacity' }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -214,7 +220,7 @@ function ParallaxBackgroundInner({ className = '' }: { className?: string }) {
   }
 
   return (
-    <motion.div
+    <m.div
       aria-hidden="true"
       className={`pointer-events-none fixed inset-0 -z-10 ${className}`}
       style={{ y, willChange: 'transform' }}

@@ -13,6 +13,7 @@
 
 'use client';
 
+import { memo } from 'react';
 import { Check, Clock, RotateCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,7 +55,17 @@ export interface HabitCardProps {
   onOpenAnalysis: (habitId: string) => void;
 }
 
-export function HabitCard({
+// PERF-REACT-1 fix: wrapped with React.memo so the card only re-renders when
+// its own props change. Combined with the stable useCallback handlers in the
+// parent (daily-tracker.tsx), this means:
+//   - Typing in the Daily Notes textarea → no HabitCard re-renders
+//     (notes state changes, but no HabitCard prop changes)
+//   - Toggling one habit → only that habit's card re-renders
+//     (its isDone prop changes; sibling cards' props are unchanged)
+// Previously every keystroke re-rendered every card in the grid because the
+// parent re-rendered and the inline-arrow props (onSetConfettiEl,
+// onOpenAnalysis) were fresh identities every render.
+export const HabitCard = memo(function HabitCard({
   habit,
   idx,
   isDone,
@@ -298,4 +309,4 @@ export function HabitCard({
       }
     />
   );
-}
+});

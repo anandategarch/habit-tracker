@@ -1,6 +1,10 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
-import { startOfDay, subDays, format } from 'date-fns';
+import { startOfDay, subDays, format } from '@/lib/date-utils';
+// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+// utility module. Output is identical for the patterns and helpers used
+// here (yyyy-MM-dd + startOfDay/subDays) — verified via test script in
+// worklog FIX-TIER3 entry.
 import { jakartaToday } from '@/lib/timezone';
 
 const HABIT_NAME = 'Daily Learning';

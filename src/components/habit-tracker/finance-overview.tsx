@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, Info, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
+// PERF-FIX (FIX-TIER3 / Fix 15): removed unused `date-fns` imports
+// (`format` and `id as idLocale` were imported but never called in this
+// file — verified via grep).
 import { cn } from '@/lib/utils';
 import { formatRupiah } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
