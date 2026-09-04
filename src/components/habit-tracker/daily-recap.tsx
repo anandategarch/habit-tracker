@@ -421,7 +421,7 @@ export default function DailyRecap() {
         </div>
 
         {/* Comparison pills row */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2">
           <ComparisonPill
             changePct={comparison.vsYesterday.changePct}
             direction={comparison.vsYesterday.direction}
@@ -455,7 +455,7 @@ export default function DailyRecap() {
       {alerts.length > 0 && (
         <>
           <div className="border-t border-border" />
-          <div className="px-4 py-2.5 sm:px-6 flex flex-wrap gap-1.5">
+          <div className="px-4 py-2.5 sm:px-6 flex flex-wrap gap-2">
             {alerts.map((alert, i) => (
               <AlertChip key={i} alert={alert} />
             ))}
