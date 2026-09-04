@@ -205,6 +205,8 @@ export async function GET(request: NextRequest) {
         income: prevIncome,
         expense: prevExpense,
       },
+    }, {
+      headers: { 'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=600' },
     });
   } catch (error) {
     console.error('GET /api/finance/dashboard error:', error);

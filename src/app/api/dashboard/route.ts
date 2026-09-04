@@ -828,7 +828,12 @@ export async function GET(request: NextRequest) {
         // disables all HTTP caching of this response — every request goes
         // to the origin. React Query's in-memory cache (staleTime 30s) still
         // provides client-side dedup, so DB load is not significantly higher.
-        'Cache-Control': 'no-store, max-age=0',
+        // PERF-FIX: use s-maxage=60 + stale-while-revalidate=600 for Vercel
+        // edge caching. Dashboard data is per-user but 60s freshness is OK
+        // (data changes when user checks habit/adds tx — 60s delay acceptable).
+        // stale-while-revalidate serves cached data immediately while fetching
+        // fresh in background — perceived performance improves dramatically.
+        'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=600',
       },
     });
   } catch (error) {

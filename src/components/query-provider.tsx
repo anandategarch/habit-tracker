@@ -1,6 +1,6 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 
 /**
@@ -14,8 +14,13 @@ import { useState, type ReactNode } from 'react';
  * - Optimistic updates via useMutation
  * - Smart caching (avoid re-fetching data that was just loaded)
  *
- * The QueryClient is created inside useState so it's stable across re-renders
- * but unique per browser tab (avoids sharing cache between SSR requests).
+ * PERF-FIX (Tier 1): Tuned for mobile performance:
+ * - staleTime 30s → 60s (less aggressive refetch on tab focus)
+ * - gcTime 5min → 2min (faster GC, less memory retention on mobile)
+ * - keepPreviousData: true (show old data while fetching new — no blank
+ *   loading state on tab switch, perceived performance improves)
+ * - refetchOnWindowFocus: true (keep data fresh when user returns to app)
+ * - retry: 1 (one retry for network blips, don't hammer on failure)
  */
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -23,16 +28,16 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Data is considered fresh for 30 seconds before refetch triggers.
-            // After that, background refetch happens on focus/reconnect.
-            staleTime: 30_000,
-            // Keep unused data in cache for 5 minutes (quick tab switches).
-            gcTime: 5 * 60 * 1000,
+            // Data is considered fresh for 60 seconds (was 30s — less
+            // aggressive refetch reduces mobile data usage + battery drain).
+            staleTime: 60_000,
+            // Keep unused data in cache for 2 minutes (was 5 min — faster GC
+            // prevents memory bloat on mobile devices with limited RAM).
+            gcTime: 2 * 60 * 1000,
+            // Show previous data while fetching new data (no blank loading
+            // state on tab switch — perceived performance improves dramatically).
+            placeholderData: keepPreviousData,
             // Refetch on mount IF data is stale (React Query default).
-            // Previously set to `false` — caused stale data after tab
-            // switches (user saw old data for up to 30s before window
-            // focus triggered a refetch). Now uses default behavior:
-            // refetch on mount only when staleTime has elapsed.
             refetchOnMount: true,
             // Refetch when window regains focus (user returns to tab).
             refetchOnWindowFocus: true,

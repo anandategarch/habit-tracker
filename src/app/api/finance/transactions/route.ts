@@ -53,8 +53,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (startDate && endDate) {
-      const s = new Date(startDate);
-      const e = new Date(endDate);
+      // FIX: browser URLSearchParams encodes '+' in timezone offset (+07:00)
+      // as space. Decode properly before parsing.
+      const s = new Date(decodeURIComponent(startDate).replace(/\s/g, '+'));
+      const e = new Date(decodeURIComponent(endDate).replace(/\s/g, '+'));
       if (isNaN(s.getTime()) || isNaN(e.getTime())) {
         return NextResponse.json({ error: 'Invalid startDate or endDate' }, { status: 400 });
       }
