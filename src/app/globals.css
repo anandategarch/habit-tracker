@@ -282,13 +282,18 @@
 .skel-bar    { height: 0.75rem; border-radius: 0.25rem; }
 .skel-card   { border-radius: 0.75rem; }
 
-/* Respect reduced motion — disable shimmer + stagger animation */
+/* Respect reduced motion — disable shimmer + stagger animation.
+   FIX-TRANSITION-1: was `background: var(--muted)` which sets the raw
+   channel triplet (e.g. `210 40% 96%`) without the `hsl(...)` wrapper —
+   an invalid CSS color, so the browser silently ignored it and the
+   skeleton blocks appeared transparent instead of muted-gray. Wrapping
+   in `hsl(var(--muted))` resolves the channels into a real color. */
 @media (prefers-reduced-motion: reduce) {
   .shimmer,
   .skel-hybrid,
   .skel-stagger {
     animation: none;
-    background: var(--muted);
+    background: hsl(var(--muted));
   }
 }
 

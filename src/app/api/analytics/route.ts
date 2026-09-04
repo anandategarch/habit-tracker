@@ -132,10 +132,14 @@ export async function GET(request: NextRequest) {
     }));
 
     // Day of week performance
+    // BUG-4 fix: use Jakarta-aware day-of-week instead of server-local getDay().
+    // On Vercel (UTC server), getDay() returns UTC day — late-night WIB logs
+    // (00:00-06:59 WIB = 17:00-23:59 UTC previous day) get attributed to wrong day.
     const dayOfWeekStats = new Map<string, { completed: number; total: number }>();
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const jakartaDayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jakarta', weekday: 'short' });
     for (const log of logs) {
-      const day = dayNames[log.date.getDay()];
+      const day = jakartaDayFormatter.format(log.date);
       if (!dayOfWeekStats.has(day)) dayOfWeekStats.set(day, { completed: 0, total: 0 });
       const stat = dayOfWeekStats.get(day)!;
       stat.total++;

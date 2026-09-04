@@ -20,6 +20,13 @@ import {
  * mental model of forward navigation (new content arrives from the right).
  * Exit mirrors enter (slide out to the left + fade).
  *
+ * FIX-TRANSITION-1: Reduced the slide distance from 20px → 8px and the
+ * duration from 0.25s → 0.18s. The previous 0.25s duration combined with
+ * `mode="wait"` produced a ~318ms perceptible blank window between tabs
+ * (250ms exit + 16ms swap + remainder enter) — the user reported this as
+ * "transisi antar tab hanya putih aja". The shorter duration + smaller
+ * slide keeps the transition snappy while still feeling premium.
+ *
  * Accessibility: respects `prefers-reduced-motion`. When reduced motion is
  * preferred, the motion is reduced to opacity-only (no x-translate) so the
  * transition is still visible but doesn't move — recommended by WCAG 2.3.3.
@@ -43,19 +50,19 @@ export function PageTransition({ children, tabId }: { children: ReactNode; tabId
         exit: { opacity: 0 },
       }
     : {
-        initial: { opacity: 0, x: 20 },
+        initial: { opacity: 0, x: 8 },
         animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -20 },
+        exit: { opacity: 0, x: -8 },
       };
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={tabId}
         initial={variants.initial}
         animate={variants.animate}
         exit={variants.exit}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
         style={{ willChange: 'transform, opacity' }}
       >
         {children}

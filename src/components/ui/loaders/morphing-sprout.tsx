@@ -46,7 +46,15 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
   //   outline: right leaf outer → stem right → soil → stem left → left
   //   leaf outer → left leaf inner → right leaf inner)
   // - CIRCLE: 6-segment cubic approximation of a circle (radius 45)
-  // - SQUARE: rounded square (radius 12), 6 cubics around the perimeter
+  // - SQUARE: rounded square (corner radius ~12), 6 cubics around the
+  //   perimeter — top-right corner + right side, bottom-right corner +
+  //   bottom, bottom-left corner + left side, top-left corner + top.
+  //
+  // FIX-TRANSITION-1: SQUARE_PATH previously had 8 cubics while SPROUT and
+  // CIRCLE had 6. Mismatched segment counts cause framer-motion to fall
+  // back from numerical path interpolation to a hard crossfade (snap between
+  // shapes), defeating the smooth morph effect. Rewrote SQUARE_PATH with 6
+  // cubics so all three paths interpolate numerically — true morph.
   const SPROUT_PATH =
     'M 50 12 ' +
     'C 65 18, 78 30, 70 42 ' + // right leaf outer
@@ -67,16 +75,20 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
     'C 22 12, 35 5, 50 5 ' +
     'Z';
 
+  // 6-curve rounded square. Each cubic handles one corner + half of a side
+  // so the total segment count matches SPROUT_PATH and CIRCLE_PATH. Control
+  // points on the sides are placed along the straight edge (e.g. C 88 50,
+  // 88 50, 88 72) which produces a degenerate-but-valid cubic that the
+  // interpolator treats as a straight line — visually identical to a real
+  // straight segment, but structurally compatible with the other shapes.
   const SQUARE_PATH =
-    'M 38 5 ' +
-    'C 22 5, 12 5, 12 12 ' + // top-left corner + top edge
-    'C 5 22, 5 30, 5 38 ' + // left-top → left
-    'C 5 65, 5 75, 12 88 ' + // left side
-    'C 22 95, 38 95, 50 95 ' + // bottom-left + bottom
-    'C 65 95, 78 95, 88 88 ' + // bottom-right
-    'C 95 75, 95 65, 95 50 ' + // right side
-    'C 95 30, 95 22, 88 12 ' + // right-top
-    'C 78 5, 65 5, 38 5 ' + // top edge back to start
+    'M 50 12 ' +
+    'C 70 12, 88 12, 88 30 ' + // top-right corner + half of top edge
+    'C 88 50, 88 50, 88 70 ' + // right side (straight via degenerate cubic)
+    'C 88 88, 70 88, 50 88 ' + // bottom-right corner + half of bottom edge
+    'C 30 88, 12 88, 12 70 ' + // bottom-left corner + half of bottom edge
+    'C 12 50, 12 50, 12 30 ' + // left side (straight via degenerate cubic)
+    'C 12 12, 30 12, 50 12 ' + // top-left corner + half of top edge
     'Z';
 
   if (prefersReducedMotion) {

@@ -144,10 +144,15 @@ export async function POST(request: NextRequest) {
       // balance + ?` which is atomic at the row level.
       const fundSource = await tx.fundSource.findUnique({ where: { name: sourceName } });
       if (fundSource) {
-        await tx.fundSource.update({
+        const updatedSource = await tx.fundSource.update({
           where: { id: fundSource.id },
           data: { balance: { increment: signedDelta(amount, type) } },
         });
+        // BUG-2 fix: post-increment balance check — reject if expense drives
+        // balance negative. Consistent with PUT, split, and transfer routes.
+        if (type === 'expense' && updatedSource.balance < 0) {
+          throw new Error('INSUFFICIENT_BALANCE');
+        }
       }
 
       return tx_record;
@@ -156,6 +161,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {
     console.error('POST /api/finance/transactions error:', error);
+    if (error instanceof Error && error.message === 'INSUFFICIENT_BALANCE') {
+      return NextResponse.json(
+        { error: 'Saldo sumber dana tidak mencukupi.' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
   }
 }

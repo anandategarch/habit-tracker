@@ -26,14 +26,29 @@ import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
 import { SproutGrow } from '@/components/ui/loaders';
+import { LoadingState } from '@/components/ui/loading-state';
 
-const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false });
-const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false });
-const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false });
-const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false });
+// FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
+// initial bundle small + avoid SSR for components that use browser-only APIs.
+// Previously these had NO `loading` fallback — when the user switched to a
+// tab whose chunk wasn't yet loaded, the dynamic component returned `null`
+// during the ~300ms chunk-fetch/parse window, producing a blank white screen
+// ("transisi antar tab hanya putih aja").
+//
+// Now each dynamic() provides a `loading` render-prop that shows AuroraRing
+// inside LoadingState. The loader is mounted immediately when the dynamic
+// wrapper renders, then swapped out atomically once the chunk resolves — no
+// blank frame in between. The PageTransition's motion.div still animates the
+// surrounding fade, so the loader itself enters with the same fade-in.
+const tabLoading = () => <LoadingState />;
 
-const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false });
-const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false });
+const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false, loading: tabLoading });
+const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
+const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false, loading: tabLoading });
+const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
+
+const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
+const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
