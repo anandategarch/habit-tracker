@@ -52,22 +52,22 @@ const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'),
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'tracker', label: 'Daily Tracker', icon: CheckSquare },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { id: 'goals', label: 'Goals', icon: Target },
+  { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
+  { id: 'calendar', label: 'Kalender', icon: CalendarDays },
+  { id: 'goals', label: 'Tujuan', icon: Target },
 
-  { id: 'finance', label: 'Finance', icon: Wallet },
-  { id: 'settings', label: 'Settings', icon: SettingsIcon },
+  { id: 'finance', label: 'Keuangan', icon: Wallet },
+  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
 ];
 
 // Primary tabs shown in the mobile bottom navigation bar.
 // Other tabs (Calendar, Goals) remain accessible via the hamburger
 // sidebar drawer on mobile.
 const BOTTOM_NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
   { id: 'tracker', label: 'Track', icon: CheckSquare },
-  { id: 'finance', label: 'Finance', icon: Wallet },
-  { id: 'settings', label: 'Settings', icon: SettingsIcon },
+  { id: 'finance', label: 'Keuangan', icon: Wallet },
+  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
 ];
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
@@ -122,7 +122,7 @@ export default function Home() {
   // non-WIB timezones. We compute the initial value lazily on the client.
   const [dateString, setDateString] = useState(() =>
     typeof window !== 'undefined'
-      ? new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+      ? new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
       : ''
   );
 
@@ -131,7 +131,7 @@ export default function Home() {
   useEffect(() => {
     const update = () => {
       setDateString(
-        new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+        new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
       );
     };
     update();
@@ -287,7 +287,7 @@ export default function Home() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleSidebar}
-                  aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+                  aria-label={sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
                 >
                   {sidebarOpen
                     ? <PanelLeftClose className="h-5 w-5" />
@@ -296,7 +296,7 @@ export default function Home() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+                {sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
               </TooltipContent>
             </Tooltip>
             <h1 className="text-lg font-semibold">

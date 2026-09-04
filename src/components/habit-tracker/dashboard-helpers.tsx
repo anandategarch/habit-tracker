@@ -163,7 +163,7 @@ export function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; o
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={onRefresh}
-              aria-label="Refresh quote"
+              aria-label="Refresh kutipan"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>

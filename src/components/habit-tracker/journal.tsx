@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { format } from '@/lib/date-utils';
+import { format, id as idLocale } from '@/lib/date-utils';
 // PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
 // utility module. Output is identical for the patterns used here
 // ('EEEE, MMM d, yyyy' and 'MMMM d, yyyy') — verified via test script in
@@ -85,27 +85,27 @@ interface FormData {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const MOOD_OPTIONS = [
-  { value: '1', emoji: '😫', label: 'Terrible' },
-  { value: '2', emoji: '😣', label: 'Bad' },
-  { value: '3', emoji: '😐', label: 'Okay' },
-  { value: '4', emoji: '🙂', label: 'Good' },
-  { value: '5', emoji: '🤩', label: 'Amazing' },
+  { value: '1', emoji: '😫', label: 'Buruk' },
+  { value: '2', emoji: '😣', label: 'Lumayan' },
+  { value: '3', emoji: '😐', label: 'Biasa' },
+  { value: '4', emoji: '🙂', label: 'Baik' },
+  { value: '5', emoji: '🤩', label: 'Hebat' },
 ];
 
 const STRESS_OPTIONS = [
   { value: '1', label: 'Minimal' },
-  { value: '2', label: 'Low' },
-  { value: '3', label: 'Moderate' },
-  { value: '4', label: 'High' },
-  { value: '5', label: 'Extreme' },
+  { value: '2', label: 'Rendah' },
+  { value: '3', label: 'Sedang' },
+  { value: '4', label: 'Tinggi' },
+  { value: '5', label: 'Ekstrem' },
 ];
 
 const ENERGY_OPTIONS = [
-  { value: '1', label: 'Drained' },
-  { value: '2', label: 'Low' },
+  { value: '1', label: 'Habis' },
+  { value: '2', label: 'Rendah' },
   { value: '3', label: 'Normal' },
-  { value: '4', label: 'High' },
-  { value: '5', label: 'Peak' },
+  { value: '4', label: 'Tinggi' },
+  { value: '5', label: 'Puncak' },
 ];
 
 const EMPTY_FORM: FormData = {
@@ -270,7 +270,7 @@ export default function JournalTab() {
 
   async function handleSave() {
     if (!form.mood) {
-      toast.error('Please select a mood');
+      toast.error('Pilih mood dulu');
       return;
     }
 
@@ -304,11 +304,11 @@ export default function JournalTab() {
 
       if (!res.ok) throw new Error('Failed to save journal');
 
-      toast.success('Journal entry saved');
+      toast.success('Entri jurnal tersimpan');
       setFormOpen(false);
       invalidateJournals();
     } catch {
-      toast.error('Failed to save journal entry');
+      toast.error('Gagal menyimpan entri jurnal');
     } finally {
       setSaving(false);
     }
@@ -323,11 +323,11 @@ export default function JournalTab() {
       });
       if (!res.ok) throw new Error('Failed to delete');
 
-      toast.success('Journal entry deleted');
+      toast.success('Entri jurnal dihapus');
       setDeleteTarget(null);
       invalidateJournals();
     } catch {
-      toast.error('Failed to delete journal entry');
+      toast.error('Gagal menghapus entri jurnal');
     }
   }
 
@@ -345,21 +345,21 @@ export default function JournalTab() {
             onClick={openNewForm}
           >
             <Plus className="h-4 w-4" />
-            New Entry
+            Entri Baru
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-primary" />
-              {form.id ? 'Edit Journal Entry' : 'New Journal Entry'}
+              {form.id ? 'Edit Entri Jurnal' : 'Entri Jurnal Baru'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-5 py-4">
             {/* Date */}
             <div className="space-y-2">
-              <Label htmlFor="journal-date">Date</Label>
+              <Label htmlFor="journal-date">Tanggal</Label>
               <Input
                 id="journal-date"
                 type="date"
@@ -398,13 +398,13 @@ export default function JournalTab() {
             {/* Stress & Energy row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Stress Level</Label>
+                <Label>Tingkat Stress</Label>
                 <Select
                   value={form.stress}
                   onValueChange={(v) => setForm((f) => ({ ...f, stress: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select stress level" />
+                    <SelectValue placeholder="Pilih tingkat stress" />
                   </SelectTrigger>
                   <SelectContent>
                     {STRESS_OPTIONS.map((opt) => (
@@ -416,13 +416,13 @@ export default function JournalTab() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Energy Level</Label>
+                <Label>Tingkat Energi</Label>
                 <Select
                   value={form.energy}
                   onValueChange={(v) => setForm((f) => ({ ...f, energy: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select energy level" />
+                    <SelectValue placeholder="Pilih tingkat energi" />
                   </SelectTrigger>
                   <SelectContent>
                     {ENERGY_OPTIONS.map((opt) => (
@@ -437,14 +437,14 @@ export default function JournalTab() {
 
             {/* Sleep */}
             <div className="space-y-2">
-              <Label htmlFor="journal-sleep">Sleep Hours</Label>
+              <Label htmlFor="journal-sleep">Jam Tidur</Label>
               <Input
                 id="journal-sleep"
                 type="number"
                 min={0}
                 max={24}
                 step={0.5}
-                placeholder="e.g. 7.5"
+                placeholder="misal 7.5"
                 value={form.sleep}
                 onChange={(e) => setForm((f) => ({ ...f, sleep: e.target.value }))}
               />
@@ -454,10 +454,10 @@ export default function JournalTab() {
 
             {/* Text areas */}
             <div className="space-y-2">
-              <Label htmlFor="journal-reflection">Reflection</Label>
+              <Label htmlFor="journal-reflection">Refleksi</Label>
               <Textarea
                 id="journal-reflection"
-                placeholder="How was your day? What stood out?"
+                placeholder="Bagaimana harimu? Apa yang menonjol?"
                 rows={4}
                 value={form.reflection}
                 onChange={(e) =>
@@ -467,10 +467,10 @@ export default function JournalTab() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="journal-win">Win Today</Label>
+              <Label htmlFor="journal-win">Win Hari Ini</Label>
               <Textarea
                 id="journal-win"
-                placeholder="What went well today?"
+                placeholder="Apa yang berjalan baik hari ini?"
                 rows={2}
                 value={form.winToday}
                 onChange={(e) =>
@@ -480,10 +480,10 @@ export default function JournalTab() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="journal-lesson">Lesson Learned</Label>
+              <Label htmlFor="journal-lesson">Pelajaran Hari Ini</Label>
               <Textarea
                 id="journal-lesson"
-                placeholder="What did you learn today?"
+                placeholder="Apa yang kamu pelajari hari ini?"
                 rows={2}
                 value={form.lessonLearned}
                 onChange={(e) =>
@@ -493,10 +493,10 @@ export default function JournalTab() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="journal-tomorrow">Tomorrow&apos;s Plan</Label>
+              <Label htmlFor="journal-tomorrow">Rencana Besok</Label>
               <Textarea
                 id="journal-tomorrow"
-                placeholder="What do you plan to do tomorrow?"
+                placeholder="Apa rencana kamu untuk besok?"
                 rows={2}
                 value={form.tomorrowPlan}
                 onChange={(e) =>
@@ -511,7 +511,7 @@ export default function JournalTab() {
                 disabled={saving}
                 className="min-w-[120px]"
               >
-                {saving ? 'Saving...' : 'Save Entry'}
+                {saving ? 'Menyimpan...' : 'Simpan Entri'}
               </Button>
             </div>
           </div>
@@ -530,7 +530,7 @@ export default function JournalTab() {
     const ymd = entry.date.slice(0, 10);
     const [y, m, d] = ymd.split('-').map(Number);
     const entryDate = new Date(y, m - 1, d);
-    const formattedDate = format(entryDate, 'EEEE, MMM d, yyyy');
+    const formattedDate = format(entryDate, 'EEEE, d MMM yyyy', { locale: idLocale });
     const isToday = ymd === jakartaDateString();
 
     return (
@@ -558,7 +558,7 @@ export default function JournalTab() {
                       variant="secondary"
                       className="bg-primary/10 text-primary text-xs px-1.5 py-0"
                     >
-                      Today
+                      Hari Ini
                     </Badge>
                   )}
                   <Badge
@@ -600,7 +600,7 @@ export default function JournalTab() {
             {entry.sleep > 0 && (
               <span className={cn('flex items-center gap-1', getSleepColor(entry.sleep))}>
                 <Calendar className="h-3 w-3" />
-                {entry.sleep}h sleep
+                {entry.sleep}h tidur
               </span>
             )}
             {entry.stress > 0 && (
@@ -610,7 +610,7 @@ export default function JournalTab() {
             )}
             {entry.energy > 0 && (
               <span className={cn('flex items-center gap-1', getEnergyColor(entry.energy))}>
-                Energy: {getEnergyLabel(entry.energy)}
+                Energi: {getEnergyLabel(entry.energy)}
               </span>
             )}
           </div>
@@ -623,7 +623,7 @@ export default function JournalTab() {
               {entry.reflection && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                    Reflection
+                    Refleksi
                   </h4>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {entry.reflection}
@@ -634,7 +634,7 @@ export default function JournalTab() {
               {entry.winToday && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-primary mb-1">
-                    Win Today
+                    Win Hari Ini
                   </h4>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {entry.winToday}
@@ -645,7 +645,7 @@ export default function JournalTab() {
               {entry.lessonLearned && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-warning dark:text-warning/80 mb-1">
-                    Lesson Learned
+                    Pelajaran Hari Ini
                   </h4>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {entry.lessonLearned}
@@ -656,7 +656,7 @@ export default function JournalTab() {
               {entry.tomorrowPlan && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400 mb-1">
-                    Tomorrow&apos;s Plan
+                    Rencana Besok
                   </h4>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {entry.tomorrowPlan}
@@ -708,8 +708,8 @@ export default function JournalTab() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="Journal"
-        description={`${journals.length} ${journals.length === 1 ? 'entry' : 'entries'}`}
+        title="Jurnal"
+        description={`${journals.length} entri`}
         action={renderForm()}
       />
 
@@ -720,16 +720,16 @@ export default function JournalTab() {
             <div className="flex items-center justify-center h-14 w-14 rounded-full bg-primary/10 mb-4">
               <BookOpen className="h-7 w-7 text-primary" />
             </div>
-            <h3 className="font-medium text-sm mb-1">No journal entries yet</h3>
+            <h3 className="font-medium text-sm mb-1">Belum ada entri jurnal</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Start writing your first journal entry to track your mood, reflections, and daily wins.
+              Mulai tulis entri jurnal pertama kamu untuk melacak mood, refleksi, dan win harian.
             </p>
             <Button
               onClick={openNewForm}
               className="mt-4"
             >
               <Plus className="h-4 w-4" />
-              New Entry
+              Entri Baru
             </Button>
           </CardContent>
         </Card>
@@ -746,24 +746,24 @@ export default function JournalTab() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Journal Entry</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Entri Jurnal</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the journal entry for{' '}
+              Yakin ingin menghapus entri jurnal untuk tanggal{' '}
               <span className="font-medium text-foreground">
                 {deleteTarget
-                  ? format(new Date(deleteTarget.date), 'MMMM d, yyyy')
+                  ? format(new Date(deleteTarget.date), 'd MMMM yyyy', { locale: idLocale })
                   : ''}
               </span>
-              ? This action cannot be undone.
+              ? Tindakan ini tidak bisa dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive hover:bg-destructive text-white"
             >
-              Delete
+              Hapus
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

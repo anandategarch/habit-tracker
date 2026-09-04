@@ -194,7 +194,7 @@ export default function LearningTab() {
     try {
       const res = await fetch('/api/learning/complete', { method: 'POST' });
       if (!res.ok) throw new Error();
-      toast.success('Daily Learning selesai! 🎉');
+      toast.success('Pembelajaran Harian selesai! 🎉');
       invalidateLearning();
     } catch {
       toast.error('Gagal menyimpan');
@@ -285,7 +285,7 @@ export default function LearningTab() {
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <PageHeader
-        title="Daily Learning"
+        title="Pembelajaran Harian"
         description="Belajar sesuatu setiap hari"
         action={
           <div className="flex items-center gap-3">

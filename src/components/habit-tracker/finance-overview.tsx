@@ -79,7 +79,7 @@ export default function FinanceOverview({
                   {dashboardData.netCashFlow >= 0 ? '+' : '−'}
                   {formatRupiah(Math.abs(dashboardData.netCashFlow))}
                 </span>
-                {' '}cash flow
+                {' '}arus kas
               </span>
             )}
           </p>

@@ -39,13 +39,13 @@ export function WeekView({
   return (
     <div className="fe-card anim-slide-in-right">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
+        <h3 className="fe-card-title">Rincian per Minggu — {fullMonthLabel(selectedMonth)}</h3>
         {budgetData && budgetData.suggestedTarget > 0 && (
           <div className="flex items-center gap-1.5">
-            <button onClick={onAutoSuggest} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Set all weeks to suggested target">
+            <button onClick={onAutoSuggest} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Atur semua minggu ke target saran">
               <Sparkles className="h-3 w-3" /> Auto
             </button>
-            <button onClick={onSplit} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Distribute evenly">
+            <button onClick={onSplit} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Bagi rata">
               <Copy className="h-3 w-3" /> Split
             </button>
           </div>
@@ -114,8 +114,8 @@ export function WeekView({
                   )}
                 >
                   <Target className="h-2.5 w-2.5 shrink-0" />
-                  <span className="hidden sm:inline">{target > 0 ? compactRupiah(target) : 'Set Target'}</span>
-                  <span className="sm:hidden sr-only">{target > 0 ? 'Edit target' : 'Set target'}</span>
+                  <span className="hidden sm:inline">{target > 0 ? compactRupiah(target) : 'Atur Target'}</span>
+                  <span className="sm:hidden sr-only">{target > 0 ? 'Edit target' : 'Atur target'}</span>
                 </button>
               </div>
             </div>
@@ -125,7 +125,7 @@ export function WeekView({
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 mt-2">
         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} /> Spent
+          <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} /> Terpakai
         </span>
         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
           <span className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: warningColor }} /> Target

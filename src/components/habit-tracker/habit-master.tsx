@@ -221,7 +221,7 @@ export default function HabitMaster() {
 
   async function handleSubmit() {
     if (!form.name.trim()) {
-      toast.error('Habit name is required');
+      toast.error('Nama habit wajib diisi');
       return;
     }
     setSubmitting(true);
@@ -258,7 +258,7 @@ export default function HabitMaster() {
             h.id === editingId ? { ...h, ...payload, updatedAt: new Date().toISOString() } : h
           )
         );
-        toast.success('Habit updated successfully');
+        toast.success('Habit berhasil diperbarui');
       } else {
         // Create
         const res = await fetch('/api/habits', {
@@ -270,13 +270,13 @@ export default function HabitMaster() {
         const newHabit = await res.json();
         // Optimistic update
         queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
-        toast.success('Habit created successfully');
+        toast.success('Habit berhasil dibuat');
       }
 
       setDialogOpen(false);
       triggerRefresh();
     } catch {
-      toast.error(editingId ? 'Failed to update habit' : 'Failed to create habit');
+      toast.error(editingId ? 'Gagal memperbarui habit' : 'Gagal membuat habit');
       // Re-fetch on failure
       invalidateHabits();
     } finally {
@@ -292,11 +292,11 @@ export default function HabitMaster() {
       if (!res.ok) throw new Error('Failed to delete habit');
       // Optimistic update
       queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => (prev).filter((h) => h.id !== deleteId));
-      toast.success('Habit deleted successfully');
+      toast.success('Habit berhasil dihapus');
       setDeleteId(null);
       triggerRefresh();
     } catch {
-      toast.error('Failed to delete habit');
+      toast.error('Gagal menghapus habit');
       invalidateHabits();
     } finally {
       setDeleting(false);
@@ -305,7 +305,7 @@ export default function HabitMaster() {
 
   async function handleToggleStatus(h: Habit) {
     const newStatus = h.status === 'active' ? 'paused' : 'active';
-    const statusLabel = newStatus === 'paused' ? 'paused' : 'resumed';
+    const statusLabel = newStatus === 'paused' ? 'dijeda' : 'dilanjutkan';
     // Optimistic
     queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
       prev.map((x) => (x.id === h.id ? { ...x, status: newStatus } : x))
@@ -320,14 +320,14 @@ export default function HabitMaster() {
       toast.success(`Habit ${statusLabel}`);
       triggerRefresh();
     } catch {
-      toast.error(`Failed to ${statusLabel} habit`);
+      toast.error(`Gagal ${statusLabel} habit`);
       invalidateHabits();
     }
   }
 
   async function handleArchive(h: Habit) {
     const newStatus = h.status === 'archived' ? 'active' : 'archived';
-    const label = newStatus === 'archived' ? 'archived' : 'unarchived';
+    const label = newStatus === 'archived' ? 'diarsipkan' : 'dipulihkan';
     queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
       prev.map((x) => (x.id === h.id ? { ...x, status: newStatus } : x))
     );
@@ -341,7 +341,7 @@ export default function HabitMaster() {
       toast.success(`Habit ${label}`);
       triggerRefresh();
     } catch {
-      toast.error(`Failed to ${label} habit`);
+      toast.error(`Gagal ${label} habit`);
       invalidateHabits();
     }
   }
@@ -375,10 +375,10 @@ export default function HabitMaster() {
       const newHabit = await res.json();
       queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
       setQuickName('');
-      toast.success('Habit added quickly!');
+      toast.success('Habit berhasil ditambah!');
       triggerRefresh();
     } catch {
-      toast.error('Failed to add habit');
+      toast.error('Gagal menambah habit');
     } finally {
       setQuickAdding(false);
     }
@@ -397,7 +397,7 @@ export default function HabitMaster() {
       {/* Header */}
       <PageHeader
         title="Habit Master"
-        description="Manage and organize all your habits in one place."
+        description="Kelola dan atur semua habit kamu di satu tempat."
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -406,7 +406,7 @@ export default function HabitMaster() {
                 className="w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
-                New Habit
+                Habit Baru
               </Button>
             </DialogTrigger>
 
@@ -414,7 +414,7 @@ export default function HabitMaster() {
           <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingId ? 'Edit Habit' : 'Create New Habit'}
+                {editingId ? 'Edit Habit' : 'Buat Habit Baru'}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-5 py-2">
@@ -422,11 +422,11 @@ export default function HabitMaster() {
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="habit-name">
-                    Name <span className="text-destructive">*</span>
+                    Nama <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="habit-name"
-                    placeholder="e.g. Morning Meditation"
+                    placeholder="misal Meditasi Pagi"
                     value={form.name}
                     onChange={(e) => updateForm('name', e.target.value)}
                   />
@@ -488,7 +488,7 @@ export default function HabitMaster() {
                           className="text-xs text-muted-foreground hover:text-foreground p-1 transition-colors"
                           onClick={() => setFormEmojiPicker(false)}
                         >
-                          close
+                          tutup
                         </button>
                       </div>
                     )}
@@ -499,7 +499,7 @@ export default function HabitMaster() {
               {/* Row: Category + Priority + Grup */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label>Kategori</Label>
                   <Select
                     value={form.category}
                     onValueChange={(v) => updateForm('category', v)}
@@ -517,7 +517,7 @@ export default function HabitMaster() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label>Prioritas</Label>
                   <Select
                     value={form.priority}
                     onValueChange={(v) => updateForm('priority', v)}
@@ -580,7 +580,7 @@ export default function HabitMaster() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Target Type</Label>
+                  <Label>Tipe Target</Label>
                   <Select
                     value={form.targetType}
                     onValueChange={(v) => updateForm('targetType', v)}
@@ -601,18 +601,18 @@ export default function HabitMaster() {
                           // remain editable; the field is preserved on save).
                           disabled={t !== 'daily'}
                         >
-                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                          {t === 'daily' ? 'Harian' : t === 'weekly' ? 'Mingguan' : 'Bulanan'}
                           {t !== 'daily' ? ' (segera)' : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Hanya &lsquo;Daily&rsquo; yang didukung saat ini.
+                    Hanya &lsquo;Harian&rsquo; yang didukung saat ini.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Difficulty</Label>
+                  <Label>Level Kesulitan</Label>
                   <Select
                     value={form.difficulty}
                     onValueChange={(v) => updateForm('difficulty', v)}
@@ -634,7 +634,7 @@ export default function HabitMaster() {
               {/* Row: Color preview (auto-derived from emoji, no manual picker) */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Color</Label>
+                  <Label>Warna</Label>
                   <div className="flex items-center gap-2">
                     <div
                       className="h-9 w-9 rounded-md border border-border shrink-0"
@@ -649,9 +649,9 @@ export default function HabitMaster() {
               {/* Row: Reminder + Status */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Reminder</Label>
+                  <Label>Pengingat</Label>
                   <Input
-                    placeholder="e.g. 8:00 AM"
+                    placeholder="misal 08:00"
                     value={form.reminder ?? ''}
                     onChange={(e) => updateForm('reminder', e.target.value)}
                   />
@@ -668,7 +668,7 @@ export default function HabitMaster() {
                     <SelectContent>
                       {STATUSES.map((s) => (
                         <SelectItem key={s} value={s}>
-                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                          {s === 'active' ? 'Aktif' : s === 'paused' ? 'Dijeda' : 'Diarsipkan'}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -679,7 +679,7 @@ export default function HabitMaster() {
               {/* Row: Start Date + End Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Start Date</Label>
+                  <Label>Tanggal Mulai</Label>
                   <Input
                     type="date"
                     value={form.startDate}
@@ -687,7 +687,7 @@ export default function HabitMaster() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>End Date <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Label>Tanggal Berakhir <span className="text-muted-foreground text-xs">(opsional)</span></Label>
                   <Input
                     type="date"
                     value={form.endDate ?? ''}
@@ -765,9 +765,9 @@ export default function HabitMaster() {
 
               {/* Notes */}
               <div className="space-y-2">
-                <Label>Notes</Label>
+                <Label>Catatan</Label>
                 <Textarea
-                  placeholder="Additional notes about this habit..."
+                  placeholder="Catatan tambahan tentang habit ini..."
                   value={form.notes ?? ''}
                   onChange={(e) => updateForm('notes', e.target.value)}
                   rows={3}
@@ -781,13 +781,13 @@ export default function HabitMaster() {
                   onClick={() => setDialogOpen(false)}
                   disabled={submitting}
                 >
-                  Cancel
+                  Batal
                 </Button>
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !form.name.trim()}
                 >
-                  {submitting ? 'Saving...' : editingId ? 'Update Habit' : 'Create Habit'}
+                  {submitting ? 'Menyimpan...' : editingId ? 'Perbarui Habit' : 'Buat Habit'}
                 </Button>
               </div>
             </div>
@@ -856,11 +856,11 @@ export default function HabitMaster() {
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-3">🌱</div>
-            <p className="text-muted-foreground font-medium">🌱 No habits found</p>
+            <p className="text-muted-foreground font-medium">🌱 Belum ada habit</p>
             <p className="text-sm text-muted-foreground mt-1">
               {habits.length === 0
-                ? 'Create your first habit to get started!'
-                : 'Try adjusting your search or filters.'}
+                ? 'Buat habit pertama kamu untuk mulai!'
+                : 'Coba ubah pencarian atau filter.'}
             </p>
             {habits.length === 0 && (
               <Button
@@ -868,7 +868,7 @@ export default function HabitMaster() {
                 className="mt-4"
               >
                 <Plus className="h-4 w-4" />
-                Create Habit
+                Buat Habit
               </Button>
             )}
           </CardContent>
@@ -902,21 +902,21 @@ export default function HabitMaster() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Habit</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Habit</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this habit? This action cannot be
-              undone and all tracking data associated with this habit will be
-              permanently removed.
+              Yakin ingin menghapus habit ini? Tindakan ini tidak bisa dibatalkan
+              dan semua data tracking yang terkait dengan habit ini akan dihapus
+              secara permanen.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
               className="bg-destructive hover:bg-destructive text-white focus:ring-destructive"
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? 'Menghapus...' : 'Hapus'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

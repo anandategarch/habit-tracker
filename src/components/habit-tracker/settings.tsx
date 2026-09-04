@@ -191,7 +191,7 @@ export default function Settings() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        toast.success('Settings saved successfully');
+        toast.success('Pengaturan berhasil disimpan');
         // Notify ThemeProvider to persist the current theme
         const savedSettings = await res.json();
         sessionStorage.setItem('rutina_settings', JSON.stringify(savedSettings));
@@ -200,10 +200,10 @@ export default function Settings() {
         // re-read CSS variables immediately without waiting for window focus.
         window.dispatchEvent(new CustomEvent('rutina:theme-change', { detail: savedSettings }));
       } else {
-        toast.error('Failed to save settings');
+        toast.error('Gagal menyimpan pengaturan');
       }
     } catch {
-      toast.error('Failed to save settings');
+      toast.error('Gagal menyimpan pengaturan');
     } finally {
       setSaving(false);
     }
@@ -345,20 +345,20 @@ export default function Settings() {
       {activeSection === 'umum' && (
         <div className="space-y-6">
           {/* Profile Section */}
-          <SectionCard icon={User} title="Profile">
-            <FormRow label="User Name" description="Display name for your account">
+          <SectionCard icon={User} title="Profil">
+            <FormRow label="Nama User" description="Nama tampilan untuk akun kamu">
               <Input
                 value={form.userName}
                 onChange={(e) => updateField('userName', e.target.value)}
-                placeholder="Enter your name"
+                placeholder="Masukkan nama kamu"
                 className="h-9"
               />
             </FormRow>
           </SectionCard>
 
           {/* Appearance Section */}
-          <SectionCard icon={Palette} title="Appearance">
-            <FormRow label="Theme" description="Choose your preferred theme">
+          <SectionCard icon={Palette} title="Tampilan">
+            <FormRow label="Tema" description="Pilih tema favorit kamu">
               <Select value={form.theme} onValueChange={(v) => updateField('theme', v)}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
@@ -368,9 +368,9 @@ export default function Settings() {
                       ['light','dark','system']) and ThemeProvider now resolves
                       it via prefers-color-scheme — expose it in the UI so the
                       setting matches the schema. */}
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System</SelectItem>
+                  <SelectItem value="light">Terang</SelectItem>
+                  <SelectItem value="dark">Gelap</SelectItem>
+                  <SelectItem value="system">Sistem</SelectItem>
                 </SelectContent>
               </Select>
             </FormRow>
@@ -380,8 +380,8 @@ export default function Settings() {
             {/* Preset Theme Swatches */}
             <div className="space-y-2.5">
               <div>
-                <Label className="text-sm font-medium">Color Theme</Label>
-                <p className="text-xs text-muted-foreground">Click a preset or use custom colors below</p>
+                <Label className="text-sm font-medium">Warna Tema</Label>
+                <p className="text-xs text-muted-foreground">Klik preset atau gunakan warna kustom di bawah</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {THEME_PRESETS.map((preset) => {
@@ -411,7 +411,7 @@ export default function Settings() {
 
             <Separator className="my-3" />
 
-            <FormRow label="Primary Color" description="Main accent color">
+            <FormRow label="Warna Utama" description="Warna aksen utama">
               <div className="flex items-center gap-2">
                 <Input
                   type="color"
@@ -431,7 +431,7 @@ export default function Settings() {
               </div>
             </FormRow>
 
-            <FormRow label="Secondary Color" description="Supporting accent color">
+            <FormRow label="Warna Sekunder" description="Warna aksen pendamping">
               <div className="flex items-center gap-2">
                 <Input
                   type="color"
@@ -453,21 +453,21 @@ export default function Settings() {
 
             {/* Live preview bar */}
             <div className="rounded-lg border border-border p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Preview</p>
+              <p className="text-xs font-medium text-muted-foreground">Pratinjau</p>
               <div className="flex gap-2">
                 <div className="flex-1 h-8 rounded-md flex items-center justify-center text-xs font-medium" style={{ backgroundColor: form.primaryColor, color: '#fff' }}>
-                  Primary
+                  Utama
                 </div>
                 <div className="flex-1 h-8 rounded-md flex items-center justify-center text-xs font-medium border border-border" style={{ backgroundColor: form.secondaryColor + '22', color: form.secondaryColor }}>
-                  Secondary
+                  Sekunder
                 </div>
               </div>
             </div>
           </SectionCard>
 
           {/* Preferences Section */}
-          <SectionCard icon={Globe} title="Preferences">
-            <FormRow label="Week Start" description="First day of the week">
+          <SectionCard icon={Globe} title="Preferensi">
+            <FormRow label="Awal Minggu" description="Hari pertama dalam minggu">
               <Select value={form.weekStart} onValueChange={(v) => updateField('weekStart', v)}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
@@ -475,9 +475,9 @@ export default function Settings() {
                 <SelectContent>
                   {/* L4 fix: schema also allows 'saturday' — expose it so the
                       setting matches what the API + calendar-view support. */}
-                  <SelectItem value="monday">Monday</SelectItem>
-                  <SelectItem value="sunday">Sunday</SelectItem>
-                  <SelectItem value="saturday">Saturday</SelectItem>
+                  <SelectItem value="monday">Senin</SelectItem>
+                  <SelectItem value="sunday">Minggu</SelectItem>
+                  <SelectItem value="saturday">Sabtu</SelectItem>
                 </SelectContent>
               </Select>
             </FormRow>
@@ -489,7 +489,7 @@ export default function Settings() {
                 mix of English + Indonesian. Implement next-intl or remove this
                 dropdown to avoid confusing users. Leaving as-is for now since
                 changing it has no effect. */}
-            <FormRow label="Language" description="Interface language (not yet implemented)">
+            <FormRow label="Bahasa" description="Bahasa antarmuka (belum diimplementasikan)">
               <Select value={form.language} onValueChange={(v) => updateField('language', v)}>
                 <SelectTrigger className="h-9">
                   <SelectValue />
@@ -507,7 +507,7 @@ export default function Settings() {
                 AppSettings but no component reads it for any "completion target"
                 logic yet. The value is display-only. Either implement a visual
                 indicator (e.g., highlight habits below target) or remove. */}
-            <FormRow label="Target Completion" description="Daily completion target percentage (display only)">
+            <FormRow label="Target Penyelesaian" description="Persentase target penyelesaian harian (hanya tampilan)">
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -533,14 +533,14 @@ export default function Settings() {
               className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[120px]"
             >
               <Save className="h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>
           </div>
 
           {/* Last updated */}
           {settings?.updatedAt && (
             <p className="text-xs text-center text-muted-foreground">
-              Last updated: {new Date(settings.updatedAt).toLocaleString()}
+              Terakhir diperbarui: {new Date(settings.updatedAt).toLocaleString('id-ID')}
             </p>
           )}
         </div>
@@ -557,11 +557,11 @@ export default function Settings() {
               </div>
               <div className="rounded-lg border border-border p-3 text-center">
                 <p className="text-2xl font-bold text-foreground">{dbStats?.logs ?? '-'}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Total Logs</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Total Log</p>
               </div>
               <div className="rounded-lg border border-border p-3 text-center">
                 <p className="text-2xl font-bold text-foreground">{dbStats?.days ?? '-'}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Days Tracked</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Hari Dilacak</p>
               </div>
             </div>
 
@@ -689,8 +689,8 @@ export default function Settings() {
                         <ul className="list-disc list-inside text-sm space-y-0.5 text-muted-foreground">
                           <li>Semua Habit dan log tracking</li>
                           <li>Daily log (mood, energi, tidur)</li>
-                          <li>Journal entries</li>
-                          <li>Goals & milestones</li>
+                          <li>Entri jurnal</li>
+                          <li>Tujuan & milestone</li>
                           <li>Semua transaksi keuangan & budget</li>
                           <li>Kategori keuangan</li>
                         </ul>

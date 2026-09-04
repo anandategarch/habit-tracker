@@ -49,7 +49,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, differenceInCalendarDays } from '@/lib/date-utils';
+import { format, differenceInCalendarDays, id as idLocale } from '@/lib/date-utils';
 // PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
 // utility module. Output is identical for the patterns and helpers used
 // here ('MMM d, yyyy' + differenceInCalendarDays) — verified via test
@@ -218,7 +218,7 @@ export default function GoalsTab() {
 
   async function handleSave() {
     if (!form.title.trim()) {
-      toast.error('Goal title is required');
+      toast.error('Judul tujuan wajib diisi');
       return;
     }
 
@@ -249,11 +249,11 @@ export default function GoalsTab() {
 
       if (!res.ok) throw new Error('Failed to save goal');
 
-      toast.success(form.id ? 'Goal updated' : 'Goal created');
+      toast.success(form.id ? 'Tujuan diperbarui' : 'Tujuan dibuat');
       setFormOpen(false);
       invalidateGoals();
     } catch {
-      toast.error('Failed to save goal');
+      toast.error('Gagal menyimpan tujuan');
     } finally {
       setSaving(false);
     }
@@ -268,11 +268,11 @@ export default function GoalsTab() {
       });
       if (!res.ok) throw new Error('Failed to delete');
 
-      toast.success('Goal deleted');
+      toast.success('Tujuan dihapus');
       setDeleteTarget(null);
       invalidateGoals();
     } catch {
-      toast.error('Failed to delete goal');
+      toast.error('Gagal menghapus tujuan');
     }
   }
 
@@ -317,12 +317,12 @@ export default function GoalsTab() {
       );
 
       if (newProgress >= 100) {
-        toast.success('🎉 Goal completed! All milestones are done.');
+        toast.success('🎉 Tujuan selesai! Semua milestone sudah diselesaikan.');
       }
 
       triggerRefresh();
     } catch {
-      toast.error('Failed to update milestone');
+      toast.error('Gagal memperbarui milestone');
       invalidateGoals();
     }
   }
@@ -346,10 +346,10 @@ export default function GoalsTab() {
 
       if (!res.ok) throw new Error('Failed to complete');
 
-      toast.success('🎉 Goal marked as completed!');
+      toast.success('🎉 Tujuan ditandai selesai!');
       invalidateGoals();
     } catch {
-      toast.error('Failed to complete goal');
+      toast.error('Gagal menyelesaikan tujuan');
     }
   }
 
@@ -367,10 +367,10 @@ export default function GoalsTab() {
         body: JSON.stringify({ status: 'cancelled' }),
       });
       if (!res.ok) throw new Error('Failed to cancel');
-      toast.success('Goal cancelled');
+      toast.success('Tujuan dibatalkan');
       invalidateGoals();
     } catch {
-      toast.error('Failed to cancel goal');
+      toast.error('Gagal membatalkan tujuan');
     }
   }
 
@@ -452,7 +452,7 @@ export default function GoalsTab() {
                 </Badge>
                 {isOverdue && (
                   <Badge variant="destructive" className="text-xs px-1.5 py-0">
-                    Overdue
+                    Terlewat
                   </Badge>
                 )}
               </div>
@@ -493,8 +493,8 @@ export default function GoalsTab() {
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
                   onClick={() => handleCancelGoal(goal)}
-                  aria-label="Cancel goal"
-                  title="Cancel goal"
+                  aria-label="Batalkan tujuan"
+                  title="Batalkan tujuan"
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -541,7 +541,7 @@ export default function GoalsTab() {
                     any browser tz (was `parseISO(goal.deadline)` which reads
                     UTC midnight → shifted to one day earlier on negative-tz
                     browsers). */}
-                {format(new Date(goal.deadline.slice(0, 10)), 'MMM d, yyyy')}
+                {format(new Date(goal.deadline.slice(0, 10)), 'd MMM yyyy', { locale: idLocale })}
               </span>
             ) : (
               <span />
@@ -552,7 +552,7 @@ export default function GoalsTab() {
                 onClick={() => toggleExpand(goal.id)}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                {milestones.filter((m) => m.done).length}/{milestones.length} milestones
+                {milestones.filter((m) => m.done).length}/{milestones.length} milestone
                 {isExpanded ? (
                   <ChevronUp className="h-3 w-3" />
                 ) : (
@@ -606,24 +606,24 @@ export default function GoalsTab() {
             onClick={openNewForm}
           >
             <Plus className="h-4 w-4" />
-            New Goal
+            Tujuan Baru
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              {form.id ? 'Edit Goal' : 'New Goal'}
+              {form.id ? 'Edit Tujuan' : 'Tujuan Baru'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-5 py-4">
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="goal-title">Title *</Label>
+              <Label htmlFor="goal-title">Judul *</Label>
               <Input
                 id="goal-title"
-                placeholder="What do you want to achieve?"
+                placeholder="Apa yang ingin kamu capai?"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
@@ -631,10 +631,10 @@ export default function GoalsTab() {
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="goal-desc">Description</Label>
+              <Label htmlFor="goal-desc">Deskripsi</Label>
               <Textarea
                 id="goal-desc"
-                placeholder="Describe your goal in detail..."
+                placeholder="Jelaskan tujuan kamu secara detail..."
                 rows={3}
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -644,7 +644,7 @@ export default function GoalsTab() {
             {/* Deadline + Priority row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="goal-deadline">Deadline</Label>
+                <Label htmlFor="goal-deadline">Tenggat</Label>
                 <Input
                   id="goal-deadline"
                   type="date"
@@ -653,7 +653,7 @@ export default function GoalsTab() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Priority</Label>
+                <Label>Prioritas</Label>
                 <Select
                   value={form.priority}
                   onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}
@@ -662,9 +662,9 @@ export default function GoalsTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="High">Tinggi</SelectItem>
+                    <SelectItem value="Medium">Sedang</SelectItem>
+                    <SelectItem value="Low">Rendah</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -674,9 +674,9 @@ export default function GoalsTab() {
 
             {/* Milestones */}
             <div className="space-y-3">
-              <Label>Milestones</Label>
+              <Label>Milestone</Label>
               <p className="text-xs text-muted-foreground">
-                Break your goal into smaller, trackable steps
+                Pecah tujuan kamu jadi langkah kecil yang bisa dilacak
               </p>
 
               {/* Existing milestones */}
@@ -688,7 +688,7 @@ export default function GoalsTab() {
                         <Input
                           value={ms.text}
                           onChange={(e) => updateMilestoneText(idx, e.target.value)}
-                          placeholder="Milestone description"
+                          placeholder="Deskripsi milestone"
                           className="h-9 text-sm"
                         />
                       </div>
@@ -716,7 +716,7 @@ export default function GoalsTab() {
                       addMilestone();
                     }
                   }}
-                  placeholder="Add a milestone..."
+                  placeholder="Tambah milestone..."
                   className="h-9 text-sm"
                 />
                 <Button
@@ -728,14 +728,14 @@ export default function GoalsTab() {
                   className="h-9 flex-shrink-0 border-primary/20 text-primary hover:bg-primary/5"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Add
+                  Tambah
                 </Button>
               </div>
 
               {form.milestones.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {form.milestones.length} milestone{form.milestones.length !== 1 ? 's' : ''} ·{' '}
-                  {form.milestones.filter((m) => m.done).length} completed
+                  {form.milestones.length} milestone ·{' '}
+                  {form.milestones.filter((m) => m.done).length} selesai
                 </p>
               )}
             </div>
@@ -746,7 +746,7 @@ export default function GoalsTab() {
                 disabled={saving || !form.title.trim()}
                 className="min-w-[120px]"
               >
-                {saving ? 'Saving...' : form.id ? 'Update Goal' : 'Create Goal'}
+                {saving ? 'Menyimpan...' : form.id ? 'Perbarui Tujuan' : 'Buat Tujuan'}
               </Button>
             </div>
           </div>
@@ -802,8 +802,8 @@ export default function GoalsTab() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="Goals"
-        description="Track progress towards your objectives"
+        title="Tujuan"
+        description="Pantau progress menuju target kamu"
         action={renderForm()}
       />
 
@@ -811,13 +811,13 @@ export default function GoalsTab() {
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Total Goals</p>
+            <p className="text-xs text-muted-foreground font-medium">Total Tujuan</p>
             <p className="text-2xl font-bold mt-1">{stats.total}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-primary font-medium">Completed</p>
+            <p className="text-xs text-primary font-medium">Selesai</p>
             <p className="text-2xl font-bold mt-1 text-primary">
               {stats.completed}
             </p>
@@ -825,7 +825,7 @@ export default function GoalsTab() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-primary font-medium">In Progress</p>
+            <p className="text-xs text-primary font-medium">Sedang Berjalan</p>
             <p className="text-2xl font-bold mt-1 text-primary">
               {stats.inProgress}
             </p>
@@ -840,16 +840,16 @@ export default function GoalsTab() {
             <div className="flex items-center justify-center h-14 w-14 rounded-full bg-primary/10 mb-4">
               <Target className="h-7 w-7 text-primary" />
             </div>
-            <h3 className="font-medium text-sm mb-1">No goals yet</h3>
+            <h3 className="font-medium text-sm mb-1">Belum ada tujuan</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Create your first goal and break it down into milestones to track your progress.
+              Buat tujuan pertama kamu dan pecah jadi milestone untuk melacak progress.
             </p>
             <Button
               onClick={openNewForm}
               className="mt-4"
             >
               <Plus className="h-4 w-4" />
-              New Goal
+              Tujuan Baru
             </Button>
           </CardContent>
         </Card>
@@ -866,22 +866,22 @@ export default function GoalsTab() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Goal</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Tujuan</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{' '}
+              Yakin ingin menghapus{' '}
               <span className="font-medium text-foreground">
                 &quot;{deleteTarget?.title}&quot;
               </span>
-              ? This action cannot be undone.
+              ? Tindakan ini tidak bisa dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive hover:bg-destructive text-white"
             >
-              Delete
+              Hapus
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

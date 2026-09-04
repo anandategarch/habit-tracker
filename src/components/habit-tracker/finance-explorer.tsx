@@ -408,7 +408,7 @@ export default function FinanceExplorer({
               className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
-              Back
+              Kembali
             </button>
           )}
           <button
@@ -424,7 +424,7 @@ export default function FinanceExplorer({
                 onClick={() => { setLevel('week'); setSelectedDay(null); }}
                 className={cn('text-xs font-medium hover:underline', level === 'week' ? 'text-foreground' : 'text-muted-foreground')}
               >
-                Weeks
+                Minggu
               </button>
             </>
           )}
@@ -446,7 +446,7 @@ export default function FinanceExplorer({
                 onClick={() => setLevel('day')}
                 className="text-xs font-medium text-muted-foreground hover:underline"
               >
-                {dayData.find((d) => d.day === selectedDay)?.date || `Day ${selectedDay}`}
+                {dayData.find((d) => d.day === selectedDay)?.date || `Hari ${selectedDay}`}
               </button>
             </>
           )}

@@ -28,7 +28,7 @@ export function FiltersBar({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search habits..."
+              placeholder="Cari habit..."
               className="pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -40,10 +40,10 @@ export function FiltersBar({
             <ListFilter className="h-4 w-4 text-muted-foreground shrink-0" />
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder="Kategori" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">Semua Kategori</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c.name} value={c.name}>
                     {c.name}
@@ -61,10 +61,10 @@ export function FiltersBar({
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="paused">Dijeda</SelectItem>
+                <SelectItem value="archived">Diarsipkan</SelectItem>
               </SelectContent>
             </Select>
           </div>

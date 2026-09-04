@@ -30,16 +30,16 @@ export function TransactionsView({
       ) : (
         <div className="space-y-1 mt-4 max-h-96 overflow-y-auto">
           {transactionList.filter(Boolean).map((tx, i) => {
-            const meta = getCategoryMeta(tx.category || 'Unknown');
+            const meta = getCategoryMeta(tx.category || 'Tidak diketahui');
             const d = new Date(tx.date);
             return (
               <div key={tx.id} className="fe-tx-row anim-stagger" style={{ animationDelay: `${i * 30}ms` }}>
                 <div className="fe-tx-logo">{meta.emoji}</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{tx.description || tx.category || 'Unknown'}</p>
+                  <p className="text-sm font-medium truncate">{tx.description || tx.category || 'Tidak diketahui'}</p>
                   <p className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                     <Clock className="h-2.5 w-2.5" />
-                    {d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Unknown')}
+                    {d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Tidak diketahui')}
                   </p>
                 </div>
                 <span className="text-sm font-bold tabular-nums">{formatRupiah(tx.amount || 0)}</span>

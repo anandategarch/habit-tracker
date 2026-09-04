@@ -14,9 +14,9 @@ import { useHabitOptions, type HabitOption } from '@/hooks/use-habit-options';
 type OptionType = 'category' | 'priority' | 'difficulty';
 
 const TABS: { type: OptionType; label: string; description: string }[] = [
-  { type: 'category', label: 'Categories', description: 'Group your habits by type' },
-  { type: 'priority', label: 'Priorities', description: 'Set urgency levels' },
-  { type: 'difficulty', label: 'Difficulties', description: 'Define difficulty levels & XP' },
+  { type: 'category', label: 'Kategori', description: 'Kelompokkan habit berdasarkan tipe' },
+  { type: 'priority', label: 'Prioritas', description: 'Atur tingkat urgensi' },
+  { type: 'difficulty', label: 'Level Kesulitan', description: 'Definisikan level kesulitan & XP' },
 ];
 
 // Color keys to show in the picker
@@ -68,7 +68,7 @@ export default function LabelManager() {
 
   const handleSaveEdit = useCallback(async () => {
     if (!editState || !editState.name.trim()) {
-      toast.error('Name is required');
+      toast.error('Nama wajib diisi');
       return;
     }
     setSaving(true);
@@ -86,12 +86,12 @@ export default function LabelManager() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to update');
       }
-      toast.success('Updated successfully');
+      toast.success('Berhasil diperbarui');
       setEditingId(null);
       setEditState(null);
       refetch();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update');
+      toast.error(err instanceof Error ? err.message : 'Gagal memperbarui');
     } finally {
       setSaving(false);
     }
@@ -105,10 +105,10 @@ export default function LabelManager() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to delete');
       }
-      toast.success(`"${item.name}" deleted`);
+      toast.success(`"${item.name}" dihapus`);
       refetch();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete');
+      toast.error(err instanceof Error ? err.message : 'Gagal menghapus');
     } finally {
       setSaving(false);
     }
@@ -132,7 +132,7 @@ export default function LabelManager() {
 
   const handleSaveAdd = useCallback(async () => {
     if (!addState.name.trim()) {
-      toast.error('Name is required');
+      toast.error('Nama wajib diisi');
       return;
     }
     setSaving(true);
@@ -151,11 +151,11 @@ export default function LabelManager() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to create');
       }
-      toast.success('Created successfully');
+      toast.success('Berhasil dibuat');
       setIsAdding(false);
       refetch();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create');
+      toast.error(err instanceof Error ? err.message : 'Gagal membuat');
     } finally {
       setSaving(false);
     }
@@ -168,7 +168,7 @@ export default function LabelManager() {
       <CardHeader className="pb-4">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Tags className="h-4 w-4 text-primary" />
-          Habit Labels
+          Label Habit
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -217,7 +217,7 @@ export default function LabelManager() {
           <div className="max-h-80 overflow-y-auto space-y-0.5 rounded-md border">
             {items.length === 0 && !isAdding && (
               <div className="py-6 text-center text-xs text-muted-foreground">
-                No {currentTabInfo.type}s yet. Add one below.
+                Belum ada {currentTabInfo.type}. Tambahkan di bawah.
               </div>
             )}
 
@@ -234,7 +234,7 @@ export default function LabelManager() {
                       <Input
                         value={editState.name}
                         onChange={(e) => setEditState(prev => prev ? { ...prev, name: e.target.value } : prev)}
-                        placeholder="Name"
+                        placeholder="Nama"
                         className="h-7 text-xs flex-1"
                         autoFocus
                         onKeyDown={(e) => {
@@ -327,7 +327,7 @@ export default function LabelManager() {
                   <Input
                     value={addState.name}
                     onChange={(e) => setAddState(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="New name..."
+                    placeholder="Nama baru..."
                     className="h-7 text-xs flex-1"
                     autoFocus
                     onKeyDown={(e) => {

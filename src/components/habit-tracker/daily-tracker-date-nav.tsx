@@ -5,7 +5,7 @@
 
 'use client';
 
-import { format } from '@/lib/date-utils';
+import { format, id as idLocale } from '@/lib/date-utils';
 // PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
 // utility module. Output is identical for the patterns used here
 // ('EEEE', 'MMM d, yyyy') — verified via test script in worklog FIX-TIER3
@@ -33,8 +33,8 @@ export function DateNav({
 }) {
   return (
     <PageHeader
-      title={isToday ? 'Today' : format(dateObj, 'EEEE')}
-      description={`${format(dateObj, 'MMM d, yyyy')} · Day ${dayOfMonth}/${daysInMonth}`}
+      title={isToday ? 'Hari Ini' : format(dateObj, 'EEEE', { locale: idLocale })}
+      description={`${format(dateObj, 'd MMM yyyy', { locale: idLocale })} · Hari ${dayOfMonth}/${daysInMonth}`}
       action={
         <div className="flex items-center gap-2">
           <Button
@@ -42,7 +42,7 @@ export function DateNav({
             size="icon"
             onClick={onPrev}
             className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
-            aria-label="Previous day"
+            aria-label="Hari sebelumnya"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -51,7 +51,7 @@ export function DateNav({
             size="icon"
             onClick={onNext}
             className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
-            aria-label="Next day"
+            aria-label="Hari berikutnya"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -63,7 +63,7 @@ export function DateNav({
               className="shrink-0 rounded-xl h-9"
             >
               <Calendar className="h-3.5 w-3.5" />
-              Today
+              Hari Ini
             </Button>
           )}
         </div>

@@ -37,7 +37,7 @@ export function MonthView({
 }: MonthViewProps) {
   return (
     <div className="fe-card">
-      <h3 className="fe-card-title">Overview 6 Bulan</h3>
+      <h3 className="fe-card-title">Ringkasan 6 Bulan</h3>
       {monthlyError ? (
         <p className="text-sm text-destructive text-center py-12">Gagal memuat data. Coba refresh halaman.</p>
       ) : monthlyData.length === 0 ? (

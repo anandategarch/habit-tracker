@@ -82,7 +82,7 @@ export default function FinanceBudgets({
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={toggleHistory}>
             <History className="h-4 w-4" />
-            {showHistory ? 'Tutup' : 'History'}
+            {showHistory ? 'Tutup' : 'Riwayat'}
           </Button>
           <Button size="sm" onClick={onAddBudget}>
             <Plus className="h-4 w-4" />
@@ -95,7 +95,7 @@ export default function FinanceBudgets({
       {showHistory && (
         <Card>
           <CardContent className="p-4">
-            <h3 className="text-sm font-semibold mb-3">📊 Budget History</h3>
+            <h3 className="text-sm font-semibold mb-3">📊 Riwayat Budget</h3>
             {historyLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
@@ -206,8 +206,8 @@ export default function FinanceBudgets({
                 key={b.id}
                 className={cn(
                   'group rounded-2xl bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 anim-stagger',
-                  isOver && 'ring-1 ring-red-300 dark:ring-red-800',
-                  !isOver && isWarning && 'ring-1 ring-amber-300 dark:ring-amber-800'
+                  isOver && 'ring-1 ring-destructive/40 dark:ring-destructive/60',
+                  !isOver && isWarning && 'ring-1 ring-warning/40 dark:ring-warning/60'
                 )}
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)', animationDelay: `${idx * 50}ms` }}
               >
@@ -257,7 +257,7 @@ export default function FinanceBudgets({
                   <div className="flex flex-wrap justify-between gap-x-3 gap-y-0.5 mt-1">
                     <span className={cn('text-xs font-medium', isOver ? 'text-destructive' : 'text-primary')}>
                       {isOver
-                        ? `⚠️ Over ${formatRupiah(spent - b.amount)}`
+                        ? `⚠️ Lebih ${formatRupiah(spent - b.amount)}`
                         : `✓ Sisa ${formatRupiah(remaining)}`
                       }
                     </span>

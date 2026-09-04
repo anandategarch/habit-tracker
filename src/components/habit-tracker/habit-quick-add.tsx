@@ -53,13 +53,13 @@ export function QuickAddBar({
                   className="text-xs text-muted-foreground hover:text-foreground p-1"
                   onClick={() => setShowEmojiPicker(false)}
                 >
-                  close
+                  tutup
                 </button>
               </div>
             )}
           </div>
           <Input
-            placeholder="Quick add a habit..."
+            placeholder="Tambah cepat habit..."
             className="flex-1"
             value={quickName}
             onChange={(e) => setQuickName(e.target.value)}
@@ -75,7 +75,7 @@ export function QuickAddBar({
             size="sm"
           >
             <Plus className="h-4 w-4" />
-            Add
+            Tambah
           </Button>
         </div>
       </CardContent>

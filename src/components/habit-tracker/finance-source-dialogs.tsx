@@ -147,7 +147,7 @@ export function FinanceSourceDialogs({
                 </div>
               </div>
             )}
-            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => onFormOpenChange(false)}>Batal</Button><Button className="flex-1" onClick={onSubmit} disabled={submitting}>{submitting ? 'Menyimpan...' : editingSource ? 'Update' : 'Simpan'}</Button></div>
+            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => onFormOpenChange(false)}>Batal</Button><Button className="flex-1" onClick={onSubmit} disabled={submitting}>{submitting ? 'Menyimpan...' : editingSource ? 'Perbarui' : 'Simpan'}</Button></div>
           </div>
         </DialogContent>
       </Dialog>

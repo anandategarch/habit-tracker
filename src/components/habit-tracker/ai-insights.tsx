@@ -158,9 +158,9 @@ function EmptyState() {
       <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
         <span className="text-3xl">🚀</span>
       </div>
-      <h3 className="text-lg font-semibold text-foreground">Start tracking habits</h3>
+      <h3 className="text-lg font-semibold text-foreground">Mulai lacak habit</h3>
       <p className="text-sm text-muted-foreground mt-1 text-center max-w-sm">
-        Start tracking habits to receive personalized AI insights about your patterns and progress.
+        Mulai lacak habit untuk mendapatkan insight AI yang dipersonalisasi tentang pola dan progress kamu.
       </p>
     </div>
   );
@@ -196,7 +196,7 @@ export default function AIInsights() {
         {/* Header */}
         <PageHeader
           title="AI Insights"
-          description="Automated pattern analysis"
+          description="Analisis pola otomatis"
         />
         <Separator />
         <EmptyState />
@@ -209,7 +209,7 @@ export default function AIInsights() {
       {/* Header */}
       <PageHeader
         title="AI Insights"
-        description="Automated pattern analysis"
+        description="Analisis pola otomatis"
       />
 
       <Separator />
@@ -219,7 +219,7 @@ export default function AIInsights() {
         severity="positive"
         insights={groupedInsights.positive}
         icon={TrendingUp}
-        title="Positive Patterns"
+        title="Pola Positif"
       />
 
       {groupedInsights.positive.length > 0 && (groupedInsights.neutral.length > 0 || groupedInsights.negative.length > 0) && (
@@ -231,7 +231,7 @@ export default function AIInsights() {
         severity="neutral"
         insights={groupedInsights.neutral}
         icon={Lightbulb}
-        title="Observations"
+        title="Observasi"
       />
 
       {groupedInsights.neutral.length > 0 && groupedInsights.negative.length > 0 && (
@@ -243,7 +243,7 @@ export default function AIInsights() {
         severity="negative"
         insights={groupedInsights.negative}
         icon={AlertTriangle}
-        title="Needs Attention"
+        title="Perlu Perhatian"
       />
     </div>
   );

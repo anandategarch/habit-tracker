@@ -156,13 +156,13 @@ export default function Dashboard() {
     if (data.currentStreak >= 7) {
       items.push({
         icon: <Flame className="h-4 w-4 text-orange-500" />,
-        text: `You're on a ${data.currentStreak} day streak! Keep it going!`,
+        text: `Kamu sedang ${data.currentStreak} hari streak! Teruskan!`,
         type: 'success',
       });
     } else if (data.currentStreak >= 3) {
       items.push({
         icon: <Flame className="h-4 w-4 text-orange-400" />,
-        text: `${data.currentStreak} day streak - building momentum!`,
+        text: `${data.currentStreak} hari streak - lagi semangat!`,
         type: 'info',
       });
     }
@@ -171,7 +171,7 @@ export default function Dashboard() {
       const bestDay = data.weeklyChartData.reduce((best, d) => (d.rate > best.rate ? d : best), data.weeklyChartData[0]);
       items.push({
         icon: <Trophy className="h-4 w-4 text-warning" />,
-        text: `Your best day this week was ${bestDay.day} (${bestDay.rate}%).`,
+        text: `Hari terbaik minggu ini adalah ${bestDay.day} (${bestDay.rate}%).`,
         type: 'info',
       });
     }
@@ -179,13 +179,13 @@ export default function Dashboard() {
     if (data.completionRate >= 80) {
       items.push({
         icon: <Star className="h-4 w-4 text-primary" />,
-        text: 'Outstanding! Your completion rate is above 80%.',
+        text: 'Luar biasa! Completion rate kamu di atas 80%.',
         type: 'success',
       });
     } else if (data.completionRate < 50 && data.totalHabits > 0) {
       items.push({
         icon: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-        text: 'Your completion rate is below 50%. Try reducing habit count.',
+        text: 'Completion rate kamu di bawah 50%. Coba kurangi jumlah habit.',
         type: 'warning',
       });
     }
@@ -193,7 +193,7 @@ export default function Dashboard() {
     if (data.productivityScore >= 80) {
       items.push({
         icon: <Brain className="h-4 w-4 text-primary" />,
-        text: `High productivity score of ${data.productivityScore}%!`,
+        text: `Skor produktivitas tinggi ${data.productivityScore}%!`,
         type: 'success',
       });
     }
@@ -295,7 +295,7 @@ export default function Dashboard() {
           <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
           <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
             <RefreshCw className="h-3.5 w-3.5" />
-            Retry
+            Coba Lagi
           </Button>
         </div>
       )}
@@ -345,19 +345,19 @@ export default function Dashboard() {
             StaggerItem which inherits the visible variant via context. */}
         <StaggerGroup className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {[
-            { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Active habits', key: 'habits' },
-            { label: 'Completion Rate', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
-            { label: 'Current Streak', icon: Flame, iconColor: 'text-orange-500', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'days', key: 'streak' },
-            { label: 'Longest Streak', icon: Trophy, iconColor: 'text-warning', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'days', key: 'longest' },
-            { label: 'Success Today', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
-            { label: 'Weekly', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
-            { label: 'Monthly', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
+            { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Habit aktif', key: 'habits' },
+            { label: 'Tingkat Penyelesaian', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
+            { label: 'Streak Saat Ini', icon: Flame, iconColor: 'text-orange-500', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
+            { label: 'Streak Terpanjang', icon: Trophy, iconColor: 'text-warning', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
+            { label: 'Sukses Hari Ini', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
+            { label: 'Mingguan', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
+            { label: 'Bulanan', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
             { label: 'Total XP', icon: Star, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, iconColor: 'text-primary', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
-            { label: 'Productivity', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
-            { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
+            { label: 'Produktivitas', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
+            { label: 'Tujuan', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
             { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
-            { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
+            { label: 'Rata-rata Tidur', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'jam / malam', key: 'sleep' },
           ].map((card) => {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce
@@ -398,18 +398,18 @@ export default function Dashboard() {
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Progress Overview
+              Ringkasan Progress
               <ChartInfo text="Persentase hari yang berhasil menyelesaikan minimal 1 habit dari total hari dalam periode yang dipilih." />
             </h3>
             <div className="flex items-center justify-around flex-wrap gap-6">
               <div className="relative">
-                <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Overall" />
+                <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Total" />
               </div>
               <div className="relative">
-                <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-primary" label="This Week" />
+                <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-primary" label="Minggu Ini" />
               </div>
               <div className="relative">
-                <ProgressRing value={displayData.monthlyCompletion} size={110} strokeWidth={10} color="stroke-teal-500" label="This Month" />
+                <ProgressRing value={displayData.monthlyCompletion} size={110} strokeWidth={10} color="stroke-teal-500" label="Bulan Ini" />
               </div>
             </div>
           </CardContent>
@@ -598,14 +598,14 @@ export default function Dashboard() {
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Habit Leaderboard
+              Papan Peringkat Habit
               <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex flex-col items-center text-center gap-2">
                 <div className="flex items-center gap-1 text-xs font-medium text-primary">
                   <ArrowUpRight className="h-3 w-3" />
-                  Best Performer
+                  Performa Terbaik
                 </div>
                 <div className="text-2xl">{displayData.bestHabit.icon}</div>
                 <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
@@ -615,7 +615,7 @@ export default function Dashboard() {
               <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 flex flex-col items-center text-center gap-2">
                 <div className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
                   <ArrowDownRight className="h-3 w-3" />
-                  Needs Attention
+                  Perlu Perhatian
                 </div>
                 <div className="text-2xl">{displayData.worstHabit.icon}</div>
                 <span className="text-sm font-semibold leading-tight">{displayData.worstHabit.name}</span>
@@ -630,17 +630,17 @@ export default function Dashboard() {
           <CardContent className="p-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                Today&apos;s Focus
+                Fokus Hari Ini
                 <ChartInfo text="Menampilkan daftar habit yang belum diselesaikan hari ini. Urut berdasarkan prioritas." />
               </h3>
               <Badge variant="secondary" className="text-xs">
-                {displayData.todayFocus.length} remaining
+                {displayData.todayFocus.length} tersisa
               </Badge>
             </div>
             {displayData.todayFocus.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                 <CheckCircle className="h-8 w-8 mb-2 text-primary" />
-                <p className="text-sm font-medium">All done for today!</p>
+                <p className="text-sm font-medium">Semua selesai hari ini!</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -797,7 +797,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              Quick Insights
+              Insights
               <ChartInfo text="Analisis otomatis berdasarkan data habit 30 hari terakhir. Dibandingkan dengan periode sebelumnya." />
             </h3>
           </div>

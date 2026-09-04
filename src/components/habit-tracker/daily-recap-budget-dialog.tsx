@@ -40,7 +40,7 @@ export function BudgetDialog({
             Budget Harian
           </DialogTitle>
           <DialogDescription>
-            Set target pengeluaran per hari. Berlaku untuk semua hari.
+            Atur target pengeluaran per hari. Berlaku untuk semua hari.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 py-2">
@@ -76,7 +76,7 @@ export function BudgetDialog({
             const n = digits ? parseInt(digits, 10) : 0;
             return (
               <p className="text-xs text-muted-foreground">
-                Preview: <span className="font-medium text-foreground">{formatRupiah(n)}</span>
+                Pratinjau: <span className="font-medium text-foreground">{formatRupiah(n)}</span>
               </p>
             );
           })()}

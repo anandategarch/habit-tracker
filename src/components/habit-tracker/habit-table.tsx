@@ -38,10 +38,10 @@ export function HabitTable({
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-12" />
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Difficulty</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>Kategori</TableHead>
+                <TableHead>Prioritas</TableHead>
+                <TableHead>Level Kesulitan</TableHead>
                 <TableHead>Target</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-12" />
@@ -104,19 +104,19 @@ export function HabitTable({
                     {habit.trackTime && (
                       <span className="ml-1.5 inline-flex items-center text-xs text-muted-foreground" title="Track Waktu aktif">
                         <Clock className="h-3 w-3 mr-0.5" />
-                        {habit.targetTime || 'on'}
+                        {habit.targetTime || 'aktif'}
                       </span>
                     )}
                     {habit.trackLastDone && (
                       <span className="ml-1.5 inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80" title="Track Terakhir aktif">
                         <History className="h-3 w-3 mr-0.5" />
-                        {habit.lastDoneInterval || 'track'}
+                        {habit.lastDoneInterval || 'Track'}
                       </span>
                     )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-medium">
-                      {habit.target} / {habit.targetType}
+                      {habit.target} / {habit.targetType === 'daily' ? 'Harian' : habit.targetType === 'weekly' ? 'Mingguan' : 'Bulanan'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -127,7 +127,7 @@ export function HabitTable({
                         STATUS_STYLES[habit.status]
                       )}
                     >
-                      {habit.status}
+                      {habit.status === 'active' ? 'Aktif' : habit.status === 'paused' ? 'Dijeda' : 'Diarsipkan'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -147,17 +147,17 @@ export function HabitTable({
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onToggleStatus(habit)}>
-                          {habit.status === 'active' ? 'Pause' : 'Resume'}
+                          {habit.status === 'active' ? 'Jeda' : 'Lanjut'}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onArchive(habit)}>
-                          {habit.status === 'archived' ? 'Unarchive' : 'Archive'}
+                          {habit.status === 'archived' ? 'Pulihkan' : 'Arsipkan'}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => onDelete(habit.id)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete
+                          Hapus
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

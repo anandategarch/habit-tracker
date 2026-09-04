@@ -316,7 +316,7 @@ export default function DailyRecap() {
                 type="button"
                 onClick={() => openBudgetDialog(null)}
                 className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1.5 -m-1 border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                aria-label="Set daily budget"
+                aria-label="Atur budget harian"
               >
                 <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
                   <Target className="h-4 w-4" />
@@ -408,13 +408,13 @@ export default function DailyRecap() {
               type="button"
               onClick={() => openBudgetDialog(null)}
               className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1.5 -m-1 border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
-              aria-label="Set daily budget"
+              aria-label="Atur budget harian"
             >
               <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
                 <Target className="h-4 w-4" />
               </div>
               <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
-                Set budget
+                Atur budget
               </span>
             </button>
           )}
@@ -759,7 +759,7 @@ export default function DailyRecap() {
                   max={50}
                   step={5}
                   className="py-1 [&_[data-radix-slider-thumb]]:h-5 [&_[data-radix-slider-thumb]]:w-5 [&_[data-radix-slider-thumb]]:border-2"
-                  aria-label="What-if spending reduction percentage"
+                  aria-label="Persentase pengurangan pengeluaran what-if"
                 />
                 {/* Result: only show the adjusted number when reduction > 0
                     (at 0%, it would just repeat the current projection). */}
@@ -1020,7 +1020,7 @@ export default function DailyRecap() {
             {patterns.bestDayThisMonth && (
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-success shrink-0">🏆</span>
-                <span className="text-muted-foreground shrink-0">Best:</span>
+                <span className="text-muted-foreground shrink-0">Terbesar:</span>
                 <span className="font-medium shrink-0">{formatDateShort(patterns.bestDayThisMonth.date)}</span>
                 <span className="text-muted-foreground shrink-0">·</span>
                 <span className="font-medium truncate">{compactRupiahSafe(patterns.bestDayThisMonth.amount)}</span>
@@ -1029,7 +1029,7 @@ export default function DailyRecap() {
             {patterns.worstDayThisMonth && (
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-destructive shrink-0">📉</span>
-                <span className="text-muted-foreground shrink-0">Worst:</span>
+                <span className="text-muted-foreground shrink-0">Terkecil:</span>
                 <span className="font-medium shrink-0">{formatDateShort(patterns.worstDayThisMonth.date)}</span>
                 <span className="text-muted-foreground shrink-0">·</span>
                 <span className="font-medium truncate">{compactRupiahSafe(patterns.worstDayThisMonth.amount)}</span>
@@ -1043,8 +1043,8 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-muted/30 p-2.5">
             <div className="flex items-center gap-1 mb-0.5">
               <Activity className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Cash flow</span>
-              <HelpInfoButton section="cashflow" label="Cash flow" />
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Arus kas</span>
+              <HelpInfoButton section="cashflow" label="Arus kas" />
             </div>
             <p className={cn(
               'text-sm font-bold',
@@ -1060,7 +1060,7 @@ export default function DailyRecap() {
           <div className="rounded-lg bg-muted/30 p-2.5">
             <div className="flex items-center gap-1 mb-0.5">
               <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Savings rate</span>
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Tingkat menabung</span>
             </div>
             <p className={cn(
               'text-sm font-bold',

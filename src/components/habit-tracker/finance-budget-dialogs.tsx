@@ -71,7 +71,7 @@ export function FinanceBudgetDialogs({
             <div><Label className="text-xs">Kategori Pengeluaran</Label><Select value={budgetForm.category} onValueChange={v => setBudgetForm(f => ({ ...f, category: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent>{getCategoryList('expense').map(c => (<SelectItem key={c.value} value={c.value}>{c.emoji} {c.value}</SelectItem>))}</SelectContent></Select></div>
             <div><Label className="text-xs">Jumlah Budget (Rp)</Label><Input type="text" inputMode="numeric" placeholder="0" value={budgetForm.amount} onChange={e => setBudgetForm(f => ({ ...f, amount: formatNominalInput(e.target.value) }))} className="mt-1" /></div>
             <div><Label className="text-xs">Periode</Label><Select value={budgetForm.period} onValueChange={v => setBudgetForm(f => ({ ...f, period: v }))}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="monthly">Bulanan</SelectItem><SelectItem value="weekly">Mingguan</SelectItem></SelectContent></Select></div>
-            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => onEditOpenChange(false)}>Batal</Button><Button className="flex-1" onClick={onSubmitEdit} disabled={submitting}>{submitting ? 'Menyimpan...' : 'Update Budget'}</Button></div>
+            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => onEditOpenChange(false)}>Batal</Button><Button className="flex-1" onClick={onSubmitEdit} disabled={submitting}>{submitting ? 'Menyimpan...' : 'Perbarui Budget'}</Button></div>
           </div>
         </DialogContent>
       </Dialog>

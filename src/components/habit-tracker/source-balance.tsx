@@ -397,7 +397,7 @@ export default function SourceBalanceSection() {
                     // the minus sign, causing a click+blur to flip -500k → +500k.
                     setBalanceEditValue(src.balance ? String(src.balance) : '');
                   }}
-                  title="Klik untuk adjust saldo"
+                  title="Klik untuk atur saldo"
                 >
                   <span className={isPositive ? 'text-foreground' : 'text-destructive'}>
                     {formatRupiah(src.balance)}
@@ -417,7 +417,7 @@ export default function SourceBalanceSection() {
                   ) : (
                     <ArrowDownRight className="w-3 h-3" />
                   )}
-                  {isPositive ? 'Active' : 'Minus'}
+                  {isPositive ? 'Aktif' : 'Minus'}
                 </div>
 
                 {/* Tiny sparkline — REAL 30-day balance history */}

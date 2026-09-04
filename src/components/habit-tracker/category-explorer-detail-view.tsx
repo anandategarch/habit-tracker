@@ -378,21 +378,21 @@ export function CategoryDetailView({
       const isHighSpender = cat.percentage >= 30;
 
       if (isHighSpender) {
-        return { tag: 'Heavy Spender', emoji: '💸', desc: '>30% dari total pengeluaran bulan ini' };
+        return { tag: 'Pengeluar Besar', emoji: '💸', desc: '>30% dari total pengeluaran bulan ini' };
       }
       if (freq >= 1.5) {
-        return { tag: 'Daily Ritual', emoji: '🔄', desc: 'Rata-rata lebih dari 1× per hari aktif' };
+        return { tag: 'Ritual Harian', emoji: '🔄', desc: 'Rata-rata lebih dari 1× per hari aktif' };
       }
       if (weekendPct >= 0.5) {
-        return { tag: 'Weekend Splurger', emoji: '🎉', desc: `${Math.round(weekendPct * 100)}% transaksi di weekend` };
+        return { tag: 'Boros Akhir Pekan', emoji: '🎉', desc: `${Math.round(weekendPct * 100)}% transaksi di weekend` };
       }
       if (morningPct >= 0.7) {
-        return { tag: 'Morning Ritual', emoji: '🌅', desc: `${Math.round(morningPct * 100)}% transaksi di pagi hari` };
+        return { tag: 'Ritual Pagi', emoji: '🌅', desc: `${Math.round(morningPct * 100)}% transaksi di pagi hari` };
       }
       if (catTx.length < 4) {
-        return { tag: 'Occasional', emoji: '🍃', desc: 'Kurang dari 4× per bulan' };
+        return { tag: 'Sekali-sekali', emoji: '🍃', desc: 'Kurang dari 4× per bulan' };
       }
-      return { tag: 'Steady Spender', emoji: '⚖️', desc: 'Pola spending yang konsisten' };
+      return { tag: 'Pengeluar Stabil', emoji: '⚖️', desc: 'Pola spending yang konsisten' };
     })();
 
     // ── D12: Anomaly detection ────────────────────────────────────────
@@ -581,7 +581,7 @@ export function CategoryDetailView({
                   strokeWidth={1.5}
                   strokeDasharray="5 3"
                   label={{
-                    value: `Avg ${compactRupiahSafe(dailyAverage)}`,
+                    value: `Rata² ${compactRupiahSafe(dailyAverage)}`,
                     position: 'insideTopRight',
                     fill: 'var(--warning)',
                     fontSize: 11,
@@ -620,7 +620,7 @@ export function CategoryDetailView({
           <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(maxTx.amount)}</p>
         </Card>
         <Card className="p-3">
-          <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Hari max</p>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Hari Tertinggi</p>
           <p className="text-sm font-bold tabular-nums mt-0.5">{maxDay.day > 0 ? `Tgl ${maxDay.day}` : '—'}</p>
         </Card>
       </div>

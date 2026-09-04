@@ -27,7 +27,7 @@ export function DailySummary({
     <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <KpiCard
         icon={Check}
-        label="Completed"
+        label="Selesai"
         accent="green"
         staggerIndex={0}
         value={
@@ -54,7 +54,7 @@ export function DailySummary({
       />
       <KpiCard
         icon={Zap}
-        label="XP Today"
+        label="XP Hari Ini"
         accent="orange"
         staggerIndex={1}
         value={
@@ -63,7 +63,7 @@ export function DailySummary({
             <span className="text-sm font-medium text-muted-foreground"> XP</span>
           </span>
         }
-        sub={<span className="text-orange-600 dark:text-orange-400">earn more to level up</span>}
+        sub={<span className="text-orange-600 dark:text-orange-400">kumpulkan lebih banyak untuk naik level</span>}
       />
       <KpiCard
         icon={Flame}
@@ -74,13 +74,13 @@ export function DailySummary({
           <span>
             <CountUpNumber value={bestStreak} />
             <span className="text-sm font-medium text-muted-foreground ml-1.5">
-              {bestStreak === 1 ? ' day' : ' days'}
+              {bestStreak === 1 ? ' hari' : ' hari'}
             </span>
           </span>
         }
         sub={
           <span className="text-rose-600 dark:text-rose-400">
-            {bestStreak >= 7 ? 'On fire! 🔥' : bestStreak > 0 ? 'Keep going!' : 'Start today'}
+            {bestStreak >= 7 ? 'Terasa panas! 🔥' : bestStreak > 0 ? 'Teruskan!' : 'Mulai hari ini'}
           </span>
         }
       />

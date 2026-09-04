@@ -367,7 +367,7 @@ export default function DailyTracker() {
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         if (next) {
-          toast.success('Habit completed! 🎉');
+          toast.success('Habit selesai! 🎉');
 
           // ── Confetti — ONLY after successful API response ──
           // BUG-1 fix: the month cache was already mutated above (lines 619-636
@@ -394,7 +394,7 @@ export default function DailyTracker() {
         }
       } catch (e) {
         setCompletionMap((p) => ({ ...p, [habitId]: !next }));
-        toast.error(e instanceof Error ? e.message : 'Failed to update habit');
+        toast.error(e instanceof Error ? e.message : 'Gagal memperbarui habit');
         confettiElRef.current = null;
       } finally {
         setTogglingIds((p) => {
@@ -468,7 +468,7 @@ export default function DailyTracker() {
         await toggleHabit(timeDialogHabit.id, completedAtISO);
         setTimeDialogHabit(null);
       } catch {
-        toast.error('Failed to save time');
+        toast.error('Gagal menyimpan waktu');
       } finally {
         setTimeSubmitting(false);
       }
@@ -589,16 +589,16 @@ export default function DailyTracker() {
       <section className="daily-notes-card">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">📝</span>
-          <h3 className="text-sm font-semibold">Daily Notes</h3>
+          <h3 className="text-sm font-semibold">Catatan Harian</h3>
           <span className="ml-auto text-[11px] text-muted-foreground/70">
-            {notes.length > 0 ? `${notes.length} chars` : 'Auto-saved'}
+            {notes.length > 0 ? `${notes.length} karakter` : 'Tersimpan otomatis'}
           </span>
         </div>
         <Textarea
           id="daily-notes"
           value={notes}
           onChange={handleNotesChange}
-          placeholder="How was your day? Write your reflection here…"
+          placeholder="Bagaimana harimu? Tulis refleksi di sini…"
           className="min-h-[80px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 text-sm leading-relaxed placeholder:text-muted-foreground/50"
         />
       </section>
@@ -616,9 +616,9 @@ export default function DailyTracker() {
             <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
               {(
                 [
-                  ['all', 'All'],
-                  ['incomplete', 'Todo'],
-                  ['completed', 'Done'],
+                  ['all', 'Semua'],
+                  ['incomplete', 'Belum'],
+                  ['completed', 'Selesai'],
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -642,10 +642,10 @@ export default function DailyTracker() {
           <div className="text-center py-20 rounded-2xl border border-dashed border-border">
             <div className="text-4xl mb-3">📋</div>
             <p className="text-sm font-medium text-muted-foreground">
-              No active habits yet
+              Belum ada habit aktif
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Go to Habit Master to create some!
+              Buka Habit Master untuk membuatnya!
             </p>
           </div>
         ) : filteredHabits.length === 0 ? (
@@ -655,10 +655,10 @@ export default function DailyTracker() {
             </div>
             <p className="text-sm text-muted-foreground">
               {viewFilter === 'completed'
-                ? 'No completed habits yet.'
+                ? 'Belum ada habit yang selesai.'
                 : viewFilter === 'incomplete'
-                  ? 'All habits completed — great job!'
-                  : 'No habits match this filter.'}
+                  ? 'Semua habit selesai — kerja bagus!'
+                  : 'Tidak ada habit yang cocok dengan filter ini.'}
             </p>
           </div>
         ) : (

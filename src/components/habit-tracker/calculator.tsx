@@ -309,7 +309,7 @@ export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDial
         {/* History */}
         {history.length > 0 && (
           <div className="px-4 py-1.5 border-b border-border max-h-24 overflow-y-auto custom-scrollbar">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">History</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Riwayat</p>
             {history.map((entry) => (
               <button
                 key={entry.timestamp}
@@ -358,7 +358,7 @@ export function CalculatorDialog({ open, onOpenChange, onApply }: CalculatorDial
               }}
               className="w-full h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
             >
-              Apply ke Jumlah
+              Terapkan ke Jumlah
             </button>
           </div>
         )}

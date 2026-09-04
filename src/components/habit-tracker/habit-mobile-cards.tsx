@@ -61,25 +61,25 @@ export function HabitMobileCards({
                     {habit.trackTime && (
                       <span className="inline-flex items-center text-xs text-muted-foreground">
                         <Clock className="h-3 w-3 mr-0.5" />
-                        {habit.targetTime || 'on'}
+                        {habit.targetTime || 'aktif'}
                       </span>
                     )}
                     {habit.trackLastDone && (
                       <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80">
                         <History className="h-3 w-3 mr-0.5" />
-                        {habit.lastDoneInterval || 'track'}
+                        {habit.lastDoneInterval || 'Track'}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Badge variant="outline" className="text-xs">
-                      {habit.target} / {habit.targetType}
+                      {habit.target} / {habit.targetType === 'daily' ? 'Harian' : habit.targetType === 'weekly' ? 'Mingguan' : 'Bulanan'}
                     </Badge>
                     <span className={cn('text-xs font-medium', getLabelColor(priorityMap[habit.priority]?.color || 'gray').text)}>
                       {habit.priority}
                     </span>
                     <Badge variant="secondary" className={cn('text-xs border-0 capitalize', STATUS_STYLES[habit.status])}>
-                      {habit.status}
+                      {habit.status === 'active' ? 'Aktif' : habit.status === 'paused' ? 'Dijeda' : 'Diarsipkan'}
                     </Badge>
                   </div>
                 </div>
@@ -96,17 +96,17 @@ export function HabitMobileCards({
                     Edit
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onToggleStatus(habit)}>
-                    {habit.status === 'active' ? 'Pause' : 'Resume'}
+                    {habit.status === 'active' ? 'Jeda' : 'Lanjut'}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onArchive(habit)}>
-                    {habit.status === 'archived' ? 'Unarchive' : 'Archive'}
+                    {habit.status === 'archived' ? 'Pulihkan' : 'Arsipkan'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => onDelete(habit.id)}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
-                    Delete
+                    Hapus
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

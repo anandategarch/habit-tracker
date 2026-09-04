@@ -186,7 +186,7 @@ export const HabitCard = memo(function HabitCard({
                 title={
                   habit.targetTime
                     ? `Target: ${habit.targetTime}`
-                    : 'Click for time analysis'
+                    : 'Klik untuk analisis waktu'
                 }
               >
                 <Check className="h-3 w-3" />
@@ -216,16 +216,16 @@ export const HabitCard = memo(function HabitCard({
             <div className="text-right">
               {isDone ? (
                 <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
-                  <Check className="h-3 w-3" /> Done
+                  <Check className="h-3 w-3" /> Selesai
                 </span>
               ) : (
                 <span className="text-[11px] font-medium text-muted-foreground">
-                  Not started
+                  Belum dimulai
                 </span>
               )}
               <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
                 <StreakFlame streak={streak} size="sm" />
-                {streak} {streak === 1 ? 'day' : 'days'}
+                {streak} {streak === 1 ? 'hari' : 'hari'}
               </p>
             </div>
           </div>
@@ -250,7 +250,7 @@ export const HabitCard = memo(function HabitCard({
           {/* Last 7 days mini calendar */}
           <div className="mb-3">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
-              Last 7 days
+              7 hari terakhir
             </p>
             <div className="flex items-center gap-1">
               {last7Days.map((day, i) => (
@@ -273,7 +273,7 @@ export const HabitCard = memo(function HabitCard({
           <div className="grid grid-cols-2 gap-2 mt-auto">
             <div className="rounded-lg bg-muted/40 p-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Total logs
+                Total log
               </p>
               <p className="text-sm font-bold tabular-nums">
                 {totalLogs}
@@ -294,7 +294,7 @@ export const HabitCard = memo(function HabitCard({
           {habit.notes ? (
             <div className="mt-3 pt-3 border-t border-border">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                Notes
+                Catatan
               </p>
               <p className="text-xs text-muted-foreground line-clamp-3">
                 {habit.notes}
@@ -302,7 +302,7 @@ export const HabitCard = memo(function HabitCard({
             </div>
           ) : (
             <p className="mt-3 pt-3 border-t border-border text-[10px] text-muted-foreground/60 italic">
-              Tap to flip back
+              Ketuk untuk membalik
             </p>
           )}
         </Card>

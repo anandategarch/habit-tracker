@@ -92,12 +92,12 @@ const SECTIONS: HelpSection[] = [
         source: 'Rate 7 hari (bukan MTD) — lebih reflektif kondisi terkini.',
       },
       {
-        name: 'Top Projected Category',
+        name: 'Kategori Proyeksi Tertinggi',
         formula: 'Kategori dengan proyeksi tertinggi di akhir bulan.',
         source: 'Proyeksi per-kategori: (month-to-date kategori ÷ hari lewat) × total hari.',
       },
       {
-        name: 'Over Budget Warning',
+        name: 'Peringatan Over Budget',
         formula: 'Proyeksi > target bulanan.',
         source: 'Selisih proyeksi vs target = jumlah over budget.',
       },
@@ -115,27 +115,27 @@ const SECTIONS: HelpSection[] = [
         source: '30 hari window tetap dipakai internal untuk delta badge + anomaly, tapi gak ditampilkan di tab (redundant dengan Bulan ini).',
       },
       {
-        name: 'Max tx',
+        name: 'Tx tertinggi',
         formula: 'Transaksi tunggal terbesar di periode terpilih.',
         source: 'Bulan ini atau all-time, tergantung tab aktif.',
       },
       {
-        name: 'Avg tx',
+        name: 'Rata-rata tx',
         formula: 'Rata-rata nominal per transaksi di periode terpilih.',
         source: 'Total ÷ jumlah transaksi di periode itu.',
       },
       {
-        name: 'Max/day',
+        name: 'Tertinggi/hari',
         formula: 'Total harian terbesar di periode terpilih (gabungan semua tx di 1 hari).',
         source: 'Diakumulasi per hari Jakarta, lalu ambil yang tertinggi.',
       },
       {
-        name: 'Avg/day',
+        name: 'Rata-rata/hari',
         formula: 'Rata-rata total harian, hanya hari yang ADA transaksi (bukan dibagi semua hari).',
         source: 'Total ÷ jumlah hari aktif. Avg gak ter-dilute oleh hari no-spend.',
       },
       {
-        name: 'Delta Badge (↑ 66k above avg / ↓ di bawah avg)',
+        name: 'Delta Badge (↑ 66k di atas avg / ↓ di bawah avg)',
         formula: 'pengeluaran hari ini di kategori ini − rata-rata harian 30 hari.',
         source: 'Selalu pakai 30 hari window (bukan tab). Hijau = di bawah avg (hemat), merah = di atas avg (boros).',
       },
@@ -220,21 +220,21 @@ const SECTIONS: HelpSection[] = [
   {
     id: 'cashflow',
     emoji: '💰',
-    title: 'Cash Flow & Savings',
+    title: 'Arus Kas & Tabungan',
     intro: 'Kesehatan keuangan harian berdasarkan income vs expense.',
     metrics: [
       {
-        name: 'Cash Flow Status (Sehat / Hati-hati / Boros)',
+        name: 'Status Arus Kas (Sehat / Hati-hati / Boros)',
         formula: 'Rasio pengeluaran ÷ pemasukan hari ini. ≤0.7 sehat, ≤1 hati-hati, >1 boros.',
         source: 'Transaksi income + expense hari ini. Kalau gak ada income, status = Boros (kalau ada expense).',
       },
       {
-        name: 'Savings Rate %',
+        name: '% Tingkat Menabung',
         formula: '(pemasukan − pengeluaran) ÷ pemasukan × 100',
         source: 'Hari ini. 100% kalau ada income tapi 0 expense. 0% kalau gak ada income.',
       },
       {
-        name: 'Transaction Diversity',
+        name: 'Diversitas Transaksi',
         formula: 'Jumlah kategori unik yang ada transaksinya hari ini.',
         source: 'Hari ini. Diversity tinggi = belanja tersebar di banyak kategori.',
       },
@@ -243,16 +243,16 @@ const SECTIONS: HelpSection[] = [
   {
     id: 'patterns',
     emoji: '📅',
-    title: 'Patterns & Comparisons',
+    title: 'Pola & Perbandingan',
     intro: 'Pola spending harian, mingguan, dan perbandingan dengan periode lalu.',
     metrics: [
       {
-        name: 'Best/Worst Day',
+        name: 'Hari Terbaik/Terburuk',
         formula: 'Hari dengan pengeluaran terendah (Best 🏆) dan tertinggi (Worst 📉) bulan ini.',
         source: 'Bulan ini. Hanya hari yang ada transaksi (bukan 0 = no-track).',
       },
       {
-        name: 'Day-of-Week Pattern',
+        name: 'Pola per Hari',
         formula: 'Rata-rata pengeluaran per hari dalam seminggu (Min-Sab).',
         source: '30 hari terakhir. Kelihatan hari apa kamu paling boros.',
       },
@@ -267,12 +267,12 @@ const SECTIONS: HelpSection[] = [
         source: '7 hari terakhir termasuk hari ini.',
       },
       {
-        name: 'Late Night Spending Alert',
+        name: 'Peringatan Pengeluaran Malam Hari',
         formula: 'Transaksi pengeluaran antara 22:00-04:59 Jakarta.',
         source: 'Hari ini. Total + jam transaksi pertama ditampilkan.',
       },
       {
-        name: 'Recurring Detection',
+        name: 'Deteksi Transaksi Berulang',
         formula: 'Transaksi dengan deskripsi sama + nominal ±10% di ≥3 bulan berbeda.',
         source: '95 hari terakhir (3+ bulan coverage).',
       },
@@ -333,7 +333,7 @@ const SECTIONS: HelpSection[] = [
         source: 'Tabel WeeklyBudget. Auto-reset tiap bulan.',
       },
       {
-        name: 'Budget Snapshot (History)',
+        name: 'Snapshot Budget (Riwayat)',
         formula: 'Snapshot akhir bulan: budget asli, spent aktual, rollover in/out, effective budget.',
         source: 'Tabel BudgetSnapshot. Auto-saved tiap akhir bulan.',
       },

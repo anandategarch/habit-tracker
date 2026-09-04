@@ -77,7 +77,7 @@ export default function DashboardCharts({
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Weekly Completion
+              Completion Mingguan
               <ChartInfo text="Jumlah habit yang diselesaikan (hijau) vs tidak diselesaikan (merah) per hari dalam 7 hari terakhir. Total harian = jumlah habit aktif pada tanggal tersebut." />
             </h3>
             <div className="h-64">
@@ -106,7 +106,7 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${value}%`, 'Completion']}
+                    formatter={(value: number) => [`${value}%`, 'Penyelesaian']}
                   />
                   <Bar dataKey="rate" radius={[6, 6, 0, 0]} maxBarSize={40}>
                     {weeklyBarData.map((entry, index) => (
@@ -126,7 +126,7 @@ export default function DashboardCharts({
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Category Performance
+              Performa Kategori
               <ChartInfo text="Rasio penyelesaian per kategori: (jumlah log completed) / (jumlah habit × jumlah hari sejak habit pertama dibuat dalam kategori)." />
             </h3>
             <div className="h-64">
@@ -185,7 +185,7 @@ export default function DashboardCharts({
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              {chartLabel} Completion Trend
+              Tren Completion {chartLabel}
               <ChartInfo text="Tren persentase penyelesaian harian selama periode yang dipilih. Setiap titik menunjukkan rasio habit completed terhadap total habit aktif pada hari tersebut." />
             </h3>
             <div className="h-64">
@@ -221,7 +221,7 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${value}%`, 'Completion']}
+                    formatter={(value: number) => [`${value}%`, 'Penyelesaian']}
                   />
                   <Area
                     type="monotone"
@@ -244,7 +244,7 @@ export default function DashboardCharts({
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-              {chartLabel} Detail
+              Detail {chartLabel}
               <ChartInfo text="Setiap bar menunjukkan jumlah habit completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit yang aktif pada tanggal tersebut, bukan jumlah log." />
             </h3>
             <p className="text-xs text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
@@ -317,7 +317,7 @@ export default function DashboardCharts({
                       fontSize: '12px',
                     }}
                     formatter={(value: number, name: string) => {
-                      if (name === 'rate') return [`${value}%`, 'Completion'];
+                      if (name === 'rate') return [`${value}%`, 'Penyelesaian'];
                       return [value, name];
                     }}
                     labelFormatter={(label: string) => {

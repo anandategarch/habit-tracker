@@ -47,7 +47,7 @@ export function HabitGroupsSection({
               ) : (
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
-              <span className="text-sm font-semibold">Habit Groups</span>
+              <span className="text-sm font-semibold">Grup Habit</span>
               {!groupsLoading && groups.length > 0 && (
                 <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
                   {groups.length}
@@ -95,7 +95,7 @@ export function HabitGroupsSection({
                       className="text-xs text-muted-foreground hover:text-foreground p-1"
                       onClick={() => setShowGroupEmojiPicker(false)}
                     >
-                      close
+                      tutup
                     </button>
                   </div>
                 )}
@@ -158,7 +158,7 @@ export function HabitGroupsSection({
                       type="button"
                       className="ml-0.5 h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
                       onClick={() => handleDeleteGroup(g.id)}
-                      aria-label={`Delete group ${g.name}`}
+                      aria-label={`Hapus grup ${g.name}`}
                     >
                       <X className="h-4 w-4" />
                     </button>

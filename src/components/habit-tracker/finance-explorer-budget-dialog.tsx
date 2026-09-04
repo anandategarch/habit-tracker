@@ -46,7 +46,7 @@ export function BudgetDialog({
     <Dialog open={editingWeek !== null} onOpenChange={(open) => !open && onSetEditingWeek(null)}>
       <DialogContent className="max-w-[95vw] sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Target Week {editingWeek}</DialogTitle>
+          <DialogTitle>Target Minggu {editingWeek}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           {/* Smart Suggestion */}

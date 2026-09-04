@@ -26,7 +26,7 @@ export function DayView({
 }: DayViewProps) {
   return (
     <div className="fe-card">
-      <h3 className="fe-card-title">Rincian Harian — Week {selectedWeek} ({weekData.find((w) => w.week === selectedWeek)?.dateRange})</h3>
+      <h3 className="fe-card-title">Rincian Harian — Minggu {selectedWeek} ({weekData.find((w) => w.week === selectedWeek)?.dateRange})</h3>
       {dayData.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi di minggu ini</p>
       ) : (

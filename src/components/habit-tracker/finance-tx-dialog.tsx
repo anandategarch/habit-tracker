@@ -176,7 +176,7 @@ export function FinanceTxDialog({
             {!(splitMode && !editingTx) && (
               <div><Label className="text-xs">Catatan (opsional)</Label><Input placeholder="Catatan tambahan..." value={txForm.notes} onChange={e => setTxForm(f => ({ ...f, notes: e.target.value }))} className="mt-1" /></div>
             )}
-            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Batal</Button><Button className="flex-1" onClick={onSubmit} disabled={submitting}>{submitting ? 'Menyimpan...' : editingTx ? 'Update' : (splitMode ? 'Simpan Split' : 'Simpan')}</Button></div>
+            <div className="flex gap-2 pt-2"><Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Batal</Button><Button className="flex-1" onClick={onSubmit} disabled={submitting}>{submitting ? 'Menyimpan...' : editingTx ? 'Perbarui' : (splitMode ? 'Simpan Split' : 'Simpan')}</Button></div>
           </div>
         </DialogContent>
       </Dialog>

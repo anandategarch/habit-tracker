@@ -16,6 +16,7 @@ import {
   endOfWeek,
   isBefore,
   startOfDay,
+  id as idLocale,
 } from '@/lib/date-utils';
 // PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
 // utility module. Output is identical for all patterns and helpers used
@@ -93,7 +94,7 @@ interface DayData {
 // Saturday as their week start, we rotate the header array to match.
 // (BUGHUNT-OTHER-1 BUG-H3: previously hardcoded `weekStartsOn: 0` (Sunday)
 //  and ignored the user's `weekStart` setting entirely.)
-const WEEKDAYS_BASE = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_BASE = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 function weekStartsOnNum(weekStart?: string | null): 0 | 1 | 6 {
   if (weekStart === 'saturday') return 6;
@@ -368,8 +369,8 @@ export default function CalendarView() {
     <div className="space-y-6">
       {/* ── Header with month navigation ──────────────────────────────── */}
       <PageHeader
-        title="Calendar View"
-        description="Visualize your habit completion in a monthly heatmap."
+        title="Kalender"
+        description="Visualisasikan penyelesaian habit kamu dalam heatmap bulanan."
         action={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={goToPrevMonth}>
@@ -497,12 +498,12 @@ export default function CalendarView() {
             {/* Heatmap Legend */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Heatmap Legend</CardTitle>
+                <CardTitle className="text-base">Legenda Heatmap</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap items-center gap-3">
                   {[
-                    { label: 'No data', color: 'bg-gray-100 dark:bg-gray-800/50' },
+                    { label: 'Tidak ada data', color: 'bg-gray-100 dark:bg-gray-800/50' },
                     { label: '0%', color: 'bg-destructive/30 dark:bg-destructive/15' },
                     { label: '25%', color: 'bg-orange-200 dark:bg-orange-900/40' },
                     { label: '50%', color: 'bg-warning/30 dark:bg-warning/15' },
@@ -523,11 +524,11 @@ export default function CalendarView() {
                 <div className="mt-4 flex flex-wrap gap-3">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded ring-2 ring-primary ring-offset-1 bg-primary/10" />
-                    <span className="text-xs text-muted-foreground">Today</span>
+                    <span className="text-xs text-muted-foreground">Hari Ini</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm">😊</span>
-                    <span className="text-xs text-muted-foreground">Mood logged</span>
+                    <span className="text-xs text-muted-foreground">Mood tercatat</span>
                   </div>
                 </div>
               </CardContent>
@@ -538,14 +539,14 @@ export default function CalendarView() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Flame className="h-4 w-4 text-orange-500" />
-                  {monthLabel} Summary
+                  {monthLabel} Ringkasan
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1 p-3 rounded-lg bg-primary/10">
                     <p className="text-xs text-muted-foreground">
-                      Average Completion
+                      Rata-rata Penyelesaian
                     </p>
                     <p className="text-2xl font-bold text-primary">
                       {monthSummary.avg.toFixed(1)}%
@@ -554,7 +555,7 @@ export default function CalendarView() {
 
                   <div className="space-y-1 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50">
                     <p className="text-xs text-muted-foreground">
-                      Days Tracked
+                      Hari Dilacak
                     </p>
                     <p className="text-2xl font-bold">
                       {monthSummary.entries}
@@ -564,10 +565,10 @@ export default function CalendarView() {
                   {monthSummary.best && (
                     <div className="space-y-1 p-3 rounded-lg bg-primary/10">
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Flame className="h-3 w-3 text-primary" /> Best Day
+                        <Flame className="h-3 w-3 text-primary" /> Hari Terbaik
                       </p>
                       <p className="text-lg font-bold text-primary">
-                        {format(monthSummary.best.date, 'MMM d')}
+                        {format(monthSummary.best.date, 'd MMM', { locale: idLocale })}
                       </p>
                       <Badge
                         variant="secondary"
@@ -581,11 +582,11 @@ export default function CalendarView() {
                   {monthSummary.worst && (
                     <div className="space-y-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Droplets className="h-3 w-3 text-orange-500" /> Worst
-                        Day
+                        <Droplets className="h-3 w-3 text-orange-500" /> Hari
+                        Terburuk
                       </p>
                       <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
-                        {format(monthSummary.worst.date, 'MMM d')}
+                        {format(monthSummary.worst.date, 'd MMM', { locale: idLocale })}
                       </p>
                       <Badge
                         variant="secondary"
@@ -599,7 +600,7 @@ export default function CalendarView() {
 
                 {monthSummary.entries === 0 && (
                   <div className="mt-4 text-center text-sm text-muted-foreground py-4">
-                    No tracked days this month yet. Start completing habits!
+                    Belum ada hari yang dilacak bulan ini. Mulai selesaikan habit!
                   </div>
                 )}
               </CardContent>

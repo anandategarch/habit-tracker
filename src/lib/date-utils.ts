@@ -38,6 +38,7 @@ const mmmDdFormatter = new Intl.DateTimeFormat('en-US', {
 });
 const eeeFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 const eeeeFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
+const eeeeIdFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long' });
 const mmmYyyyFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   year: 'numeric',
@@ -55,6 +56,16 @@ const mmmDyyyyFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
+const dMmmYyyyIdFormatter = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const dMmmmYyyyIdFormatter = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
 const mmmmDyyyyFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'long',
   day: 'numeric',
@@ -64,6 +75,12 @@ const eeeeMmmDyyyyFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
   month: 'short',
   day: 'numeric',
+  year: 'numeric',
+});
+const eeeeDMmmYyyyIdFormatter = new Intl.DateTimeFormat('id-ID', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'short',
   year: 'numeric',
 });
 const mmmDFormatter = new Intl.DateTimeFormat('en-US', {
@@ -109,7 +126,7 @@ export function format(
     case 'EEE':
       return eeeFormatter.format(date);
     case 'EEEE':
-      return eeeeFormatter.format(date);
+      return useId ? eeeeIdFormatter.format(date) : eeeeFormatter.format(date);
     case 'MMM yyyy':
       return useId ? mmmYyyyIdFormatter.format(date) : mmmYyyyFormatter.format(date);
     case 'MMMM yyyy':
@@ -118,12 +135,18 @@ export function format(
       return mmmmDyyyyFormatter.format(date);
     case 'EEEE, MMM d, yyyy':
       return eeeeMmmDyyyyFormatter.format(date);
+    case 'EEEE, d MMM yyyy':
+      return useId ? eeeeDMmmYyyyIdFormatter.format(date) : eeeeMmmDyyyyFormatter.format(date);
     case 'MMM d':
       return mmmDFormatter.format(date);
     case 'MMM d, yyyy':
       return mmmDyyyyFormatter.format(date);
     case 'd MMM':
       return useId ? dMmmIdFormatter.format(date) : dMmmFormatter.format(date);
+    case 'd MMM yyyy':
+      return useId ? dMmmYyyyIdFormatter.format(date) : mmmDyyyyFormatter.format(date);
+    case 'd MMMM yyyy':
+      return useId ? dMmmmYyyyIdFormatter.format(date) : mmmmDyyyyFormatter.format(date);
     default:
       throw new Error(
         `date-utils format(): unsupported pattern "${pattern}". Add it to src/lib/date-utils.ts and verify output matches date-fns.`
