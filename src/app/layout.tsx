@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import ServiceWorkerRegister from "@/components/sw-register";
 import ThemeProvider from "@/components/theme-provider";
 import { QueryProvider } from "@/components/query-provider";
+import { AppLockGate } from "@/components/app-lock/AppLockGate";
 // FIX-TIER2 / Fix 4: LazyMotion + domAnimation removed. All framer-motion
 // `m.*` usages in the loaders kit + page-transition.tsx have been
 // converted to pure CSS keyframes (see globals.css `.css-*` classes) +
@@ -127,7 +128,7 @@ export default function RootLayout({
       >
         <ThemeProvider />
         <QueryProvider>
-          {children}
+          <AppLockGate>{children}</AppLockGate>
         </QueryProvider>
         <ServiceWorkerRegister />
         <Toaster position="top-right" richColors />

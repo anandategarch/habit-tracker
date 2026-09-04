@@ -916,6 +916,22 @@
   transform: scale(0.95);
 }
 
+/* ── Shake: used by PinPad on wrong PIN entry ──
+   Triggered by toggling the `anim-shake` class — the keyframe runs once
+   and the class is removed after 500ms by the component. */
+@keyframes anim-shake {
+  0%, 100% { transform: translateX(0); }
+  15%      { transform: translateX(-10px); }
+  30%      { transform: translateX(9px); }
+  45%      { transform: translateX(-7px); }
+  60%      { transform: translateX(5px); }
+  75%      { transform: translateX(-3px); }
+  90%      { transform: translateX(2px); }
+}
+.anim-shake {
+  animation: anim-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
 /* ── Progress bar fill: animate shadcn Progress indicator from 0 on mount ── */
 @keyframes anim-progress-grow {
   from { transform: translateX(-100%); }
@@ -931,6 +947,7 @@
   .anim-pulse-ring,
   .anim-pulse-ring::before,
   .anim-press,
+  .anim-shake,
   .anim-progress-fill [data-slot="progress-indicator"] {
     animation: none !important;
     transition: none !important;

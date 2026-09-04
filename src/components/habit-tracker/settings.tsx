@@ -59,6 +59,7 @@ import {
 import type { AppSettings, SettingsFormState, SettingsSection } from './settings-types';
 import { SectionCard, FormRow } from './settings-ui';
 import { LoadingSkeleton } from './settings-skeleton';
+import { AppLockSection } from './app-lock-settings';
 
 /** Live preview theme colors without saving to DB */
 function previewTheme(primary: string, secondary: string, theme: string) {
@@ -524,6 +525,9 @@ export default function Settings() {
 
           {/* Habit Labels Section */}
           <LabelManager />
+
+          {/* App Lock Section */}
+          <AppLockSection />
 
           {/* Save Button */}
           <div className="flex justify-end pt-2">
