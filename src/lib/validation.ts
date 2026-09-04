@@ -151,8 +151,6 @@ export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export const updateGoalSchema = createGoalSchema.partial();
 export type UpdateGoalInput = z.infer<typeof updateGoalSchema>;
 
-// ── Journal ──────────────────────────────────────────────────────────────
-
 export const createJournalSchema = z.object({
   date: z.coerce.date(),
   mood: z.number().int().min(1).max(5).optional(),
@@ -250,8 +248,6 @@ export const updateSettingsSchema = z.object({
   projectionCategoryIds: z.array(z.string().min(1).max(100)).max(1).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
-
-// ── Learning Topic ───────────────────────────────────────────────────────
 
 export const createLearningTopicSchema = z.object({
   name: nonEmpty(100),

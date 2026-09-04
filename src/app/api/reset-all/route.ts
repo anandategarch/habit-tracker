@@ -48,9 +48,8 @@ export async function DELETE(request: Request) {
       db.habit.deleteMany(),
       db.habitGroup.deleteMany(),
       db.habitOption.deleteMany(),
-      // Daily logs / journals / goals
+      // Daily logs / goals
       db.dailyLog.deleteMany(),
-      db.journal.deleteMany(),
       db.goal.deleteMany(),
       // Finance — transactions first (referenced by source balance), then
       // sources/categories/budgets/weekly-budget/snapshots
@@ -61,7 +60,6 @@ export async function DELETE(request: Request) {
       db.fundSource.deleteMany(),
       db.financeCategory.deleteMany(),
       // Learning
-      db.learningTopic.deleteMany(),
     ]);
 
     // Keep AppSettings — just reset to defaults

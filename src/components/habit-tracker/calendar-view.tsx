@@ -455,11 +455,6 @@ export default function CalendarView() {
                       >
                         {day.dayNum}
                       </span>
-                      {day.mood && day.isCurrentMonth && (
-                        <span className="text-xs" title={`Mood: ${day.mood}/5`}>
-                          {MOOD_EMOJIS[day.mood] || ''}
-                        </span>
-                      )}
                     </div>
 
                     {day.isCurrentMonth && day.completionRate !== null && (

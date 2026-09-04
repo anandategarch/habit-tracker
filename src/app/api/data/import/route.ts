@@ -5,7 +5,6 @@ interface ImportPayload {
   habits?: Record<string, unknown>[];
   habitLogs?: Record<string, unknown>[];
   dailyLogs?: Record<string, unknown>[];
-  journals?: Record<string, unknown>[];
   goals?: Record<string, unknown>[];
   transactions?: Record<string, unknown>[];
   budgets?: Record<string, unknown>[];
@@ -16,7 +15,6 @@ interface ImportPayload {
   weeklyBudgets?: Record<string, unknown>[];
   budgetSnapshots?: Record<string, unknown>[];
   habitGroups?: Record<string, unknown>[];
-  learningTopics?: Record<string, unknown>[];
   habitOptions?: Record<string, unknown>[];
 }
 
@@ -41,12 +39,10 @@ function stripAutoFields(records: Record<string, unknown>[]): any[] {
 function isValidPayload(body: unknown): body is ImportPayload {
   if (typeof body !== 'object' || body === null) return false;
   const allowedKeys = new Set([
-    'habits', 'habitLogs', 'dailyLogs', 'journals', 'goals',
     'transactions',
     'budgets', 'financeCategories', 'settings',
     // Added 6 missing tables
     'fundSources', 'weeklyBudgets', 'budgetSnapshots',
-    'habitGroups', 'learningTopics', 'habitOptions',
     // Old backups may contain these keys from the removed features —
     // kept in allowedKeys so old backups import gracefully (silently ignored).
     'challenges', 'badges', 'rewards',
@@ -65,10 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (!isValidPayload(body)) {
       return NextResponse.json(
-        {
-          error:
-            'Invalid payload. Expected a JSON object with keys: habits, habitLogs, dailyLogs, journals, goals, transactions, budgets, financeCategories, settings (all arrays).',
-        },
+        { error: 'Invalid payload. Expected a JSON object with array values.' },
         { status: 400 }
       );
     }
@@ -95,9 +88,6 @@ export async function POST(request: NextRequest) {
       if (body.dailyLogs && body.dailyLogs.length > 0) {
         await tx.dailyLog.deleteMany();
       }
-      if (body.journals && body.journals.length > 0) {
-        await tx.journal.deleteMany();
-      }
       if (body.goals && body.goals.length > 0) {
         await tx.goal.deleteMany();
       }
@@ -118,9 +108,6 @@ export async function POST(request: NextRequest) {
       }
       if (body.fundSources && body.fundSources.length > 0) {
         await tx.fundSource.deleteMany();
-      }
-      if (body.learningTopics && body.learningTopics.length > 0) {
-        await tx.learningTopic.deleteMany();
       }
 
       // Insert in dependency order: parents first, then children.
@@ -212,12 +199,6 @@ export async function POST(request: NextRequest) {
         counts.dailyLogs = res.count;
       }
 
-      if (body.journals && body.journals.length > 0) {
-        const data = stripAutoFields(body.journals);
-        const res = await tx.journal.createMany({ data });
-        counts.journals = res.count;
-      }
-
       if (body.goals && body.goals.length > 0) {
         const data = stripAutoFields(body.goals);
         const res = await tx.goal.createMany({ data });
@@ -294,12 +275,6 @@ export async function POST(request: NextRequest) {
         const data = stripAutoFields(body.budgetSnapshots);
         const res = await tx.budgetSnapshot.createMany({ data });
         counts.budgetSnapshots = res.count;
-      }
-
-      if (body.learningTopics && body.learningTopics.length > 0) {
-        const data = stripAutoFields(body.learningTopics);
-        const res = await tx.learningTopic.createMany({ data });
-        counts.learningTopics = res.count;
       }
 
       return counts;

@@ -57,7 +57,6 @@ export async function GET() {
       habits,
       habitLogs,
       dailyLogs,
-      journals,
       goals,
       transactions,
       budgets,
@@ -66,14 +65,12 @@ export async function GET() {
       weeklyBudgets,
       budgetSnapshots,
       habitGroups,
-      learningTopics,
       habitOptions,
       appSettings,
     ] = await Promise.all([
       db.habit.findMany({ orderBy: { createdAt: 'asc' } }),
       db.habitLog.findMany({ orderBy: { date: 'asc' } }),
       db.dailyLog.findMany({ orderBy: { date: 'asc' } }),
-      db.journal.findMany({ orderBy: { date: 'asc' } }),
       db.goal.findMany({ orderBy: { createdAt: 'asc' } }),
       db.transaction.findMany({ orderBy: { date: 'asc' } }),
       db.budget.findMany(),
@@ -83,7 +80,6 @@ export async function GET() {
       db.weeklyBudget.findMany({ orderBy: { month: 'asc' } }),
       db.budgetSnapshot.findMany({ orderBy: { month: 'asc' } }),
       db.habitGroup.findMany({ orderBy: { createdAt: 'asc' } }),
-      db.learningTopic.findMany({ orderBy: { createdAt: 'asc' } }),
       db.habitOption.findMany({ orderBy: { createdAt: 'asc' } }),
       // BUGHUNT-OTHER-1 BUG-M8: include AppSettings so theme/preferences are
       // backed up (was in JSON export but missing from CSV export).
@@ -120,14 +116,6 @@ export async function GET() {
       )
     );
 
-    // 4. Journals
-    zip.file(
-      `4-journal-${today}.csv`,
-      toCSV(
-        ['ID', 'Tanggal', 'Mood', 'Stress', 'Energi', 'Tidur', 'Refleksi', 'Win Hari Ini', 'Pelajaran', 'Rencana Besok', 'Dibuat', 'Diubah'],
-        journals.map((j) => [j.id, fmtDate(j.date), j.mood, j.stress, j.energy, j.sleep, j.reflection ?? '', j.winToday ?? '', j.lessonLearned ?? '', j.tomorrowPlan ?? '', fmtDateTime(j.createdAt), fmtDateTime(j.updatedAt)])
-      )
-    );
 
     // 5. Goals
     zip.file(
@@ -201,16 +189,7 @@ export async function GET() {
       )
     );
 
-    // 16. Learning Topics
-    zip.file(
-      `16-topik-belajar-${today}.csv`,
-      toCSV(
-        ['ID', 'Nama', 'Emoji', 'Urutan', 'Dibuat', 'Diubah'],
-        learningTopics.map((t) => [t.id, t.name, t.emoji, t.order, fmtDateTime(t.createdAt), fmtDateTime(t.updatedAt)])
-      )
-    );
-
-    // 17. Habit Options
+    // 16. Habit Options
     zip.file(
       `17-opsi-habit-${today}.csv`,
       toCSV(
@@ -241,7 +220,7 @@ export async function GET() {
     // Generate ZIP
     const zipBuffer = await zip.generateAsync({ type: 'uint8array' });
 
-    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + journals.length + goals.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + learningTopics.length + habitOptions.length + appSettings.length;
+    const totalRecords = habits.length + habitLogs.length + dailyLogs.length + goals.length + transactions.length + budgets.length + financeCategories.length + fundSources.length + weeklyBudgets.length + budgetSnapshots.length + habitGroups.length + habitOptions.length + appSettings.length;
 
     // Convert Uint8Array to a Blob for Response BodyInit compatibility.
     // Some TS lib versions reject Uint8Array<ArrayBufferLike> directly.

@@ -49,8 +49,7 @@ import { DEFAULT_DATA } from './dashboard-default-data';
 import {
   ChartInfo,
   ProgressRing,
-  MoodEmoji,
-  getMoodLabel,
+
   PeriodFilter,
   QuoteDisplay,
 } from './dashboard-helpers';
@@ -356,8 +355,7 @@ export default function Dashboard() {
             { label: 'Level', icon: Award, iconColor: 'text-primary', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
             { label: 'Produktivitas', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
             { label: 'Tujuan', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
-            { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
-            { label: 'Rata-rata Tidur', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'jam / malam', key: 'sleep' },
+
           ].map((card) => {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce

@@ -94,15 +94,6 @@ const DEFAULT_EXPENSE_CATEGORIES = [
   { type: 'expense', name: 'Lainnya', emoji: '📦', color: '#78716c', order: 9 },
 ];
 
-const DEFAULT_LEARNING_TOPICS = [
-  { name: 'Akuntansi', emoji: '📒', order: 0 },
-  { name: 'Keuangan', emoji: '💰', order: 1 },
-  { name: 'Ekonomi', emoji: '📈', order: 2 },
-  { name: 'Pajak', emoji: '🧾', order: 3 },
-  { name: 'Investasi', emoji: '🏦', order: 4 },
-  { name: 'Manajemen', emoji: '📊', order: 5 },
-];
-
 const DEFAULT_HABIT_CATEGORIES = [
   { type: 'category', name: 'General', color: 'slate', xp: 0, order: 0 },
   { type: 'category', name: 'Health', color: 'emerald', xp: 0, order: 1 },
@@ -177,12 +168,6 @@ export async function POST(request: NextRequest) {
 
     if (catCount === 0) {
       await db.financeCategory.createMany({ data: [...DEFAULT_EXPENSE_CATEGORIES, ...DEFAULT_INCOME_CATEGORIES] });
-    }
-
-    // Default learning topics
-    const topicCount = await db.learningTopic.count();
-    if (topicCount === 0) {
-      await db.learningTopic.createMany({ data: DEFAULT_LEARNING_TOPICS });
     }
 
     // Default habit options (categories, priorities, difficulties)

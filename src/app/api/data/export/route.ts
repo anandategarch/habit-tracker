@@ -7,7 +7,6 @@ export async function GET() {
       habits,
       habitLogs,
       dailyLogs,
-      journals,
       goals,
       transactions,
       budgets,
@@ -20,13 +19,11 @@ export async function GET() {
       weeklyBudgets,
       budgetSnapshots,
       habitGroups,
-      learningTopics,
       habitOptions,
     ] = await Promise.all([
       db.habit.findMany(),
       db.habitLog.findMany(),
       db.dailyLog.findMany(),
-      db.journal.findMany(),
       db.goal.findMany(),
       db.transaction.findMany(),
       db.budget.findMany(),
@@ -36,7 +33,6 @@ export async function GET() {
       db.weeklyBudget.findMany(),
       db.budgetSnapshot.findMany(),
       db.habitGroup.findMany(),
-      db.learningTopic.findMany(),
       db.habitOption.findMany(),
     ]);
 
@@ -44,7 +40,6 @@ export async function GET() {
       habits,
       habitLogs,
       dailyLogs,
-      journals,
       goals,
       transactions,
       budgets,
@@ -54,7 +49,6 @@ export async function GET() {
       weeklyBudgets,
       budgetSnapshots,
       habitGroups,
-      learningTopics,
       habitOptions,
     };
 

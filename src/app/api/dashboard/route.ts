@@ -78,7 +78,6 @@ export async function GET(request: NextRequest) {
       habits,
       activeGoals,
       recentDailyLogs,
-      learningHabit,
       monthTransactions,
       budgets,
     ] = await Promise.all([
@@ -95,10 +94,6 @@ export async function GET(request: NextRequest) {
         where: { date: { gte: subDays(today, 30) } },
         select: { mood: true, sleep: true },
       }), []),
-      safe(db.habit.findFirst({
-        where: { name: 'Daily Learning' },
-        select: { id: true },
-      }), null),
       safe(db.transaction.findMany({
         where: { date: { gte: monthStart, lte: monthEnd } },
         select: { type: true, amount: true, category: true },
@@ -168,7 +163,6 @@ export async function GET(request: NextRequest) {
     // for XP calculation at line ~280).
     const [
       allLogsRaw,
-      learningLogs,
       allTimeLogs,
       latestLogs,
     ] = await Promise.all([
@@ -182,13 +176,6 @@ export async function GET(request: NextRequest) {
           habit: { select: { difficulty: true } },
         },
       }), []),
-      learningHabit
-        ? safe(db.habitLog.findMany({
-            where: { habitId: learningHabit.id, completed: true },
-            orderBy: { date: 'asc' },
-            select: { date: true },
-          }), [])
-        : Promise.resolve([] as { date: Date }[]),
       timeHabitIds.length > 0
         ? safe(db.habitLog.findMany({
             where: {
@@ -470,49 +457,6 @@ export async function GET(request: NextRequest) {
       .filter(h => !todayLogs.some(l => l.habitId === h.id && l.completed))
       .slice(0, 5)
       .map(h => ({ id: h.id, name: h.name, icon: h.icon, priority: h.priority }));
-
-    // ── Daily Learning Status ────────────────────────────────────────
-    // PERF-FIX (Fix 17): `learningLogs` is now fetched in the Phase 2
-    // parallel batch at the top of the handler. The original sequential
-    // query here was redundant after the restructure — removed.
-    let learningStatus = { completedToday: false, streak: 0, longestStreak: 0, totalDays: 0 };
-    if (learningHabit) {
-      const learningTodayLog = learningLogs.find(l => format(l.date, 'yyyy-MM-dd') === todayKey);
-      learningStatus.completedToday = !!learningTodayLog;
-      learningStatus.totalDays = learningLogs.length;
-
-      // Build a Set for O(1) lookups
-      const learningDateSet = new Set(learningLogs.map(l => format(l.date, 'yyyy-MM-dd')));
-
-      // Current streak
-      if (learningTodayLog) {
-        learningStatus.streak = 1;
-        for (let i = 1; i <= 365; i++) {
-          const d = subDays(today, i);
-          if (learningDateSet.has(format(d, 'yyyy-MM-dd'))) {
-            learningStatus.streak++;
-          } else break;
-        }
-      } else {
-        for (let i = 1; i <= 365; i++) {
-          const d = subDays(today, i);
-          if (learningDateSet.has(format(d, 'yyyy-MM-dd'))) {
-            learningStatus.streak++;
-          } else break;
-        }
-      }
-
-      // Longest streak
-      let tempStreak = 0;
-      for (let i = 0; i < learningLogs.length; i++) {
-        if (i === 0) { tempStreak = 1; }
-        else {
-          const diff = Math.round((learningLogs[i].date.getTime() - learningLogs[i - 1].date.getTime()) / 86400000);
-          if (diff === 1) { tempStreak++; } else { learningStatus.longestStreak = Math.max(learningStatus.longestStreak, tempStreak); tempStreak = 1; }
-        }
-      }
-      learningStatus.longestStreak = Math.max(learningStatus.longestStreak, tempStreak);
-    }
 
     // ── Per-Habit Detail Stats ───────────────────────────────────────
     const habitDetailStats = habits.map(h => {
@@ -863,7 +807,6 @@ export async function GET(request: NextRequest) {
       todayFocus,
       period,
       // Detailed data
-      learningStatus,
       habitDetailStats,
       stackedBarData,
       weeklyPattern,
