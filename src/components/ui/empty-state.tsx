@@ -16,7 +16,7 @@ interface EmptyStateProps {
  *
  * Shared empty-state primitive — replaces 5+ ad-hoc patterns across
  * goals/rewards/badges/challenges/journal/daily-tracker/settings/
- * habit-quick-add/learning/push-notification-settings.
+ * habit-quick-add/learning.
  *
  * Variants:
  *  - default: muted bg + dashed border (neutral "nothing here yet")

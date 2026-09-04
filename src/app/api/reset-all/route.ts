@@ -62,8 +62,6 @@ export async function DELETE(request: Request) {
       db.financeCategory.deleteMany(),
       // Learning
       db.learningTopic.deleteMany(),
-      // Push subscriptions (BUG L11 fix: were persisting after reset)
-      db.pushSubscription.deleteMany(),
     ]);
 
     // Keep AppSettings — just reset to defaults

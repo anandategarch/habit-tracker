@@ -33,7 +33,6 @@ import { useAppStore } from '@/store/app-store';
 import { useRef } from 'react';
 import dynamic from 'next/dynamic';
 import LabelManager from './label-manager';
-import { PushNotificationSettings } from './push-notification-settings';
 
 const HabitMaster = dynamic(() => import('./habit-master'), { ssr: false });
 import {
@@ -600,9 +599,6 @@ export default function Settings() {
 
           {/* Habit Labels Section */}
           <LabelManager />
-
-          {/* Push Notification Section */}
-          <PushNotificationSettings />
 
           {/* Save Button */}
           <div className="flex justify-end pt-2">

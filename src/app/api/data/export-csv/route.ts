@@ -226,18 +226,13 @@ export async function GET() {
         [
           'ID', 'User Name', 'Theme', 'Primary Color', 'Secondary Color',
           'Week Start', 'Language', 'Target Completion', 'Daily Budget Target',
-          'Projection Category IDs', 'Push Habit Enabled', 'Push Habit Time',
-          'Push Budget Enabled', 'Push Budget Time', 'Push Spending Enabled',
-          'Push Spending Time', 'Dibuat', 'Diubah',
+          'Projection Category IDs', 'Dibuat', 'Diubah',
         ],
         appSettings.map((s) => [
           s.id, s.userName ?? '', s.theme ?? '', s.primaryColor ?? '',
           s.secondaryColor ?? '', s.weekStart ?? '', s.language ?? '',
           s.targetCompletion ?? '', s.dailyBudgetTarget ?? '',
           s.projectionCategoryIds ?? '',
-          s.pushHabitEnabled ? 'Ya' : 'Tidak', s.pushHabitTime ?? '',
-          s.pushBudgetEnabled ? 'Ya' : 'Tidak', s.pushBudgetTime ?? '',
-          s.pushSpendingEnabled ? 'Ya' : 'Tidak', s.pushSpendingTime ?? '',
           fmtDateTime(s.createdAt), fmtDateTime(s.updatedAt),
         ])
       )
