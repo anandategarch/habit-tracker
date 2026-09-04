@@ -493,7 +493,7 @@ function TransactionRow({
           </div>
         )}
 
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-4">
           {/* Large category icon */}
           <div
             className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg"
@@ -507,7 +507,7 @@ function TransactionRow({
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Top row: title + time */}
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-3">
               <span className="text-sm font-semibold truncate flex items-center gap-1.5">
                 {tx.category}
                 {tx.groupId && (
@@ -522,7 +522,7 @@ function TransactionRow({
             </div>
 
             {/* Bottom row: description + source + amount */}
-            <div className="flex items-end justify-between gap-2 mt-1">
+            <div className="flex items-end justify-between gap-3 mt-1.5">
               <div className="min-w-0 flex-1">
                 {tx.description && (
                   <p className="text-xs text-muted-foreground truncate">
@@ -551,7 +551,7 @@ function TransactionRow({
 
           {/* Action buttons (visible on hover, always visible on mobile) */}
           {!multiSelect && (
-            <div className="flex flex-col gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+            <div className="flex flex-col gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ml-1">
               {/* Disable edit + delete for transfer transactions —
                   they're linked pairs that can't be modified
                   independently without corrupting balances. */}
