@@ -93,7 +93,10 @@ function estimateRowSize(row: FlatRow | undefined): number {
   if (!row) return 80;
   // Header rows are short (single-line pill). Transaction rows are taller
   // (icon + 2-line content + amount + action buttons).
-  return row.kind === 'header' ? 36 : 92;
+  // FIX: updated from 92 → 122 to match actual card height after spacing fix
+  // (16px padding × 2 + 78px content + 12px margin-bottom = 122px).
+  // Also enabled measureElement below for self-healing dynamic measurement.
+  return row.kind === 'header' ? 36 : 122;
 }
 
 export default function FinanceTransactions({
@@ -162,6 +165,10 @@ export default function FinanceTransactions({
     count: flatRows.length,
     estimateSize: (i) => estimateRowSize(flatRows[i]),
     overscan: 12,
+    // FIX: enable dynamic measurement so virtualizer self-heals when CSS
+    // changes card height. Without this, stale estimateRowSize causes
+    // cards to overlap (was 92px estimate vs 122px actual → 18px overlap).
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
 
   return (
@@ -369,6 +376,7 @@ export default function FinanceTransactions({
                 <div
                   key={vItem.key}
                   data-index={vItem.index}
+                  ref={virtualizer.measureElement}
                   style={{
                     position: 'absolute',
                     top: 0,

@@ -40,18 +40,32 @@ export default function ServiceWorkerRegister() {
         // (like the morph-bump nav redesign) to returning users.
         reg.update().catch(() => {});
 
-        // If a new SW is already in the waiting state (e.g., the user's
-        // previously-installed SW is older and doesn't self-trigger
-        // skipWaiting on install), nudge it from the page side. The SW
-        // listens for this message and calls self.skipWaiting().
+        // FIX: Race condition — if SW activated BEFORE React mounted (which
+        // happens on fast SW install), controllerchange already fired and
+        // was missed by the listener. Detect this by comparing controller
+        // vs registration active. If they differ, the page loaded with
+        // old SW but new SW is now active → force reload.
+        if (reg.active && navigator.serviceWorker.controller) {
+          const controllerUrl = navigator.serviceWorker.controller.scriptURL;
+          const activeUrl = reg.active.scriptURL;
+          // If the controller changed during this page load, reload.
+          // Use localStorage to track SW version for extra safety.
+          const storedVersion = localStorage.getItem('sw-version');
+          const currentVersion = reg.active.scriptURL + '|' + CACHE_VERSION;
+          if (storedVersion && storedVersion !== currentVersion) {
+            localStorage.setItem('sw-version', currentVersion);
+            window.location.reload();
+            return;
+          }
+          localStorage.setItem('sw-version', currentVersion);
+        }
+
+        // If a new SW is already in the waiting state, nudge it.
         if (reg.waiting) {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
 
-        // When a new SW finishes installing, if there's already an active
-        // controller (returning user), the new SW goes into "waiting"
-        // state. Detect this and trigger skipWaiting from the page side
-        // (defense in depth — the SW also calls skipWaiting in install).
+        // When a new SW finishes installing, trigger skipWaiting.
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (!newWorker) return;
@@ -69,16 +83,9 @@ export default function ServiceWorkerRegister() {
       }
     };
 
-    // Register immediately rather than waiting for the `load` event.
-    // The sooner the SW is registered + update() is called, the sooner
-    // we detect a new version and trigger the auto-reload. Waiting for
-    // `load` adds 200-2000ms of latency on mobile.
     register();
 
-    // Handle bfcache restore: when the user navigates back to this page
-    // and Chrome restores it from the back/forward cache, the OLD JS
-    // execution context is restored (including any OLD morph-bump nav
-    // state). Force a SW update check + reload if the SW has changed.
+    // Handle bfcache restore.
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
         navigator.serviceWorker
@@ -94,3 +101,7 @@ export default function ServiceWorkerRegister() {
   }, []);
   return null;
 }
+
+// Build-time cache version — injected from sw.js CACHE_NAME.
+// If this doesn't match what's stored in localStorage, force reload.
+const CACHE_VERSION = 'v12';

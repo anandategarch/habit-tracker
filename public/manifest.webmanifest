@@ -2,7 +2,7 @@
   "name": "Rutina — Habit & Finance Tracker",
   "short_name": "Rutina",
   "description": "Build daily routines, track your growth",
-  "start_url": "/",
+  "start_url": "https://habit-tracker-nine-hazel.vercel.app/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#22c55e",

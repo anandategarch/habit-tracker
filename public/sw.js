@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tracker-v11';
+const CACHE_NAME = 'habit-tracker-v12';
 
 // Bump cache version (v1 → v2 → ... → v10) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
@@ -27,7 +27,9 @@ const CACHE_NAME = 'habit-tracker-v11';
 
 // Install: pre-cache shell
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  // FIX: wrap skipWaiting in event.waitUntil to prevent SW termination
+  // before activation completes on slow devices.
+  event.waitUntil(self.skipWaiting());
 });
 
 // Activate: clean old caches (including v1) AND claim all open clients.
