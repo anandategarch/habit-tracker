@@ -833,7 +833,7 @@ export async function GET(request: NextRequest) {
         // (data changes when user checks habit/adds tx — 60s delay acceptable).
         // stale-while-revalidate serves cached data immediately while fetching
         // fresh in background — perceived performance improves dramatically.
-        'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=600',
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600',
       },
     });
   } catch (error) {

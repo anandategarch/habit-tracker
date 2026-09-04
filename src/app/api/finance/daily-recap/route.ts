@@ -495,7 +495,7 @@ export async function GET() {
     };
 
     return NextResponse.json(response, {
-      headers: { 'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=600' },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600' },
     });
   } catch (error) {
     console.error('GET /api/finance/daily-recap error:', error);
