@@ -362,8 +362,8 @@ export default function Dashboard() {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce
             // cognitive overload. 15 cards → 6 on mobile.
-            // Hidden: longest, success, weekly, monthly, level, badges,
-            // productivity, challenges, goals.
+            // Hidden: longest, success, weekly, monthly, level,
+            // productivity, goals.
             // Visible: habits, completion, streak, xp, mood, sleep.
             const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'productivity', 'goals']);
             const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);

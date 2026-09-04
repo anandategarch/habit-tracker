@@ -3,23 +3,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
-import { jakartaDateKey, jakartaNowIso, jakartaNowParts } from '@/lib/timezone';
+import { jakartaNowIso, jakartaNowParts } from '@/lib/timezone';
 import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Calendar,
-  Flame,
-  Star,
-  Clock,
-  Zap,
-  RotateCw,
-} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,13 +15,8 @@ import {
 import { Input } from '@/components/ui/input';
 import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { TimePicker } from '@/components/habit-tracker/time-picker';
-import { FlipCard } from '@/components/habit-tracker/flip-card';
 import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
-import { getBadgeClass } from '@/lib/label-colors';
-import { CountUpNumber } from '@/components/habit-tracker/count-up';
-import { FlashNumber } from '@/components/habit-tracker/flash-number';
-import { StreakFlame } from '@/components/habit-tracker/streak-flame';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
@@ -44,282 +25,25 @@ import {
 } from '@/lib/confetti';
 import {
   format,
-  addDays,
   subDays,
-  startOfDay,
+  addDays,
   parseISO,
   getDaysInMonth,
   getDate,
-  differenceInCalendarDays,
 } from 'date-fns';
 import { toast } from 'sonner';
+import { Clock } from 'lucide-react';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface Habit {
-  id: string;
-  name: string;
-  icon: string;
-  category: string;
-  priority: string;
-  difficulty: string;
-  target: number;
-  targetType: string;
-  color: string;
-  reminder: string | null;
-  startDate: string;
-  endDate: string | null;
-  status: string;
-  notes: string | null;
-  order: number;
-  trackTime: boolean;
-  targetTime: string | null;
-  groupId: string | null;
-  _count: { logs: number };
-}
-
-interface HabitLog {
-  id: string;
-  habitId: string;
-  date: string;
-  completed: boolean;
-  value: number;
-  completedAt: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toDateString(isoLike: string): string {
-  return jakartaDateKey(new Date(isoLike));
-}
-
-/**
- * Format a completedAt ISO string to "HH:mm" in Jakarta timezone.
- * BUG-4 fix: previously used `new Date(iso).getHours()` which reads
- * the BROWSER's local TZ. Inconsistent with daily-recap.tsx and
- * finance-transactions.tsx which use `timeZone: 'Asia/Jakarta'`.
- * Now uses Intl.DateTimeFormat for TZ-correct display on any device.
- */
-function formatJakartaTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Jakarta',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(iso));
-}
-
-function timeDiffMinutes(time: string, target: string): number {
-  const [th, tm] = target.split(':').map(Number);
-  const [ah, am] = time.split(':').map(Number);
-  return (ah * 60 + am) - (th * 60 + tm);
-}
-
-// NOTE: `toLocalISO(date)` was removed (BUG-17 fix). It converted a Date to an
-// ISO string using the BROWSER's local timezone offset, which produced wrong
-// results on non-Jakarta browsers since the rest of the app uses Asia/Jakarta.
-// Callers now use `jakartaNowIso()` (for "now") or build the ISO directly with
-// a `+07:00` offset (for user-entered date+time).
-
-/**
- * Compute the current streak (consecutive completed days ending at `date`)
- * for a single habit, using its month-cached logs.
- */
-function computeStreak(logs: HabitLog[], dateStr: string): number {
-  if (!logs || logs.length === 0) return 0;
-  const completedDays = new Set(
-    logs.filter((l) => l.completed).map((l) => toDateString(l.date)),
-  );
-  if (completedDays.size === 0) return 0;
-
-  let streak = 0;
-  const cursor = parseISO(dateStr);
-  // If today isn't completed yet, streak can still count up to yesterday.
-  if (!completedDays.has(dateStr)) {
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  // Walk backwards counting consecutive completed days (cap at 365 for safety).
-  for (let i = 0; i < 365; i++) {
-    const key = format(cursor, 'yyyy-MM-dd');
-    if (completedDays.has(key)) {
-      streak++;
-      cursor.setDate(cursor.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-/**
- * ANIM-3: Last-7-days status for the FlipCard back face.
- * Returns 7 entries (oldest → newest) with `done` flag + day-of-month label.
- * Uses the month-cached logs (same source as computeStreak). Days outside the
- * cached month are treated as not-done — acceptable for a quick stats view.
- */
-function getLast7DaysStatus(
-  logs: HabitLog[] | undefined,
-  todayStr: string,
-): { done: boolean; dateNum: number }[] {
-  const completedDays = new Set(
-    (logs || []).filter((l) => l.completed).map((l) => toDateString(l.date)),
-  );
-  const today = parseISO(todayStr);
-  const result: { done: boolean; dateNum: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const day = subDays(today, i);
-    const key = format(day, 'yyyy-MM-dd');
-    result.push({ done: completedDays.has(key), dateNum: day.getDate() });
-  }
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Category colour system — premium pastel tints per category
-// ---------------------------------------------------------------------------
-
-const CATEGORY_STYLES: Record<
-  string,
-  { tint: string; ring: string; glow: string; text: string; hex: string }
-> = {
-  Productivity: { tint: 'cat-emerald', ring: '#10b981', glow: 'rgba(16,185,129,0.25)', text: 'text-success dark:text-success/80', hex: '#10b981' },
-  Learning: { tint: 'cat-emerald', ring: '#10b981', glow: 'rgba(16,185,129,0.25)', text: 'text-success dark:text-success/80', hex: '#10b981' },
-  Fitness: { tint: 'cat-orange', ring: '#f97316', glow: 'rgba(249,115,22,0.25)', text: 'text-orange-600 dark:text-orange-400', hex: '#f97316' },
-  Health: { tint: 'cat-teal', ring: '#14b8a6', glow: 'rgba(20,184,166,0.25)', text: 'text-teal-600 dark:text-teal-400', hex: '#14b8a6' },
-  // FIX-COLOR-P2: Reading was cat-sky/#0ea5e9 — replaced with orange.
-  Reading: { tint: 'cat-orange', ring: '#f97316', glow: 'rgba(249,115,22,0.25)', text: 'text-orange-600 dark:text-orange-400', hex: '#f97316' },
-  Personal: { tint: 'cat-rose', ring: '#ec4899', glow: 'rgba(236,72,153,0.25)', text: 'text-rose-600 dark:text-rose-400', hex: '#ec4899' },
-  Creative: { tint: 'cat-fuchsia', ring: '#d946ef', glow: 'rgba(217,70,239,0.25)', text: 'text-fuchsia-600 dark:text-fuchsia-400', hex: '#d946ef' },
-  // FIX-COLOR-P2: Mindfulness was cat-violet/#8b5cf6 — replaced with rose.
-  Mindfulness: { tint: 'cat-rose', ring: '#ec4899', glow: 'rgba(236,72,153,0.25)', text: 'text-rose-600 dark:text-rose-400', hex: '#ec4899' },
-  Social: { tint: 'cat-red', ring: '#ef4444', glow: 'rgba(239,68,68,0.25)', text: 'text-destructive dark:text-destructive/80', hex: '#ef4444' },
-  General: { tint: 'cat-slate', ring: '#64748b', glow: 'rgba(100,116,139,0.25)', text: 'text-slate-600 dark:text-slate-400', hex: '#64748b' },
-};
-
-function getCategoryStyle(category: string) {
-  return CATEGORY_STYLES[category] || CATEGORY_STYLES.General;
-}
-
-// ---------------------------------------------------------------------------
-// Circular progress ring — animated SVG
-// ---------------------------------------------------------------------------
-
-function ProgressRing({
-  progress,
-  color,
-  done,
-  size = 52,
-  primaryColor,
-}: {
-  progress: number;
-  color: string;
-  done: boolean;
-  size?: number;
-  primaryColor: string;
-}) {
-  const stroke = 4;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, progress));
-  const offset = c * (1 - pct / 100);
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="-rotate-90"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="oklch(0.91 0.004 120)"
-          strokeWidth={stroke}
-          className="dark:stroke-white/10"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={done ? primaryColor : color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          className="transition-all duration-700 ease-out"
-          style={{
-            filter: done ? 'drop-shadow(0 0 4px rgba(34,197,94,0.5))' : 'none',
-          }}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center">
-        {done ? (
-          <Check className="h-5 w-5 text-primary animate-[ringPop_0.4s_ease]" strokeWidth={3} />
-        ) : (
-          <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
-            {Math.round(pct)}%
-          </span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// KPI Card
-// ---------------------------------------------------------------------------
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  accent,
-  staggerIndex = 0,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: React.ReactNode;
-  sub: React.ReactNode;
-  accent: 'green' | 'orange' | 'rose' | 'amber';
-  staggerIndex?: number;
-}) {
-  const accents: Record<string, string> = {
-    green: 'kpi-card-green',
-    orange: 'kpi-card-orange',
-    rose: 'kpi-card-rose',
-    amber: 'kpi-card-amber',
-  };
-  const iconColors: Record<string, string> = {
-    green: 'text-success',
-    orange: 'text-orange-500',
-    rose: 'text-rose-500',
-    amber: 'text-warning',
-  };
-  return (
-    <Card
-      className={cn('group anim-stagger p-4', accents[accent])}
-      style={{ animationDelay: `${staggerIndex * 60}ms` }}
-    >
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Icon className={cn('h-3.5 w-3.5', iconColors[accent])} />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-      </div>
-      <p className="text-xl font-bold tracking-tight tabular-nums">{value}</p>
-      <p className="text-[11px] mt-0.5 text-muted-foreground">{sub}</p>
-    </Card>
-  );
-}
+import type { Habit, HabitLog } from './daily-tracker-types';
+import {
+  toDateString,
+  formatJakartaTime,
+  computeStreak,
+} from './daily-tracker-helpers';
+import { DateNav } from './daily-tracker-date-nav';
+import { DailySummary } from './daily-tracker-daily-summary';
+import { HabitCard } from './daily-tracker-habit-card';
+import { LoadingSkeleton } from './daily-tracker-skeleton';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -782,124 +506,30 @@ export default function DailyTracker() {
   if (loading) return <LoadingSkeleton />;
 
   const isToday = selectedDate === todayStr;
+  const monthLogsCache = monthLogsCacheRef.current[selectedDate.slice(0, 7)];
 
   // ---- render ----
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* ─────────────────── Date Navigation ─────────────────── */}
-      <PageHeader
-        title={isToday ? 'Today' : format(dateObj, 'EEEE')}
-        description={`${format(dateObj, 'MMM d, yyyy')} · Day ${dayOfMonth}/${daysInMonth}`}
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={goToPrevDay}
-              className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
-              aria-label="Previous day"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={goToNextDay}
-              className="shrink-0 h-9 w-9 rounded-xl hover:bg-accent"
-              aria-label="Next day"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            {!isToday && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToToday}
-                className="shrink-0 rounded-xl h-9"
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                Today
-              </Button>
-            )}
-          </div>
-        }
+      <DateNav
+        isToday={isToday}
+        dateObj={dateObj}
+        dayOfMonth={dayOfMonth}
+        daysInMonth={daysInMonth}
+        onPrev={goToPrevDay}
+        onNext={goToNextDay}
+        onToday={goToToday}
       />
 
       {/* ─────────────────── Daily Summary (4 KPI cards) ─────── */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard
-          icon={Check}
-          label="Completed"
-          accent="green"
-          staggerIndex={0}
-          value={
-            <span>
-              <FlashNumber value={completedCount} />
-              <span className="text-sm font-medium text-muted-foreground">
-                /{totalCount}
-              </span>
-            </span>
-          }
-          sub={
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-1 flex-1 rounded-full bg-muted overflow-hidden">
-                <span
-                  className="block h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${completionPct}%` }}
-                />
-              </span>
-              <span className="text-primary font-medium">
-                {completionPct}%
-              </span>
-            </span>
-          }
-        />
-        <KpiCard
-          icon={Zap}
-          label="XP Today"
-          accent="orange"
-          staggerIndex={1}
-          value={
-            <span>
-              <CountUpNumber value={todayXP} />
-              <span className="text-sm font-medium text-muted-foreground"> XP</span>
-            </span>
-          }
-          sub={<span className="text-orange-600 dark:text-orange-400">earn more to level up</span>}
-        />
-        <KpiCard
-          icon={Flame}
-          label="Streak"
-          accent="rose"
-          staggerIndex={2}
-          value={
-            <span>
-              <CountUpNumber value={bestStreak} />
-              <span className="text-sm font-medium text-muted-foreground ml-1.5">
-                {bestStreak === 1 ? ' day' : ' days'}
-              </span>
-            </span>
-          }
-          sub={
-            <span className="text-rose-600 dark:text-rose-400">
-              {bestStreak >= 7 ? 'On fire! 🔥' : bestStreak > 0 ? 'Keep going!' : 'Start today'}
-            </span>
-          }
-        />
-        <KpiCard
-          icon={Star}
-          label="XP"
-          accent="amber"
-          staggerIndex={3}
-          value={
-            <span>
-              <FlashNumber value={todayXP} />
-              <span className="text-sm font-medium text-muted-foreground ml-1">XP</span>
-            </span>
-          }
-          sub={<span className="text-warning dark:text-warning/80">Lv {Math.floor(todayXP / 100) + 1} · {todayXP % 100}/100</span>}
-        />
-      </section>
+      <DailySummary
+        completedCount={completedCount}
+        totalCount={totalCount}
+        completionPct={completionPct}
+        todayXP={todayXP}
+        bestStreak={bestStreak}
+      />
 
       {/* ─────────────────── Daily Notes (full-width) ────────── */}
       <section className="daily-notes-card">
@@ -984,243 +614,26 @@ export default function DailyTracker() {
               const isToggling = togglingIds.has(habit.id);
               const justCompleted = recentlyCompleted.has(habit.id);
               const doneTime = isDone ? completedAtMap[habit.id] : null;
-              const catStyle = getCategoryStyle(habit.category);
-              const pct = isDone ? 100 : 0;
-              const streak = (() => {
-                const month = selectedDate.slice(0, 7);
-                const cache = monthLogsCacheRef.current[month];
-                // BUG-18 fix: return 0 when no cache (was _count.logs which
-                // is the total log count, not a streak — completely unrelated
-                // and could show e.g. "47" instead of the actual streak).
-                if (!cache) return 0;
-                return computeStreak(cache[habit.id] || [], selectedDate);
-              })();
-              const isLate =
-                doneTime && habit.targetTime && doneTime > habit.targetTime;
-
-              // ANIM-3 / Feature 6: derive last-7-days status + total logs
-              // for the FlipCard back face. Reuses the same month cache that
-              // computeStreak uses (so the front streak and back mini-calendar
-              // stay in sync). Days outside the cached month are treated as
-              // not-done — acceptable for a quick stats view.
-              const last7Days = (() => {
-                const month = selectedDate.slice(0, 7);
-                const cache = monthLogsCacheRef.current[month];
-                return getLast7DaysStatus(cache?.[habit.id], todayStr);
-              })();
-              const totalLogs = habit._count?.logs ?? 0;
 
               return (
-                <FlipCard
+                <HabitCard
                   key={habit.id}
-                  className={cn(
-                    'anim-stagger',
-                    !justCompleted && 'anim-lift',
-                    justCompleted && 'habit-card-pop anim-check-pop',
-                  )}
-                  style={{ animationDelay: `${idx * 40}ms` }}
-                  front={
-                    <Card
-                      className={cn(
-                        'group cursor-pointer select-none p-5 gap-0 h-full transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
-                        isDone && 'habit-card-completed',
-                      )}
-                    >
-                      {/* Checkbox top-right (stopPropagation: clicking it
-                          toggles the habit without flipping the card). */}
-                      <div className="absolute top-4 right-4 z-10">
-                        <Checkbox
-                          checked={isDone}
-                          onCheckedChange={() => handleHabitCheck(habit)}
-                          disabled={isToggling}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Set confetti origin to the checkbox button itself,
-                            // since onCheckedChange doesn't receive a DOM event.
-                            confettiElRef.current = e.currentTarget as HTMLElement;
-                          }}
-                          className={cn(
-                            'h-5 w-5 rounded-md transition-all duration-200',
-                            isDone &&
-                              'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
-                            justCompleted && 'animate-[ringPop_0.4s_ease]',
-                          )}
-                        />
-                      </div>
-
-                      {/* ANIM-3: Flip hint icon — top-left, pointer-events-none
-                          so taps pass through to the FlipCard flip handler. */}
-                      <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                        <RotateCw className="h-3.5 w-3.5 text-muted-foreground/40" />
-                      </div>
-
-                      {/* Icon + Category tint */}
-                      <div
-                        className={cn(
-                          'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-3 transition-transform duration-300 group-hover:scale-110',
-                          catStyle.tint,
-                        )}
-                      >
-                        {habit.icon}
-                      </div>
-
-                      {/* Title */}
-                      <h4
-                        className={cn(
-                          'text-sm font-bold truncate pr-8 transition-all duration-200',
-                          isDone && 'line-through text-muted-foreground',
-                        )}
-                      >
-                        {habit.name}
-                      </h4>
-
-                      {/* Time + Category badge */}
-                      <div className="flex items-center gap-1.5 mt-1.5 mb-4 flex-wrap">
-                        {habit.targetTime && (
-                          <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums">
-                            <Clock className="h-3 w-3" />
-                            {habit.targetTime}
-                          </span>
-                        )}
-                        {doneTime && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAnalysisHabitId(habit.id);
-                            }}
-                            className={cn(
-                              'inline-flex items-center gap-0.5 text-[11px] tabular-nums rounded px-1 py-0.5 hover:bg-accent transition-colors',
-                              isLate
-                                ? 'text-destructive dark:text-destructive/80'
-                                : 'text-primary',
-                            )}
-                            title={
-                              habit.targetTime
-                                ? `Target: ${habit.targetTime}`
-                                : 'Click for time analysis'
-                            }
-                          >
-                            <Check className="h-3 w-3" />
-                            {doneTime}
-                            {isLate &&
-                              ` +${timeDiffMinutes(doneTime, habit.targetTime!)}m`}
-                          </button>
-                        )}
-                        <span
-                          className={cn(
-                            'inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full',
-                            getBadgeClass(
-                              categoryMap[habit.category]?.color || 'slate',
-                            ),
-                          )}
-                        >
-                          {habit.category}
-                        </span>
-                      </div>
-
-                      {/* Circular Progress + Streak */}
-                      <div className="flex items-center justify-between">
-                        <ProgressRing
-                          progress={pct}
-                          color={catStyle.hex}
-                          done={isDone}
-                          primaryColor={primaryColor}
-                        />
-                        <div className="text-right">
-                          {isDone ? (
-                            <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
-                              <Check className="h-3 w-3" /> Done
-                            </span>
-                          ) : (
-                            <span className="text-[11px] font-medium text-muted-foreground">
-                              Not started
-                            </span>
-                          )}
-                          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
-                            <StreakFlame streak={streak} size="sm" />
-                            {streak} {streak === 1 ? 'day' : 'days'}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  }
-                  back={
-                    <Card
-                      className={cn(
-                        'p-5 gap-0 h-full flex flex-col overflow-hidden',
-                        isDone && 'habit-card-completed',
-                      )}
-                    >
-                      {/* Header: icon + name + flip hint */}
-                      <div className="flex items-center gap-2 mb-3 min-w-0">
-                        <span className="text-lg shrink-0">{habit.icon}</span>
-                        <h4 className="text-sm font-bold truncate flex-1">
-                          {habit.name}
-                        </h4>
-                        <RotateCw className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-                      </div>
-
-                      {/* Last 7 days mini calendar */}
-                      <div className="mb-3">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
-                          Last 7 days
-                        </p>
-                        <div className="flex items-center gap-1">
-                          {last7Days.map((day, i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                'flex-1 h-7 rounded-md flex items-center justify-center text-[10px] font-semibold tabular-nums',
-                                day.done
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-muted-foreground/60',
-                              )}
-                            >
-                              {day.dateNum}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Stats row */}
-                      <div className="grid grid-cols-2 gap-2 mt-auto">
-                        <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                            Total logs
-                          </p>
-                          <p className="text-sm font-bold tabular-nums">
-                            {totalLogs}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                            Streak
-                          </p>
-                          <p className="text-sm font-bold tabular-nums flex items-center gap-1">
-                            <StreakFlame streak={streak} size="sm" />
-                            {streak}d
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Notes preview */}
-                      {habit.notes ? (
-                        <div className="mt-3 pt-3 border-t border-border">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                            Notes
-                          </p>
-                          <p className="text-xs text-muted-foreground line-clamp-3">
-                            {habit.notes}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-3 pt-3 border-t border-border text-[10px] text-muted-foreground/60 italic">
-                          Tap to flip back
-                        </p>
-                      )}
-                    </Card>
-                  }
+                  habit={habit}
+                  idx={idx}
+                  isDone={isDone}
+                  isToggling={isToggling}
+                  justCompleted={justCompleted}
+                  doneTime={doneTime ?? null}
+                  monthLogs={monthLogsCache?.[habit.id]}
+                  selectedDate={selectedDate}
+                  todayStr={todayStr}
+                  categoryColor={categoryMap[habit.category]?.color || 'slate'}
+                  primaryColor={primaryColor}
+                  onToggleHabit={handleHabitCheck}
+                  onSetConfettiEl={(el) => {
+                    confettiElRef.current = el;
+                  }}
+                  onOpenAnalysis={(habitId) => setAnalysisHabitId(habitId)}
                 />
               );
             })}
@@ -1319,77 +732,6 @@ export default function DailyTracker() {
         open={!!analysisHabitId}
         onOpenChange={(open) => !open && setAnalysisHabitId(null)}
       />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Loading skeleton
-// ---------------------------------------------------------------------------
-
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-5 max-w-6xl mx-auto">
-      {/* Header skeleton */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 skel-hybrid skel-stagger skel-card" style={{ animationDelay: '0ms' }} />
-          <div className="space-y-1.5">
-            <div className="h-5 w-24 skel-hybrid skel-stagger" style={{ animationDelay: '30ms' }} />
-            <div className="h-3 w-32 skel-hybrid skel-stagger" style={{ animationDelay: '60ms' }} />
-          </div>
-          <div className="h-9 w-9 skel-hybrid skel-stagger skel-card" style={{ animationDelay: '90ms' }} />
-        </div>
-      </div>
-
-      {/* KPI grid skeleton */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="skel-card skel-hybrid skel-stagger p-4"
-            style={{ animationDelay: `${120 + i * 60}ms` }}
-          >
-            <div className="h-3 w-16 skel-hybrid skel-stagger mb-2" style={{ animationDelay: `${150 + i * 60}ms` }} />
-            <div className="h-7 w-20 skel-hybrid skel-stagger mb-1" style={{ animationDelay: `${180 + i * 60}ms` }} />
-            <div className="h-2 w-full skel-hybrid skel-stagger" style={{ animationDelay: `${210 + i * 60}ms` }} />
-          </div>
-        ))}
-      </div>
-
-      {/* Notes card skeleton */}
-      <div className="daily-notes-card">
-        <div className="h-4 w-24 skel-hybrid skel-stagger mb-3" style={{ animationDelay: '400ms' }} />
-        <div className="h-16 w-full skel-hybrid skel-stagger" style={{ animationDelay: '430ms' }} />
-      </div>
-
-      {/* Filter bar skeleton */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="h-4 w-20 skel-hybrid skel-stagger" style={{ animationDelay: '500ms' }} />
-        <div className="h-8 w-28 skel-hybrid skel-stagger skel-card" style={{ animationDelay: '530ms' }} />
-      </div>
-
-      {/* Habit cards skeleton (content-aware) */}
-      <div className="habit-grid">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="skel-card skel-hybrid skel-stagger p-5"
-            style={{ animationDelay: `${600 + i * 60}ms` }}
-          >
-            <div className="h-12 w-12 skel-hybrid skel-stagger skel-card mb-3" style={{ animationDelay: `${630 + i * 60}ms` }} />
-            <div className="h-4 w-28 skel-hybrid skel-stagger mb-2" style={{ animationDelay: `${660 + i * 60}ms` }} />
-            <div className="h-3 w-20 skel-hybrid skel-stagger mb-4" style={{ animationDelay: `${690 + i * 60}ms` }} />
-            <div className="flex items-center justify-between">
-              <div className="h-12 w-12 skel-hybrid skel-stagger skel-circle" style={{ animationDelay: `${720 + i * 60}ms` }} />
-              <div className="space-y-1.5">
-                <div className="h-3 w-14 skel-hybrid skel-stagger ml-auto" style={{ animationDelay: `${750 + i * 60}ms` }} />
-                <div className="h-3 w-10 skel-hybrid skel-stagger ml-auto" style={{ animationDelay: `${780 + i * 60}ms` }} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

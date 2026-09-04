@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Invalid payload. Expected a JSON object with keys: habits, habitLogs, dailyLogs, journals, goals, challenges, badges, rewards, transactions, budgets, financeCategories, settings (all arrays).',
+            'Invalid payload. Expected a JSON object with keys: habits, habitLogs, dailyLogs, journals, goals, transactions, budgets, financeCategories, settings (all arrays).',
         },
         { status: 400 }
       );

@@ -3,16 +3,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Cell,
-} from 'recharts';
-import {
   ChevronRight,
   ChevronLeft,
   Calendar,
@@ -20,16 +10,11 @@ import {
   Wallet,
   Target,
   Receipt,
-  Clock,
-  Settings2,
-  Sparkles,
-  Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatRupiah, compactRupiah, type Transaction } from './finance-types';
+import { formatRupiah, type Transaction } from './finance-types';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { CountUpRupiah, CountUpNumber } from './count-up';
-import { jakartaDateString } from '@/lib/jakarta-date';
 import { dayToWeek, jakartaDateKey } from '@/lib/timezone';
 import {
   Select,
@@ -38,101 +23,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
-// ── Types ───────────────────────────────────────────────────────────────
-
-type DrillLevel = 'month' | 'week' | 'day' | 'transactions';
-
-interface MonthData {
-  month: string;
-  label: string;
-  total: number;
-}
-
-interface DayData {
-  day: number;
-  date: string;
-  dayName: string;
-  total: number;
-  count: number;
-}
-
-interface WeekBudgetData {
-  month: string;
-  weeks: {
-    week: number;
-    target: number;
-    effectiveTarget: number;
-    spent: number;
-    remaining: number;
-    rollover: boolean;
-    rolloverIn: number;
-    percentage: number;
-    isOverBudget: boolean;
-  }[];
-  totalTarget: number;
-  totalSpent: number;
-  suggestedTarget: number;
-}
-
-interface WeekData {
-  week: number;
-  label: string;
-  dateRange: string;
-  total: number;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────
-
-function monthLabel(monthKey: string): string {
-  const [y, m] = monthKey.split('-');
-  return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-}
-
-function fullMonthLabel(monthKey: string): string {
-  const [y, m] = monthKey.split('-');
-  return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-}
-
-/** Build last 6 months options for the picker */
-function buildMonthOptions(): { value: string; label: string }[] {
-  const now = new Date();
-  const opts: { value: string; label: string }[] = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const label = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-    // For current month, cap end date at today
-    const start = new Date(d.getFullYear(), d.getMonth(), 1);
-    const end = i === 0
-      ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      : new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    opts.push({ value: key, label });
-  }
-  return opts;
-}
-
-// JAKARTA_OFFSET_MS removed — all timezone conversions now use
-// jakartaDateKey() from @/lib/timezone which works on any server TZ.
+import type {
+  DrillLevel,
+  MonthData,
+  DayData,
+  WeekBudgetData,
+  WeekData,
+  FinanceExplorerProps,
+} from './finance-explorer-types';
+import { monthLabel, fullMonthLabel, buildMonthOptions } from './finance-explorer-helpers';
+import { MonthView } from './finance-explorer-month-view';
+import { WeekView } from './finance-explorer-week-view';
+import { DayView } from './finance-explorer-day-view';
+import { TransactionsView } from './finance-explorer-transactions-view';
+import { BudgetDialog } from './finance-explorer-budget-dialog';
 
 // ── Component ───────────────────────────────────────────────────────────
 
 export default function FinanceExplorer({
   getCategoryMeta,
-}: {
-  getCategoryMeta: (cat: string) => { emoji: string; color: string };
-}) {
+}: FinanceExplorerProps) {
   // FIX-COLOR-P3: pull additional theme tokens as hex so they can be used
   // in string-concatenation contexts (gradient stops, alpha hex suffixes)
   // AND adapt to the user's chosen color theme. useThemeColor converts the
@@ -539,217 +451,49 @@ export default function FinanceExplorer({
 
       {/* ── Chart Area (changes per level) ── */}
       <div key={level} className="anim-tab-enter">
-        {/* Level 1: Monthly bar chart */}
         {level === 'month' && (
-          <div className="fe-card">
-            <h3 className="fe-card-title">Overview 6 Bulan</h3>
-            {monthlyError ? (
-              <p className="text-sm text-destructive text-center py-12">Gagal memuat data. Coba refresh halaman.</p>
-            ) : monthlyData.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-3xl mb-2 anim-float-subtle">📊</div>
-                <p className="text-sm text-muted-foreground">Belum ada data pengeluaran</p>
-              </div>
-            ) : (
-            <div className="w-full min-w-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={monthlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: mutedFgColor }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: mutedFgColor }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={40} />
-                <RechartsTooltip
-                  formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
-                  labelFormatter={(label: string) => label || ''}
-                  contentStyle={{ borderRadius: '12px', fontSize: '11px', backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}
-                  cursor={{ fill: `${primaryColor}10` }}
-                />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) drillToMonth(d.month); }}>
-                  {monthlyData.map((entry, i) => (
-                    <Cell key={i} fill={entry.month === selectedMonth ? primaryColor : `${primaryColor}60`} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            </div>
-            )}
-            <p className="text-[11px] text-muted-foreground text-center mt-2">Klik bar bulan untuk drill-down ke minggu →</p>
-          </div>
+          <MonthView
+            monthlyData={monthlyData}
+            monthlyError={monthlyError}
+            selectedMonth={selectedMonth}
+            primaryColor={primaryColor}
+            mutedFgColor={mutedFgColor}
+            onDrillToMonth={drillToMonth}
+          />
         )}
 
-        {/* Level 2: Weekly bar chart + budget targets */}
         {level === 'week' && (
-          <div className="fe-card anim-slide-in-right">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="fe-card-title">Breakdown per Minggu — {fullMonthLabel(selectedMonth)}</h3>
-              {budgetData && budgetData.suggestedTarget > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <button onClick={handleAutoSuggest} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Set all weeks to suggested target">
-                    <Sparkles className="h-3 w-3" /> Auto
-                  </button>
-                  <button onClick={handleSplit} className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline" title="Distribute evenly">
-                    <Copy className="h-3 w-3" /> Split
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="flex items-end justify-between gap-1 sm:gap-3 mt-4 overflow-hidden" style={{ height: '210px' }}>
-              {weekData.map((w, i) => {
-                const bw = budgetData?.weeks.find((b) => b.week === w.week);
-                const target = bw?.target || 0;
-                const maxVal = Math.max(...weekData.map((d) => d.total), target, 1);
-                const barAreaHeight = 130;
-                const heightPx = maxVal > 0 ? Math.round((w.total / maxVal) * barAreaHeight) : 0;
-                const targetHeightPx = target > 0 && maxVal > 0 ? Math.round((target / maxVal) * barAreaHeight) : 0;
-                const isOver = bw?.isOverBudget ?? false;
-                return (
-                  <div
-                    key={w.week}
-                    className="flex-1 min-w-0 flex flex-col items-center cursor-pointer h-full"
-                    onClick={() => drillFromWeekToDay(w.week)}
-                  >
-                    {/* Value label — compactRupiah for narrow mobile columns */}
-                    <div className="h-7 flex items-end justify-center shrink-0 w-full">
-                      <span className={cn('text-[11px] font-bold tabular-nums text-center truncate', isOver && 'text-destructive')}>{w.total > 0 ? compactRupiah(w.total) : '—'}</span>
-                    </div>
-                    {/* Bar + target line */}
-                    <div className="w-full flex-1 flex items-end min-h-0 relative">
-                      {/* Target dashed line */}
-                      {target > 0 && (
-                        <div
-                          className="absolute left-0 right-0 border-t-2 border-dashed z-20"
-                          style={{ bottom: `${targetHeightPx}px`, borderColor: warningColor, opacity: 0.6 }}
-                        />
-                      )}
-                      {/* Bar */}
-                      <div
-                        className={cn(
-                          'w-full rounded-t-lg transition-all duration-300 hover:opacity-80',
-                          isOver && 'anim-flash-red'
-                        )}
-                        style={{
-                          height: `${heightPx}px`,
-                          background: isOver
-                            // FIX-COLOR-P3: was #ef4444→#f87171 hardcoded red
-                            // gradient. Now uses destructiveColor (hex from
-                            // useThemeColor) with alpha suffix so it follows
-                            // the theme while preserving the gradient effect.
-                            ? `linear-gradient(180deg, ${destructiveColor}, ${destructiveColor}aa)`
-                            : `linear-gradient(180deg, ${primaryColor}, ${primaryColor}80)`,
-                          minHeight: w.total > 0 ? '8px' : '0',
-                        }}
-                      />
-                    </div>
-                    {/* Label + set target button */}
-                    <div className="h-12 flex flex-col items-center justify-end shrink-0 gap-0.5 w-full">
-                      <span className="text-[11px] font-semibold text-muted-foreground">{w.label}</span>
-                      <span className="text-[11px] text-muted-foreground">{w.dateRange}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEditDialog(w.week); }}
-                        className={cn(
-                          'flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all whitespace-nowrap',
-                          target > 0
-                            ? isOver
-                              ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
-                              : 'bg-success/10 text-success hover:bg-success/20'
-                            : 'bg-primary/10 text-primary hover:bg-primary/20',
-                        )}
-                      >
-                        <Target className="h-2.5 w-2.5 shrink-0" />
-                        <span className="hidden sm:inline">{target > 0 ? compactRupiah(target) : 'Set Target'}</span>
-                        <span className="sm:hidden sr-only">{target > 0 ? 'Edit target' : 'Set target'}</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-4 mt-2">
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="w-2 h-2 rounded" style={{ backgroundColor: primaryColor }} /> Spent
-              </span>
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="w-3 h-0 border-t-2 border-dashed" style={{ borderColor: warningColor }} /> Target
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground text-center mt-1">Klik minggu untuk drill-down ke hari · Klik target untuk edit →</p>
-          </div>
+          <WeekView
+            weekData={weekData}
+            budgetData={budgetData}
+            selectedMonth={selectedMonth}
+            primaryColor={primaryColor}
+            warningColor={warningColor}
+            destructiveColor={destructiveColor}
+            onDrillFromWeekToDay={drillFromWeekToDay}
+            onOpenEditDialog={openEditDialog}
+            onAutoSuggest={handleAutoSuggest}
+            onSplit={handleSplit}
+          />
         )}
 
-        {/* Level 3: Daily breakdown for selected week */}
         {level === 'day' && selectedWeek !== null && (
-          <div className="fe-card">
-            <h3 className="fe-card-title">Rincian Harian — Week {selectedWeek} ({weekData.find(w => w.week === selectedWeek)?.dateRange})</h3>
-            {dayData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi di minggu ini</p>
-            ) : (
-              <div className="space-y-1.5 mt-4">
-                {dayData.map((d, i) => {
-                  const maxVal = Math.max(...dayData.map((dd) => dd.total), 1);
-                  const pct = maxVal > 0 ? Math.round((d.total / maxVal) * 100) : 0;
-                  return (
-                    <button
-                      key={d.day}
-                      onClick={() => drillFromDayToTransactions(d.day)}
-                      className="fe-cat-row anim-stagger w-full"
-                      style={{ animationDelay: `${i * 50}ms` }}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="flex flex-col items-center w-10 shrink-0">
-                          <span className="text-sm font-bold tabular-nums">{d.day}</span>
-                          <span className="text-[11px] text-muted-foreground truncate w-full text-center">{d.dayName.slice(0, 3)}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-xs text-muted-foreground truncate">{d.count} transaksi</span>
-                            <span className="text-sm font-bold tabular-nums">{formatRupiah(d.total)}</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%`, backgroundColor: primaryColor }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <p className="text-[11px] text-muted-foreground text-center mt-2">Klik hari untuk lihat transaksi →</p>
-          </div>
+          <DayView
+            selectedWeek={selectedWeek}
+            weekData={weekData}
+            dayData={dayData}
+            primaryColor={primaryColor}
+            onDrillFromDayToTransactions={drillFromDayToTransactions}
+          />
         )}
 
-        {/* Level 4: Transaction list for selected day */}
         {level === 'transactions' && selectedDay !== null && (
-          <div className="fe-card">
-            <h3 className="fe-card-title">Transaksi — {dayData.find((d) => d.day === selectedDay)?.dayName}, {dayData.find((d) => d.day === selectedDay)?.date}</h3>
-            {transactionList.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi</p>
-            ) : (
-              <div className="space-y-1 mt-4 max-h-96 overflow-y-auto">
-                {transactionList.filter(Boolean).map((tx, i) => {
-                  const meta = getCategoryMeta(tx.category || 'Unknown');
-                  const d = new Date(tx.date);
-                  return (
-                    <div key={tx.id} className="fe-tx-row anim-stagger" style={{ animationDelay: `${i * 30}ms` }}>
-                      <div className="fe-tx-logo">{meta.emoji}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{tx.description || tx.category || 'Unknown'}</p>
-                        <p className="text-[11px] text-muted-foreground flex items-center gap-0.5">
-                          <Clock className="h-2.5 w-2.5" />
-                          {d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })} · {(tx.category || 'Unknown')}
-                        </p>
-                      </div>
-                      <span className="text-sm font-bold tabular-nums">{formatRupiah(tx.amount || 0)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <TransactionsView
+            selectedDay={selectedDay}
+            dayData={dayData}
+            transactionList={transactionList}
+            getCategoryMeta={getCategoryMeta}
+          />
         )}
       </div>
 
@@ -773,47 +517,17 @@ export default function FinanceExplorer({
       </div>
 
       {/* ── Budget Edit Dialog ── */}
-      <Dialog open={editingWeek !== null} onOpenChange={(open) => !open && setEditingWeek(null)}>
-        <DialogContent className="max-w-[95vw] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Target Week {editingWeek}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            {/* Smart Suggestion */}
-            {budgetData && budgetData.suggestedTarget > 0 && (
-              <div className="flex items-center justify-between rounded-xl bg-primary/5 p-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <div>
-                    <p className="text-xs font-medium">Saran Target</p>
-                    <p className="text-sm font-bold">{formatRupiah(budgetData.suggestedTarget)}</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEditTarget(String(budgetData.suggestedTarget))}>
-                  Pakai
-                </Button>
-              </div>
-            )}
-            {/* Target Input */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Target Pengeluaran</Label>
-              <Input type="number" value={editTarget} onChange={(e) => setEditTarget(e.target.value)} placeholder="500000" className="text-lg font-bold" />
-              <p className="text-xs text-muted-foreground">Masukkan maks pengeluaran untuk minggu ini</p>
-            </div>
-            {/* Rollover Toggle */}
-            <div className="flex items-center justify-between rounded-xl border p-3">
-              <div>
-                <Label className="text-sm font-medium">Rollover</Label>
-                <p className="text-xs text-muted-foreground">Sisa budget masuk minggu depan</p>
-              </div>
-              <Switch checked={editRollover} onCheckedChange={setEditRollover} />
-            </div>
-            <Button className="w-full" onClick={handleSaveBudget} disabled={saving || !editTarget}>
-              {saving ? 'Menyimpan...' : 'Simpan Target'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <BudgetDialog
+        editingWeek={editingWeek}
+        budgetData={budgetData}
+        editTarget={editTarget}
+        editRollover={editRollover}
+        saving={saving}
+        onSetEditingWeek={setEditingWeek}
+        onSetEditTarget={setEditTarget}
+        onSetEditRollover={setEditRollover}
+        onSave={handleSaveBudget}
+      />
     </div>
   );
 }

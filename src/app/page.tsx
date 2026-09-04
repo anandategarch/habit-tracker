@@ -61,8 +61,8 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
 ];
 
 // Primary tabs shown in the mobile bottom navigation bar.
-// Other tabs (Calendar, Goals, Challenges, Rewards, Badges) remain
-// accessible via the hamburger sidebar drawer on mobile.
+// Other tabs (Calendar, Goals) remain accessible via the hamburger
+// sidebar drawer on mobile.
 const BOTTOM_NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
   { id: 'tracker', label: 'Track', icon: CheckSquare },

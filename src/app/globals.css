@@ -914,21 +914,6 @@
               opacity 0.25s ease;
 }
 
-/* Subtle pulse on the bump circle when active — keeps it feeling alive.
-   Disabled for users who prefer reduced motion.
-   CSS-AUDIT-1: Replaced INVALID `hsl(var(--primary) / 0.3)` with
-   `color-mix(in oklab, var(--primary) 30%, transparent)`. The old
-   syntax was always invalid because `--primary` is `oklch(...)` (or a
-   hex value from themeBootstrap) — NOT HSL components — so the entire
-   `hsl()` function evaluated to an invalid value, the `box-shadow`
-   declaration was discarded, and the active bump's pulse shadow was
-   silently dropped (no visible shadow at all during the infinite
-   animation). `color-mix()` accepts any color format and works on
-   Chrome 111+, Safari 16.2+, Firefox 113+. */
-@keyframes anim-nav-bump-pulse {
-  0%, 100% { box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--primary) 30%, transparent); }
-  50%      { box-shadow: 0 6px 16px -2px color-mix(in oklab, var(--primary) 45%, transparent); }
-}
 /* PERF-FIX: removed infinite pulse animation — caused GPU lag on mobile
    with 19+ flame animations + 3D flip cards + framer-motion running
    concurrently. Static shadow is sufficient for visual depth. */

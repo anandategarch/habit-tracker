@@ -1,7 +1,15 @@
 // ── Helpers ──────────────────────────────────────────────────────────────
 // Extracted from daily-recap.tsx during SPLIT-PHASE2-UI.
+//
+// formatTxTime + formatDateShort were consolidated into `@/lib/finance-helpers`
+// during the CONSOLIDATION task (see worklog.md) — both helpers had identical
+// implementations in daily-recap-helpers.ts and category-explorer.tsx.
 
 import { formatRupiah, compactRupiah } from './finance-types';
+import { formatTxTime, formatDateShort } from '@/lib/finance-helpers';
+
+// Re-export so existing call sites that import from this module keep working.
+export { formatTxTime, formatDateShort };
 
 // Axis labels for the 48-bucket (30-min) heatmap.
 // With 48 bars, we label every 6 hours (5 labels): '00', '06', '12', '18', '24'.
@@ -9,28 +17,6 @@ import { formatRupiah, compactRupiah } from './finance-types';
 // Using `justify-between`, these 5 labels align to: bar 0, bar 12, bar 24,
 // bar 36, bar 47 — which is exactly 00:00, 06:00, 12:00, 18:00, 24:00.
 export const HOUR_LABELS = ['00', '06', '12', '18', '24'];
-
-/**
- * Format a transaction's ISO date string to a Jakarta wall-clock time.
- * Uses `toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })` — the
- * SAME code path as the Transactions tab (`finance-transactions.tsx:65-68`).
- * This guarantees the time shown in the daily recap always matches the time
- * shown in the Transactions tab for the same transaction.
- *
- * Returns "HH.MM" (Indonesian format uses dot separator) or empty string.
- */
-export function formatTxTime(isoDate: string): string {
-  try {
-    const d = new Date(isoDate);
-    return d.toLocaleTimeString('id-ID', {
-      timeZone: 'Asia/Jakarta',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
-}
 
 /**
  * Format a 30-min bucket index (0-47) as "HH.MM" for the heatmap tooltip.
@@ -61,13 +47,6 @@ export function formatDayMonthLabel(d: string): string {
     weekday: 'short',
   }).format(date);
   return `${dayNum}-${weekday}`;
-}
-
-export function formatDateShort(d: string): string {
-  // d = "2026-07-31" → "31 Jul"
-  const [y, m, day] = d.split('-');
-  const date = new Date(Number(y), Number(m) - 1, Number(day));
-  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
 /**

@@ -135,7 +135,6 @@ const AMBER = '#f59e0b';
 const VIOLET = '#8b5cf6';
 const PINK = '#ec4899';
 const CYAN = '#06b6d4';
-const GOLD = '#fbbf24';
 
 /**
  * Spawn a transient celebration overlay (radial primary glow) on top of the
@@ -432,115 +431,6 @@ export function milestone365() {
       shapes: [trophy, star, fire],
     });
   }, 1400);
-}
-
-/**
- * Badge unlock — golden glow + 🏅 particles from center.
- * Use for any badge unlock (manual or auto).
- */
-export function badgeUnlock() {
-  if (prefersReducedMotion()) return;
-
-  showCelebrationOverlay(1400);
-
-  const goldColors = [GOLD, AMBER, '#fde68a', '#fcd34d'];
-  const medal = confetti.shapeFromText({ text: '🏅', scalar: 2 });
-  const star = confetti.shapeFromText({ text: '⭐', scalar: 1.8 });
-
-  // Golden burst
-  confetti({
-    particleCount: 80,
-    spread: 100,
-    startVelocity: 40,
-    origin: { x: 0.5, y: 0.5 },
-    scalar: 1.2,
-    ticks: 160,
-    colors: goldColors,
-  });
-
-  // Medal + star emojis
-  window.setTimeout(() => {
-    confetti({
-      particleCount: 8,
-      spread: 80,
-      startVelocity: 35,
-      origin: { x: 0.5, y: 0.5 },
-      scalar: 2,
-      ticks: 200,
-      shapes: [medal, star],
-    });
-  }, 180);
-
-  // Sparkle follow-up
-  window.setTimeout(() => {
-    confetti({
-      particleCount: 30,
-      spread: 70,
-      startVelocity: 25,
-      origin: { x: 0.5, y: 0.4 },
-      scalar: 0.8,
-      ticks: 100,
-      colors: ['#fde68a', '#fcd34d', '#ffffff'],
-    });
-  }, 350);
-}
-
-/**
- * Challenge complete — 🏆 trophy + sustained celebratory confetti.
- * Bigger than a regular completion, smaller than milestone365.
- */
-export function challengeComplete() {
-  if (prefersReducedMotion()) return;
-
-  showCelebrationOverlay(1800);
-
-  const colors = [GREEN, AMBER, VIOLET, PINK, CYAN];
-  const trophy = confetti.shapeFromText({ text: '🏆', scalar: 2.2 });
-  const party = confetti.shapeFromText({ text: '🎉', scalar: 2 });
-
-  // Center burst
-  confetti({
-    particleCount: 100,
-    spread: 100,
-    startVelocity: 45,
-    origin: { x: 0.5, y: 0.5 },
-    scalar: 1.2,
-    ticks: 180,
-    colors,
-  });
-
-  // Trophy + party emojis
-  window.setTimeout(() => {
-    confetti({
-      particleCount: 8,
-      spread: 90,
-      startVelocity: 40,
-      origin: { x: 0.5, y: 0.5 },
-      scalar: 2.2,
-      ticks: 220,
-      shapes: [trophy, party],
-    });
-  }, 220);
-
-  // Side cannons for sustained celebration
-  window.setTimeout(() => {
-    confetti({
-      particleCount: 50,
-      angle: 60,
-      spread: 80,
-      origin: { x: 0.1, y: 0.7 },
-      colors,
-      scalar: 1.1,
-    });
-    confetti({
-      particleCount: 50,
-      angle: 120,
-      spread: 80,
-      origin: { x: 0.9, y: 0.7 },
-      colors,
-      scalar: 1.1,
-    });
-  }, 400);
 }
 
 /**
