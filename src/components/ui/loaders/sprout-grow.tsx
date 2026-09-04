@@ -1,8 +1,12 @@
 'use client';
 
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.path` + useReducedMotion
+// to pure CSS keyframes (.css-sprout-* in globals.css) + the local
+// usePrefersReducedMotion hook. Uses SVG `pathLength="1"` attribute to
+// normalize stroke length, then animates `stroke-dashoffset` 1 → 0 → 1
+// to draw + erase each path sequentially. Same visual effect as the
+// framer-motion `pathLength` animation.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface SproutGrowProps {
@@ -19,8 +23,10 @@ export interface SproutGrowProps {
  * paths fade out and the loop repeats — evoking the daily-habit metaphor
  * of growing something new each day.
  *
- * Animation: 3 `m.path` elements animate `pathLength` 0→1 sequentially
- * (stem → left leaf → right leaf), total loop ~2.5s with easeInOut timing.
+ * Animation: 3 `<path>` elements animate `stroke-dashoffset` 1 → 0 → 1
+ * sequentially (stem → left leaf → right leaf), total loop ~2.5s with
+ * easeInOut timing. The SVG `pathLength="1"` attribute normalizes the
+ * path length so the same dasharray (1) works for any path shape.
  *
  * Accessibility:
  * - `role="status"` + `aria-label="Memuat Rutica"` (Indonesian, matches app).
@@ -38,7 +44,7 @@ export interface SproutGrowProps {
  * for consistent brand visibility.
  */
 export function SproutGrow({ size = 120, className }: SproutGrowProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const wrapperStyle: React.CSSProperties = {
     width: size,
@@ -55,14 +61,13 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
         className={cn('inline-flex items-center justify-center', className)}
         style={wrapperStyle}
       >
-        <m.svg
+        <svg
           viewBox="0 0 100 100"
           width={size}
           height={size}
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          animate={{ opacity: [0.55, 1, 0.55] }}
-          transition={{ duration: 2.4, ease: 'easeInOut', repeat: Infinity }}
+          className="css-sprout-static"
         >
           {/* Soil mound (decorative) */}
           <path
@@ -95,7 +100,7 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-        </m.svg>
+        </svg>
         <span className="sr-only">Memuat Rutina</span>
       </div>
     );
@@ -103,6 +108,9 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
 
   // Sequential draw: stem (0→0.4s) → left leaf (0.4→0.85s) → right leaf (0.85→1.3s)
   // Then hold (1.3→2.2s) + fade out (2.2→2.5s) → loop.
+  // Each path uses `pathLength="1"` so the CSS keyframes (which animate
+  // stroke-dashoffset between 0 and 1) work identically regardless of the
+  // actual SVG path length.
   return (
     <div
       role="status"
@@ -110,19 +118,13 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
       className={cn('inline-flex items-center justify-center', className)}
       style={wrapperStyle}
     >
-      <m.svg
+      <svg
         viewBox="0 0 100 100"
         width={size}
         height={size}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        animate={{ opacity: [1, 1, 1, 0.25, 1] }}
-        transition={{
-          duration: 2.5,
-          ease: 'easeInOut',
-          repeat: Infinity,
-          times: [0, 0.55, 0.85, 0.95, 1],
-        }}
+        className="css-sprout-svg"
       >
         {/* Soil mound (decorative, drawn instantly) */}
         <path
@@ -133,53 +135,35 @@ export function SproutGrow({ size = 120, className }: SproutGrowProps) {
           opacity={0.4}
         />
         {/* Stem */}
-        <m.path
+        <path
           d="M 50 90 Q 48 70 50 55"
           stroke="#22c55e"
           strokeWidth={3.5}
           strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: [0, 1, 1, 1, 0] }}
-          transition={{
-            duration: 2.5,
-            ease: 'easeInOut',
-            repeat: Infinity,
-            times: [0, 0.16, 0.85, 0.95, 1],
-          }}
+          pathLength={1}
+          className="css-sprout-stem"
         />
         {/* Left leaf */}
-        <m.path
+        <path
           d="M 50 62 Q 32 55 18 42 Q 36 50 50 56"
           stroke="#22c55e"
           strokeWidth={3}
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: [0, 0, 1, 1, 0] }}
-          transition={{
-            duration: 2.5,
-            ease: 'easeInOut',
-            repeat: Infinity,
-            times: [0, 0.16, 0.34, 0.95, 1],
-          }}
+          pathLength={1}
+          className="css-sprout-leaf-l"
         />
         {/* Right leaf */}
-        <m.path
+        <path
           d="M 50 56 Q 68 48 82 34 Q 64 48 50 50"
           stroke="#22c55e"
           strokeWidth={3}
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: [0, 0, 1, 1, 0] }}
-          transition={{
-            duration: 2.5,
-            ease: 'easeInOut',
-            repeat: Infinity,
-            times: [0, 0.34, 0.52, 0.95, 1],
-          }}
+          pathLength={1}
+          className="css-sprout-leaf-r"
         />
-      </m.svg>
+      </svg>
       <span className="sr-only">Memuat Rutina</span>
     </div>
   );

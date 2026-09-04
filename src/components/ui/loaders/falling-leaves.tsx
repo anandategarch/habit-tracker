@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.div` + useReducedMotion
+// to pure CSS keyframes (.css-leaf-fall / .css-leaf-sway in globals.css) +
+// the local usePrefersReducedMotion hook. The framer-motion core runtime
+// is no longer required for this loader.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface FallingLeavesProps {
@@ -18,7 +20,7 @@ export interface FallingLeavesProps {
  * Renders a fixed full-viewport overlay with N leaves (default 5). Each
  * leaf: random horizontal start position, falls from y=-50 to viewport+50,
  * rotates 0→360° during the fall, and sways horizontally in a sine pattern
- * (via two nested motion divs: outer = fall+rotate, inner = sway).
+ * (via two nested divs: outer = fall+rotate, inner = sway).
  *
  * Accessibility:
  * - `role="status"` + `aria-label="Memuat..."` (Indonesian).
@@ -38,7 +40,7 @@ export function FallingLeaves({
   leafCount = 5,
   className,
 }: FallingLeavesProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   // Pre-compute leaf configs (stable across re-renders). useMemo avoids
   // regenerating random values on every parent render which would cause
@@ -93,33 +95,28 @@ export function FallingLeaves({
       )}
     >
       {leaves.map((leaf) => (
-        <m.div
+        <div
           key={leaf.id}
-          className="absolute"
+          className="absolute css-leaf-fall"
           style={{
             left: `${leaf.leftPct}%`,
             top: 0,
-            willChange: 'transform',
-          }}
-          initial={{ y: -50, rotate: 0 }}
-          animate={{ y: ['0vh', '110vh'], rotate: 360 * leaf.rotateDir }}
-          transition={{
-            duration: leaf.duration,
-            ease: 'linear',
-            repeat: Infinity,
-            delay: leaf.delay,
+            // CSS custom properties consumed by the keyframes.
+            ['--fall-duration' as string]: `${leaf.duration}s`,
+            ['--leaf-rotate' as string]: `${360 * leaf.rotateDir}deg`,
+            animationDelay: `${leaf.delay}s`,
+            animationDuration: `${leaf.duration}s`,
           }}
         >
           {/* Inner sway: nested so x-sway doesn't cancel with the fall's
               rotate transform (different transform contexts). */}
-          <m.div
-            style={{ willChange: 'transform' }}
-            animate={{ x: [0, leaf.swayAmount, 0, -leaf.swayAmount, 0] }}
-            transition={{
-              duration: leaf.duration / 2,
-              ease: 'easeInOut',
-              repeat: Infinity,
-              delay: leaf.delay,
+          <div
+            className="css-leaf-sway"
+            style={{
+              ['--sway-amount' as string]: `${leaf.swayAmount}px`,
+              ['--fall-duration' as string]: `${leaf.duration}s`,
+              animationDelay: `${leaf.delay}s`,
+              animationDuration: `${leaf.duration / 2}s`,
             }}
           >
             <LeafIcon
@@ -127,8 +124,8 @@ export function FallingLeaves({
               color={leaf.hue}
               opacity={leaf.opacity}
             />
-          </m.div>
-        </m.div>
+          </div>
+        </div>
       ))}
       <span className="sr-only">Memuat...</span>
     </div>

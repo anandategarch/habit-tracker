@@ -1,8 +1,10 @@
 'use client';
 
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.span` + useReducedMotion
+// to a pure CSS keyframe animation (.css-dot-wave-dot in globals.css) +
+// the local usePrefersReducedMotion hook. The framer-motion core runtime
+// is no longer required for this loader.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface DotWaveProps {
@@ -40,7 +42,7 @@ const SIZE_MAP = {
  * Color: #22c55e (app primary green). Consistent across light/dark themes.
  */
 export function DotWave({ size = 'sm', className }: DotWaveProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const dims = SIZE_MAP[size];
 
   const containerStyle: React.CSSProperties = {
@@ -80,7 +82,8 @@ export function DotWave({ size = 'sm', className }: DotWaveProps) {
   }
 
   // Wave keyframes: dot lifts (y: 0 → -lift → 0) at staggered times.
-  // Each dot's animation is offset by 0.15s so the wave travels left-to-right.
+  // Each dot's animation is offset by 0.15s via inline animationDelay
+  // so the wave travels left-to-right.
   return (
     <div
       role="status"
@@ -89,15 +92,14 @@ export function DotWave({ size = 'sm', className }: DotWaveProps) {
       style={containerStyle}
     >
       {[0, 1, 2].map((i) => (
-        <m.span
+        <span
           key={i}
-          style={dotBase}
-          animate={{ y: [0, -dims.lift, 0] }}
-          transition={{
-            duration: 1.2,
-            ease: 'easeInOut',
-            repeat: Infinity,
-            delay: i * 0.15,
+          className="css-dot-wave-dot"
+          style={{
+            ...dotBase,
+            // CSS custom property consumed by the keyframe — translateY lift.
+            ['--dot-lift' as string]: `-${dims.lift}px`,
+            animationDelay: `${i * 0.15}s`,
           }}
           aria-hidden="true"
         />

@@ -5,12 +5,12 @@ import { Toaster } from "@/components/ui/sonner";
 import ServiceWorkerRegister from "@/components/sw-register";
 import ThemeProvider from "@/components/theme-provider";
 import { QueryProvider } from "@/components/query-provider";
-// PERF-BUNDLE-1 Fix 10: LazyMotion + domAnimation defers framer-motion's
-// 130KB core runtime to a lazy chunk that's only fetched when an animation
-// actually runs. `m` (the lazy variant of `motion`) requires this wrapper.
-// `domAnimation` covers all animations + gestures (hover/tap/focus/drag) —
-// sufficient for this app (no pan/pinch gestures in use).
-import { LazyMotion, domAnimation } from "framer-motion";
+// FIX-TIER2 / Fix 4: LazyMotion + domAnimation removed. All framer-motion
+// `m.*` usages in the loaders kit + page-transition.tsx have been
+// converted to pure CSS keyframes (see globals.css `.css-*` classes) +
+// the local usePrefersReducedMotion hook. framer-motion is no longer
+// imported anywhere in the First Load bundle (the few remaining
+// framer-motion users, if any, are dynamically-imported components).
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -127,9 +127,7 @@ export default function RootLayout({
       >
         <ThemeProvider />
         <QueryProvider>
-          <LazyMotion features={domAnimation} strict>
-            {children}
-          </LazyMotion>
+          {children}
         </QueryProvider>
         <ServiceWorkerRegister />
         <Toaster position="top-right" richColors />

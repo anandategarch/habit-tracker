@@ -1,81 +1,63 @@
 'use client';
 
-import { type ReactNode, useState, useEffect } from 'react';
-// PERF-BUNDLE-1 Fix 10: Switched from `motion` to `m` so the framer-motion
-// core runtime is deferred to a lazy chunk (loaded on first animation
-// trigger). Requires <LazyMotion features={domAnimation}> at the app root
-// (added in src/app/layout.tsx). Hooks (useReducedMotion/useScroll/
-// useTransform) + AnimatePresence still import from 'framer-motion'
-// directly — they're separate from the deferred DOM-animation bundle.
 import {
-  m,
-  AnimatePresence,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from 'framer-motion';
+  type ReactNode,
+  type CSSProperties,
+  useState,
+  useEffect,
+  useRef,
+  Children,
+  isValidElement,
+  cloneElement,
+} from 'react';
+// FIX-TIER2 / Fix 4: Converted all components in this file from framer-motion
+// to pure CSS keyframes / native browser APIs. The framer-motion core
+// runtime (~109KB decoded) is no longer in the First Load bundle.
+//
+// - PageTransition: plain `<div key={tabId}>` with `.css-tab-enter` CSS
+//   animation. Loses AnimatePresence's exit animation but the new tab
+//   fades in immediately on mount — feels snappy.
+// - StaggerGroup/StaggerItem: `.css-stagger-item` CSS animation with
+//   per-item `--stagger-index` for the 60ms cascade.
+// - ParallaxBackground: native `scroll` listener (passive) + rAF
+//   coalescing + CSS transform. Replaces `useScroll` + `useTransform`.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 
 /**
- * PageTransition — wraps tab content with a smooth enter/exit transition.
+ * PageTransition — wraps tab content with a smooth enter transition.
  *
- * ANIM-2 / Feature 4: Page Transitions Parallax.
- * Uses framer-motion's `AnimatePresence mode="wait"` so the exiting tab
- * finishes animating out before the new tab animates in (no overlap).
+ * ANIM-2 / Feature 4: Page Transitions.
  *
- * Animation: subtle slide-in from the right + fade. Direction matches the
- * mental model of forward navigation (new content arrives from the right).
- * Exit mirrors enter (slide out to the left + fade).
+ * Animation: subtle slide-in from the right (4px) + fade, 0.1s. Replaces
+ * framer-motion's AnimatePresence with a plain `<div key={tabId}>` that
+ * re-mounts when the tab changes — the new div runs the `.css-tab-enter`
+ * CSS animation on mount. The exit animation is dropped (the previous tab
+ * is unmounted instantly). This is intentional: with `keepPreviousData`
+ * + the loading fallback in page.tsx, an exit animation isn't needed for
+ * the tab-switch UX to feel smooth.
  *
- * FIX-TRANSITION-1: Reduced the slide distance from 20px → 8px and the
- * duration from 0.25s → 0.18s. The previous 0.25s duration combined with
- * `mode="wait"` produced a ~318ms perceptible blank window between tabs
- * (250ms exit + 16ms swap + remainder enter) — the user reported this as
- * "transisi antar tab hanya putih aja". The shorter duration + smaller
- * slide keeps the transition snappy while still feeling premium.
+ * FIX-TRANSITION-1 history: the original 0.25s framer-motion duration
+ * combined with `mode="wait"` produced a ~318ms perceptible blank window
+ * ("transisi antar tab hanya putih aja"). The loading fallback fixed the
+ * blank window; this CSS version keeps the duration at 0.1s for snappy
+ * feedback.
  *
- * Accessibility: respects `prefers-reduced-motion`. When reduced motion is
- * preferred, the motion is reduced to opacity-only (no x-translate) so the
- * transition is still visible but doesn't move — recommended by WCAG 2.3.3.
+ * Accessibility: respects `prefers-reduced-motion` — the `.css-tab-enter`
+ * class is disabled under reduced-motion (animation: none), so the new
+ * tab appears instantly without movement.
  *
- * Performance: uses `will-change: transform, opacity` (via framer-motion's
- * internal `MotionValue`) so the animation runs on the GPU compositor thread
- * without triggering layout/paint.
+ * Performance: `will-change: transform, opacity` is set on the CSS class
+ * so the animation runs on the GPU compositor thread.
  *
  * @param children  Tab content to animate.
- * @param tabId     Key for AnimatePresence — change this to trigger the
- *                  exit→enter transition. Typically the active tab string.
+ * @param tabId     Key for React — change this to trigger the re-mount +
+ *                  enter animation. Typically the active tab string.
  */
 export function PageTransition({ children, tabId }: { children: ReactNode; tabId: string }) {
-  const prefersReducedMotion = useReducedMotion();
-
-  // Reduced motion: opacity-only transition (no horizontal slide).
-  const variants = prefersReducedMotion
-    ? {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-      }
-    : {
-        initial: { opacity: 0, x: 4 },
-        animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -4 },
-      };
-
-  // SNAPPY: removed `mode="wait"` so exit+enter overlap (no blank gap).
-  // Duration 0.18s → 0.1s, slide 8px → 4px — feels instant but still smooth.
   return (
-    <AnimatePresence initial={false}>
-      <m.div
-        key={tabId}
-        initial={variants.initial}
-        animate={variants.animate}
-        exit={variants.exit}
-        transition={{ duration: 0.1, ease: [0.16, 1, 0.3, 1] }}
-        style={{ willChange: 'transform, opacity' }}
-      >
-        {children}
-      </m.div>
-    </AnimatePresence>
+    <div key={tabId} className="css-tab-enter">
+      {children}
+    </div>
   );
 }
 
@@ -84,43 +66,22 @@ export function PageTransition({ children, tabId }: { children: ReactNode; tabId
  *
  * Wrap a grid/list of cards with `<StaggerGroup>` and replace each card's
  * wrapper with `<StaggerItem>` (or wrap the card in `<StaggerItem>`).
- * The parent's `staggerChildren` variant cascades the enter animation
- * through children with a 60ms delay between each.
+ * StaggerGroup injects each child StaggerItem's index via React.cloneElement
+ * so each StaggerItem can compute its own `animation-delay` via the
+ * `--stagger-index` CSS custom property (60ms per item, 40ms initial delay).
  *
- * Equivalent to the existing `anim-stagger` CSS class but driven by
- * framer-motion — smoother spring physics + native reduced-motion handling.
+ * Equivalent to the original framer-motion `staggerChildren: 0.06` variant
+ * but driven entirely by CSS — no JS animation runtime needed.
  *
  * Usage:
  *   <StaggerGroup className="grid grid-cols-2 gap-4">
  *     <StaggerItem><Card>...</Card></StaggerItem>
  *     <StaggerItem><Card>...</Card></StaggerItem>
  *   </StaggerGroup>
+ *
+ * Accessibility: under `prefers-reduced-motion`, the `.css-stagger-item`
+ * animation is disabled (animation: none) — children appear instantly.
  */
-
-const staggerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const },
-  },
-};
-
-const itemVariantsReduced = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 0.2 },
-  },
-};
-
 export function StaggerGroup({
   children,
   className = '',
@@ -128,37 +89,42 @@ export function StaggerGroup({
   children: ReactNode;
   className?: string;
 }) {
-  const prefersReducedMotion = useReducedMotion();
-  return (
-    <m.div
-      className={className}
-      initial="hidden"
-      animate="visible"
-      variants={staggerVariants}
-      // Reduced motion: skip the cascade — children just fade in.
-      transition={prefersReducedMotion ? { duration: 0 } : undefined}
-    >
-      {children}
-    </m.div>
-  );
+  // Inject index into each StaggerItem child via cloneElement.
+  let idx = 0;
+  const indexed = Children.map(children, (child) => {
+    if (isValidElement(child) && child.type === StaggerItem) {
+      const index = idx++;
+      // cloneElement preserves the child's own props (className, children)
+      // and merges in the __staggerIndex prop the StaggerItem reads below.
+      return cloneElement(child as React.ReactElement<StaggerItemProps>, {
+        __staggerIndex: index,
+      } as Partial<StaggerItemProps>);
+    }
+    return child;
+  });
+
+  return <div className={className}>{indexed}</div>;
 }
+
+type StaggerItemProps = {
+  children: ReactNode;
+  className?: string;
+  /** Injected by StaggerGroup via cloneElement — do not set manually. */
+  __staggerIndex?: number;
+};
 
 export function StaggerItem({
   children,
   className = '',
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  const prefersReducedMotion = useReducedMotion();
+  __staggerIndex = 0,
+}: StaggerItemProps) {
+  const style = {
+    '--stagger-index': __staggerIndex,
+  } as CSSProperties;
   return (
-    <m.div
-      className={className}
-      variants={prefersReducedMotion ? itemVariantsReduced : itemVariants}
-      style={{ willChange: 'transform, opacity' }}
-    >
+    <div className={`css-stagger-item ${className}`} style={style}>
       {children}
-    </m.div>
+    </div>
   );
 }
 
@@ -167,54 +133,85 @@ export function StaggerItem({
  * scroll direction. Decorative only (pointer-events-none, behind content).
  *
  * ANIM-2 / Feature 4: Page Transitions Parallax.
- * Uses framer-motion's `useScroll` + `useTransform` to map scroll progress
- * to a small translateY (±12px). The shift is intentionally subtle — large
- * movements cause motion sickness and clash with the otherwise restrained
- * motion design system.
+ *
+ * FIX-TIER2 / Fix 4: Replaced framer-motion's `useScroll` + `useTransform`
+ * with a native `scroll` listener (passive: true) + `requestAnimationFrame`
+ * coalescing + a CSS `transform: translate3d(0, y, 0)`. The transform is
+ * applied as an inline style; the listener updates a ref + schedules a
+ * single rAF callback per frame (no React re-render per scroll event).
+ *
+ * Maps scroll 0→1000px → translateY 0→-24px (background drifts up slower
+ * than content, giving a parallax depth effect). Values beyond 1000px
+ * clamp at -24px (matches framer-motion's default no-extrapolation).
  *
  * Accessibility: when `prefers-reduced-motion` is set, the layer is rendered
  * statically (no parallax).
  *
- * Performance: `position: fixed` keeps the layer out of the document flow;
- * framer-motion applies transforms via the compositor (no layout thrash).
+ * Performance: `position: fixed` keeps the layer out of the document flow.
+ * The transform runs on the GPU compositor (no layout/paint). The scroll
+ * listener is `passive: true` so it never blocks the main thread.
+ *
+ * Mobile: disabled (touch devices) — continuous transform updates during
+ * touch scroll cause jank on mobile Chrome/Safari. Desktop keeps the
+ * effect (mouse wheel scroll is smoother and less frequent).
  *
  * @param className Optional className for the layer (e.g. gradient background).
  */
 export function ParallaxBackground({ className = '' }: { className?: string }) {
-  // Delegate to inner component so hooks are always called unconditionally
-  // (cannot conditionally call useScroll/useTransform based on reduced motion).
   return <ParallaxBackgroundInner className={className} />;
 }
 
 function ParallaxBackgroundInner({ className = '' }: { className?: string }) {
-  const prefersReducedMotion = useReducedMotion();
-  const { scrollY } = useScroll();
-
-  // PERF-FIX: Disable parallax on mobile (touch devices) — useScroll +
-  // useTransform causes scroll jank on mobile Chrome/Safari due to
-  // continuous transform updates during touch scroll. Desktop keeps
-  // the effect (mouse wheel scroll is smoother and less frequent).
-  // Use lazy init (not useEffect) to avoid setState-in-effect lint error.
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [isMobile, setIsMobile] = useState(false);
+  const layerRef = useRef<HTMLDivElement>(null);
+
+  // Detect mobile (touch or narrow viewport) — same heuristic as the old
+  // framer-motion version. Lazy setState in rAF to avoid render cascade.
   useEffect(() => {
     const check = () =>
       typeof window !== 'undefined' &&
       (window.matchMedia('(pointer: coarse)').matches ||
         window.innerWidth < 768);
-    // Defer to next tick to avoid cascading renders during mount
     const id = requestAnimationFrame(() => setIsMobile(check()));
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Map scroll 0→1000px → translateY 0→-24px (background drifts up slower
-  // than content, giving a parallax depth effect). Clamp via framer-motion's
-  // default interpolation (no extrapolation).
-  const y = useTransform(scrollY, [0, 1000], [0, prefersReducedMotion || isMobile ? 0 : -24]);
+  // Native scroll listener → rAF → CSS transform. No React state update
+  // per scroll event (avoids re-rendering this subtree on every scroll).
+  useEffect(() => {
+    if (prefersReducedMotion || isMobile) return;
+    const el = layerRef.current;
+    if (!el) return;
+
+    let rafId = 0;
+    const update = () => {
+      rafId = 0;
+      const y = window.scrollY;
+      // Map 0→1000 → 0→-24, clamp at -24 (matches framer-motion default).
+      const clamped = Math.min(y, 1000);
+      const translate = -24 * (clamped / 1000);
+      el.style.transform = `translate3d(0, ${translate}px, 0)`;
+    };
+
+    const onScroll = () => {
+      if (rafId === 0) rafId = requestAnimationFrame(update);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Set initial position.
+    update();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (rafId !== 0) cancelAnimationFrame(rafId);
+    };
+  }, [prefersReducedMotion, isMobile]);
 
   if (prefersReducedMotion || isMobile) {
-    // Static layer — no motion subscription (mobile + reduced motion).
+    // Static layer — no parallax (mobile + reduced motion).
     return (
       <div
+        ref={layerRef}
         aria-hidden="true"
         className={`pointer-events-none fixed inset-0 -z-10 ${className}`}
       />
@@ -222,10 +219,11 @@ function ParallaxBackgroundInner({ className = '' }: { className?: string }) {
   }
 
   return (
-    <m.div
+    <div
+      ref={layerRef}
       aria-hidden="true"
       className={`pointer-events-none fixed inset-0 -z-10 ${className}`}
-      style={{ y, willChange: 'transform' }}
+      style={{ willChange: 'transform' }}
     />
   );
 }

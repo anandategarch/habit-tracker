@@ -1293,3 +1293,262 @@
     transform-style: flat;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   FIX-TIER2 / Fix 4 — CSS-only loader + page-transition keyframes
+   (replaces framer-motion `m.*` usage in the loaders kit + page-transition
+   so the framer-motion core runtime is no longer in the First Load bundle).
+   All keyframes respect prefers-reduced-motion (animations set to none
+   in the global reduced-motion block at the end of this file).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Tab transition: fade + 4px slide-x (0.1s) ──
+   Replaces PageTransition's framer-motion AnimatePresence. Loses exit
+   animation but the new tab fades in immediately on mount — snappy. */
+@keyframes css-tab-enter {
+  from { opacity: 0; transform: translateX(4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.css-tab-enter {
+  animation: css-tab-enter 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+/* ── Stagger fade-up for dashboard KPI cards ──
+   Uses --stagger-index custom property (set inline by StaggerItem via
+   style={{ '--stagger-index': i }}) to cascade 60ms per item.
+   Equivalent to framer-motion's staggerChildren variant. */
+@keyframes css-stagger-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.css-stagger-item {
+  animation: css-stagger-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--stagger-index, 0) * 60ms + 40ms);
+  will-change: transform, opacity;
+}
+
+/* ── DotWave — 3 dots bounce in sequence ── */
+@keyframes css-dot-wave {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(var(--dot-lift, -8px)); }
+}
+.css-dot-wave-dot {
+  animation: css-dot-wave 1.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── BreathingSeed — calm breathing pulse + ripples ── */
+@keyframes css-breathing-core {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
+}
+@keyframes css-breathing-ripple {
+  0%   { transform: scale(0.6); opacity: 0.4; }
+  100% { transform: scale(2);   opacity: 0; }
+}
+.css-breathing-core {
+  animation: css-breathing-core 4s ease-in-out infinite;
+  will-change: transform;
+}
+.css-breathing-ripple {
+  animation: css-breathing-ripple 4s ease-out infinite;
+  will-change: transform, opacity;
+}
+.css-breathing-sprout {
+  animation: css-breathing-core 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── LiquidGlassSpinner — rotating highlight arc ── */
+@keyframes css-liquid-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.css-liquid-spin {
+  animation: css-liquid-spin 1.1s linear infinite;
+  will-change: transform;
+  transform-origin: 50% 50%;
+}
+
+/* ── SproutGrow — sequential SVG path drawing ──
+   Uses stroke-dasharray + stroke-dashoffset. Each path's length is set
+   inline (via pathLength="1" attribute) so the same keyframes work for
+   any path. The wrapper fades out at the end of each cycle.
+   Timing: stem 0→0.4s, left leaf 0.4→0.85s, right leaf 0.85→1.3s,
+   hold 1.3→2.2s, fade 2.2→2.5s, loop. */
+@keyframes css-sprout-draw-stem {
+  0%   { stroke-dashoffset: 1; }
+  16%  { stroke-dashoffset: 0; }
+  85%  { stroke-dashoffset: 0; }
+  95%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 1; }
+}
+@keyframes css-sprout-draw-leaf-l {
+  0%   { stroke-dashoffset: 1; }
+  16%  { stroke-dashoffset: 1; }
+  34%  { stroke-dashoffset: 0; }
+  95%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 1; }
+}
+@keyframes css-sprout-draw-leaf-r {
+  0%   { stroke-dashoffset: 1; }
+  34%  { stroke-dashoffset: 1; }
+  52%  { stroke-dashoffset: 0; }
+  95%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 1; }
+}
+@keyframes css-sprout-fade-loop {
+  0%   { opacity: 1; }
+  55%  { opacity: 1; }
+  85%  { opacity: 1; }
+  95%  { opacity: 0.25; }
+  100% { opacity: 1; }
+}
+.css-sprout-stem {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: css-sprout-draw-stem 2.5s ease-in-out infinite;
+}
+.css-sprout-leaf-l {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: css-sprout-draw-leaf-l 2.5s ease-in-out infinite;
+}
+.css-sprout-leaf-r {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: css-sprout-draw-leaf-r 2.5s ease-in-out infinite;
+}
+.css-sprout-svg {
+  animation: css-sprout-fade-loop 2.5s ease-in-out infinite;
+  will-change: opacity;
+}
+/* Reduced-motion variant: fully-drawn sprout + subtle opacity pulse */
+@keyframes css-sprout-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+.css-sprout-static {
+  animation: css-sprout-pulse 2.4s ease-in-out infinite;
+}
+
+/* ── AuroraRing — circular progress ring + rotation ──
+   Combines stroke-dashoffset (pathLength equivalent) + CSS rotation.
+   The SVG `pathLength="1"` attribute normalizes the path length so
+   `stroke-dasharray: 0.25 1` + `stroke-dashoffset` animates the visible
+   arc length. */
+@keyframes css-aurora-arc {
+  0%, 100% { stroke-dashoffset: 0.75; }
+  50%      { stroke-dashoffset: 0.15; }
+}
+@keyframes css-aurora-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes css-aurora-sprout {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+.css-aurora-arc {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0.75;
+  animation: css-aurora-arc 1.6s ease-in-out infinite;
+  /* Combine with rotation via transform on the SVG element (separate layer). */
+}
+.css-aurora-rotate {
+  animation: css-aurora-rotate 2.4s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.css-aurora-sprout {
+  animation: css-aurora-sprout 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── FallingLeaves — fall + sway ──
+   Each leaf sets inline style with --fall-duration, --sway-amount,
+   animation-delay (negative for mid-loop start), and rotate direction. */
+@keyframes css-leaf-fall {
+  from { transform: translateY(-50px) rotate(0deg); }
+  to   { transform: translateY(110vh) rotate(var(--leaf-rotate, 360deg)); }
+}
+@keyframes css-leaf-sway {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(var(--sway-amount, 30px)); }
+  50%      { transform: translateX(0); }
+  75%      { transform: translateX(calc(-1 * var(--sway-amount, 30px))); }
+}
+.css-leaf-fall {
+  animation: css-leaf-fall var(--fall-duration, 8s) linear infinite;
+  will-change: transform;
+}
+.css-leaf-sway {
+  animation: css-leaf-sway calc(var(--fall-duration, 8s) / 2) ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── MorphingSprout — crossfade between 3 stacked paths ──
+   True SVG `d` morphing is impossible in pure CSS. Instead we stack 3
+   paths and crossfade opacity — visually similar (shape "blinks" through
+   sprout → circle → square → sprout). The wrapper rotates slowly.
+   Each path's opacity animates on a 3s loop with staggered windows. */
+@keyframes css-morph-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes css-morph-path-1 {
+  0%, 33%      { opacity: 1; }
+  33.01%, 100% { opacity: 0; }
+}
+@keyframes css-morph-path-2 {
+  0%, 33%      { opacity: 0; }
+  33.01%, 66%  { opacity: 1; }
+  66.01%, 100% { opacity: 0; }
+}
+@keyframes css-morph-path-3 {
+  0%, 66%      { opacity: 0; }
+  66.01%, 100% { opacity: 1; }
+}
+.css-morph-rotate {
+  animation: css-morph-rotate 6s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.css-morph-path-1 { animation: css-morph-path-1 3s steps(1, end) infinite; }
+.css-morph-path-2 { animation: css-morph-path-2 3s steps(1, end) infinite; }
+.css-morph-path-3 { animation: css-morph-path-3 3s steps(1, end) infinite; }
+
+/* ── Reduced motion: disable all FIX-TIER2 CSS animations ── */
+@media (prefers-reduced-motion: reduce) {
+  .css-tab-enter,
+  .css-stagger-item,
+  .css-dot-wave-dot,
+  .css-breathing-core,
+  .css-breathing-ripple,
+  .css-breathing-sprout,
+  .css-liquid-spin,
+  .css-sprout-stem,
+  .css-sprout-leaf-l,
+  .css-sprout-leaf-r,
+  .css-sprout-svg,
+  .css-sprout-static,
+  .css-aurora-arc,
+  .css-aurora-rotate,
+  .css-aurora-sprout,
+  .css-leaf-fall,
+  .css-leaf-sway,
+  .css-morph-rotate,
+  .css-morph-path-1,
+  .css-morph-path-2,
+  .css-morph-path-3 {
+    animation: none !important;
+  }
+  /* In reduced motion, force sprout paths to fully-drawn (dashoffset 0)
+     so the static sprout is visible. */
+  .css-sprout-stem,
+  .css-sprout-leaf-l,
+  .css-sprout-leaf-r {
+    stroke-dashoffset: 0 !important;
+  }
+}

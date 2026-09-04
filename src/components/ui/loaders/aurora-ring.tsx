@@ -1,8 +1,18 @@
 'use client';
 
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.circle` / `m.span` +
+// useReducedMotion to pure CSS keyframes (.css-aurora-* in globals.css) +
+// the local usePrefersReducedMotion hook. The framer-motion core runtime
+// is no longer required for this loader.
+//
+// The `pathLength` animation is replicated via SVG `pathLength="1"` +
+// CSS `stroke-dashoffset` animation. The combined `pathLength` + `rotate`
+// effect on a single SVG circle is achieved by wrapping the circle in a
+// `<g>` element that rotates, while the circle itself animates its
+// dashoffset — keeping the two animations in independent CSS layers
+// (matching framer-motion's independent transition timings: 1.6s for the
+// arc length, 2.4s for the rotation).
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface AuroraRingProps {
@@ -27,9 +37,10 @@ const STROKE_WIDTH = {
  * AuroraRing — circular progress ring with aurora gradient + breathing sprout.
  *
  * An SVG circle with a 3-stop aurora gradient stroke (emerald → teal → soft
- * green) animates `pathLength` 0→1 while slowly rotating 360°, creating a
- * flowing aurora-light effect around the ring. Inside, a 🌱 sprout icon
- * breathes with a subtle scale animation.
+ * green) animates its visible arc length 0.25 → 0.85 → 0.25 (via
+ * `stroke-dashoffset`) while slowly rotating 360°, creating a flowing
+ * aurora-light effect around the ring. Inside, a 🌱 sprout icon breathes
+ * with a subtle scale animation.
  *
  * Accessibility:
  * - `role="status"` + `aria-label="Memuat..."` (Indonesian, matches app).
@@ -44,7 +55,7 @@ const STROKE_WIDTH = {
  * (soft green) for the aurora flow. The sprout emoji renders as text.
  */
 export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const px = SIZE_MAP[size];
   const stroke = STROKE_WIDTH[size];
   const center = 50;
@@ -103,59 +114,42 @@ export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
             transform="rotate(-90 50 50)"
           />
         ) : (
-          <m.circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke={`url(#${gradientId})`}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            fill="none"
-            initial={{ pathLength: 0.25, rotate: 0 }}
-            animate={{
-              pathLength: [0.25, 0.85, 0.25],
-              rotate: 360,
-            }}
-            transition={{
-              pathLength: {
-                duration: 1.6,
-                ease: 'easeInOut',
-                repeat: Infinity,
-              },
-              rotate: {
-                duration: 2.4,
-                ease: 'linear',
-                repeat: Infinity,
-              },
-            }}
-            style={{
-              transformOrigin: '50px 50px',
-              willChange: 'transform',
-            }}
-          />
+          // Rotating wrapper <g> — independent 2.4s linear rotation.
+          <g
+            className="css-aurora-rotate"
+            style={{ transformOrigin: '50px 50px' }}
+          >
+            {/* Animated arc — independent 1.6s ease-in-out dashoffset cycle.
+                pathLength="1" normalizes so dasharray "1" = full circumference. */}
+            <circle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={`url(#${gradientId})`}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              fill="none"
+              pathLength={1}
+              className="css-aurora-arc"
+              transform="rotate(-90 50 50)"
+            />
+          </g>
         )}
       </svg>
       {/* Center sprout icon */}
-      <m.span
-        className="absolute select-none"
+      <span
+        className={cn(
+          'absolute select-none',
+          !prefersReducedMotion && 'css-aurora-sprout'
+        )}
         style={{
           fontSize: px * 0.32,
           lineHeight: 1,
         }}
-        animate={
-          prefersReducedMotion
-            ? undefined
-            : { scale: [1, 1.12, 1] }
-        }
-        transition={{
-          duration: 2.4,
-          ease: 'easeInOut',
-          repeat: Infinity,
-        }}
         aria-hidden="true"
       >
         🌱
-      </m.span>
+      </span>
       <span className="sr-only">Memuat...</span>
     </div>
   );

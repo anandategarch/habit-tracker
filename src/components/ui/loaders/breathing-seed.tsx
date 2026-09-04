@@ -1,8 +1,10 @@
 'use client';
 
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.div` + useReducedMotion
+// to pure CSS keyframes (.css-breathing-* in globals.css) + the local
+// usePrefersReducedMotion hook. The framer-motion core runtime is no longer
+// required for this loader.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface BreathingSeedProps {
@@ -25,13 +27,14 @@ export interface BreathingSeedProps {
  *   center circle is rendered statically (no breathing scale).
  *
  * Performance: transforms only (scale) — GPU-composited, no layout/paint.
- * `will-change: transform` is applied to each animated layer.
+ * `will-change: transform` is applied to each animated layer via the
+ * `.css-breathing-*` classes in globals.css.
  *
  * Color: radial gradient uses #22c55e → #16a34a → transparent for the
  * soft center glow. Emoji renders as text.
  */
 export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const wrapperStyle: React.CSSProperties = {
     width: size,
@@ -82,69 +85,40 @@ export function BreathingSeed({ size = 64, className }: BreathingSeedProps) {
       style={wrapperStyle}
     >
       {/* Ripple 1 */}
-      <m.div
-        className="absolute inset-0 rounded-full"
+      <div
+        className="absolute inset-0 rounded-full css-breathing-ripple"
         style={{
           border: '1.5px solid #22c55e',
-          willChange: 'transform, opacity',
-        }}
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: [0.6, 2], opacity: [0.4, 0] }}
-        transition={{
-          duration: 4,
-          ease: 'easeOut',
-          repeat: Infinity,
-          delay: 0,
+          animationDelay: '0s',
         }}
         aria-hidden="true"
       />
       {/* Ripple 2 (offset by half cycle) */}
-      <m.div
-        className="absolute inset-0 rounded-full"
+      <div
+        className="absolute inset-0 rounded-full css-breathing-ripple"
         style={{
           border: '1.5px solid #22c55e',
-          willChange: 'transform, opacity',
-        }}
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: [0.6, 2], opacity: [0.4, 0] }}
-        transition={{
-          duration: 4,
-          ease: 'easeOut',
-          repeat: Infinity,
-          delay: 2,
+          animationDelay: '2s',
         }}
         aria-hidden="true"
       />
       {/* Breathing core */}
-      <m.div
-        className="absolute inset-0 rounded-full"
+      <div
+        className="absolute inset-0 rounded-full css-breathing-core"
         style={{
           background:
             'radial-gradient(circle at 50% 50%, #22c55e 0%, #16a34a 60%, transparent 100%)',
           opacity: 0.55,
-          willChange: 'transform',
-        }}
-        animate={{ scale: [1, 1.15, 1] }}
-        transition={{
-          duration: 4,
-          ease: 'easeInOut',
-          repeat: Infinity,
         }}
         aria-hidden="true"
       />
-      <m.span
-        className="relative select-none"
-        style={{ fontSize: size * 0.4, lineHeight: 1, willChange: 'transform' }}
-        animate={{ scale: [1, 1.1, 1] }}
-        transition={{
-          duration: 4,
-          ease: 'easeInOut',
-          repeat: Infinity,
-        }}
+      <span
+        className="relative select-none css-breathing-sprout"
+        style={{ fontSize: size * 0.4, lineHeight: 1 }}
         aria-hidden="true"
       >
         🌱
-      </m.span>
+      </span>
       <span className="sr-only">Memuat...</span>
     </div>
   );

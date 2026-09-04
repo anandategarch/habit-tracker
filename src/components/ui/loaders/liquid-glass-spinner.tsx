@@ -1,8 +1,10 @@
 'use client';
 
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.svg` + useReducedMotion
+// to pure CSS keyframes (.css-liquid-spin in globals.css) + the local
+// usePrefersReducedMotion hook. The framer-motion core runtime is no longer
+// required for this loader.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface LiquidGlassSpinnerProps {
@@ -40,7 +42,7 @@ export function LiquidGlassSpinner({
   size = 48,
   className,
 }: LiquidGlassSpinnerProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const wrapperStyle: React.CSSProperties = {
     width: size,
@@ -105,18 +107,11 @@ export function LiquidGlassSpinner({
         aria-hidden="true"
       />
       {/* Rotating highlight arc */}
-      <m.svg
+      <svg
         viewBox="0 0 100 100"
         width={size}
         height={size}
-        className="absolute inset-0"
-        style={{ willChange: 'transform' }}
-        animate={{ rotate: 360 }}
-        transition={{
-          duration: 1.1,
-          ease: 'linear',
-          repeat: Infinity,
-        }}
+        className="absolute inset-0 css-liquid-spin"
         aria-hidden="true"
       >
         <defs>
@@ -136,7 +131,7 @@ export function LiquidGlassSpinner({
           strokeDasharray="60 240"
           transform="rotate(-90 50 50)"
         />
-      </m.svg>
+      </svg>
       <span className="sr-only">Memuat...</span>
     </div>
   );

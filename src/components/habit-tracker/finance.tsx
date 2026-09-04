@@ -40,7 +40,12 @@ import { FinanceDeleteDialogs } from './finance-delete-dialogs';
 import { FinanceCategoryDialogs } from './finance-category-dialogs';
 import { FinanceSourceDialogs } from './finance-source-dialogs';
 
-// Lazy-loaded sub-components
+// Lazy-loaded sub-components.
+// FIX-TIER2 / Fix 6: All 5 finance sub-tabs use dynamic() with ssr:false
+// + a loading skeleton fallback so the user sees an immediate placeholder
+// instead of a blank frame while the chunk fetches. The loading fallbacks
+// match each sub-tab's layout (transactions = filter bar + list rows,
+// budgets = grid of cards) to minimize visual shift when the chunk resolves.
 const FinanceOverview = dynamic(() => import('./finance-overview'), {
   ssr: false,
   loading: () => (
@@ -55,8 +60,44 @@ const FinanceOverview = dynamic(() => import('./finance-overview'), {
     </div>
   ),
 });
-const FinanceTransactions = dynamic(() => import('./finance-transactions'), { ssr: false });
-const FinanceBudgets = dynamic(() => import('./finance-budgets'), { ssr: false });
+const FinanceTransactions = dynamic(() => import('./finance-transactions'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 mt-4">
+      {/* Filter bar skeleton */}
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-9 w-32 rounded-md" />
+        <Skeleton className="h-9 w-32 rounded-md" />
+        <Skeleton className="h-9 w-40 rounded-md" />
+      </div>
+      {/* Grouped transaction list skeleton */}
+      {[1, 2, 3].map((g) => (
+        <div key={g} className="space-y-2">
+          <Skeleton className="h-5 w-32 rounded" />
+          {[1, 2].map((r) => (
+            <Skeleton key={r} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      ))}
+    </div>
+  ),
+});
+const FinanceBudgets = dynamic(() => import('./finance-budgets'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-32 rounded" />
+        <Skeleton className="h-9 w-28 rounded-md" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  ),
+});
 
 // Lazy load explorer — drill-down analytics workspace
 const FinanceExplorer = dynamic(() => import('./finance-explorer'), {

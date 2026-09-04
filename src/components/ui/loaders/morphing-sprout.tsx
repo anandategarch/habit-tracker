@@ -1,8 +1,15 @@
 'use client';
 
-// PERF-BUNDLE-1 Fix 10: `m` instead of `motion` so framer-motion core is
-// deferred (requires <LazyMotion features={domAnimation}> at app root).
-import { m, useReducedMotion } from 'framer-motion';
+// FIX-TIER2 / Fix 4: Converted from framer-motion `m.svg` / `m.path` +
+// useReducedMotion to pure CSS keyframes (.css-morph-* in globals.css) +
+// the local usePrefersReducedMotion hook.
+//
+// True SVG `d` morphing is impossible in pure CSS (no `interpolate-path`
+// property). Instead, we stack all 3 paths (sprout, circle, square) and
+// crossfade opacity via CSS keyframes — visually similar (shape "blinks"
+// through the 3 forms in sequence on a 3s loop). The wrapper rotates
+// slowly (6s linear) just like the framer-motion version.
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
 export interface MorphingSproutProps {
@@ -14,49 +21,37 @@ export interface MorphingSproutProps {
 /**
  * MorphingSprout — shape morphing loader.
  *
- * An SVG path morphs between three shapes (sprout → circle → rounded
- * square → sprout) in a 3s loop. Each shape gets ~1s of screen time.
- * When the path structures don't match, framer-motion falls back to a
- * crossfade between keyframes — the visual effect is still a clear
- * "morph" (one shape dissolves into another).
+ * An SVG shape crossfades between three forms (sprout → circle → rounded
+ * square → sprout) in a 3s loop. Each shape gets ~1s of screen time. The
+ * wrapper rotates slowly (6s linear) for an extra layer of motion.
  *
- * All three shapes share a 6-cubic structure so the morphing can
- * interpolate numerically where possible (the sprout's stem and leaves
- * map cleanly onto the circle's quadrants and the square's sides).
+ * NOTE: The original framer-motion version interpolated the SVG `d`
+ * attribute for true numerical path morphing. CSS cannot animate `d`, so
+ * this CSS-only version crossfades opacity between the 3 stacked paths —
+ * visually similar (one shape dissolves into another) but not a true
+ * numerical morph. The trade-off is the elimination of the framer-motion
+ * core runtime from the bundle.
  *
  * Accessibility:
  * - `role="status"` + `aria-label="Memuat..."` (Indonesian).
  * - When `prefers-reduced-motion` is set, the loader renders a static
  *   sprout icon (no morphing, no rotation).
  *
- * Performance: animating the `d` attribute triggers SVG path re-tessellation
- * each frame — heavier than transform-based animations. Keep this loader
- * for short-lived contexts (e.g. inline button spinners), not full-screen
- * loading screens on low-end mobile. `will-change: opacity` is set on the
- * wrapper to keep the crossfade smooth.
+ * Performance: animating `opacity` only — extremely cheap, GPU-composited.
+ * `will-change: transform` on the rotating wrapper.
  *
  * Color: fill #22c55e (app primary green). SVG `fill` attributes don't
  * reliably resolve `hsl(var(--primary))` in all browsers; the hex is the
  * resolved light-mode value.
  */
 export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
-  // All three shapes share M + 6× C + Z structure so framer-motion can
-  // interpolate numerically. The shapes trace clockwise from the top.
-  // - SPROUT: stem from bottom up + 2 leaves at top (6 cubics trace the
-  //   outline: right leaf outer → stem right → soil → stem left → left
-  //   leaf outer → left leaf inner → right leaf inner)
-  // - CIRCLE: 6-segment cubic approximation of a circle (radius 45)
-  // - SQUARE: rounded square (corner radius ~12), 6 cubics around the
-  //   perimeter — top-right corner + right side, bottom-right corner +
-  //   bottom, bottom-left corner + left side, top-left corner + top.
-  //
-  // FIX-TRANSITION-1: SQUARE_PATH previously had 8 cubics while SPROUT and
-  // CIRCLE had 6. Mismatched segment counts cause framer-motion to fall
-  // back from numerical path interpolation to a hard crossfade (snap between
-  // shapes), defeating the smooth morph effect. Rewrote SQUARE_PATH with 6
-  // cubics so all three paths interpolate numerically — true morph.
+  // All three shapes share M + 6× C + Z structure so the original
+  // framer-motion version could interpolate numerically. We retain the
+  // same paths here for visual continuity (the crossfade doesn't require
+  // matching structure, but keeping the paths identical to the old
+  // version means the loader's silhouette is unchanged).
   const SPROUT_PATH =
     'M 50 12 ' +
     'C 65 18, 78 30, 70 42 ' + // right leaf outer
@@ -77,12 +72,6 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
     'C 22 12, 35 5, 50 5 ' +
     'Z';
 
-  // 6-curve rounded square. Each cubic handles one corner + half of a side
-  // so the total segment count matches SPROUT_PATH and CIRCLE_PATH. Control
-  // points on the sides are placed along the straight edge (e.g. C 88 50,
-  // 88 50, 88 72) which produces a degenerate-but-valid cubic that the
-  // interpolator treats as a straight line — visually identical to a real
-  // straight segment, but structurally compatible with the other shapes.
   const SQUARE_PATH =
     'M 50 12 ' +
     'C 70 12, 88 12, 88 30 ' + // top-right corner + half of top edge
@@ -123,33 +112,20 @@ export function MorphingSprout({ size = 48, className }: MorphingSproutProps) {
       className={cn('inline-flex items-center justify-center', className)}
       style={{ width: size, height: size, willChange: 'opacity' }}
     >
-      <m.svg
+      <svg
         viewBox="0 0 100 100"
         width={size}
         height={size}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        animate={{ rotate: [0, 90, 180, 270, 360] }}
-        transition={{
-          duration: 6,
-          ease: 'linear',
-          repeat: Infinity,
-        }}
-        style={{ willChange: 'transform' }}
+        className="css-morph-rotate"
       >
-        <m.path
-          fill="#22c55e"
-          animate={{
-            d: [SPROUT_PATH, CIRCLE_PATH, SQUARE_PATH, SPROUT_PATH],
-          }}
-          transition={{
-            duration: 3,
-            ease: 'easeInOut',
-            repeat: Infinity,
-            times: [0, 0.33, 0.66, 1],
-          }}
-        />
-      </m.svg>
+        {/* 3 stacked paths — only one is visible at a time (opacity 1)
+            via the css-morph-path-* keyframes (3s cycle, 1s each). */}
+        <path d={SPROUT_PATH} fill="#22c55e" className="css-morph-path-1" />
+        <path d={CIRCLE_PATH} fill="#22c55e" className="css-morph-path-2" />
+        <path d={SQUARE_PATH} fill="#22c55e" className="css-morph-path-3" />
+      </svg>
       <span className="sr-only">Memuat...</span>
     </div>
   );
