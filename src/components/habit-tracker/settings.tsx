@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +29,6 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
-import { useRef } from 'react';
 import dynamic from 'next/dynamic';
 import LabelManager from './label-manager';
 
@@ -58,82 +56,9 @@ import {
   THEME_PRESETS,
   type ThemePreset,
 } from '@/lib/theme-utils';
-
-interface AppSettings {
-  id: string;
-  userName: string;
-  theme: string;
-  primaryColor: string;
-  secondaryColor: string;
-  weekStart: string;
-  language: string;
-  targetCompletion: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-function SectionCard({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: React.ElementType;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Icon className="h-4 w-4 text-primary" />
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
-  );
-}
-
-function FormRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-      <div className="space-y-0.5">
-        <Label className="text-sm font-medium">{label}</Label>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      </div>
-      <div className="sm:w-64 shrink-0">{children}</div>
-    </div>
-  );
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <Skeleton className="h-6 w-24" />
-        <Skeleton className="h-4 w-48" />
-      </div>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i}>
-          <CardHeader className="pb-4">
-            <Skeleton className="h-5 w-32" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Array.from({ length: 2 }).map((_, j) => (
-              <div key={j} className="flex justify-between items-center">
-                <div className="space-y-1">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-3 w-48" />
-                </div>
-                <Skeleton className="h-9 w-64" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
+import type { AppSettings, SettingsFormState, SettingsSection } from './settings-types';
+import { SectionCard, FormRow } from './settings-ui';
+import { LoadingSkeleton } from './settings-skeleton';
 
 /** Live preview theme colors without saving to DB */
 function previewTheme(primary: string, secondary: string, theme: string) {
@@ -153,7 +78,7 @@ function previewTheme(primary: string, secondary: string, theme: string) {
 export default function Settings() {
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState<'umum' | 'habits' | 'data'>('umum');
+  const [activeSection, setActiveSection] = useState<SettingsSection>('umum');
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -163,7 +88,7 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Local form state
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SettingsFormState>({
     userName: '',
     theme: 'light',
     primaryColor: '#22c55e',
@@ -173,7 +98,7 @@ export default function Settings() {
     targetCompletion: 80,
   });
 
-  const updateField = useCallback(<K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+  const updateField = useCallback(<K extends keyof SettingsFormState>(key: K, value: SettingsFormState[K]) => {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
       // Live preview for theme-related changes
