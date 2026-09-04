@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { StaggerGroup, StaggerItem } from '@/components/habit-tracker/page-transition';
+import { ArticleWidget } from '@/components/habit-tracker/article-widget';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   Target,
@@ -389,6 +390,11 @@ export default function Dashboard() {
           })}
         </StaggerGroup>
       </section>
+
+      {/* ── Article of the Day (Learning widget) ────────────────── */}
+      <ScrollReveal>
+        <ArticleWidget />
+      </ScrollReveal>
 
       {/* ── Progress Rings Section ───────────────────────────────── */}
       <ScrollReveal>

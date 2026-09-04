@@ -4,7 +4,6 @@ import { jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 export type TabId =
   | 'dashboard'
   | 'tracker'
-  | 'calendar'
   | 'goals'
   | 'finance'
   | 'settings';

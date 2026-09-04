@@ -11,7 +11,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   LayoutDashboard,
   CheckSquare,
-  CalendarDays,
   Target,
 
   Wallet,
@@ -44,7 +43,6 @@ const tabLoading = () => <LoadingState />;
 
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false, loading: tabLoading });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
-const CalendarView = dynamic(() => import('@/components/habit-tracker/calendar-view'), { ssr: false, loading: tabLoading });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
 
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
@@ -53,7 +51,6 @@ const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'),
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
-  { id: 'calendar', label: 'Kalender', icon: CalendarDays },
   { id: 'goals', label: 'Tujuan', icon: Target },
 
   { id: 'finance', label: 'Keuangan', icon: Wallet },
@@ -73,7 +70,6 @@ const BOTTOM_NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   dashboard: Dashboard,
   tracker: DailyTracker,
-  calendar: CalendarView,
   goals: Goals,
 
   finance: Finance,
@@ -82,7 +78,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
-  'dashboard', 'tracker', 'calendar', 'goals',
+  'dashboard', 'tracker', 'goals',
   'finance', 'settings',
 ]);
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
 import { useAppStore } from '@/store/app-store';
 import { jakartaNowIso, jakartaNowParts } from '@/lib/timezone';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,9 @@ import { DailySummary } from './daily-tracker-daily-summary';
 import { HabitCard } from './daily-tracker-habit-card';
 import { LoadingSkeleton } from './daily-tracker-skeleton';
 
+// Calendar merged into Tracker as sub-tab (nav 6 → 5)
+const CalendarView = dynamic(() => import('./calendar-view'), { ssr: false });
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -67,6 +71,8 @@ export default function DailyTracker() {
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [viewFilter, setViewFilter] = useState<'all' | 'incomplete' | 'completed'>('all');
   const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set());
+  // Calendar merge: toggle between 'today' (habit grid) and 'history' (calendar)
+  const [viewMode, setViewMode] = useState<'today' | 'history'>('today');
 
   // ---- time dialog state ----
   const [timeDialogHabit, setTimeDialogHabit] = useState<Habit | null>(null);
@@ -565,6 +571,33 @@ export default function DailyTracker() {
   // ---- render ----
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
+      {/* ─────────────────── View Toggle (Hari Ini | Riwayat) ─── */}
+      <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 w-fit">
+        <button
+          onClick={() => setViewMode('today')}
+          className={cn(
+            'px-4 py-1.5 text-sm font-medium rounded-md transition-all',
+            viewMode === 'today' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Hari Ini
+        </button>
+        <button
+          onClick={() => setViewMode('history')}
+          className={cn(
+            'px-4 py-1.5 text-sm font-medium rounded-md transition-all',
+            viewMode === 'history' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Riwayat
+        </button>
+      </div>
+
+      {/* ─────────────────── Calendar (History View) ─────────── */}
+      {viewMode === 'history' ? (
+        <CalendarView />
+      ) : (
+        <>
       {/* ─────────────────── Date Navigation ─────────────────── */}
       <DateNav
         isToday={isToday}
@@ -784,6 +817,8 @@ export default function DailyTracker() {
         open={!!analysisHabitId}
         onOpenChange={(open) => !open && setAnalysisHabitId(null)}
       />
+        </>
+      )}
     </div>
   );
 }
