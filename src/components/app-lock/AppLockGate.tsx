@@ -131,9 +131,12 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     void tryBiometric();
     // We intentionally fire biometric only once per lock-screen appearance
     // (guarded by `tryBiometricFiredRef`) — re-firing on every dependency
-    // change would spam the user with prompts. `tryBiometric`, `config`, and
-    // `lockout` are intentionally omitted from the dep array.
-  }, [isLocked, biometricAvailable, tryBiometric]);
+    // change would spam the user with prompts. `config` is intentionally
+    // omitted (the credential ID can't change while the lock screen is up).
+    // `lockout.locked` IS included so that biometric auto-fires after a
+    // lockout countdown expires (otherwise the user would have to tap the
+    // fingerprint button manually after the cooldown).
+  }, [isLocked, biometricAvailable, lockout.locked, tryBiometric]);
 
   // Poll lockout state so the countdown in PinPad can release when expired.
   useEffect(() => {

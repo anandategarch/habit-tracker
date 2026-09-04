@@ -58,8 +58,11 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
 ];
 
 // Primary tabs shown in the mobile bottom navigation bar.
-// Other tabs (Calendar, Goals) remain accessible via the hamburger
-// sidebar drawer on mobile.
+// BUG-FINANCE-CAL BUG-4: the previous comment said "Other tabs (Calendar,
+// Goals) remain accessible via the hamburger sidebar drawer on mobile." —
+// that was stale (Calendar was merged into Tracker as the 'Riwayat' sub-tab
+// in commit e5174c2). Only Goals + the four bottom-nav tabs remain in the
+// sidebar drawer.
 const BOTTOM_NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
   { id: 'tracker', label: 'Track', icon: CheckSquare },

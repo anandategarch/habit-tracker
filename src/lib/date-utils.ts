@@ -43,6 +43,14 @@ const mmmYyyyFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   year: 'numeric',
 });
+// BUG-SW-PERF BUG-2b: `MMMM yyyy` (long month) without locale previously
+// used `mmmYyyyFormatter` (short month) — returned "Sep 2026" instead of
+// "September 2026". Affects calendar-view.tsx header. Added dedicated
+// long-month en-US formatter to match date-fns output.
+const mmmmYyyyFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  year: 'numeric',
+});
 const mmmmYyyyIdFormatter = new Intl.DateTimeFormat('id-ID', {
   month: 'long',
   year: 'numeric',
@@ -87,14 +95,51 @@ const mmmDFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
 });
-const dMmmFormatter = new Intl.DateTimeFormat('en-US', {
-  day: 'numeric',
-  month: 'short',
-});
 const dMmmIdFormatter = new Intl.DateTimeFormat('id-ID', {
   day: 'numeric',
   month: 'short',
 });
+
+// ── Day-first English formatters (en-GB-ordered, en-US month names) ────────
+// BUG-SW-PERF BUG-2: date-fns `format(date, 'd MMM')` returns "4 Sep"
+// (day first, per pattern). `Intl.DateTimeFormat('en-US', ...)` returns
+// "Sep 4" (month first, per locale). For day-first patterns we must use
+// `formatToParts` + manual concatenation to preserve the pattern order.
+// Using en-GB locale is NOT sufficient — en-GB short month is "Sept"
+// (4 letters), not "Sep" (3 letters) like date-fns en-US.
+//
+// Affected patterns:
+//   `d MMM`         → "4 Sep"     (was "Sep 4")
+//   `d MMM yyyy`    → "4 Sep 2026" (was "Sep 4, 2026")
+//   `d MMMM yyyy`   → "4 September 2026" (was "September 4, 2026")
+//   `EEEE, d MMM yyyy` → "Friday, 4 Sep 2026" (was "Friday, Sep 4, 2026")
+//
+// Only `d MMM` is currently called without `id` locale in the codebase
+// (src/app/api/finance/sources/balance-history/route.ts:75) but the other
+// patterns are fixed too for consistency + to prevent latent bugs.
+
+function enParts(
+  date: Date,
+  opts: Intl.DateTimeFormatOptions
+): { day: string; month: string; year: string; weekday: string } {
+  const parts = new Intl.DateTimeFormat('en-US', opts).formatToParts(date);
+  const out = { day: '', month: '', year: '', weekday: '' };
+  for (const p of parts) {
+    if (p.type === 'day') out.day = p.value;
+    else if (p.type === 'month') out.month = p.value;
+    else if (p.type === 'year') out.year = p.value;
+    else if (p.type === 'weekday') out.weekday = p.value;
+  }
+  return out;
+}
+
+function formatEnDayFirst(
+  date: Date,
+  opts: Intl.DateTimeFormatOptions,
+  template: (p: { day: string; month: string; year: string; weekday: string }) => string
+): string {
+  return template(enParts(date, opts));
+}
 
 // ── format ─────────────────────────────────────────────────────────────────
 // Mimics date-fns `format(date, pattern, opts?)` for the patterns used
@@ -130,23 +175,47 @@ export function format(
     case 'MMM yyyy':
       return useId ? mmmYyyyIdFormatter.format(date) : mmmYyyyFormatter.format(date);
     case 'MMMM yyyy':
-      return useId ? mmmmYyyyIdFormatter.format(date) : mmmYyyyFormatter.format(date);
+      return useId ? mmmmYyyyIdFormatter.format(date) : mmmmYyyyFormatter.format(date);
     case 'MMMM d, yyyy':
       return mmmmDyyyyFormatter.format(date);
     case 'EEEE, MMM d, yyyy':
       return eeeeMmmDyyyyFormatter.format(date);
     case 'EEEE, d MMM yyyy':
-      return useId ? eeeeDMmmYyyyIdFormatter.format(date) : eeeeMmmDyyyyFormatter.format(date);
+      return useId
+        ? eeeeDMmmYyyyIdFormatter.format(date)
+        : formatEnDayFirst(
+            date,
+            { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' },
+            (p) => `${p.weekday}, ${p.day} ${p.month} ${p.year}`
+          );
     case 'MMM d':
       return mmmDFormatter.format(date);
     case 'MMM d, yyyy':
       return mmmDyyyyFormatter.format(date);
     case 'd MMM':
-      return useId ? dMmmIdFormatter.format(date) : dMmmFormatter.format(date);
+      return useId
+        ? dMmmIdFormatter.format(date)
+        : formatEnDayFirst(
+            date,
+            { day: 'numeric', month: 'short' },
+            (p) => `${p.day} ${p.month}`
+          );
     case 'd MMM yyyy':
-      return useId ? dMmmYyyyIdFormatter.format(date) : mmmDyyyyFormatter.format(date);
+      return useId
+        ? dMmmYyyyIdFormatter.format(date)
+        : formatEnDayFirst(
+            date,
+            { day: 'numeric', month: 'short', year: 'numeric' },
+            (p) => `${p.day} ${p.month} ${p.year}`
+          );
     case 'd MMMM yyyy':
-      return useId ? dMmmmYyyyIdFormatter.format(date) : mmmmDyyyyFormatter.format(date);
+      return useId
+        ? dMmmmYyyyIdFormatter.format(date)
+        : formatEnDayFirst(
+            date,
+            { day: 'numeric', month: 'long', year: 'numeric' },
+            (p) => `${p.day} ${p.month} ${p.year}`
+          );
     default:
       throw new Error(
         `date-utils format(): unsupported pattern "${pattern}". Add it to src/lib/date-utils.ts and verify output matches date-fns.`

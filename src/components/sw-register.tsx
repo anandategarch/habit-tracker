@@ -42,14 +42,17 @@ export default function ServiceWorkerRegister() {
 
         // FIX: Race condition — if SW activated BEFORE React mounted (which
         // happens on fast SW install), controllerchange already fired and
-        // was missed by the listener. Detect this by comparing controller
-        // vs registration active. If they differ, the page loaded with
-        // old SW but new SW is now active → force reload.
+        // was missed by the listener. Detect this by comparing the SW
+        // version stored in localStorage against the current build's
+        // CACHE_VERSION. If they differ, the page loaded with an old SW
+        // but new SW is now active → force reload.
+        //
+        // BUG-SW-PERF BUG-3: removed dead `controllerUrl`/`activeUrl`
+        // declarations — they were declared but never compared (the
+        // actual comparison uses localStorage version, not scriptURL).
+        // scriptURL is always `/sw.js` for this app (single SW scope)
+        // so comparing scriptURLs would be a no-op anyway.
         if (reg.active && navigator.serviceWorker.controller) {
-          const controllerUrl = navigator.serviceWorker.controller.scriptURL;
-          const activeUrl = reg.active.scriptURL;
-          // If the controller changed during this page load, reload.
-          // Use localStorage to track SW version for extra safety.
           const storedVersion = localStorage.getItem('sw-version');
           const currentVersion = reg.active.scriptURL + '|' + CACHE_VERSION;
           if (storedVersion && storedVersion !== currentVersion) {

@@ -151,23 +151,13 @@ export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export const updateGoalSchema = createGoalSchema.partial();
 export type UpdateGoalInput = z.infer<typeof updateGoalSchema>;
 
-export const createJournalSchema = z.object({
-  date: z.coerce.date(),
-  mood: z.number().int().min(1).max(5).optional(),
-  // Use .nullish() (accepts null + undefined) — client sends null when
-  // field is empty. .optional() only accepts undefined, causing 400.
-  stress: z.number().int().min(1).max(5).nullish(),
-  energy: z.number().int().min(1).max(5).nullish(),
-  sleep: z.number().min(0).max(24).nullish(),
-  reflection: optionalString(10000),
-  winToday: optionalString(2000),
-  lessonLearned: optionalString(2000),
-  tomorrowPlan: optionalString(2000),
-});
-export type CreateJournalInput = z.infer<typeof createJournalSchema>;
-
-export const updateJournalSchema = createJournalSchema.partial();
-export type UpdateJournalInput = z.infer<typeof updateJournalSchema>;
+// BUG-FINANCE-CAL BUG-5: removed dead schemas createJournalSchema /
+// updateJournalSchema / CreateJournalInput / UpdateJournalInput and
+// createLearningTopicSchema / CreateLearningTopicInput. The Journal +
+// LearningTopic Prisma models + their API routes were deleted in commit
+// 50e5482 ("hapus 3 orphan features") and nothing imports these schemas
+// anymore (verified via grep). They were just dead code that confused
+// readers into thinking the features still existed.
 
 // ── Daily Log ────────────────────────────────────────────────────────────
 
@@ -248,13 +238,6 @@ export const updateSettingsSchema = z.object({
   projectionCategoryIds: z.array(z.string().min(1).max(100)).max(1).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
-
-export const createLearningTopicSchema = z.object({
-  name: nonEmpty(100),
-  emoji: z.string().max(20).optional(),
-  order: z.number().int().min(0).optional(),
-});
-export type CreateLearningTopicInput = z.infer<typeof createLearningTopicSchema>;
 
 // ── Helper: safe parse for API routes ───────────────────────────────────
 

@@ -12,6 +12,7 @@
 // dashoffset — keeping the two animations in independent CSS layers
 // (matching framer-motion's independent transition timings: 1.6s for the
 // arc length, 2.4s for the rotation).
+import { useId } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +57,14 @@ const STROKE_WIDTH = {
  */
 export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  // Unique gradient ID per instance — without this, multiple AuroraRing
+  // instances on the same page (e.g. LoadingState in multiple lazy tabs
+  // during transition) would emit duplicate `<linearGradient id>` elements,
+  // which is invalid HTML and makes every `url(#…)` reference resolve to the
+  // first definition (visually identical here, but fragile + breaks if the
+  // first instance unmounts).
+  const reactId = useId();
+  const gradientId = `aurora-ring-grad-${reactId.replace(/:/g, '')}`;
   const px = SIZE_MAP[size];
   const stroke = STROKE_WIDTH[size];
   const center = 50;
@@ -63,8 +72,6 @@ export function AuroraRing({ size = 'md', className }: AuroraRingProps) {
   const circumference = 2 * Math.PI * radius;
   // 75% arc visible in reduced-motion mode (25% gap)
   const staticDash = circumference * 0.75;
-
-  const gradientId = 'aurora-ring-grad';
 
   return (
     <div

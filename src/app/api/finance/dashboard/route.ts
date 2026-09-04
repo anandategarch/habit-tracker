@@ -205,8 +205,18 @@ export async function GET(request: NextRequest) {
         income: prevIncome,
         expense: prevExpense,
       },
+    // BUG-SW-PERF BUG-1: Reverted PERF-FIX s-maxage=60 edge cache.
+    // Reason: this endpoint serves per-user mutation-sensitive data
+    // (monthly transactions, budget spent, source balance). React Query's
+    // invalidateQueries() after a transaction POST triggers an immediate
+    // refetch — but the refetch hits the Vercel edge cache (still fresh
+    // within s-maxage=60s) and returns the OLD response, so the user
+    // doesn't see their newly-added transaction reflected for up to ~120s.
+    // For a single-user personal finance tracker the stale-data UX is
+    // worse than the marginal cold-load perf gain. React Query's
+    // client-side cache (staleTime=60s) already provides dedup.
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600' },
+      headers: { 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     console.error('GET /api/finance/dashboard error:', error);

@@ -52,6 +52,7 @@ import {
   getAppLockConfig,
   setAppLockConfig,
   clearAppLockConfig,
+  setLastUnlockedAt,
 } from '@/lib/app-lock/storage';
 import { verifyPin, setupPin } from '@/lib/app-lock/pin-hash';
 import {
@@ -156,6 +157,12 @@ export function AppLockSection() {
           // Preserve any prior auto-lock timeout (default 0 = immediate).
           autoLockTimeout: config.autoLockTimeout,
         });
+        // Mark the app as "unlocked right now" so the next page reload
+        // honours the autoLockTimeout check. Without this, `lastUnlock`
+        // stays at 0 and `computeInitialLockState` short-circuits to
+        // `false` on every reload — the gate would never show until the
+        // user manually tab-switched to trigger the visibility listener.
+        setLastUnlockedAt(Date.now());
         recordSuccessfulAttempt();
         refreshConfig();
         setSetupOpen(false);

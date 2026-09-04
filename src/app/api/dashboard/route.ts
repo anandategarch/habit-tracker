@@ -828,12 +828,20 @@ export async function GET(request: NextRequest) {
         // disables all HTTP caching of this response — every request goes
         // to the origin. React Query's in-memory cache (staleTime 30s) still
         // provides client-side dedup, so DB load is not significantly higher.
-        // PERF-FIX: use s-maxage=60 + stale-while-revalidate=600 for Vercel
-        // edge caching. Dashboard data is per-user but 60s freshness is OK
-        // (data changes when user checks habit/adds tx — 60s delay acceptable).
-        // stale-while-revalidate serves cached data immediately while fetching
-        // fresh in background — perceived performance improves dramatically.
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600',
+        // BUG-SW-PERF BUG-1: Reverted PERF-FIX s-maxage=60 edge cache.
+        // Reason: this endpoint serves per-user mutation-sensitive data
+        // (habits, logs, daily logs). React Query's invalidateQueries()
+        // after a habit-check mutation triggers an immediate refetch —
+        // but the refetch hits the Vercel edge cache (still fresh within
+        // s-maxage=60s) and returns the OLD response, so the user does
+        // not see their habit-check reflected for up to ~120s (s-maxage
+        // 60s + React Query staleTime 60s). For a single-user personal
+        // tracker the stale-data UX is worse than the marginal cold-load
+        // perf gain from edge caching. React Query's client-side cache
+        // (staleTime=60s) already provides dedup + perceived perf.
+        // Verified: Vercel edge cache HIT on 2nd request confirmed the
+        // cache was active and serving stale data.
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

@@ -491,9 +491,19 @@ function TransactionRow({
           }
         }}
       >
-        {/* Multi-select checkbox */}
+        {/* Multi-select checkbox
+            BUG-FINANCE-CAL BUG-1: wrap the checkbox in a stopPropagation
+            container. Without this, clicking the checkbox bubbles up to the
+            tx-card's onClick (which toggles selection in multi-select mode),
+            so onCheckedChange AND the parent onClick BOTH fire — net-zero
+            selection change. The checkbox appeared broken: clicking it did
+            nothing. Now the wrapper swallows the click so only the checkbox's
+            onCheckedChange runs. */}
         {multiSelect && (
-          <div className="absolute top-2 right-2 z-10">
+          <div
+            className="absolute top-2 right-2 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Checkbox
               checked={selectedTxIds.has(tx.id)}
               onCheckedChange={() => onToggleSelectTx(tx.id)}

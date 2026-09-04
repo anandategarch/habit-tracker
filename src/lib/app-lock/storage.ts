@@ -6,6 +6,25 @@
 //
 // SSR-safe: every accessor checks `typeof window !== 'undefined'` and returns
 // a sensible default when running on the server.
+//
+// Cross-instance sync: every mutator (`setAppLockConfig`, `clearAppLockConfig`,
+// `setLockoutState`) dispatches a `rutina:app-lock-config-changed` CustomEvent
+// on `window` so that every `useAppLock` hook instance (AppLockGate +
+// AppLockSection) can refresh its React state without a page reload. Without
+// this, enabling app lock in Settings would not activate the lock screen until
+// the next reload (the gate's `useAppLock` instance had a stale `enabled`
+// flag).
+
+export const APP_LOCK_CONFIG_EVENT = 'rutina:app-lock-config-changed';
+
+function notifyConfigChange(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(APP_LOCK_CONFIG_EVENT));
+  } catch {
+    // CustomEvent may be unavailable in rare environments — fail silently.
+  }
+}
 
 const KEYS = {
   ENABLED: 'rutina_app_lock_enabled',
@@ -96,8 +115,10 @@ export function getAppLockConfig(): AppLockConfig {
 }
 
 export function setAppLockConfig(config: Partial<AppLockConfig>): void {
+  let changed = false;
   if (config.enabled !== undefined) {
     writeString(KEYS.ENABLED, config.enabled ? 'true' : 'false');
+    changed = true;
   }
   if (config.pinHash !== undefined) {
     if (config.pinHash === null) {
@@ -105,6 +126,7 @@ export function setAppLockConfig(config: Partial<AppLockConfig>): void {
     } else {
       writeString(KEYS.PIN_HASH, config.pinHash);
     }
+    changed = true;
   }
   if (config.pinSalt !== undefined) {
     if (config.pinSalt === null) {
@@ -112,9 +134,11 @@ export function setAppLockConfig(config: Partial<AppLockConfig>): void {
     } else {
       writeString(KEYS.PIN_SALT, config.pinSalt);
     }
+    changed = true;
   }
   if (config.pinIterations !== undefined) {
     writeString(KEYS.PIN_ITER, String(config.pinIterations));
+    changed = true;
   }
   if (config.webauthnCredentialId !== undefined) {
     if (config.webauthnCredentialId === null) {
@@ -122,10 +146,13 @@ export function setAppLockConfig(config: Partial<AppLockConfig>): void {
     } else {
       writeString(KEYS.WEBAUTHN_ID, config.webauthnCredentialId);
     }
+    changed = true;
   }
   if (config.autoLockTimeout !== undefined) {
     writeString(KEYS.AUTO_LOCK, String(config.autoLockTimeout));
+    changed = true;
   }
+  if (changed) notifyConfigChange();
 }
 
 export function clearAppLockConfig(): void {
@@ -137,6 +164,7 @@ export function clearAppLockConfig(): void {
   removeKey(KEYS.AUTO_LOCK);
   removeKey(KEYS.LOCKOUT);
   removeKey(KEYS.LAST_UNLOCK);
+  notifyConfigChange();
 }
 
 export function getLockoutState(): LockoutState {

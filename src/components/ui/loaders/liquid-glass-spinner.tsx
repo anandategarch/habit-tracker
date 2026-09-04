@@ -4,6 +4,7 @@
 // to pure CSS keyframes (.css-liquid-spin in globals.css) + the local
 // usePrefersReducedMotion hook. The framer-motion core runtime is no longer
 // required for this loader.
+import { useId } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,9 @@ export function LiquidGlassSpinner({
   className,
 }: LiquidGlassSpinnerProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  // Unique gradient ID per instance (see AuroraRing for rationale).
+  const reactId = useId();
+  const highlightGradId = `lg-highlight-${reactId.replace(/:/g, '')}`;
 
   const wrapperStyle: React.CSSProperties = {
     width: size,
@@ -115,7 +119,7 @@ export function LiquidGlassSpinner({
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id="lg-highlight" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id={highlightGradId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="rgba(255,255,255,0)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0.9)" />
           </linearGradient>
@@ -125,7 +129,7 @@ export function LiquidGlassSpinner({
           cy="50"
           r="46"
           fill="none"
-          stroke="url(#lg-highlight)"
+          stroke={`url(#${highlightGradId})`}
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray="60 240"

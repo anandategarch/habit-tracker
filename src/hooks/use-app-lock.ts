@@ -17,6 +17,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
+  APP_LOCK_CONFIG_EVENT,
   getAppLockConfig,
   getLastUnlockedAt,
   setLastUnlockedAt,
@@ -69,6 +70,19 @@ export function useAppLock(): UseAppLockResult {
   const refreshConfig = useCallback(() => {
     setConfig(getAppLockConfig());
   }, []);
+
+  // Cross-instance sync: when another `useAppLock` instance (or the Settings
+  // panel) mutates the app-lock config via `setAppLockConfig` /
+  // `clearAppLockConfig`, a `rutina:app-lock-config-changed` CustomEvent is
+  // dispatched on `window`. Subscribe here so this instance picks up the
+  // change without a page reload. Without this, enabling app lock in
+  // Settings would not activate AppLockGate's lock screen until reload.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => refreshConfig();
+    window.addEventListener(APP_LOCK_CONFIG_EVENT, handler);
+    return () => window.removeEventListener(APP_LOCK_CONFIG_EVENT, handler);
+  }, [refreshConfig]);
 
   // Auto-lock on visibility change + inactivity.
   useEffect(() => {
