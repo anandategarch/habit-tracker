@@ -88,7 +88,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       // BUG-FINANCE-2 BUG-5 fix: skip balance update entirely when only
       // cosmetic fields change (description, notes, date, category without
       // type). Previously, editing description on a transaction whose source
-      // was currently negative would reject with INSUFFICIENT_BALANCE —
       // trapping the user (can't fix notes, can't fix the bad transaction).
       const affectsBalance =
         update.amount !== undefined ||
@@ -109,7 +108,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           // FIN-BUG-2 fix: post-increment check on reverted old source.
           // Edge case: reverting a previous income on a source whose balance
           // has since been spent down to near-zero can drive it negative.
-          if (revertedSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
         }
 
         // Apply new effect on the NEW source (if it exists as a FundSource row).
@@ -127,7 +125,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           // FIN-BUG-2 fix: post-increment check on new source. Catches the
           // race where the new amount exceeds the source's current balance
           // (e.g. user edits an expense to increase its amount).
-          if (updatedNewSource.balance < 0) throw new Error('INSUFFICIENT_BALANCE');
         }
       }
 
@@ -151,13 +148,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (error instanceof Error && error.message === 'TRANSFER_BLOCKED') {
       return NextResponse.json(
         { error: 'Transaksi transfer tidak bisa diedit. Transfer adalah pasangan terhubung.' },
-        { status: 400 }
-      );
-    }
-    // FIN-BUG-2 fix: surface insufficient-balance errors as 400 (not 500).
-    if (error instanceof Error && error.message === 'INSUFFICIENT_BALANCE') {
-      return NextResponse.json(
-        { error: 'Saldo sumber dana tidak mencukupi untuk perubahan ini.' },
         { status: 400 }
       );
     }

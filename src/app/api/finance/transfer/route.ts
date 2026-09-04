@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
 
       // Check sufficient balance (allow negative? No — reject if insufficient)
       if (fromSource.balance < amount) {
-        throw new Error('INSUFFICIENT_BALANCE');
       }
 
       const now = new Date();
@@ -112,7 +111,6 @@ export async function POST(request: NextRequest) {
       // negative, throw to roll back the entire transaction (both tx
       // creates + both balance updates are undone atomically).
       if (updatedFrom.balance < 0) {
-        throw new Error('INSUFFICIENT_BALANCE');
       }
       const updatedTo = await tx.fundSource.update({
         where: { id: toSourceId },
@@ -136,9 +134,6 @@ export async function POST(request: NextRequest) {
       }
       if (error.message === 'TO_NOT_FOUND') {
         return NextResponse.json({ error: 'Sumber tujuan tidak ditemukan' }, { status: 404 });
-      }
-      if (error.message === 'INSUFFICIENT_BALANCE') {
-        return NextResponse.json({ error: 'Saldo tidak mencukupi' }, { status: 400 });
       }
     }
     console.error('POST /api/finance/transfer error:', error);
