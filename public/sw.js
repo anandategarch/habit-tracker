@@ -1,8 +1,8 @@
-const CACHE_NAME = 'habit-tracker-v9';
+const CACHE_NAME = 'habit-tracker-v10';
 
-// Bump cache version (v1 → v2 → ... → v9) to purge any stale /api/ responses that
+// Bump cache version (v1 → v2 → ... → v10) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
-// v9: Push notification feature removed — purge old sw.js with push handler
+// v10: i18n Indonesian — purge old English JS feature removed — purge old sw.js with push handler
 // + old JS chunks with PushNotificationSettings component.
 // v8: Rewards/Badges/Challenges removed — purge old JS chunks that still
 // contain nav items + KPI cards for these removed features. Users seeing
