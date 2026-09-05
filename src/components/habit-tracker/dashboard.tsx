@@ -11,9 +11,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
+import { useTypewriter } from '@/hooks/use-typewriter';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
-import { StaggerGroup, StaggerItem } from '@/components/habit-tracker/page-transition';
-import { ArticleWidget } from '@/components/habit-tracker/article-widget';
+import { WeeklyReview } from '@/components/habit-tracker/weekly-review';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   Target,
@@ -29,6 +29,7 @@ import {
   Smile,
   Moon,
   Brain,
+  Swords,
   Flag,
   ArrowUpRight,
   ArrowDownRight,
@@ -38,70 +39,319 @@ import {
   Quote,
   RefreshCw,
   Calendar,
+  BookOpen as BookOpenIcon,
   Wallet,
+  Info,
   Clock,
   History,
   Minus,
 } from 'lucide-react';
-
-import type { DashboardData, MotivationalQuote, Period } from './dashboard-types';
-import { PERIOD_OPTIONS } from './dashboard-types';
-import { DEFAULT_DATA } from './dashboard-default-data';
-import {
-  ChartInfo,
-  ProgressRing,
-
-  PeriodFilter,
-  QuoteDisplay,
-} from './dashboard-helpers';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const DashboardCharts = dynamic(() => import('./dashboard-charts'), {
   ssr: false,
   loading: () => (
-    <div className="space-y-4 max-w-6xl mx-auto">
-      {/* KPI grid skeleton */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="skel-card skel-hybrid skel-stagger p-4"
-            style={{ animationDelay: `${i * 60}ms` }}
-          >
-            <div className="flex items-center gap-1.5 mb-2">
-              <div className="h-3 w-3 skel-hybrid skel-circle" style={{ animationDelay: `${i * 60 + 30}ms` }} />
-              <div className="h-3 w-20 skel-hybrid" style={{ animationDelay: `${i * 60 + 60}ms` }} />
-            </div>
-            <div className="h-7 w-16 skel-hybrid mb-1" style={{ animationDelay: `${i * 60 + 90}ms` }} />
-            <div className="h-3 w-24 skel-hybrid" style={{ animationDelay: `${i * 60 + 120}ms` }} />
-          </div>
-        ))}
-      </div>
-      {/* Chart skeleton */}
-      <div
-        className="skel-card skel-hybrid skel-stagger h-64"
-        style={{ animationDelay: '300ms' }}
-      />
-      {/* Leaderboard skeleton */}
+    <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div
-            key={i}
-            className="skel-card skel-hybrid skel-stagger h-56"
-            style={{ animationDelay: `${400 + i * 60}ms` }}
-          />
-        ))}
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+      <Skeleton className="h-72 rounded-xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     </div>
   ),
 });
 
+function ChartInfo({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Info">
+            <Info className="w-3 h-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          <p>{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+type Period = '7d' | '1m' | '3m' | 'all';
+
+const PERIOD_OPTIONS: { value: Period; label: string }[] = [
+  { value: '7d', label: '7 Hari' },
+  { value: '1m', label: '1 Bulan' },
+  { value: '3m', label: '3 Bulan' },
+  { value: 'all', label: 'Semua' },
+];
+
+interface MotivationalQuote {
+  quote: string;
+  translation: string;
+  author: string;
+}
+
+interface DashboardData {
+  totalHabits: number;
+  completionRate: number;
+  currentStreak: number;
+  longestStreak: number;
+  successToday: number;
+  weeklyCompletion: number;
+  monthlyCompletion: number;
+  bestHabit: { name: string; icon: string; rate: number };
+  worstHabit: { name: string; icon: string; rate: number };
+  totalXP: number;
+  currentLevel: number;
+  nextLevelXP: number;
+  currentLevelXP: number;
+  levelProgress: number;
+  unlockedBadges: number;
+  totalBadges: number;
+  challengeProgress: number;
+  goalProgress: number;
+  moodAverage: string;
+  sleepAverage: string;
+  productivityScore: number;
+  weeklyChartData: { day: string; date: string; completed: number; total: number; rate: number }[];
+  monthlyChartData: { day: string; completed: number; total: number; rate: number }[];
+  categoryPerformance: { category: string; done: number; total: number; rate: number }[];
+  todayFocus: { id: string; name: string; icon: string; priority: string }[];
+  period: string;
+  habitDetailStats: { id: string; name: string; icon: string; color: string; category: string; completed: number; total: number; rate: number; streak: number }[];
+  stackedBarData: { day: string; completed: number; missed: number; total: number; rate: number }[];
+  weeklyPattern: { day: string; fullDay: string; rate: number; avgCompleted: string }[];
+  financeOverview: {
+    totalIncome: number;
+    totalExpense: number;
+    netBalance: number;
+    transactionCount: number;
+    budgetWarning: number;
+    budgetExceeded: number;
+  };
+  timeTrackedSummary: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    targetTime: string | null;
+    todayTime: string | null;
+    todayDone: boolean;
+    weekAvg: string | null;
+    weekOnTarget: number;
+    weekTotal: number;
+    weekOnTargetRate: number;
+    prevAvg: string | null;
+    trend: number | null;
+    weekTimes: { day: string; time: string | null; minutes: number | null }[];
+  }[];
+  lastDoneSummary: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    interval: string | null;
+    intervalDays: number;
+    lastDate: string | null;
+    daysAgo: number | null;
+    completedAt: string | null;
+    overdue: boolean;
+  }[];
+}
+
+function ProgressRing({
+  value,
+  size = 100,
+  strokeWidth = 8,
+  color = 'stroke-primary',
+  label,
+}: {
+  value: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  label: string;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - value / 100);
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className="stroke-muted"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className={cn(color, 'anim-ring')}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{
+            '--ring-circumference': circumference,
+            '--ring-offset': offset,
+          } as React.CSSProperties}
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center" style={{ width: size, height: size }}>
+        <span className="text-lg font-bold"><CountUpNumber value={value} suffix="%" /></span>
+      </div>
+      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+    </div>
+  );
+}
+
+function MoodEmoji({ mood }: { mood: string }) {
+  // API returns moodAverage as a numeric string (e.g. "3.0", "4.5").
+  // Map numeric value to emoji — previously looked up mood WORDS
+  // (great/good/okay/bad/terrible) which never matched, always showing 😐.
+  const num = Number(mood);
+  const rounded = isNaN(num) ? 3 : Math.round(num);
+  const emojiMap: Record<number, string> = {
+    1: '😢', 2: '😔', 3: '😐', 4: '🙂', 5: '😊',
+  };
+  const emoji = emojiMap[rounded] || '😐';
+  const colorMap: Record<number, string> = {
+    1: 'text-red-500', 2: 'text-orange-500', 3: 'text-yellow-500',
+    4: 'text-emerald-500', 5: 'text-emerald-500',
+  };
+  return (
+    <span className={cn('text-2xl', colorMap[rounded] || 'text-muted-foreground')}>
+      {emoji}
+    </span>
+  );
+}
+
+
+function getMoodLabel(mood: string) {
+  // Guard against null/undefined input — returns empty string instead of
+  // crashing on `mood.charAt(0)`.
+  if (!mood) return '';
+  return mood.charAt(0).toUpperCase() + mood.slice(1);
+}
+
+function PeriodFilter({
+  period,
+  onPeriodChange,
+}: {
+  period: Period;
+  onPeriodChange: (p: Period) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 p-1 bg-muted rounded-lg w-fit">
+      {PERIOD_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onPeriodChange(opt.value)}
+          className={cn(
+            'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150',
+            period === opt.value
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const DEFAULT_DATA: DashboardData = {
+  totalHabits: 0,
+  completionRate: 0,
+  currentStreak: 0,
+  longestStreak: 0,
+  successToday: 0,
+  weeklyCompletion: 0,
+  monthlyCompletion: 0,
+  bestHabit: { name: 'N/A', icon: '🏆', rate: 0 },
+  worstHabit: { name: 'N/A', icon: '📉', rate: 0 },
+  totalXP: 0,
+  currentLevel: 1,
+  nextLevelXP: 100,
+  currentLevelXP: 0,
+  levelProgress: 0,
+  unlockedBadges: 0,
+  totalBadges: 0,
+  challengeProgress: 0,
+  goalProgress: 0,
+  moodAverage: '3.0',
+  sleepAverage: '7.0',
+  productivityScore: 0,
+  weeklyChartData: [],
+  monthlyChartData: [],
+  categoryPerformance: [],
+  todayFocus: [],
+  period: 'all',
+  habitDetailStats: [],
+  stackedBarData: [],
+  weeklyPattern: [],
+  financeOverview: { totalIncome: 0, totalExpense: 0, netBalance: 0, transactionCount: 0, budgetWarning: 0, budgetExceeded: 0 },
+  timeTrackedSummary: [],
+  lastDoneSummary: [],
+};
+
+function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; onRefresh: () => void }) {
+  const { typed, done } = useTypewriter(quote.quote, 30, 300);
+  // Crossfade key: changes when quote text changes → retriggers CSS animation
+  const crossfadeKey = quote.quote;
+  return (
+    <div className="flex items-start gap-3 anim-crossfade" key={crossfadeKey}>
+      <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+        <Sparkles className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm md:text-base font-medium text-foreground leading-relaxed italic">
+          &ldquo;{typed}
+          {!done && <span className="anim-cursor text-primary">|</span>}&rdquo;
+        </p>
+        {done && quote.translation && quote.translation !== quote.quote && (
+          <p className="text-xs md:text-sm text-muted-foreground leading-relaxed mt-1.5 animate-in fade-in duration-500">
+            {quote.translation}
+          </p>
+        )}
+        {done && (
+          <div className="flex items-center justify-between mt-2 animate-in fade-in duration-500">
+            <p className="text-xs text-muted-foreground">
+              — {quote.author}
+            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onRefresh}
+              aria-label="Refresh quote"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
   const queryClient = useQueryClient();
   const primaryColor = useThemeColor('primary');
-  // FIX-COLOR-P3: added destructiveColor so the "missed target" mini-bar
-  // follows the user's theme (was hardcoded #ef4444).
-  const destructiveColor = useThemeColor('destructive');
   const [period, setPeriod] = useState<Period>('all');
   const [retryCount, setRetryCount] = useState(0);
 
@@ -156,13 +406,13 @@ export default function Dashboard() {
     if (data.currentStreak >= 7) {
       items.push({
         icon: <Flame className="h-4 w-4 text-orange-500" />,
-        text: `Kamu sedang ${data.currentStreak} hari streak! Teruskan!`,
+        text: `You're on a ${data.currentStreak} day streak! Keep it going!`,
         type: 'success',
       });
     } else if (data.currentStreak >= 3) {
       items.push({
         icon: <Flame className="h-4 w-4 text-orange-400" />,
-        text: `${data.currentStreak} hari streak - lagi semangat!`,
+        text: `${data.currentStreak} day streak - building momentum!`,
         type: 'info',
       });
     }
@@ -170,8 +420,8 @@ export default function Dashboard() {
     if (data.weeklyChartData.length > 0) {
       const bestDay = data.weeklyChartData.reduce((best, d) => (d.rate > best.rate ? d : best), data.weeklyChartData[0]);
       items.push({
-        icon: <Trophy className="h-4 w-4 text-warning" />,
-        text: `Hari terbaik minggu ini adalah ${bestDay.day} (${bestDay.rate}%).`,
+        icon: <Trophy className="h-4 w-4 text-yellow-500" />,
+        text: `Your best day this week was ${bestDay.day} (${bestDay.rate}%).`,
         type: 'info',
       });
     }
@@ -179,13 +429,13 @@ export default function Dashboard() {
     if (data.completionRate >= 80) {
       items.push({
         icon: <Star className="h-4 w-4 text-primary" />,
-        text: 'Luar biasa! Completion rate kamu di atas 80%.',
+        text: 'Outstanding! Your completion rate is above 80%.',
         type: 'success',
       });
     } else if (data.completionRate < 50 && data.totalHabits > 0) {
       items.push({
         icon: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-        text: 'Completion rate kamu di bawah 50%. Coba kurangi jumlah habit.',
+        text: 'Your completion rate is below 50%. Try reducing habit count.',
         type: 'warning',
       });
     }
@@ -193,7 +443,7 @@ export default function Dashboard() {
     if (data.productivityScore >= 80) {
       items.push({
         icon: <Brain className="h-4 w-4 text-primary" />,
-        text: `Skor produktivitas tinggi ${data.productivityScore}%!`,
+        text: `High productivity score of ${data.productivityScore}%!`,
         type: 'success',
       });
     }
@@ -214,56 +464,23 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6 max-w-6xl mx-auto">
-        {/* Quote card skeleton */}
-        <div
-          className="skel-card skel-hybrid skel-stagger p-5 h-28"
-          style={{ animationDelay: '0ms' }}
-        />
-        {/* Period selector skeleton */}
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-14 skel-hybrid skel-stagger" style={{ animationDelay: '60ms' }} />
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-8 w-16 skel-hybrid skel-stagger skel-card"
-              style={{ animationDelay: `${90 + i * 40}ms` }}
-            />
-          ))}
-        </div>
-        {/* KPI grid skeleton */}
+      <div className="space-y-6">
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="skel-card skel-hybrid skel-stagger h-24"
-              style={{ animationDelay: `${300 + i * 60}ms` }}
-            />
+          {Array.from({ length: 15 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
           ))}
         </div>
-        {/* Charts grid skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="skel-card skel-hybrid skel-stagger h-80"
-              style={{ animationDelay: `${700 + i * 60}ms` }}
-            />
-          ))}
+          <Skeleton className="h-80 w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
         </div>
-        {/* Bottom cards skeleton */}
-        <div
-          className="skel-card skel-hybrid skel-stagger h-72"
-          style={{ animationDelay: '900ms' }}
-        />
+        <Skeleton className="h-72 w-full rounded-xl" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div
-              key={i}
-              className="skel-card skel-hybrid skel-stagger h-64"
-              style={{ animationDelay: `${960 + i * 60}ms` }}
-            />
-          ))}
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -294,8 +511,8 @@ export default function Dashboard() {
         <div className="mb-4 flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
           <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
           <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
-            <RefreshCw className="h-3.5 w-3.5" />
-            Coba Lagi
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Retry
           </Button>
         </div>
       )}
@@ -339,61 +556,59 @@ export default function Dashboard() {
 
       {/* ── KPI Cards Grid ──────────────────────────────────────── */}
       <section aria-label="Key metrics">
-        {/* ANIM-2 / Feature 4: framer-motion staggerChildren — 60ms cascade
-            through cards (smoother than the previous `anim-stagger` CSS class).
-            The grid wrapper is the StaggerGroup; each card is wrapped in
-            StaggerItem which inherits the visible variant via context. */}
-        <StaggerGroup className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {[
-            { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Habit aktif', key: 'habits' },
-            { label: 'Tingkat Penyelesaian', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
-            { label: 'Streak Saat Ini', icon: Flame, iconColor: 'text-orange-500', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
-            { label: 'Streak Terpanjang', icon: Trophy, iconColor: 'text-warning', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
-            { label: 'Sukses Hari Ini', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
-            { label: 'Mingguan', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
-            { label: 'Bulanan', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
+            { label: 'Total Habits', icon: Target, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'Active habits', key: 'habits' },
+            { label: 'Completion Rate', icon: CheckCircle, iconColor: 'text-primary', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
+            { label: 'Current Streak', icon: Flame, iconColor: 'text-orange-500', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'days', key: 'streak' },
+            { label: 'Longest Streak', icon: Trophy, iconColor: 'text-yellow-500', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'days', key: 'longest' },
+            { label: 'Success Today', icon: Zap, iconColor: 'text-primary', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
+            { label: 'Weekly', icon: CalendarDays, iconColor: 'text-primary', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-primary', key: 'weekly' },
+            { label: 'Monthly', icon: TrendingUp, iconColor: 'text-teal-500', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, progressColor: '[&>[data-slot=progress-indicator]]:bg-teal-500', key: 'monthly' },
             { label: 'Total XP', icon: Star, iconColor: 'text-primary', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, iconColor: 'text-primary', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
-            { label: 'Produktivitas', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
-            { label: 'Tujuan', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
-
-          ].map((card) => {
+            { label: 'Badges', icon: Award, iconColor: 'text-yellow-500', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
+            { label: 'Productivity', icon: Brain, iconColor: 'text-primary', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
+            { label: 'Challenges', icon: Swords, iconColor: 'text-primary', value: <CountUpNumber value={displayData.challengeProgress} suffix="%" />, sub: null, progress: displayData.challengeProgress, key: 'challenges' },
+            { label: 'Goals', icon: Flag, iconColor: 'text-primary', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
+            { label: 'Mood', icon: Smile, iconColor: 'text-primary', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
+            { label: 'Sleep Avg', icon: Moon, iconColor: 'text-violet-400', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'hours / night', key: 'sleep' },
+          ].map((card, i) => {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce
             // cognitive overload. 15 cards → 6 on mobile.
-            // Hidden: longest, success, weekly, monthly, level,
-            // productivity, goals.
+            // Hidden: longest, success, weekly, monthly, level, badges,
+            // productivity, challenges, goals.
             // Visible: habits, completion, streak, xp, mood, sleep.
-            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'productivity', 'goals']);
+            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'challenges', 'goals']);
             const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
             return (
-              <StaggerItem
+              <Card
                 key={card.key}
-                className={cn(isHiddenOnMobile && 'hidden sm:block')}
+                className={cn('p-4 anim-stagger', isHiddenOnMobile && 'hidden sm:block')}
+                style={{ animationDelay: `${i * 50}ms` }}
               >
-                <Card className="p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
-                    <Icon className={cn('h-4 w-4', card.iconColor, card.iconClass)} />
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
+                  <Icon className={cn('h-4 w-4', card.iconColor, card.iconClass)} />
+                </div>
+                <div className="tabular-nums text-xl sm:text-2xl font-bold">{card.value}</div>
+                {card.progress !== undefined && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Progress value={card.progress} className={cn('h-1.5 flex-1', card.progressColor)} />
+                    {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
                   </div>
-                  <div className="tabular-nums text-xl sm:text-2xl font-bold">{card.value}</div>
-                  {card.progress !== undefined && (
-                    <div className="flex items-center gap-1 mt-2">
-                      <Progress value={card.progress} className={cn('h-1.5 flex-1', card.progressColor)} />
-                      {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
-                    </div>
-                  )}
-                  {card.sub && <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>}
-                </Card>
-              </StaggerItem>
+                )}
+                {card.sub && <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>}
+              </Card>
             );
           })}
-        </StaggerGroup>
+        </div>
       </section>
 
-      {/* ── Article of the Day (Learning widget) ────────────────── */}
+      {/* ── Weekly Review + AI Insights ──────────────────────────── */}
       <ScrollReveal>
-        <ArticleWidget />
+        <WeeklyReview />
       </ScrollReveal>
 
       {/* ── Progress Rings Section ───────────────────────────────── */}
@@ -402,18 +617,18 @@ export default function Dashboard() {
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Ringkasan Progress
+              Progress Overview
               <ChartInfo text="Persentase hari yang berhasil menyelesaikan minimal 1 habit dari total hari dalam periode yang dipilih." />
             </h3>
             <div className="flex items-center justify-around flex-wrap gap-6">
               <div className="relative">
-                <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Total" />
+                <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Overall" />
               </div>
               <div className="relative">
-                <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-primary" label="Minggu Ini" />
+                <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-primary" label="This Week" />
               </div>
               <div className="relative">
-                <ProgressRing value={displayData.monthlyCompletion} size={110} strokeWidth={10} color="stroke-teal-500" label="Bulan Ini" />
+                <ProgressRing value={displayData.monthlyCompletion} size={110} strokeWidth={10} color="stroke-teal-500" label="This Month" />
               </div>
             </div>
           </CardContent>
@@ -468,8 +683,8 @@ export default function Dashboard() {
                           <span className={cn(
                             'text-xs font-mono font-semibold px-2 py-0.5 rounded',
                             th.targetTime && th.todayTime <= th.targetTime
-                              ? 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80'
-                              : 'bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                           )}>
                             {th.todayTime}
                           </span>
@@ -481,7 +696,7 @@ export default function Dashboard() {
                         {th.trend !== null && (
                           <span className={cn(
                             'text-xs font-medium flex items-center gap-0.5',
-                            th.trend < 0 ? 'text-success dark:text-success/80' : th.trend > 0 ? 'text-destructive dark:text-destructive/80' : 'text-muted-foreground'
+                            th.trend < 0 ? 'text-emerald-600 dark:text-emerald-400' : th.trend > 0 ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
                           )}>
                             {th.trend < 0 ? <ArrowDownRight className="h-3 w-3" /> : th.trend > 0 ? <ArrowUpRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                             {th.trend === 0 ? 'sama' : `${Math.abs(th.trend)}mnt`}
@@ -500,7 +715,7 @@ export default function Dashboard() {
                                 height: `${Math.max(4, (wt.minutes / 1440) * 100)}%`,
                                 minHeight: '4px',
                                 backgroundColor: th.targetTime
-                                  ? (wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : destructiveColor)
+                                  ? (wt.minutes <= (parseInt(th.targetTime.split(':')[0]) * 60 + parseInt(th.targetTime.split(':')[1])) ? primaryColor : '#ef4444')
                                   : primaryColor,
                                 opacity: wt.minutes !== null ? 1 : 0.2,
                               }}
@@ -517,7 +732,7 @@ export default function Dashboard() {
                     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-2 text-xs text-muted-foreground">
                       <span>Rata-rata: <strong className="text-foreground">{th.weekAvg || '-'}</strong></span>
                       {th.targetTime && (
-                        <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-success dark:text-success/80' : 'text-warning dark:text-warning/80'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
+                        <span>On-target: <strong className={th.weekOnTargetRate >= 70 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{th.weekOnTargetRate}%</strong> ({th.weekOnTarget}/{th.weekTotal})</span>
                       )}
                       {th.prevAvg && (
                         <span className="hidden sm:inline">Minggu lalu: {th.prevAvg}</span>
@@ -553,7 +768,7 @@ export default function Dashboard() {
                     key={item.id}
                     className={cn(
                       'flex items-center justify-between rounded-lg border p-3 transition-colors',
-                      item.overdue ? 'border-destructive/30 bg-destructive/10 dark:bg-destructive/15 dark:border-destructive/30' : 'hover:bg-muted/30'
+                      item.overdue ? 'border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900' : 'hover:bg-muted/30'
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -573,11 +788,11 @@ export default function Dashboard() {
                         <span className={cn(
                           'text-xs font-semibold px-2 py-0.5 rounded-full',
                           item.overdue
-                            ? 'bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
                             : item.daysAgo === 0
-                              ? 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                               : item.daysAgo <= 2
-                                ? 'bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                                 : 'bg-muted text-muted-foreground'
                         )}>
                           {item.daysAgo === 0 ? 'Hari ini' : `${item.daysAgo} hari lalu`}
@@ -586,7 +801,7 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground">Belum pernah</span>
                       )}
                       {item.overdue && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
                       )}
                     </div>
                   </div>
@@ -602,24 +817,24 @@ export default function Dashboard() {
         <Card className="p-4">
           <CardContent className="p-0">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Papan Peringkat Habit
+              Habit Leaderboard
               <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex flex-col items-center text-center gap-2">
                 <div className="flex items-center gap-1 text-xs font-medium text-primary">
                   <ArrowUpRight className="h-3 w-3" />
-                  Performa Terbaik
+                  Best Performer
                 </div>
                 <div className="text-2xl">{displayData.bestHabit.icon}</div>
                 <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
                 <span className="text-lg font-bold text-primary">{displayData.bestHabit.rate}%</span>
-                <Crown className="h-4 w-4 text-warning" />
+                <Crown className="h-4 w-4 text-yellow-500" />
               </div>
               <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 flex flex-col items-center text-center gap-2">
                 <div className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
                   <ArrowDownRight className="h-3 w-3" />
-                  Perlu Perhatian
+                  Needs Attention
                 </div>
                 <div className="text-2xl">{displayData.worstHabit.icon}</div>
                 <span className="text-sm font-semibold leading-tight">{displayData.worstHabit.name}</span>
@@ -634,17 +849,17 @@ export default function Dashboard() {
           <CardContent className="p-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                Fokus Hari Ini
+                Today&apos;s Focus
                 <ChartInfo text="Menampilkan daftar habit yang belum diselesaikan hari ini. Urut berdasarkan prioritas." />
               </h3>
               <Badge variant="secondary" className="text-xs">
-                {displayData.todayFocus.length} tersisa
+                {displayData.todayFocus.length} remaining
               </Badge>
             </div>
             {displayData.todayFocus.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                 <CheckCircle className="h-8 w-8 mb-2 text-primary" />
-                <p className="text-sm font-medium">Semua selesai hari ini!</p>
+                <p className="text-sm font-medium">All done for today!</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -696,12 +911,12 @@ export default function Dashboard() {
                 </span>
               </div>
               {/* Expense */}
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 dark:bg-destructive/15 dark:border-destructive/30 p-3 flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-destructive dark:text-destructive/80">
+              <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
                   <TrendingDown className="h-3.5 w-3.5" />
                   Pengeluaran
                 </div>
-                <span className="text-lg font-bold text-destructive dark:text-destructive/80">
+                <span className="text-lg font-bold text-red-700 dark:text-red-300">
                   {displayData.financeOverview.totalExpense.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
@@ -715,7 +930,7 @@ export default function Dashboard() {
                   'text-lg font-bold',
                   displayData.financeOverview.netBalance >= 0
                     ? 'text-teal-700 dark:text-teal-300'
-                    : 'text-destructive dark:text-destructive/80'
+                    : 'text-red-700 dark:text-red-300'
                 )}>
                   {displayData.financeOverview.netBalance.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
@@ -732,7 +947,7 @@ export default function Dashboard() {
                   Status Anggaran
                 </div>
                 {displayData.financeOverview.budgetExceeded > 0 ? (
-                  <span className="text-sm font-bold text-destructive dark:text-destructive/80">
+                  <span className="text-sm font-bold text-red-600 dark:text-red-400">
                     {displayData.financeOverview.budgetExceeded} melebihi batas
                   </span>
                 ) : displayData.financeOverview.budgetWarning > 0 ? (
@@ -801,7 +1016,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              Insights
+              Quick Insights
               <ChartInfo text="Analisis otomatis berdasarkan data habit 30 hari terakhir. Dibandingkan dengan periode sebelumnya." />
             </h3>
           </div>
