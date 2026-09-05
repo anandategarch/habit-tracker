@@ -562,13 +562,13 @@ export function CategoryDetailView({
                   borderRadius: '8px',
                   fontSize: '12px',
                 }}
-                formatter={(value: number, name: string) => [
-                  formatRupiah(value),
+                formatter={(value, name) => [
+                  formatRupiah(Number(value)),
                   name === 'total' ? 'Harian' : name === 'movingAvg' ? 'Rata² 7 hari' : name,
                 ]}
-                labelFormatter={(_label: string, payload: any) => {
+                labelFormatter={(_label, payload: any) => {
                   const data = payload?.[0]?.payload;
-                  return data?.dateLabel || `Tgl ${_label}`;
+                  return data?.dateLabel || `Tgl ${_label != null ? String(_label) : ''}`;
                 }}
               />
               <Bar dataKey="total" fill={primaryColor} radius={[3, 3, 0, 0]} maxBarSize={20} />

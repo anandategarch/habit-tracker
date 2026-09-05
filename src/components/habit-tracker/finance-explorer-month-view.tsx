@@ -53,12 +53,12 @@ export function MonthView({
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: mutedFgColor }} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 11, fill: mutedFgColor }} tickLine={false} axisLine={false} tickFormatter={(v) => compactRupiah(Number(v))} width={40} />
           <RechartsTooltip
-            formatter={(value: number) => [formatRupiah(value), 'Pengeluaran']}
-            labelFormatter={(label: string) => label || ''}
+            formatter={(value) => [formatRupiah(Number(value)), 'Pengeluaran']}
+            labelFormatter={(label) => (label ? String(label) : '')}
             contentStyle={{ borderRadius: '12px', fontSize: '11px', backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}
             cursor={{ fill: `${primaryColor}10` }}
           />
-          <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d: MonthData) => { if (d?.month) onDrillToMonth(d.month); }}>
+          <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} onClick={(d) => { const m = (d?.payload as MonthData | undefined)?.month; if (m) onDrillToMonth(m); }}>
             {monthlyData.map((entry, i) => (
               <Cell key={i} fill={entry.month === selectedMonth ? primaryColor : `${primaryColor}60`} />
             ))}

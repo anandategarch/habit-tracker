@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip as RechartsTooltip,
   Cell,
   AreaChart,
@@ -16,6 +15,16 @@ import {
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
+
+// Shared chart config — labels only; colors stay dynamic via `primary`.
+// ChartContainer uses this to inject per-chart CSS variables (--color-*)
+// and to provide a consistent theming surface for future ChartTooltipContent use.
+const chartConfig = {
+  rate: { label: 'Penyelesaian' },
+  completed: { label: 'Selesai' },
+  missed: { label: 'Tidak' },
+} satisfies ChartConfig;
 
 // Category colors — first color follows the theme primary, rest are fixed
 // complementary hues. Updated dynamically via useThemeColor in the component.
@@ -80,8 +89,7 @@ export default function DashboardCharts({
               Completion Mingguan
               <ChartInfo text="Jumlah habit yang diselesaikan (hijau) vs tidak diselesaikan (merah) per hari dalam 7 hari terakhir. Total harian = jumlah habit aktif pada tanggal tersebut." />
             </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
                 <BarChart data={weeklyBarData} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
@@ -106,7 +114,7 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${value}%`, 'Penyelesaian']}
+                    formatter={(value) => [`${value}%`, 'Penyelesaian']}
                   />
                   <Bar dataKey="rate" radius={[6, 6, 0, 0]} maxBarSize={40}>
                     {weeklyBarData.map((entry, index) => (
@@ -118,8 +126,7 @@ export default function DashboardCharts({
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              </ChartContainer>
           </CardContent>
         </Card>
 
@@ -129,8 +136,7 @@ export default function DashboardCharts({
               Performa Kategori
               <ChartInfo text="Rasio penyelesaian per kategori: (jumlah log completed) / (jumlah habit × jumlah hari sejak habit pertama dibuat dalam kategori)." />
             </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
                 <BarChart
                   data={categoryPerformance}
                   layout="vertical"
@@ -162,7 +168,7 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${value}%`, 'Rate']}
+                    formatter={(value) => [`${value}%`, 'Rate']}
                   />
                   <Bar dataKey="rate" radius={[0, 6, 6, 0]} maxBarSize={20}>
                     {categoryPerformance.map((_, index) => (
@@ -174,8 +180,7 @@ export default function DashboardCharts({
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              </ChartContainer>
           </CardContent>
         </Card>
       </section>
@@ -188,8 +193,7 @@ export default function DashboardCharts({
               Tren Completion {chartLabel}
               <ChartInfo text="Tren persentase penyelesaian harian selama periode yang dipilih. Setiap titik menunjukkan rasio habit completed terhadap total habit aktif pada hari tersebut." />
             </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
                 <AreaChart data={monthlyChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
@@ -221,7 +225,7 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${value}%`, 'Penyelesaian']}
+                    formatter={(value) => [`${value}%`, 'Penyelesaian']}
                   />
                   <Area
                     type="monotone"
@@ -231,8 +235,7 @@ export default function DashboardCharts({
                     fill="url(#greenGradient)"
                   />
                 </AreaChart>
-              </ResponsiveContainer>
-            </div>
+              </ChartContainer>
           </CardContent>
         </Card>
       </section>
@@ -248,8 +251,7 @@ export default function DashboardCharts({
               <ChartInfo text="Setiap bar menunjukkan jumlah habit completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit yang aktif pada tanggal tersebut, bukan jumlah log." />
             </h3>
             <p className="text-xs text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
                 <BarChart data={stackedBarData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
@@ -277,8 +279,7 @@ export default function DashboardCharts({
                   <Bar dataKey="completed" stackId="a" fill={primary} radius={[0, 0, 0, 0]} maxBarSize={24} name="Selesai" />
                   <Bar dataKey="missed" stackId="a" fill="hsl(0, 0%, 88%)" radius={[4, 4, 0, 0]} maxBarSize={24} name="Tidak" />
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              </ChartContainer>
           </CardContent>
         </Card>
 
@@ -290,8 +291,7 @@ export default function DashboardCharts({
               <ChartInfo text="Rata-rata tingkat penyelesaian per hari dalam seminggu selama 30 hari terakhir. Misal Senin = rata-rata completion rate semua hari Senin dalam 30 hari." />
             </h3>
             <p className="text-xs text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
                 <BarChart data={weeklyPattern} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
@@ -316,13 +316,14 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number, name: string) => {
+                    formatter={(value, name) => {
                       if (name === 'rate') return [`${value}%`, 'Penyelesaian'];
                       return [value, name];
                     }}
-                    labelFormatter={(label: string) => {
-                      const item = weeklyPattern.find(p => p.day === label);
-                      return item?.fullDay || label;
+                    labelFormatter={(label) => {
+                      const labelStr = String(label ?? '');
+                      const item = weeklyPattern.find(p => p.day === labelStr);
+                      return item?.fullDay || labelStr;
                     }}
                   />
                   <Bar dataKey="rate" radius={[6, 6, 0, 0]} maxBarSize={32}>
@@ -335,8 +336,7 @@ export default function DashboardCharts({
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              </ChartContainer>
           </CardContent>
         </Card>
       </section>
