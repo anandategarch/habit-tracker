@@ -13,8 +13,31 @@ export interface Transaction {
   // Non-null = part of a split group (multiple transactions sharing
   // the same date/source/description but different category/amount).
   groupId?: string | null;
+  // PHASE4-POLISH: tags — JSON-encoded array string from the DB. The client
+  // parses this into a string[] via parseTags() before rendering. Optional
+  // for backward compat with mock/test data that doesn't include the field.
+  tags?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// PHASE4-POLISH: parse a transaction's `tags` string (JSON array) into a
+// real string[]. Returns [] for null/undefined/empty/invalid input — never
+// throws. Used by every component that renders transaction tags.
+export function parseTags(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((t): t is string => typeof t === 'string' && t.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Serialize a string[] of tags into the JSON array string for storage. */
+export function serializeTags(tags: string[]): string {
+  return JSON.stringify(tags.filter((t) => typeof t === 'string' && t.trim().length > 0));
 }
 
 export interface BudgetItem {

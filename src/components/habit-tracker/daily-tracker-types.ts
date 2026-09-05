@@ -29,6 +29,13 @@ export interface Habit {
   // vacationMode to false once vacationEnd < today.
   vacationMode: boolean;
   vacationEnd: string | null;
+  // Habit type (PHASE3-HABIT). "normal" = default binary check (green when
+  // done). "avoid" = "don't do this" habit — checking the box records a
+  // relapse (red), and the streak = consecutive days WITHOUT a check. The
+  // daily-tracker inverts the completion logic: unchecked = success.
+  // "amount" = daily goal with a numeric target (HabitLog.value tracks
+  // progress toward habit.target).
+  habitType: 'normal' | 'avoid' | 'amount';
   _count: { logs: number };
 }
 

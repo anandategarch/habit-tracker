@@ -52,13 +52,65 @@ export function timeDiffMinutes(time: string, target: string): number {
  * through the pause without breaking. The vacation day itself counts as
  * +1 to the streak (the user is "on break" and the habit is considered
  * satisfied for them).
+ *
+ * `options.invert` (PHASE3-HABIT): for "avoid" habits where checking the
+ * box records a RELAPSE (not success), the streak is counted as
+ * consecutive days WITHOUT a check. The walk stops at the first
+ * completed=true log OR at `options.startDate` (the habit's creation
+ * date) OR at the 365-day safety cap, whichever comes first. Days before
+ * the habit existed don't count toward the streak (otherwise a brand-new
+ * "no smoking" habit would immediately show "365 days clean").
  */
 export function computeStreak(
   logs: HabitLog[],
   dateStr: string,
-  options?: { onVacation?: boolean },
+  options?: { onVacation?: boolean; invert?: boolean; startDate?: string },
 ): number {
-  if (!logs || logs.length === 0) return 0;
+  if (!logs || logs.length === 0) {
+    // For avoid habits with no logs yet, the streak = 1 (today is clean).
+    // But only if the habit has existed today — if startDate is in the
+    // future or today is before startDate, the streak is 0.
+    if (options?.invert && options.startDate) {
+      const start = parseISO(options.startDate);
+      const today = parseISO(dateStr);
+      // Streak = days from startDate (inclusive) to dateStr (inclusive), capped at 365.
+      const diffMs = today.getTime() - start.getTime();
+      const diffDays = Math.floor(diffMs / 86_400_000) + 1;
+      return Math.max(0, Math.min(365, diffDays));
+    }
+    if (options?.invert) return 1;
+    return 0;
+  }
+
+  // ── Avoid habit (invert) ──────────────────────────────────────────────
+  // Streak = consecutive days WITHOUT a relapse (a relapse = log entry
+  // with completed=true). Walk backward from today, stopping at the first
+  // relapse OR at the habit's startDate OR at the 365-day cap.
+  if (options?.invert) {
+    const relapseDays = new Set(
+      logs.filter((l) => l.completed).map((l) => toDateString(l.date)),
+    );
+    // If today has a relapse log, streak = 0.
+    if (relapseDays.has(dateStr)) return 0;
+
+    const today = parseISO(dateStr);
+    const startBound = options.startDate
+      ? parseISO(options.startDate)
+      : subDays(today, 365);
+    // cursor starts at today (today is "clean" since no relapse log).
+    let streak = 0;
+    const cursor = parseISO(dateStr);
+    for (let i = 0; i < 365; i++) {
+      const key = format(cursor, 'yyyy-MM-dd');
+      if (relapseDays.has(key)) break;
+      if (cursor.getTime() < startBound.getTime()) break;
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }
+
+  // ── Normal habit ──────────────────────────────────────────────────────
   const completedDays = new Set(
     logs.filter((l) => l.completed).map((l) => toDateString(l.date)),
   );
@@ -109,14 +161,27 @@ export function computeStreak(
  *
  * Vacation days (habit.vacationMode === true) are counted as auto-completed
  * so a vacation doesn't tank the strength score.
+ *
+ * `habit.habitType === 'avoid'` (PHASE3-HABIT): for "avoid" habits the
+ * "good" outcome is NOT relapsing. So a clean day = (no log) OR
+ * (log with completed=false), and a relapse = log with completed=true.
+ * The strength formula becomes:
+ *
+ *   strength = ((days - relapses) / days) * 100
+ *
+ * i.e. the percentage of days in the window that were relapse-free.
  */
 export function computeStrengthScore(
   logs: HabitLog[],
-  habit: { target: number; targetType: string; vacationMode?: boolean },
+  habit: { target: number; targetType: string; vacationMode?: boolean; habitType?: 'normal' | 'avoid' | 'amount' },
   days: number = 30,
   dateStr?: string,
 ): number {
-  if (!logs || logs.length === 0 || days <= 0) return 0;
+  if (!logs || logs.length === 0 || days <= 0) {
+    // Avoid habit with no logs = every day is clean → strength = 100.
+    if (habit.habitType === 'avoid') return 100;
+    return 0;
+  }
 
   // Build the set of "yyyy-MM-dd" keys for the last `days` days ending at
   // dateStr (defaults to today in Jakarta TZ). Uses the same jakartaDateKey
@@ -126,6 +191,20 @@ export function computeStrengthScore(
   const windowKeys = new Set<string>();
   for (let i = 0; i < days; i++) {
     windowKeys.add(format(subDays(anchorDate, i), 'yyyy-MM-dd'));
+  }
+
+  // PHASE3-HABIT — Avoid habit: count relapses; strength = clean days / total.
+  if (habit.habitType === 'avoid') {
+    const relapseDays = new Set(
+      logs
+        .filter((l) => l.completed)
+        .map((l) => toDateString(l.date))
+        .filter((key) => windowKeys.has(key)),
+    );
+    // Vacation days are auto-clean (no relapse).
+    let cleanDays = windowKeys.size - relapseDays.size;
+    if (habit.vacationMode) cleanDays = windowKeys.size; // vacation = clean
+    return Math.round(Math.max(0, Math.min(100, (cleanDays / windowKeys.size) * 100)));
   }
 
   let completions = 0;
@@ -211,10 +290,15 @@ export function getStrengthTier(score: number): {
  * Returns 7 entries (oldest → newest) with `done` flag + day-of-month label.
  * Uses the month-cached logs (same source as computeStreak). Days outside the
  * cached month are treated as not-done — acceptable for a quick stats view.
+ *
+ * PHASE3-HABIT: for "avoid" habits, `done` means "clean" (no relapse log that
+ * day), not "checked". The habit card uses this for the 7-day mini calendar —
+ * for an avoid habit, a green day = no relapse.
  */
 export function getLast7DaysStatus(
   logs: HabitLog[] | undefined,
   todayStr: string,
+  options?: { invert?: boolean },
 ): { done: boolean; dateNum: number }[] {
   const completedDays = new Set(
     (logs || []).filter((l) => l.completed).map((l) => toDateString(l.date)),
@@ -224,9 +308,112 @@ export function getLast7DaysStatus(
   for (let i = 6; i >= 0; i--) {
     const day = subDays(today, i);
     const key = format(day, 'yyyy-MM-dd');
-    result.push({ done: completedDays.has(key), dateNum: day.getDate() });
+    const hadActivity = completedDays.has(key);
+    // For avoid habits, "done" = clean (no relapse). A day is "clean" if
+    // there's no relapse log for it. (We can't distinguish "no log" from
+    // "log with completed=false" without a full log list, but for the
+    // mini-calendar the optimistic interpretation is fine — show green
+    // unless there's a relapse.)
+    const done = options?.invert ? !hadActivity : hadActivity;
+    result.push({ done, dateNum: day.getDate() });
   }
   return result;
+}
+
+/**
+ * PHASE3-HABIT — Compute the LONGEST streak ever achieved for a habit, from
+ * its full log history. Used by the milestone badges (10/30/100/365 days).
+ *
+ * For normal habits: longest run of consecutive completed=true days.
+ * For avoid habits (invert=true): longest run of consecutive days WITHOUT
+ *   a relapse (completed=true log). Bound by startDate (or 365 days before
+ *   the latest log if no startDate is provided) so a brand-new avoid habit
+ *   doesn't report an artificially high streak.
+ *
+ * Note: this requires the FULL log history (not just the current month
+ * cache). Callers should pass logs from /api/habits/[id]/logs (which
+ * defaults to last 30 days — pass `?month=YYYY-MM` repeatedly OR fetch
+ * without month param for last 30 days, but for the "all-time longest"
+ * calculation we need a longer window). The milestone badges fetch logs
+ * via the `/api/habits/[id]/logs?year=YYYY` endpoint (see below) which
+ * returns the full year. For habits older than 1 year, we approximate.
+ */
+export function computeLongestStreak(
+  logs: HabitLog[],
+  options?: { invert?: boolean; startDate?: string },
+): number {
+  if (!logs || logs.length === 0) {
+    if (options?.invert && options.startDate) {
+      const start = parseISO(options.startDate);
+      const today = new Date();
+      const diffDays = Math.floor((today.getTime() - start.getTime()) / 86_400_000) + 1;
+      return Math.max(0, Math.min(365, diffDays));
+    }
+    return 0;
+  }
+
+  // Sort logs by date ascending.
+  const sorted = [...logs].sort((a, b) => {
+    const aKey = toDateString(a.date);
+    const bKey = toDateString(b.date);
+    return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
+  });
+
+  if (options?.invert) {
+    // Avoid habit — longest run of consecutive days WITHOUT a relapse.
+    const relapseDays = new Set(
+      sorted.filter((l) => l.completed).map((l) => toDateString(l.date)),
+    );
+    // The earliest bound is the habit's startDate (or the earliest log date).
+    const earliestLogDate = toDateString(sorted[0].date);
+    const startDateStr = options.startDate
+      ? format(parseISO(options.startDate), 'yyyy-MM-dd')
+      : earliestLogDate;
+    const startBound = parseISO(startDateStr < earliestLogDate ? startDateStr : earliestLogDate);
+    // Walk from startBound to today (or latest log date, whichever later),
+    // counting consecutive non-relapse days.
+    const today = new Date();
+    const cursor = new Date(startBound);
+    let longest = 0;
+    let current = 0;
+    const safetyCap = 366 * 2; // 2 years max
+    for (let i = 0; i < safetyCap; i++) {
+      const key = format(cursor, 'yyyy-MM-dd');
+      if (relapseDays.has(key)) {
+        if (current > longest) longest = current;
+        current = 0;
+      } else {
+        current++;
+        if (current > longest) longest = current;
+      }
+      if (cursor.getTime() > today.getTime()) break;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return Math.min(365, longest);
+  }
+
+  // Normal habit — longest run of consecutive completed=true days.
+  const completedDays = new Set(
+    sorted.filter((l) => l.completed).map((l) => toDateString(l.date)),
+  );
+  if (completedDays.size === 0) return 0;
+
+  // Sort the completed-day keys ascending and find the longest consecutive run.
+  const sortedKeys = Array.from(completedDays).sort();
+  let longest = 1;
+  let current = 1;
+  for (let i = 1; i < sortedKeys.length; i++) {
+    const prev = parseISO(sortedKeys[i - 1]);
+    const curr = parseISO(sortedKeys[i]);
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / 86_400_000);
+    if (diffDays === 1) {
+      current++;
+      if (current > longest) longest = current;
+    } else {
+      current = 1;
+    }
+  }
+  return longest;
 }
 
 // ---------------------------------------------------------------------------

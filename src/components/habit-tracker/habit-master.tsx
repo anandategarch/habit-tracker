@@ -56,6 +56,9 @@ import {
   Clock,
   History,
   Palmtree,
+  Shield,
+  Ban,
+  Gauge,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -234,7 +237,9 @@ export default function HabitMaster() {
         notes: form.notes || null,
         // BUG-3 fix: clamp target to 1 — UI only supports binary completion.
         // (Also serves as a safety net for legacy habits edited with target>1.)
-        target: 1,
+        // PHASE3-HABIT: for "amount" habits (daily goal with numeric target),
+        // allow target > 1 (up to 1000 — see the form's max attribute).
+        target: form.habitType === 'amount' ? Math.min(1000, Math.max(1, form.target || 1)) : 1,
         // targetType is preserved from the form (default 'daily' for new
         // habits; existing habits keep their value). Non-daily options are
         // disabled in the dropdown so users can't pick an unsupported mode,
@@ -247,6 +252,10 @@ export default function HabitMaster() {
         // API stores null (indefinite vacation) rather than an empty date.
         vacationMode: form.vacationMode,
         vacationEnd: form.vacationEnd || null,
+        // PHASE3-HABIT: habit type ("normal" | "avoid" | "amount"). Controls
+        // how the daily-tracker interprets the checkbox and how the card is
+        // displayed (avoid → red relapse state, amount → progress bar).
+        habitType: form.habitType,
       };
 
       if (editingId) {
@@ -567,7 +576,7 @@ export default function HabitMaster() {
                   <Input
                     type="number"
                     min={1}
-                    max={1}
+                    max={form.habitType === 'amount' ? 1000 : 1}
                     value={form.target}
                     onChange={(e) => {
                       // BUG-3 fix: clamp target to 1. The UI only sends binary
@@ -576,12 +585,20 @@ export default function HabitMaster() {
                       // UI never increments `value` past 1. Existing habits
                       // with target > 1 (legacy data) are left untouched by
                       // this clamp — only new edits are affected.
+                      //
+                      // PHASE3-HABIT: for "amount" habits (daily goal with a
+                      // numeric target, e.g. "drink 2L water"), allow target
+                      // up to 1000. The HabitLog.value column tracks progress
+                      // toward this target.
+                      const max = form.habitType === 'amount' ? 1000 : 1;
                       const n = Number(e.target.value) || 1;
-                      updateForm('target', Math.min(1, Math.max(1, n)));
+                      updateForm('target', Math.min(max, Math.max(1, n)));
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Multi-completion (target &gt; 1) belum didukung.
+                    {form.habitType === 'amount'
+                      ? 'Target harian (mis. 2 untuk 2 gelas, 30 untuk 30 menit).'
+                      : 'Multi-completion (target > 1) belum didukung.'}
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -635,6 +652,83 @@ export default function HabitMaster() {
                   </Select>
                 </div>
               </div>
+
+              {/* PHASE3-HABIT: Habit type selector (Normal / Avoid / Amount).
+                  Controls how the daily-tracker interprets the checkbox and
+                  how the habit card is displayed.
+                    normal → checking = success (green). Default.
+                    avoid  → checking = relapse (red). Streak = days WITHOUT
+                             a check. Use for "quit" habits (no smoking, no
+                             sugar, no social media before noon).
+                    amount → daily goal with numeric target (e.g. "drink 2L
+                             water", "read 30 pages"). HabitLog.value tracks
+                             progress toward habit.target. */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {([
+                  {
+                    value: 'normal',
+                    label: 'Normal',
+                    desc: 'Centang = selesai',
+                    icon: <Shield className="h-4 w-4" />,
+                    tint: 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/10',
+                    active: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/30',
+                  },
+                  {
+                    value: 'avoid',
+                    label: 'Hindari',
+                    desc: 'Centang = kambuh (merah)',
+                    icon: <Ban className="h-4 w-4" />,
+                    tint: 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/10',
+                    active: 'border-red-500 bg-red-50 dark:bg-red-950/30 ring-2 ring-red-500/30',
+                  },
+                  {
+                    value: 'amount',
+                    label: 'Jumlah',
+                    desc: 'Target harian (mis. 2L air)',
+                    icon: <Gauge className="h-4 w-4" />,
+                    tint: 'border-sky-200 dark:border-sky-900/50 bg-sky-50/50 dark:bg-sky-950/10',
+                    active: 'border-sky-500 bg-sky-50 dark:bg-sky-950/30 ring-2 ring-sky-500/30',
+                  },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateForm('habitType', opt.value)}
+                    className={cn(
+                      'rounded-lg border p-3 text-left transition-all flex items-start gap-2',
+                      opt.tint,
+                      form.habitType === opt.value
+                        ? opt.active
+                        : 'hover:bg-accent/40',
+                    )}
+                  >
+                    <span className="mt-0.5 shrink-0 text-muted-foreground">
+                      {opt.icon}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">
+                        {opt.label}
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground leading-snug">
+                        {opt.desc}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {form.habitType === 'avoid' && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Streak dihitung sebagai hari berturut-turut tanpa centang.
+                  Cocok untuk &ldquo;berhenti&rdquo; habit (tidak merokok, tidak
+                  gula, tidak scroll medsos pagi).
+                </p>
+              )}
+              {form.habitType === 'amount' && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Gunakan kolom Target di atas untuk menetapkan target harian.
+                  Pelacakan progres per hari akan tampil di kartu habit.
+                </p>
+              )}
 
               {/* Row: Color preview (auto-derived from emoji, no manual picker) */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

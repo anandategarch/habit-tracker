@@ -45,6 +45,12 @@ export const createHabitSchema = z.object({
   // coerced to a Date when provided as a string ("yyyy-MM-dd").
   vacationMode: z.boolean().optional(),
   vacationEnd: z.coerce.date().nullish(),
+  // Habit type (PHASE3-HABIT). "normal" = default binary check (green when
+  // done). "avoid" = "don't do this" habit — checking the box records a
+  // relapse (red), and the streak = consecutive days WITHOUT a check.
+  // "amount" = daily goal with a numeric target (the HabitLog.value column
+  // tracks progress toward habit.target).
+  habitType: z.enum(['normal', 'avoid', 'amount']).optional(),
 });
 export type CreateHabitInput = z.infer<typeof createHabitSchema>;
 
@@ -79,6 +85,16 @@ export type BatchHabitLogsInput = z.infer<typeof batchHabitLogsSchema>;
 
 // ── Finance Transaction ─────────────────────────────────────────────────
 
+// PHASE4-POLISH: tags. The schema accepts an array of strings (each tag
+// trimmed + capped at 30 chars, max 10 tags). The API serializes to a JSON
+// string before storing. Empty/undefined tags are normalized to [] by the
+// API so the DB column always holds a valid JSON array string.
+const tagsArray = z
+  .array(z.string().trim().min(1).max(30))
+  .max(10, 'Maksimal 10 tag')
+  .optional()
+  .transform((v) => (v ?? []).filter((t) => t.length > 0));
+
 export const createTransactionSchema = z.object({
   type: z.enum(['income', 'expense']),
   amount: moneyInput,
@@ -87,6 +103,7 @@ export const createTransactionSchema = z.object({
   date: z.coerce.date(),
   notes: optionalString(2000),
   source: nonEmpty(100).optional(),
+  tags: tagsArray,
 });
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 

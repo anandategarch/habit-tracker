@@ -108,6 +108,60 @@ export interface ThemePreset {
   emoji: string;
 }
 
+/**
+ * Curated Indonesian-named theme presets (PHASE4-POLISH).
+ * These are featured prominently in Settings → Tampilan as visual cards.
+ * `curated: true` flags them so the UI can render them separately from the
+ * long list of basic color presets below.
+ */
+export interface CuratedThemePreset extends ThemePreset {
+  curated: true;
+  description: string;
+}
+
+export const CURATED_THEME_PRESETS: CuratedThemePreset[] = [
+  {
+    name: 'Hutan',
+    primaryColor: '#16a34a',
+    secondaryColor: '#15803d',
+    emoji: '🌳',
+    curated: true,
+    description: 'Hijau hutan tropis',
+  },
+  {
+    name: 'Samudra',
+    primaryColor: '#14b8a6',
+    secondaryColor: '#06b6d4',
+    emoji: '🌊',
+    curated: true,
+    description: 'Biru-hijau laut dalam',
+  },
+  {
+    name: 'Matahari',
+    primaryColor: '#f97316',
+    secondaryColor: '#f59e0b',
+    emoji: '🌅',
+    curated: true,
+    description: 'Jingga matahari terbenam',
+  },
+  {
+    name: 'Lavender',
+    primaryColor: '#a855f7',
+    secondaryColor: '#8b5cf6',
+    emoji: '💜',
+    curated: true,
+    description: 'Ungu lembut lavender',
+  },
+  {
+    name: 'Monokrom',
+    primaryColor: '#64748b',
+    secondaryColor: '#9ca3af',
+    emoji: '⚫',
+    curated: true,
+    description: 'Abu-abu netral monokrom',
+  },
+];
+
 export const THEME_PRESETS: ThemePreset[] = [
   // ── Original presets ──
   // FIX-COLOR-P2: removed "Ocean" (#0ea5e9 — sky-blue) — violates NO-blue user pref.

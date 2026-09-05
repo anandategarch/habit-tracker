@@ -7,7 +7,8 @@
 //  - Regular: single amount + category + notes
 //  - Split: multiple category/amount rows (expense only, create only)
 
-import { ArrowDownRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
+import { useState, type KeyboardEvent } from 'react';
+import { ArrowDownRight, ArrowUpRight, Plus, Trash2, X, Tag as TagIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,38 @@ export function FinanceTxDialog({
   getCategoryList,
   getActiveSources,
 }: FinanceTxDialogProps) {
+  // PHASE4-POLISH: tag input state. Tags are managed as a string[] in
+  // txForm.tags. The chip input lets the user type a tag and press Enter
+  // (or comma) to add it; backspace on an empty input removes the last tag.
+  const [tagInput, setTagInput] = useState('');
+
+  const addTag = () => {
+    const value = tagInput.trim();
+    if (!value) return;
+    // Cap at 10 tags (matches schema max) + dedupe case-insensitively.
+    if (txForm.tags.length >= 10) return;
+    if (txForm.tags.some((t) => t.toLowerCase() === value.toLowerCase())) {
+      setTagInput('');
+      return;
+    }
+    setTxForm((f) => ({ ...f, tags: [...f.tags, value.slice(0, 30)] }));
+    setTagInput('');
+  };
+
+  const removeTag = (idx: number) => {
+    setTxForm((f) => ({ ...f, tags: f.tags.filter((_, i) => i !== idx) }));
+  };
+
+  const onTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === 'Backspace' && tagInput === '' && txForm.tags.length > 0) {
+      e.preventDefault();
+      removeTag(txForm.tags.length - 1);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,6 +204,55 @@ export function FinanceTxDialog({
             <div><Label className="text-xs">Sumber Dana</Label><Select value={txForm.source} onValueChange={v => setTxForm(f => ({ ...f, source: v }))}><SelectTrigger className="mt-1"><SelectValue placeholder="Pilih sumber" /></SelectTrigger><SelectContent>{getActiveSources().map(s => (<SelectItem key={s.id || s.name} value={s.name}>{s.emoji} {s.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="grid grid-cols-2 gap-2"><div><Label className="text-xs">Tanggal</Label><Input type="date" value={txForm.date} onChange={e => setTxForm(f => ({ ...f, date: e.target.value }))} className="mt-1" /></div><div><Label className="text-xs">Jam</Label><TimePicker value={txForm.time} onChange={v => setTxForm(f => ({ ...f, time: v }))} className="mt-1" /></div></div>
             <div><Label className="text-xs">Deskripsi</Label><Input placeholder="Contoh: Makan siang di kantin" value={txForm.description} onChange={e => setTxForm(f => ({ ...f, description: e.target.value }))} className="mt-1" /></div>
+
+            {/* PHASE4-POLISH: Tag chip input. Comma or Enter adds a tag; Backspace
+                on empty input removes the last tag. Tags are stored as string[]
+                in txForm.tags; the API serializes to JSON before DB storage. */}
+            <div>
+              <Label className="text-xs flex items-center gap-1.5">
+                <TagIcon className="h-3 w-3" />
+                Tag
+              </Label>
+              <div
+                className="flex flex-wrap items-center gap-1.5 mt-1 px-2 py-1.5 rounded-md border bg-background min-h-9 focus-within:ring-1 focus-within:ring-ring"
+                onClick={() => document.getElementById('tx-tag-input')?.focus()}
+              >
+                {txForm.tags.map((tag, idx) => (
+                  <span
+                    key={`${tag}-${idx}`}
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeTag(idx);
+                      }}
+                      className="hover:bg-primary/20 rounded p-0.5"
+                      aria-label={`Hapus tag ${tag}`}
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="tx-tag-input"
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={onTagKeyDown}
+                  onBlur={addTag}
+                  placeholder={txForm.tags.length === 0 ? 'Tambah tag (Enter atau koma)' : ''}
+                  maxLength={30}
+                  className="flex-1 min-w-[80px] bg-transparent outline-none text-xs placeholder:text-muted-foreground/60"
+                />
+              </div>
+              {txForm.tags.length >= 10 && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">Maksimal 10 tag</p>
+              )}
+            </div>
+
             {/* Hide notes field in split mode — each split child gets an
                 auto-generated "Split i/n" note, so a manual note doesn't apply. */}
             {!(splitMode && !editingTx) && (

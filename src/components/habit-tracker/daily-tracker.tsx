@@ -3,10 +3,25 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  arrayMove,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
 import { useAppStore } from '@/store/app-store';
 import { jakartaNowIso, jakartaNowParts } from '@/lib/timezone';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +51,7 @@ import {
 // utility module. Output is identical for the patterns and helpers used
 // here — verified via test script in worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
-import { Clock } from 'lucide-react';
+import { Clock, GripVertical } from 'lucide-react';
 
 import type { Habit, HabitLog } from './daily-tracker-types';
 import {
@@ -47,10 +62,25 @@ import {
 import { DateNav } from './daily-tracker-date-nav';
 import { DailySummary } from './daily-tracker-daily-summary';
 import { HabitCard } from './daily-tracker-habit-card';
+import { SortableHabitCard } from './daily-tracker-sortable-card';
 import { LoadingSkeleton } from './daily-tracker-skeleton';
 
 // Calendar merged into Tracker as sub-tab (nav 6 → 5)
 const CalendarView = dynamic(() => import('./calendar-view'), { ssr: false });
+
+// PHASE4-POLISH: TipTap rich text editor for the daily notes. Loaded with
+// ssr:false because TipTap pokes at the DOM during initial render (it needs
+// document.execCommand + contenteditable), and Next.js's SSR pass would
+// crash without a real browser. The dynamic import also keeps the TipTap
+// bundle (~80kb gzipped) out of the initial JS for users who never open
+// the daily tracker tab.
+const RichNotesEditor = dynamic(
+  () => import('./rich-notes-editor').then((m) => m.RichNotesEditor),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[112px] rounded-md bg-muted/30" />,
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Component
@@ -113,7 +143,7 @@ export default function DailyTracker() {
   }, [completionMap]);
 
   // ---- TanStack Query: habits, daily-log ----
-  const { data: habits = [] } = useQuery<Habit[]>({
+  const { data: queryHabits = [] } = useQuery<Habit[]>({
     queryKey: ['habits'],
     queryFn: async () => {
       const res = await fetch('/api/habits');
@@ -122,6 +152,15 @@ export default function DailyTracker() {
     },
     staleTime: 30_000,
   });
+
+  // PHASE4-POLISH: drag-to-reorder support. When the user reorders habits via
+  // the @dnd-kit drag handle, we apply the new order optimistically via a
+  // local override. The override is cleared after the server confirms (PUT
+  // succeeds + query refetch). While `localHabitsOverride` is set, it
+  // shadows the query data so the UI reflects the new order immediately.
+  const [dragMode, setDragMode] = useState(false);
+  const [localHabitsOverride, setLocalHabitsOverride] = useState<Habit[] | null>(null);
+  const habits = localHabitsOverride ?? queryHabits;
 
   const { data: dailyLogData } = useQuery<{ notes: string | null } | null>({
     queryKey: ['daily-logs', selectedDate],
@@ -156,15 +195,25 @@ export default function DailyTracker() {
   const filteredHabits = useMemo(() => {
     let list = activeHabits;
     if (viewFilter === 'completed')
-      list = list.filter((h) => completionMap[h.id] ?? false);
+      // PHASE3-HABIT: "Selesai" filter shows habits where the user succeeded
+      // today. For avoid habits, success = NOT checked (no relapse).
+      list = list.filter((h) => {
+        const checked = !!(completionMap[h.id] ?? false);
+        const success = h.habitType === 'avoid' ? !checked : checked;
+        return success;
+      });
     if (viewFilter === 'incomplete')
       // PHASE1-HABIT: vacation habits don't count as "incomplete" — they're
       // paused, not missed. Exclude them so the "Belum" filter never shows
       // vacationing habits.
-      list = list.filter(
-        (h) =>
-          !(completionMap[h.id] ?? false) && !h.vacationMode,
-      );
+      // PHASE3-HABIT: "Belum" filter shows habits where the user hasn't yet
+      // succeeded today. For avoid habits, "not yet succeeded" = checked
+      // (relapsed today).
+      list = list.filter((h) => {
+        const checked = !!(completionMap[h.id] ?? false);
+        const success = h.habitType === 'avoid' ? !checked : checked;
+        return !success && !h.vacationMode;
+      });
     return list;
   }, [activeHabits, completionMap, viewFilter]);
 
@@ -177,19 +226,115 @@ export default function DailyTracker() {
     () => activeHabits.filter((h) => !h.vacationMode),
     [activeHabits],
   );
-  const completedCount = trackableHabits.filter(
-    (h) => completionMap[h.id] ?? false,
-  ).length;
+
+  // ── PHASE4-POLISH: drag-to-reorder (@dnd-kit) ──────────────────────────
+  // Sensors + handlers are declared HERE (after `activeHabits` is defined)
+  // because handleDragEnd's deps array references `activeHabits` directly —
+  // moving them above would hit the temporal-dead-zone on the first render.
+  // Sensors: PointerSensor (mouse), TouchSensor (mobile drag — required for
+  // touch devices), KeyboardSensor (a11y). Activation constraints prevent
+  // accidental drags when the user is just tapping a card to toggle it.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 6 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = activeHabits.findIndex((h) => h.id === active.id);
+      const newIndex = activeHabits.findIndex((h) => h.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return;
+
+      const reordered = arrayMove(activeHabits, oldIndex, newIndex);
+      // Re-assign `order` so the new array position matches the DB order
+      // (0..N-1 across active habits). Collect only the diffs to PUT.
+      const updates: { id: string; order: number }[] = [];
+      reordered.forEach((h, idx) => {
+        if (h.order !== idx) updates.push({ id: h.id, order: idx });
+      });
+
+      // Optimistic local override: reordered active habits (with new order
+      // field) followed by the unchanged paused/archived habits.
+      const activeIds = new Set(reordered.map((h) => h.id));
+      const nonActive = habits.filter((h) => !activeIds.has(h.id));
+      const reorderedAll: Habit[] = [
+        ...reordered.map((h, idx) => ({ ...h, order: idx })),
+        ...nonActive,
+      ];
+      setLocalHabitsOverride(reorderedAll);
+
+      // Persist each changed habit's order via PUT /api/habits/[id].
+      // Fire-and-forget in parallel; invalidate the query on settle so the
+      // server-side truth is re-fetched (and the local override cleared).
+      try {
+        await Promise.all(
+          updates.map((u) =>
+            fetch(`/api/habits/${u.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order: u.order }),
+            }),
+          ),
+        );
+        await queryClient.invalidateQueries({ queryKey: ['habits'] });
+        // Brief delay so the refetch lands before we drop the override —
+        // otherwise a re-render with the stale query cache could flicker
+        // back to the old order for one frame.
+        setTimeout(() => setLocalHabitsOverride(null), 200);
+      } catch {
+        toast.error('Gagal menyimpan urutan');
+        // Revert to server truth.
+        await queryClient.invalidateQueries({ queryKey: ['habits'] });
+        setLocalHabitsOverride(null);
+      }
+    },
+    [activeHabits, habits, queryClient],
+  );
+
+  /** Toggle drag mode. When enabling, force viewFilter to "all" so every
+   *  active habit is visible for reordering. When disabling, drop the
+   *  optimistic override (any pending server update is left to complete —
+   *  the next habits refetch will surface the truth). */
+  const toggleDragMode = useCallback(() => {
+    if (!dragMode) {
+      setViewFilter('all');
+      setDragMode(true);
+    } else {
+      setDragMode(false);
+      setLocalHabitsOverride(null);
+    }
+  }, [dragMode]);
+  // PHASE3-HABIT — for "avoid" habits, "success today" means NO relapse
+  // (i.e. completionMap[h.id] is false). For "normal" + "amount" habits,
+  // success = completionMap[h.id] is true. This derived flag drives the
+  // daily summary's completedCount / completionPct / todayXP / bestStreak
+  // so an avoid habit that wasn't checked today counts as a success.
+  const isSuccess = useCallback(
+    (h: Habit) => {
+      const checked = !!(completionMap[h.id] ?? false);
+      if (h.habitType === 'avoid') return !checked;
+      return checked;
+    },
+    [completionMap],
+  );
+  const completedCount = trackableHabits.filter((h) => isSuccess(h)).length;
   const totalCount = trackableHabits.length;
   const completionPct =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const todayXP = useMemo(() => {
     return trackableHabits.reduce((sum, h) => {
-      if (completionMap[h.id] ?? false) return sum + (xpMap[h.difficulty] || 20);
+      if (isSuccess(h)) return sum + (xpMap[h.difficulty] || 20);
       return sum;
     }, 0);
-  }, [trackableHabits, completionMap, xpMap]);
+  }, [trackableHabits, completionMap, xpMap, isSuccess]);
 
   // Best current streak across all active habits
   const bestStreak = useMemo(() => {
@@ -201,8 +346,12 @@ export default function DailyTracker() {
       const logs = cache[h.id] || [];
       // PHASE1-HABIT: pass vacationMode so vacationing habits' streaks don't
       // break during the pause.
+      // PHASE3-HABIT: pass invert + startDate for "avoid" habits so the
+      // streak counts consecutive days WITHOUT a relapse.
       const s = computeStreak(logs, selectedDate, {
         onVacation: !!h.vacationMode,
+        invert: h.habitType === 'avoid',
+        startDate: h.startDate,
       });
       if (s > best) best = s;
     }
@@ -305,12 +454,23 @@ export default function DailyTracker() {
   );
 
   const handleNotesChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setNotes(e.target.value);
-      debouncedSave({ notes: e.target.value });
+    (html: string) => {
+      setNotes(html);
+      debouncedSave({ notes: html });
     },
     [debouncedSave],
   );
+
+  // PHASE4-POLISH: visible-text length for the "X karakter" hint. The stored
+  // notes are now HTML (TipTap), so the raw string length includes <p>/<ul>
+  // tags etc. — which would be misleading. Strip tags to get the user-visible
+  // length. Returns 0 for empty/whitespace-only content.
+  const notesCharCount = useMemo(() => {
+    if (!notes) return 0;
+    // Quick + dirty tag stripper — sufficient for the count display only.
+    // (For rendering, the TipTap editor handles its own HTML safely.)
+    return notes.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim().length;
+  }, [notes]);
 
   // ---- handlers ----
   // Ref to track the element that triggered a habit completion (for confetti position).
@@ -645,21 +805,24 @@ export default function DailyTracker() {
           <span className="text-base">📝</span>
           <h3 className="text-sm font-semibold">Catatan Harian</h3>
           <span className="ml-auto text-[11px] text-muted-foreground/70">
-            {notes.length > 0 ? `${notes.length} karakter` : 'Tersimpan otomatis'}
+            {notesCharCount > 0 ? `${notesCharCount} karakter` : 'Tersimpan otomatis'}
           </span>
         </div>
-        <Textarea
-          id="daily-notes"
+        {/* PHASE4-POLISH: TipTap rich text editor replaces the plain Textarea.
+            Stores HTML in the same DailyLog.notes column. Backward compatible:
+            setContent() in rich-notes-editor handles plain-text legacy notes
+            (TipTap wraps them in a single <p> on first edit). */}
+        <RichNotesEditor
           value={notes}
           onChange={handleNotesChange}
           placeholder="Bagaimana harimu? Tulis refleksi di sini…"
-          className="min-h-[80px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 text-sm leading-relaxed placeholder:text-muted-foreground/50"
+          className="text-sm leading-relaxed placeholder:text-muted-foreground/50"
         />
       </section>
 
       {/* ─────────────────── Habit Grid ─────────────────────── */}
       <section>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Habits
           </h3>
@@ -667,30 +830,57 @@ export default function DailyTracker() {
             <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">
               {completedCount}/{totalCount}
             </span>
-            <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
-              {(
-                [
-                  ['all', 'Semua'],
-                  ['incomplete', 'Belum'],
-                  ['completed', 'Selesai'],
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setViewFilter(key)}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-medium transition-colors',
-                    viewFilter === key
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* PHASE4-POLISH: drag-to-reorder toggle. When active, hides the
+                filter chips and shows a "Selesai" button to exit drag mode. */}
+            {activeHabits.length > 0 && (
+              <Button
+                type="button"
+                variant={dragMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={toggleDragMode}
+                className="h-7 text-xs"
+                title={dragMode ? 'Selesai mengatur urutan' : 'Atur urutan habit'}
+              >
+                <GripVertical className="h-3 w-3" />
+                {dragMode ? 'Selesai' : 'Atur Urutan'}
+              </Button>
+            )}
+            {!dragMode && (
+              <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
+                {(
+                  [
+                    ['all', 'Semua'],
+                    ['incomplete', 'Belum'],
+                    ['completed', 'Selesai'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setViewFilter(key)}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium transition-colors',
+                      viewFilter === key
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* PHASE4-POLISH: drag-mode helper banner. Lets the user know that
+            tapping the grip handle and dragging will reorder habits, and
+            that normal tap-to-toggle is disabled while in drag mode. */}
+        {dragMode && activeHabits.length > 0 && (
+          <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Mode Atur Urutan:</span>{' '}
+            Tahan tombol <GripVertical className="inline h-3 w-3" /> di sudut kartu untuk menggeser urutan. Perubahan tersimpan otomatis.
+          </div>
+        )}
 
         {activeHabits.length === 0 ? (
           <div className="text-center py-20 rounded-2xl border border-dashed border-border">
@@ -702,7 +892,7 @@ export default function DailyTracker() {
               Buka Habit Master untuk membuatnya!
             </p>
           </div>
-        ) : filteredHabits.length === 0 ? (
+        ) : !dragMode && filteredHabits.length === 0 ? (
           <div className="text-center py-20 rounded-2xl border border-dashed border-border">
             <div className="text-4xl mb-3">
               {viewFilter === 'completed' ? '🏁' : '✅'}
@@ -715,6 +905,52 @@ export default function DailyTracker() {
                   : 'Tidak ada habit yang cocok dengan filter ini.'}
             </p>
           </div>
+        ) : dragMode ? (
+          // ── Drag mode: wrap the grid in DndContext + SortableContext ──
+          // Drag mode ignores the viewFilter (always shows ALL active habits
+          // so every reorderable item is visible). SortableHabitCard adds
+          // the grip handle + DnD listeners; outside drag mode it would be a
+          // transparent wrapper, but we only render it inside this branch.
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={activeHabits.map((h) => h.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="habit-grid">
+                {activeHabits.map((habit, idx) => {
+                  const isDone = !!(completionMap[habit.id] ?? false);
+                  const isToggling = togglingIds.has(habit.id);
+                  const justCompleted = recentlyCompleted.has(habit.id);
+                  const doneTime = isDone ? completedAtMap[habit.id] : null;
+
+                  return (
+                    <SortableHabitCard
+                      key={habit.id}
+                      habit={habit}
+                      idx={idx}
+                      isDone={isDone}
+                      isToggling={isToggling}
+                      justCompleted={justCompleted}
+                      doneTime={doneTime ?? null}
+                      monthLogs={monthLogsCache?.[habit.id]}
+                      selectedDate={selectedDate}
+                      todayStr={todayStr}
+                      categoryColor={categoryMap[habit.category]?.color || 'slate'}
+                      primaryColor={primaryColor}
+                      onToggleHabit={handleHabitCheck}
+                      onSetConfettiEl={handleSetConfettiEl}
+                      onOpenAnalysis={handleOpenAnalysis}
+                      dragMode={dragMode}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         ) : (
           <div className="habit-grid">
             {filteredHabits.map((habit, idx) => {

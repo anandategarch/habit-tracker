@@ -136,6 +136,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (update.date !== undefined) updateData.date = update.date;
       if (update.notes !== undefined) updateData.notes = update.notes;
       if (update.source !== undefined) updateData.source = newSource;
+      // PHASE4-POLISH: serialize tags to a JSON array string for storage.
+      // The schema transform guarantees `tags` is a string[] when provided.
+      if (update.tags !== undefined) updateData.tags = JSON.stringify(update.tags);
 
       return tx.transaction.update({ where: { id }, data: updateData });
     });

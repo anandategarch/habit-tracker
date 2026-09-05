@@ -444,6 +444,24 @@
               0 12px 28px oklch(0.522 0.154 142 / 0.12);
 }
 
+/* PHASE3-HABIT — Avoid habit relapsed state. Mirrors .habit-card-completed
+   but with red hues to signal "this is a relapse, not a success". Used by
+   HabitCard when habitType === 'avoid' AND the checkbox is checked. */
+.habit-card-relapsed {
+  border-color: oklch(0.577 0.245 27.325 / 0.22);
+  box-shadow: 0 0 0 1px oklch(0.577 0.245 27.325 / 0.18),
+              0 6px 16px oklch(0.577 0.245 27.325 / 0.08);
+}
+.dark .habit-card-relapsed {
+  border-color: oklch(0.677 0.245 27.325 / 0.22);
+  box-shadow: 0 0 0 1px oklch(0.677 0.245 27.325 / 0.20),
+              0 6px 16px oklch(0.677 0.245 27.325 / 0.12);
+}
+.habit-card-relapsed:hover {
+  box-shadow: 0 0 0 1px oklch(0.577 0.245 27.325 / 0.25),
+              0 12px 28px oklch(0.577 0.245 27.325 / 0.12);
+}
+
 /* Pop animation right after completing */
 .habit-card-pop {
   animation: habitPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);

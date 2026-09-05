@@ -24,6 +24,9 @@ export interface Habit {
   // Vacation mode (PHASE1-HABIT)
   vacationMode: boolean;
   vacationEnd: string | null;
+  // Habit type (PHASE3-HABIT). "normal" = default. "avoid" = "don't do this"
+  // habit (checking = relapse). "amount" = daily goal with a numeric target.
+  habitType: 'normal' | 'avoid' | 'amount';
   createdAt: string;
   updatedAt: string;
 }
@@ -81,6 +84,7 @@ export function emptyForm(): HabitFormData {
     groupId: null,
     vacationMode: false,
     vacationEnd: '',
+    habitType: 'normal',
   };
 }
 
@@ -107,5 +111,6 @@ export function habitToForm(h: Habit): HabitFormData {
     groupId: h.groupId ?? null,
     vacationMode: h.vacationMode ?? false,
     vacationEnd: h.vacationEnd ? h.vacationEnd.split('T')[0] : '',
+    habitType: h.habitType ?? 'normal',
   };
 }

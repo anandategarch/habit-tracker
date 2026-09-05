@@ -11,6 +11,7 @@ import { jakartaDateString, jakartaDateKey, jakartaMonthString } from '@/lib/tim
 import { toast } from 'sonner';
 import { formatRupiah, capitalize } from './finance-types';
 import type { Transaction } from './finance-types';
+import { parseTags } from './finance-types';
 
 interface GroupedTransaction {
   dateKey: string;
@@ -551,6 +552,25 @@ function TransactionRow({
                   <span>{getSourceEmoji(tx.source || 'Kas')}</span>
                   <span className="truncate">{tx.source || 'Kas'}</span>
                 </p>
+                {/* PHASE4-POLISH: tag badges. parseTags is null-safe —
+                    returns [] for missing/invalid/malformed tags strings,
+                    so legacy transactions without the column render nothing. */}
+                {(() => {
+                  const tags = parseTags(tx.tags);
+                  if (tags.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {tags.map((tag, i) => (
+                        <span
+                          key={`${tag}-${i}`}
+                          className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/60"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Amount */}

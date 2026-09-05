@@ -14,14 +14,17 @@
 'use client';
 
 import { memo } from 'react';
-import { Check, Clock, RotateCw } from 'lucide-react';
+import { Check, Clock, RotateCw, Ban, BarChart3 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { FlipCard } from '@/components/habit-tracker/flip-card';
 import { StreakFlame } from '@/components/habit-tracker/streak-flame';
 import { cn } from '@/lib/utils';
 import { getBadgeClass } from '@/lib/label-colors';
 import { ProgressRing } from './daily-tracker-progress-ring';
+import { MilestoneBadges } from './milestone-badges';
+import { ShareButton } from './share-card';
 import {
   getCategoryStyle,
   computeStreak,
@@ -35,6 +38,7 @@ import type { Habit, HabitLog } from './daily-tracker-types';
 export interface HabitCardProps {
   habit: Habit;
   idx: number;
+  /** Raw checkbox state — for avoid habits, true = RELAPSE (not success). */
   isDone: boolean;
   isToggling: boolean;
   justCompleted: boolean;
@@ -84,19 +88,33 @@ export const HabitCard = memo(function HabitCard({
   onOpenAnalysis,
 }: HabitCardProps) {
   const catStyle = getCategoryStyle(habit.category);
-  const pct = isDone ? 100 : 0;
+  // PHASE3-HABIT: for avoid habits, "isDone" (raw checkbox state) means a
+  // RELAPSE happened today. Success = NOT relapsed. The card visualization
+  // is inverted: green when success (no relapse), red when relapsed.
+  const isAvoid = habit.habitType === 'avoid';
+  const isRelapsed = isAvoid && isDone;
+  const isSuccess = isAvoid ? !isDone : isDone;
+  const pct = isSuccess ? 100 : 0;
   // BUG-18 fix: return 0 when no cache (was _count.logs which is the total
   // log count, not a streak — completely unrelated and could show e.g. "47"
   // instead of the actual streak).
   // PHASE1-HABIT: pass vacationMode so the streak doesn't break during a
   // vacation pause (today is treated as auto-completed).
+  // PHASE3-HABIT: pass invert + startDate for "avoid" habits so the streak
+  // counts consecutive days WITHOUT a relapse.
   const onVacation = !!habit.vacationMode;
   const streak = monthLogs
-    ? computeStreak(monthLogs, selectedDate, { onVacation })
+    ? computeStreak(monthLogs, selectedDate, {
+        onVacation,
+        invert: isAvoid,
+        startDate: habit.startDate,
+      })
     : 0;
   // PHASE1-HABIT: strength score (0-100) over the last 30 days. Additional
   // to the streak — does NOT replace it. Vacation habits get +1 day credit
   // so the score doesn't tank during a deliberate pause.
+  // PHASE3-HABIT: pass habitType so the score inverts for avoid habits
+  // (clean days / total days).
   const strength = monthLogs
     ? computeStrengthScore(monthLogs, habit, 30, selectedDate)
     : 0;
@@ -109,7 +127,8 @@ export const HabitCard = memo(function HabitCard({
   // (so the front streak and back mini-calendar stay in sync). Days outside
   // the cached month are treated as not-done — acceptable for a quick stats
   // view.
-  const last7Days = getLast7DaysStatus(monthLogs, todayStr);
+  // PHASE3-HABIT: for avoid habits, "done" = clean (no relapse log).
+  const last7Days = getLast7DaysStatus(monthLogs, todayStr, { invert: isAvoid });
   const totalLogs = habit._count?.logs ?? 0;
 
   return (
@@ -125,7 +144,12 @@ export const HabitCard = memo(function HabitCard({
         <Card
           className={cn(
             'group cursor-pointer select-none p-5 gap-0 h-full transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
-            isDone && 'habit-card-completed',
+            // PHASE3-HABIT: avoid habits show red when relapsed (checked),
+            // green when successful (unchecked). Normal/amount habits stay
+            // green when completed.
+            isRelapsed
+              ? 'habit-card-relapsed'
+              : isSuccess && 'habit-card-completed',
           )}
         >
           {/* Checkbox top-right (stopPropagation: clicking it
@@ -143,8 +167,12 @@ export const HabitCard = memo(function HabitCard({
               }}
               className={cn(
                 'h-5 w-5 rounded-md transition-all duration-200',
-                isDone &&
+                // For avoid habits, a checked checkbox is red (relapse).
+                // For normal/amount habits, a checked checkbox is primary.
+                isDone && !isAvoid &&
                   'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
+                isDone && isAvoid &&
+                  'data-[state=checked]:bg-destructive data-[state=checked]:border-destructive',
                 justCompleted && 'animate-[ringPop_0.4s_ease]',
               )}
             />
@@ -230,20 +258,42 @@ export const HabitCard = memo(function HabitCard({
                 🏖️ Liburan
               </span>
             )}
+            {/* PHASE3-HABIT: avoid-type badge */}
+            {isAvoid && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                title="Habit tipe 'Hindari' — centang = kambuh"
+              >
+                <Ban className="h-3 w-3" />
+                Hindari
+              </span>
+            )}
           </div>
 
           {/* Circular Progress + Streak */}
           <div className="flex items-center justify-between">
             <ProgressRing
               progress={pct}
-              color={catStyle.hex}
-              done={isDone}
-              primaryColor={primaryColor}
+              color={isRelapsed ? '#ef4444' : catStyle.hex}
+              done={isSuccess}
+              primaryColor={isAvoid ? '#ef4444' : primaryColor}
             />
             <div className="text-right">
-              {isDone ? (
-                <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
-                  <Check className="h-3 w-3" /> Selesai
+              {isSuccess ? (
+                <span
+                  className={cn(
+                    'text-[11px] font-semibold flex items-center gap-1 justify-end',
+                    isAvoid
+                      ? 'text-success dark:text-success/80'
+                      : 'text-primary',
+                  )}
+                >
+                  <Check className="h-3 w-3" />
+                  {isAvoid ? 'Bersih' : 'Selesai'}
+                </span>
+              ) : isRelapsed ? (
+                <span className="text-[11px] font-semibold text-destructive flex items-center gap-1 justify-end">
+                  <Ban className="h-3 w-3" /> Kambuh
                 </span>
               ) : habit.vacationMode ? (
                 <span className="text-[11px] font-medium text-sky-600 dark:text-sky-400 flex items-center gap-1 justify-end">
@@ -251,7 +301,7 @@ export const HabitCard = memo(function HabitCard({
                 </span>
               ) : (
                 <span className="text-[11px] font-medium text-muted-foreground">
-                  Belum dimulai
+                  {isAvoid ? 'Bersih hari ini' : 'Belum dimulai'}
                 </span>
               )}
               <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
@@ -287,7 +337,10 @@ export const HabitCard = memo(function HabitCard({
         <Card
           className={cn(
             'p-5 gap-0 h-full flex flex-col overflow-hidden',
-            isDone && 'habit-card-completed',
+            // PHASE3-HABIT: avoid habits show red on the back when relapsed.
+            isRelapsed
+              ? 'habit-card-relapsed'
+              : isSuccess && 'habit-card-completed',
           )}
         >
           {/* Header: icon + name + flip hint */}
@@ -311,7 +364,9 @@ export const HabitCard = memo(function HabitCard({
                   className={cn(
                     'flex-1 h-7 rounded-md flex items-center justify-center text-[10px] font-semibold tabular-nums',
                     day.done
-                      ? 'bg-primary text-primary-foreground'
+                      ? isAvoid
+                        ? 'bg-success text-success-foreground'
+                        : 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground/60',
                   )}
                 >
@@ -320,6 +375,16 @@ export const HabitCard = memo(function HabitCard({
               ))}
             </div>
           </div>
+
+          {/* PHASE3-HABIT: Milestone Badges (10/30/100/365 days).
+              Shows achieved milestones in color, unachieved in gray.
+              Uses the habit's all-time longest streak. */}
+          <MilestoneBadges
+            habitId={habit.id}
+            streak={streak}
+            habitType={habit.habitType}
+            startDate={habit.startDate}
+          />
 
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2 mt-auto">
@@ -355,6 +420,33 @@ export const HabitCard = memo(function HabitCard({
                 {strength}%
               </p>
             </div>
+          </div>
+
+          {/* PHASE3-HABIT: Share button + Analysis button — share generates a
+              PNG image of the habit's progress; analysis opens the
+              time-analysis dialog (which now includes the "Tahun" yearly
+              heatmap view, available for ALL habits including non-trackTime). */}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenAnalysis(habit.id);
+              }}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Analisis
+            </Button>
+            <ShareButton
+              habit={habit}
+              streak={streak}
+              strength={strength}
+              strengthTier={strengthTier}
+              last7Days={last7Days}
+            />
           </div>
 
           {/* Notes preview */}

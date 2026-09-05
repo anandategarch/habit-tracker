@@ -39,6 +39,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// PHASE3-HABIT — yearly heatmap (per-habit 365-day grid).
+import { YearlyHeatmap } from '@/components/habit-tracker/yearly-heatmap';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +75,10 @@ interface AnalysisData {
   };
 }
 
-type FilterType = 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30days';
+// PHASE3-HABIT — added 'thisYear' for the yearly heatmap view. The yearly
+// view bypasses the time-analysis API (which is trackTime-only) and instead
+// renders the YearlyHeatmap component, which works for ALL habits.
+type FilterType = 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30days' | 'thisYear';
 
 interface TimeAnalysisDialogProps {
   habitId: string | null;
@@ -87,6 +92,7 @@ const FILTER_LABELS: Record<FilterType, string> = {
   thisMonth: 'Bulan Ini',
   lastMonth: 'Bulan Lalu',
   last30days: '30 Hari Terakhir',
+  thisYear: 'Tahun',
 };
 
 // ── Custom Tooltip ──────────────────────────────────────────────────────────
@@ -128,6 +134,39 @@ export default function TimeAnalysisDialog({
   const primaryColor = useThemeColor('primary');
   const destructiveColor = useThemeColor('destructive');
 
+  // PHASE3-HABIT — when filter === 'thisYear', we bypass the time-analysis
+  // API (which is trackTime-only) and instead fetch the habit's metadata
+  // (for habitType + startDate) so we can render the YearlyHeatmap component.
+  // The YearlyHeatmap itself fetches its own logs via
+  // /api/habits/[id]/logs?year=YYYY.
+  const isYearlyView = filter === 'thisYear';
+  const { data: habitMeta } = useQuery<{
+    id: string;
+    name: string;
+    icon: string;
+    habitType: 'normal' | 'avoid' | 'amount';
+    startDate: string;
+    trackTime: boolean;
+  }>({
+    queryKey: ['habit-meta', habitId],
+    queryFn: async () => {
+      if (!habitId) return null as never;
+      const res = await fetch(`/api/habits/${habitId}`);
+      if (!res.ok) throw new Error('Failed to fetch habit');
+      const json = await res.json();
+      return {
+        id: json.id,
+        name: json.name,
+        icon: json.icon,
+        habitType: (json.habitType ?? 'normal') as 'normal' | 'avoid' | 'amount',
+        startDate: json.startDate,
+        trackTime: !!json.trackTime,
+      };
+    },
+    enabled: open && !!habitId && isYearlyView,
+    staleTime: 60_000,
+  });
+
   const { data: data, isLoading: loading, error: queryError, refetch } = useQuery<AnalysisData>({
     queryKey: ['time-analysis', habitId, filter],
     queryFn: async () => {
@@ -138,7 +177,11 @@ export default function TimeAnalysisDialog({
       }
       return res.json();
     },
-    enabled: open && !!habitId,
+    // PHASE3-HABIT — skip the time-analysis query when in yearly view, and
+    // also when the habit doesn't track time (the API returns 400 in that
+    // case; we'd rather not show a misleading error). The yearly heatmap
+    // works for non-trackTime habits.
+    enabled: open && !!habitId && !isYearlyView,
     staleTime: 30_000,
   });
   const error = queryError instanceof Error ? queryError.message : null;
@@ -166,8 +209,8 @@ export default function TimeAnalysisDialog({
       <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span>{data?.habit.icon || '⏱️'}</span>
-            Analisis Waktu — {data?.habit.name || '...'}
+            <span>{data?.habit.icon || habitMeta?.icon || '⏱️'}</span>
+            Analisis Waktu — {data?.habit.name || habitMeta?.name || '...'}
           </DialogTitle>
         </DialogHeader>
 
@@ -185,18 +228,32 @@ export default function TimeAnalysisDialog({
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={loading}
-            className="h-8"
-          >
-            {loading ? 'Loading...' : 'Refresh'}
-          </Button>
+          {!isYearlyView && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={loading}
+              className="h-8"
+            >
+              {loading ? 'Loading...' : 'Refresh'}
+            </Button>
+          )}
         </div>
 
-        {error && (
+        {/* PHASE3-HABIT — Yearly heatmap view (works for ALL habits). */}
+        {isYearlyView && habitId && habitMeta && (
+          <YearlyHeatmap
+            habitId={habitId}
+            habitType={habitMeta.habitType}
+            startDate={habitMeta.startDate}
+          />
+        )}
+        {isYearlyView && !habitMeta && (
+          <Skeleton className="h-40 w-full rounded-lg" />
+        )}
+
+        {!isYearlyView && error && (
           <Card className="border-destructive/30 dark:border-destructive/30">
             <CardContent className="py-4">
               <p className="text-sm text-destructive dark:text-destructive/80">{error}</p>
@@ -204,7 +261,7 @@ export default function TimeAnalysisDialog({
           </Card>
         )}
 
-        {loading && !data && (
+        {!isYearlyView && loading && !data && (
           <div className="space-y-4">
             <Skeleton className="h-32 w-full rounded-lg" />
             <div className="grid grid-cols-2 gap-3">
@@ -214,7 +271,7 @@ export default function TimeAnalysisDialog({
           </div>
         )}
 
-        {data && !error && (
+        {!isYearlyView && data && !error && (
           <div className="space-y-4">
             {/* Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

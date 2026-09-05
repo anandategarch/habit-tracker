@@ -63,6 +63,9 @@ export async function PUT(
       if (!d.vacationMode) updateData.vacationEnd = null;
     }
     if (d.vacationEnd !== undefined) updateData.vacationEnd = d.vacationEnd;
+    // PHASE3-HABIT: habit type ("normal" | "avoid" | "amount"). Affects how
+    // the daily-tracker interprets the checkbox (avoid → checked = relapse).
+    if (d.habitType !== undefined) updateData.habitType = d.habitType;
 
     const habit = await db.habit.update({
       where: { id },

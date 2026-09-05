@@ -48,12 +48,14 @@ import {
   HardDriveDownload,
   Check,
   ListChecks,
+  Pipette,
 } from 'lucide-react';
 import {
   applyThemeColors,
   applyThemeMode,
   resetThemeColors,
   THEME_PRESETS,
+  CURATED_THEME_PRESETS,
   type ThemePreset,
 } from '@/lib/theme-utils';
 import type { AppSettings, SettingsFormState, SettingsSection } from './settings-types';
@@ -115,6 +117,11 @@ export default function Settings() {
     form.primaryColor.toLowerCase() === preset.primaryColor.toLowerCase() &&
     form.secondaryColor.toLowerCase() === preset.secondaryColor.toLowerCase();
 
+  /** True when current colors don't match any curated/basic preset → "Kustom" mode */
+  const isCustomActive =
+    !CURATED_THEME_PRESETS.some(isPresetActive) &&
+    !THEME_PRESETS.some(isPresetActive);
+
   /** Apply a preset and live-preview it */
   const applyPreset = (preset: ThemePreset) => {
     setForm((prev) => {
@@ -123,6 +130,17 @@ export default function Settings() {
       return next;
     });
   };
+
+  // Scroll target for "Kustom" card click → focus the custom color picker section
+  const customColorRef = useRef<HTMLDivElement>(null);
+  const focusCustomPicker = useCallback(() => {
+    customColorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Briefly flash the picker to draw attention
+    customColorRef.current?.classList.add('ring-2', 'ring-primary');
+    setTimeout(() => {
+      customColorRef.current?.classList.remove('ring-2', 'ring-primary');
+    }, 1200);
+  }, []);
 
   // ── Fetch settings (TanStack Query) ────────────────────────────────────
   const { data: settings = null, isLoading: loading } = useQuery<AppSettings>({
@@ -378,13 +396,81 @@ export default function Settings() {
 
             <Separator className="my-3" />
 
-            {/* Preset Theme Swatches */}
+            {/* Curated Theme Cards — 5 Indonesian-named presets + 1 "Kustom" card */}
             <div className="space-y-2.5">
               <div>
-                <Label className="text-sm font-medium">Warna Tema</Label>
-                <p className="text-xs text-muted-foreground">Klik preset atau gunakan warna kustom di bawah</p>
+                <Label className="text-sm font-medium">Tema Pilihan</Label>
+                <p className="text-xs text-muted-foreground">Pilih tema siap-pakai atau atur sendiri</p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {CURATED_THEME_PRESETS.map((preset) => {
+                  const active = isPresetActive(preset);
+                  return (
+                    <button
+                      key={preset.name}
+                      onClick={() => applyPreset(preset)}
+                      className={cn(
+                        'group relative flex flex-col gap-1.5 p-2 rounded-lg border-2 transition-all duration-150',
+                        active
+                          ? 'border-primary bg-primary/5 shadow-sm'
+                          : 'border-border bg-card hover:border-primary/40 hover:bg-muted/50'
+                      )}
+                      title={`${preset.name} — ${preset.description}`}
+                    >
+                      {/* Color swatches row */}
+                      <div className="flex h-6 w-full overflow-hidden rounded-md">
+                        <div className="flex-1" style={{ backgroundColor: preset.primaryColor }} />
+                        <div className="flex-1" style={{ backgroundColor: preset.secondaryColor }} />
+                      </div>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-sm leading-none flex-shrink-0">{preset.emoji}</span>
+                        <span className="text-xs font-medium truncate">{preset.name}</span>
+                      </div>
+                      {active && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-background">
+                          <Check className="h-3 w-3" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                {/* Kustom card */}
+                <button
+                  onClick={focusCustomPicker}
+                  className={cn(
+                    'group relative flex flex-col gap-1.5 p-2 rounded-lg border-2 border-dashed transition-all duration-150',
+                    isCustomActive
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border bg-card hover:border-primary/40 hover:bg-muted/50'
+                  )}
+                  title="Pilih warna sendiri"
+                >
+                  <div
+                    className="flex h-6 w-full overflow-hidden rounded-md"
+                    style={{
+                      background:
+                        'linear-gradient(90deg, #f43f5e 0%, #f59e0b 20%, #84cc16 40%, #14b8a6 60%, #a855f7 80%, #64748b 100%)',
+                    }}
+                  />
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Pipette className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium truncate">Kustom</span>
+                  </div>
+                  {isCustomActive && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-background">
+                      <Check className="h-3 w-3" />
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <Separator className="my-3" />
+
+            {/* Quick presets — compact buttons (existing) */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Preset Cepat</Label>
+              <div className="flex flex-wrap gap-1.5">
                 {THEME_PRESETS.map((preset) => {
                   const active = isPresetActive(preset);
                   return (
@@ -392,17 +478,20 @@ export default function Settings() {
                       key={preset.name}
                       onClick={() => applyPreset(preset)}
                       className={cn(
-                        'group relative flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 transition-all duration-150',
+                        'group relative flex items-center gap-1 px-2 py-1.5 rounded-md border transition-all duration-150',
                         active
                           ? 'border-primary bg-primary/5 shadow-sm'
                           : 'border-transparent bg-muted/50 hover:bg-muted hover:border-border'
                       )}
                       title={preset.name}
                     >
-                      <span className="text-base leading-none">{preset.emoji}</span>
-                      <span className="text-xs font-medium">{preset.name}</span>
+                      <span
+                        className="h-3 w-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: preset.primaryColor }}
+                      />
+                      <span className="text-[11px] font-medium">{preset.name}</span>
                       {active && (
-                        <Check className="h-3.5 w-3.5 text-primary absolute -top-1.5 -right-1.5 bg-background rounded-full p-0.5 border border-primary" />
+                        <Check className="h-3 w-3 text-primary" />
                       )}
                     </button>
                   );
@@ -412,45 +501,58 @@ export default function Settings() {
 
             <Separator className="my-3" />
 
-            <FormRow label="Warna Utama" description="Warna aksen utama">
+            {/* Custom color pickers — "Kustom" mode */}
+            <div
+              ref={customColorRef}
+              className={cn(
+                'space-y-3 rounded-lg p-3 transition-all duration-200',
+                isCustomActive && 'bg-primary/5 border border-primary/30'
+              )}
+            >
               <div className="flex items-center gap-2">
-                <Input
-                  type="color"
-                  value={form.primaryColor}
-                  onChange={(e) => updateField('primaryColor', e.target.value)}
-                  className="h-9 w-12 p-1 cursor-pointer"
-                />
-                <Input
-                  value={form.primaryColor}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateField('primaryColor', v);
-                  }}
-                  placeholder="#22c55e"
-                  className="h-9 font-mono text-sm"
-                />
+                <Pipette className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-medium">Warna Kustom</Label>
               </div>
-            </FormRow>
+              <FormRow label="Warna Utama" description="Warna aksen utama">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={form.primaryColor}
+                    onChange={(e) => updateField('primaryColor', e.target.value)}
+                    className="h-9 w-12 p-1 cursor-pointer"
+                  />
+                  <Input
+                    value={form.primaryColor}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateField('primaryColor', v);
+                    }}
+                    placeholder="#22c55e"
+                    className="h-9 font-mono text-sm"
+                  />
+                </div>
+              </FormRow>
 
-            <FormRow label="Warna Sekunder" description="Warna aksen pendamping">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="color"
-                  value={form.secondaryColor}
-                  onChange={(e) => updateField('secondaryColor', e.target.value)}
-                  className="h-9 w-12 p-1 cursor-pointer"
-                />
-                <Input
-                  value={form.secondaryColor}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateField('secondaryColor', v);
-                  }}
-                  placeholder="#10b981"
-                  className="h-9 font-mono text-sm"
-                />
-              </div>
-            </FormRow>
+              <FormRow label="Warna Sekunder" description="Warna aksen pendamping">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={form.secondaryColor}
+                    onChange={(e) => updateField('secondaryColor', e.target.value)}
+                    className="h-9 w-12 p-1 cursor-pointer"
+                  />
+                  <Input
+                    value={form.secondaryColor}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateField('secondaryColor', v);
+                    }}
+                    placeholder="#10b981"
+                    className="h-9 font-mono text-sm"
+                  />
+                </div>
+              </FormRow>
+            </div>
 
             {/* Live preview bar */}
             <div className="rounded-lg border border-border p-3 space-y-2">

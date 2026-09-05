@@ -96,6 +96,10 @@ export async function POST(request: NextRequest) {
           // PHASE1-HABIT: vacation mode defaults
           vacationMode: d.vacationMode ?? false,
           vacationEnd: d.vacationEnd ?? null,
+          // PHASE3-HABIT: habit type defaults to "normal" (binary check +
+          // green). "avoid" → checking = relapse (red), streak = days
+          // WITHOUT a check. "amount" → daily goal with numeric target.
+          habitType: d.habitType ?? 'normal',
           order: (maxOrder._max.order ?? 0) + 1,
         },
       });

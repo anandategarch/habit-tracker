@@ -35,6 +35,7 @@ import {
   formatNominalInput,
   parseNominalInput,
   formatRupiah,
+  parseTags,
 } from '@/components/habit-tracker/finance-types';
 
 export interface SplitRow {
@@ -51,6 +52,10 @@ export interface TxFormState {
   time: string;
   notes: string;
   source: string;
+  // PHASE4-POLISH: tags stored as a string[] in the form. Serialized to a
+  // JSON array string by the API before DB storage. The form keeps the
+  // parsed array form so the chip input UI can add/remove tags directly.
+  tags: string[];
 }
 
 export interface BudgetFormState {
@@ -106,7 +111,7 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
   const [deletingSource, setDeletingSource] = useState<FundSource | null>(null);
 
   // ── Form states ──
-  const [txForm, setTxForm] = useState<TxFormState>({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: 'Kas' });
+  const [txForm, setTxForm] = useState<TxFormState>({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: 'Kas', tags: [] });
   // Split-mode state. Only used when adding a new transaction (not editing —
   // split children are standalone transactions and are edited individually
   // via the regular single-category form).
@@ -174,7 +179,7 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
     // Now consistent with openEditTx() which already uses Jakarta TZ.
     const p = jakartaNowParts();
     const time = `${String(p.hours).padStart(2, '0')}:${String(p.minutes).padStart(2, '0')}`;
-    setTxForm({ type, amount: '', category: '', description: '', date: jakartaDateString(), time, notes: '', source: 'Kas' });
+    setTxForm({ type, amount: '', category: '', description: '', date: jakartaDateString(), time, notes: '', source: 'Kas', tags: [] });
     // Reset split state every time the dialog opens fresh.
     setSplitMode(false);
     setSplitRows([
@@ -209,6 +214,9 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
       description: tx.description || '', date: jakartaDateKey(txDate),
       time: jakartaTime,
       notes: tx.notes || '', source: tx.source || 'Kas',
+      // PHASE4-POLISH: parse the stored JSON array string into a string[].
+      // parseTags is null-safe and returns [] for missing/invalid input.
+      tags: parseTags(tx.tags),
     });
     // Edit always uses single-category mode — split children are
     // standalone transactions and are edited one at a time.

@@ -65,6 +65,14 @@ const DashboardCharts = dynamic(() => import('./dashboard-charts'), {
   ),
 });
 
+// PHASE3-HABIT — Hourly consistency heatmap ("Kapan paling konsisten?").
+// Lazy-loaded since it's below the fold and only relevant once the user
+// scrolls past the dashboard charts.
+const HourlyConsistency = dynamic(() => import('./hourly-consistency'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-44 rounded-xl" />,
+});
+
 function ChartInfo({ text }: { text: string }) {
   return (
     <TooltipProvider delayDuration={200}>
@@ -645,6 +653,20 @@ export default function Dashboard() {
         weeklyPattern={displayData.weeklyPattern}
         chartLabel={chartLabel}
       />
+      </ScrollReveal>
+
+      {/* PHASE3-HABIT — Hourly consistency heatmap ("Kapan paling konsisten?").
+          Shows which hours of the day the user most consistently completes
+          habits, across ALL habits (not per-habit). Period matches the
+          dashboard's selected period (7d/1m/3m → 7/30/90 days; all → 365). */}
+      <ScrollReveal delay={150}>
+        <HourlyConsistency
+          periodDays={
+            period === '7d' ? 7 :
+            period === '1m' ? 30 :
+            period === '3m' ? 90 : 365
+          }
+        />
       </ScrollReveal>
 
       {/* ── Time-Tracked Habits (Waktu Habit Minggu Ini) ────────────── */}

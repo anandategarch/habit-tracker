@@ -107,6 +107,9 @@ export async function GET(request: NextRequest) {
       description: string | null;
       date: Date;
       source: string;
+      // PHASE4-POLISH: tags column (JSON-encoded array string). Selected so
+      // the client can render tag badges without an extra fetch.
+      tags: string;
     };
     let transactions: TransactionRow[] = [];
     try {
@@ -122,6 +125,7 @@ export async function GET(request: NextRequest) {
           description: true,
           date: true,
           source: true,
+          tags: true,
         },
       });
       // Post-query filter: if month param was given, filter by Jakarta date
@@ -150,8 +154,14 @@ export async function POST(request: NextRequest) {
     const parsed = parseOr400(createTransactionSchema, body);
     if (!parsed.success) return parsed.response;
 
-    let { type, amount, category, description, date, notes, source } = parsed.data;
+    let { type, amount, category, description, date, notes, source, tags } = parsed.data;
     const sourceName = source ?? 'Kas';
+
+    // PHASE4-POLISH: serialize tags to a JSON array string for storage.
+    // The schema transform guarantees `tags` is a string[] (empty array
+    // when not provided), so JSON.stringify always yields a valid `"[...]"`
+    // string. The DB column default is `"[]"` so older rows are also valid.
+    const tagsJson = JSON.stringify(tags ?? []);
 
     // PHASE2-FINANCE-1: apply auto-categorization rules BEFORE creating the
     // transaction. First-match-wins semantics (see lib/finance/rule-engine).
@@ -189,6 +199,8 @@ export async function POST(request: NextRequest) {
           date,
           notes: notes ?? null,
           source: effectiveSource,
+          // PHASE4-POLISH: store tags as JSON array string
+          tags: tagsJson,
         },
       });
 

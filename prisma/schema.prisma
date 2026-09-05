@@ -66,6 +66,19 @@ model Habit {
   // vacation (no auto-resume).
   vacationMode Boolean   @default(false)
   vacationEnd  DateTime?
+  // ── Habit type (Phase 3 — PHASE3-HABIT) ──────────────────────────────
+  // Controls how the habit is tracked + displayed:
+  //   "normal" — default. Checking the box = success (green).
+  //   "avoid"  — "don't do this" habit (e.g. no smoking, no sugar).
+  //              Checking the box = RELAPSE (red). Streak = consecutive days
+  //              WITHOUT a check. The habit card shows the relapse state in
+  //              red instead of green, and the daily-tracker inverts the
+  //              completion logic (unchecked = success).
+  //   "amount" — daily goal with a numeric target (e.g. "drink 2L water").
+  //              The target column stores the daily goal; the HabitLog.value
+  //              column tracks progress toward it. The UI renders a progress
+  //              bar instead of a binary check.
+  habitType    String   @default("normal")
   createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
   logs        HabitLog[]
@@ -165,6 +178,12 @@ model Transaction {
   // Non-null = part of a split group (multiple transactions sharing
   // the same date/source/description but different category/amount).
   groupId     String?
+  // PHASE4-POLISH: tags — JSON-encoded array of strings (e.g. '["urgent","work"]').
+  // Stored as a String column because SQLite has no native array type. Empty
+  // array is stored as "[]" (the schema default) so existing rows + future
+  // rows always have a parseable value. The API + UI parse/serialize on the
+  // fly; no ORM-level JSON type is needed.
+  tags        String   @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

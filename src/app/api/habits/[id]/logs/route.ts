@@ -4,6 +4,8 @@ import { createHabitLogSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/habits/[id]/logs?month=2024-01
+// GET /api/habits/[id]/logs?year=2024        (PHASE3-HABIT — full year of logs)
+// GET /api/habits/[id]/logs                  (default: last 30 days)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,9 +14,13 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
+    const year = searchParams.get('year');
 
     if (month && !/^\d{4}-\d{2}$/.test(month)) {
       return NextResponse.json({ error: 'Invalid month format. Use YYYY-MM' }, { status: 400 });
+    }
+    if (year && !/^\d{4}$/.test(year)) {
+      return NextResponse.json({ error: 'Invalid year format. Use YYYY' }, { status: 400 });
     }
 
     let startDate: Date;
@@ -26,6 +32,14 @@ export async function GET(
       startDate = new Date(Date.UTC(y, m - 1, 1));
       const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
       endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));
+    } else if (year) {
+      // PHASE3-HABIT — full year window (Jan 1 → Dec 31). Used by the yearly
+      // heatmap + milestone badges. Also fetches a 7-day buffer before Jan 1
+      // so the heatmap's first column (which may start in late Dec of the
+      // previous year) shows accurate data.
+      const y = parseInt(year, 10);
+      startDate = new Date(Date.UTC(y, 0, 1) - 7 * 86_400_000); // 7 days before Jan 1
+      endDate = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999));
     } else {
       startDate = new Date(today);
       startDate.setUTCDate(startDate.getUTCDate() - 30);
