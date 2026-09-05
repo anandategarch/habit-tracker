@@ -40,6 +40,11 @@ export const createHabitSchema = z.object({
   trackLastDone: z.boolean().optional(),
   lastDoneInterval: z.string().max(10).nullish(),
   groupId: cuid.nullish(),
+  // Vacation mode (PHASE1-HABIT). vacationMode toggles the pause; vacationEnd
+  // is the auto-resume date (null = indefinite vacation). vacationEnd is
+  // coerced to a Date when provided as a string ("yyyy-MM-dd").
+  vacationMode: z.boolean().optional(),
+  vacationEnd: z.coerce.date().nullish(),
 });
 export type CreateHabitInput = z.infer<typeof createHabitSchema>;
 
@@ -239,6 +244,64 @@ export const updateSettingsSchema = z.object({
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 
+// ── Savings Goal ─────────────────────────────────────────────────────────
+
+export const createSavingsGoalSchema = z.object({
+  name: nonEmpty(200),
+  emoji: z.string().max(20).optional(),
+  targetAmount: moneyInput,
+  // currentAmount is optional on create — defaults to 0 in the DB. If the
+  // user provides one (e.g. they already have some savings set aside), it
+  // must be a non-negative whole rupiah amount.
+  currentAmount: z
+    .union([z.string(), z.number()])
+    .refine((v) => {
+      const n = typeof v === 'number' ? v : parseInt(String(v).replace(/[^\d-]/g, ''), 10);
+      return Number.isFinite(n) && n >= 0 && Number.isInteger(n);
+    }, 'Current amount must be a non-negative whole number')
+    .transform((v) => (typeof v === 'number' ? v : parseInt(String(v).replace(/[^\d-]/g, ''), 10)))
+    .optional(),
+  sourceName: optionalString(100),
+  deadline: z.coerce.date().nullish(),
+});
+export type CreateSavingsGoalInput = z.infer<typeof createSavingsGoalSchema>;
+
+export const updateSavingsGoalSchema = z.object({
+  name: nonEmpty(200).optional(),
+  emoji: z.string().max(20).optional(),
+  // targetAmount must be positive whole rupiah.
+  targetAmount: moneyInput.optional(),
+  // currentAmount accepts 0 + negatives? No — savings can't go below 0.
+  // We accept whole rupiah (>= 0). PUT /api/finance/savings-goals/[id]
+  // uses this for full edits.
+  currentAmount: z
+    .union([z.string(), z.number()])
+    .refine((v) => {
+      const n = typeof v === 'number' ? v : parseInt(String(v).replace(/[^\d-]/g, ''), 10);
+      return Number.isFinite(n) && n >= 0 && Number.isInteger(n);
+    }, 'Current amount must be a non-negative whole number')
+    .transform((v) => (typeof v === 'number' ? v : parseInt(String(v).replace(/[^\d-]/g, ''), 10)))
+    .optional(),
+  sourceName: optionalString(100),
+  deadline: z.coerce.date().nullish(),
+  isCompleted: z.boolean().optional(),
+});
+export type UpdateSavingsGoalInput = z.infer<typeof updateSavingsGoalSchema>;
+
+// PATCH-style "adjust amount" payload used by the Tambah Tabungan / Tarik
+// buttons in the UI. `delta` is the signed change (positive for tambah,
+// negative for tarik). The API clamps the resulting currentAmount at >= 0.
+export const adjustSavingsGoalSchema = z.object({
+  delta: z
+    .union([z.string(), z.number()])
+    .refine((v) => {
+      const n = typeof v === 'number' ? v : parseInt(String(v).replace(/[^\d-]/g, ''), 10);
+      return Number.isFinite(n) && n !== 0 && Number.isInteger(n);
+    }, 'Delta must be a non-zero whole number')
+    .transform((v) => (typeof v === 'number' ? v : parseInt(String(v).replace(/[^\d-]/g, ''), 10))),
+});
+export type AdjustSavingsGoalInput = z.infer<typeof adjustSavingsGoalSchema>;
+
 // ── Helper: safe parse for API routes ───────────────────────────────────
 
 import { NextResponse } from 'next/server';
@@ -268,3 +331,61 @@ export const weeklyBudgetSchema = z.object({
   target: z.number().int().min(0),
   rollover: z.boolean().optional().default(true),
 });
+
+// ── Recurring Transaction (PHASE2-FINANCE-1) ────────────────────────────
+// Auto-create transactions on a schedule (Actual Budget + Firefly III style).
+// dayOfMonth (1-31) required when frequency = 'monthly'.
+// dayOfWeek (0-6, 0=Sunday) required when frequency = 'weekly'.
+// interval is the "every N" multiplier (e.g. every 2 weeks → interval=2).
+
+export const createRecurringSchema = z
+  .object({
+    type: z.enum(['income', 'expense']),
+    amount: moneyInput,
+    category: nonEmpty(100),
+    description: optionalString(500),
+    source: nonEmpty(100).optional(),
+    frequency: z.enum(['daily', 'weekly', 'monthly']),
+    dayOfMonth: z.number().int().min(1).max(31).nullish(),
+    dayOfWeek: z.number().int().min(0).max(6).nullish(),
+    interval: z.number().int().min(1).max(365).optional(),
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().nullish(),
+    isActive: z.boolean().optional(),
+  })
+  .refine(
+    (d) => d.frequency !== 'monthly' || (d.dayOfMonth != null),
+    { message: 'dayOfMonth wajib diisi untuk frequency "monthly"', path: ['dayOfMonth'] }
+  )
+  .refine(
+    (d) => d.frequency !== 'weekly' || (d.dayOfWeek != null),
+    { message: 'dayOfWeek wajib diisi untuk frequency "weekly"', path: ['dayOfWeek'] }
+  )
+  .refine(
+    (d) => !d.endDate || !d.startDate || d.endDate.getTime() >= d.startDate.getTime(),
+    { message: 'endDate harus setelah startDate', path: ['endDate'] }
+  );
+export type CreateRecurringInput = z.infer<typeof createRecurringSchema>;
+
+export const updateRecurringSchema = createRecurringSchema.partial();
+export type UpdateRecurringInput = z.infer<typeof updateRecurringSchema>;
+
+// ── Transaction Rule (PHASE2-FINANCE-1) ─────────────────────────────────
+// Auto-categorization rule (Firefly III style). conditionField/op/value
+// define the matcher; actionField/value define the override applied on match.
+// First-match-wins: rules are evaluated by priority asc, then createdAt asc.
+
+export const createRuleSchema = z.object({
+  name: nonEmpty(100),
+  isActive: z.boolean().optional(),
+  priority: z.number().int().min(0).max(10000).optional(),
+  conditionField: z.enum(['description', 'source', 'amount']),
+  conditionOp: z.enum(['contains', 'equals', 'startsWith', 'gt', 'lt']),
+  conditionValue: nonEmpty(500),
+  actionField: z.enum(['category', 'source']),
+  actionValue: nonEmpty(100),
+});
+export type CreateRuleInput = z.infer<typeof createRuleSchema>;
+
+export const updateRuleSchema = createRuleSchema.partial();
+export type UpdateRuleInput = z.infer<typeof updateRuleSchema>;

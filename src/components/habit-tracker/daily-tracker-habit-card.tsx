@@ -25,6 +25,8 @@ import { ProgressRing } from './daily-tracker-progress-ring';
 import {
   getCategoryStyle,
   computeStreak,
+  computeStrengthScore,
+  getStrengthTier,
   getLast7DaysStatus,
   timeDiffMinutes,
 } from './daily-tracker-helpers';
@@ -86,7 +88,19 @@ export const HabitCard = memo(function HabitCard({
   // BUG-18 fix: return 0 when no cache (was _count.logs which is the total
   // log count, not a streak — completely unrelated and could show e.g. "47"
   // instead of the actual streak).
-  const streak = monthLogs ? computeStreak(monthLogs, selectedDate) : 0;
+  // PHASE1-HABIT: pass vacationMode so the streak doesn't break during a
+  // vacation pause (today is treated as auto-completed).
+  const onVacation = !!habit.vacationMode;
+  const streak = monthLogs
+    ? computeStreak(monthLogs, selectedDate, { onVacation })
+    : 0;
+  // PHASE1-HABIT: strength score (0-100) over the last 30 days. Additional
+  // to the streak — does NOT replace it. Vacation habits get +1 day credit
+  // so the score doesn't tank during a deliberate pause.
+  const strength = monthLogs
+    ? computeStrengthScore(monthLogs, habit, 30, selectedDate)
+    : 0;
+  const strengthTier = getStrengthTier(strength);
   const isLate =
     !!doneTime && !!habit.targetTime && doneTime > habit.targetTime;
 
@@ -203,6 +217,19 @@ export const HabitCard = memo(function HabitCard({
             >
               {habit.category}
             </span>
+            {/* PHASE1-HABIT: vacation badge */}
+            {habit.vacationMode && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+                title={
+                  habit.vacationEnd
+                    ? `Liburan sampai ${habit.vacationEnd.split('T')[0]}`
+                    : 'Liburan (tanpa batas)'
+                }
+              >
+                🏖️ Liburan
+              </span>
+            )}
           </div>
 
           {/* Circular Progress + Streak */}
@@ -218,15 +245,40 @@ export const HabitCard = memo(function HabitCard({
                 <span className="text-[11px] font-semibold text-primary flex items-center gap-1 justify-end">
                   <Check className="h-3 w-3" /> Selesai
                 </span>
+              ) : habit.vacationMode ? (
+                <span className="text-[11px] font-medium text-sky-600 dark:text-sky-400 flex items-center gap-1 justify-end">
+                  🏖️ Liburan
+                </span>
               ) : (
                 <span className="text-[11px] font-medium text-muted-foreground">
                   Belum dimulai
                 </span>
               )}
               <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
-                <StreakFlame streak={streak} size="sm" />
+                <StreakFlame streak={streak} size="sm" strength={strength} />
                 {streak} {streak === 1 ? 'hari' : 'hari'}
               </p>
+              {/* PHASE1-HABIT: strength bar (0-100%) */}
+              <div className="flex items-center gap-1 mt-1 justify-end">
+                <div className="h-1 w-12 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      strengthTier.barClass,
+                    )}
+                    style={{ width: `${strength}%` }}
+                  />
+                </div>
+                <span
+                  className={cn(
+                    'text-[10px] font-medium tabular-nums',
+                    strengthTier.colorClass,
+                  )}
+                  title={`Kekuatan: ${strength}% (${strengthTier.label})`}
+                >
+                  {strength}%
+                </span>
+              </div>
             </div>
           </div>
         </Card>
@@ -270,7 +322,7 @@ export const HabitCard = memo(function HabitCard({
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-2 gap-2 mt-auto">
+          <div className="grid grid-cols-3 gap-2 mt-auto">
             <div className="rounded-lg bg-muted/40 p-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                 Total log
@@ -284,8 +336,23 @@ export const HabitCard = memo(function HabitCard({
                 Streak
               </p>
               <p className="text-sm font-bold tabular-nums flex items-center gap-1">
-                <StreakFlame streak={streak} size="sm" />
+                <StreakFlame streak={streak} size="sm" strength={strength} />
                 {streak}d
+              </p>
+            </div>
+            {/* PHASE1-HABIT: strength score */}
+            <div className="rounded-lg bg-muted/40 p-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Kekuatan
+              </p>
+              <p
+                className={cn(
+                  'text-sm font-bold tabular-nums',
+                  strengthTier.colorClass,
+                )}
+                title={`${strengthTier.label} — ${strength}% dalam 30 hari`}
+              >
+                {strength}%
               </p>
             </div>
           </div>

@@ -22,6 +22,13 @@ export interface Habit {
   trackTime: boolean;
   targetTime: string | null;
   groupId: string | null;
+  // Vacation mode (PHASE1-HABIT). vacationMode=true pauses the habit; the
+  // daily-tracker excludes it from completion stats and the "Belum" filter,
+  // and the habit card shows a "🏖️ Liburan" badge. vacationEnd is an ISO
+  // string (or null for an indefinite vacation) — the API auto-resets
+  // vacationMode to false once vacationEnd < today.
+  vacationMode: boolean;
+  vacationEnd: string | null;
   _count: { logs: number };
 }
 

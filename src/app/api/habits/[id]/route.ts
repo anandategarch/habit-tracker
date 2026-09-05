@@ -55,6 +55,14 @@ export async function PUT(
     if (d.trackLastDone !== undefined) updateData.trackLastDone = d.trackLastDone;
     if (d.lastDoneInterval !== undefined) updateData.lastDoneInterval = d.lastDoneInterval;
     if (d.groupId !== undefined) updateData.groupId = d.groupId;
+    // PHASE1-HABIT: vacation mode fields. When vacationMode is toggled off,
+    // also clear vacationEnd so the next time it's toggled on the user
+    // starts fresh (and so the auto-resume query doesn't pick up stale rows).
+    if (d.vacationMode !== undefined) {
+      updateData.vacationMode = d.vacationMode;
+      if (!d.vacationMode) updateData.vacationEnd = null;
+    }
+    if (d.vacationEnd !== undefined) updateData.vacationEnd = d.vacationEnd;
 
     const habit = await db.habit.update({
       where: { id },

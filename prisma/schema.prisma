@@ -52,6 +52,20 @@ model Habit {
   trackLastDone  Boolean  @default(false)
   lastDoneInterval String? // format "Xd" or "Xw", e.g. "3d", "1w"
   groupId        String?
+  // ── Vacation mode (Phase 1 — PHASE1-HABIT) ────────────────────────────
+  // Pauses the habit without breaking its streak. While vacationMode=true:
+  //   - The habit is excluded from the daily "completedCount/totalCount" so
+  //     the daily summary doesn't penalize the user for not doing it.
+  //   - The habit is excluded from the "Belum" (incomplete) filter.
+  //   - The current day is treated as auto-completed for streak calculation
+  //     so the streak continues through the vacation (computeStreak's
+  //     `onVacation` option).
+  //   - A "🏖️ Liburan" badge is shown on the habit card.
+  // Auto-resume: GET /api/habits resets vacationMode to false once
+  // vacationEnd < today (Jakarta midnight). vacationEnd null = indefinite
+  // vacation (no auto-resume).
+  vacationMode Boolean   @default(false)
+  vacationEnd  DateTime?
   createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
   logs        HabitLog[]
@@ -208,6 +222,25 @@ model BudgetSnapshot {
   @@index([category])
 }
 
+// Savings goal / piggy bank — a named target (e.g. "Liburan" Rp 10.000.000)
+// with a tracked currentAmount. Optional sourceName links the goal to a
+// FundSource for "where do I save this?" reference (manual sync, not
+// auto-deducted). Auto-marks isCompleted when currentAmount >= targetAmount.
+model SavingsGoal {
+  id            String    @id @default(cuid())
+  name          String
+  emoji         String    @default("🎯")
+  targetAmount  Int
+  currentAmount Int       @default(0)
+  // Optional FundSource.name reference — informational only (we do NOT
+  // auto-deduct from the source when adding to the goal). Manual sync.
+  sourceName    String?
+  deadline      DateTime?
+  isCompleted   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
 model AppSettings {
   id               String   @id @default(cuid())
   userName         String   @default("User")
@@ -247,4 +280,68 @@ model HabitOption {
 
   @@unique([type, name])
   @@index([type])
+}
+
+// ==================== PHASE 2: RECURRING + RULE ENGINE ====================
+
+// Recurring transaction template — auto-creates a Transaction on a schedule.
+// (Concept from Actual Budget + Firefly III.)
+//
+// Frequency determines how the next run is computed:
+//   daily   → every `interval` days from lastRunAt (or startDate if never run)
+//   weekly  → every `interval` weeks on `dayOfWeek` (0=Sunday..6=Saturday)
+//   monthly → on `dayOfMonth` (1-31) every `interval` months. If dayOfMonth
+//             exceeds the month's length (e.g. 31 in February), the last day
+//             of that month is used.
+//
+// `lastRunAt` is updated atomically after each transaction is created so
+// the process endpoint is idempotent within a single due-window.
+model RecurringTransaction {
+  id          String   @id @default(cuid())
+  type        String   // 'income' or 'expense'
+  amount      Int
+  category    String
+  description String?
+  source      String   @default("Kas")
+  frequency   String   // 'daily', 'weekly', 'monthly'
+  dayOfMonth  Int?     // for monthly (1-31)
+  dayOfWeek   Int?     // for weekly (0-6, 0=Sunday)
+  interval    Int      @default(1) // every N days/weeks/months
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  lastRunAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([frequency])
+}
+
+// Auto-categorization rule — applied to new transactions BEFORE insert.
+// (Concept from Firefly III.)
+//
+// When a transaction is POSTed, the rule engine walks active rules sorted by
+// priority (asc) then createdAt (asc). The FIRST matching rule's action wins
+// (first-match-wins semantics) — overrides category/source on the incoming
+// transaction.
+//
+// conditionField/op/value examples:
+//   description contains "indomaret"  → category = "Makanan & Minuman"
+//   source      equals    "GoPay"     → source   = "GoPay" (no-op)
+//   amount      gt        "100000"    → category = "Tagihan & Utilitas"
+model TransactionRule {
+  id              String   @id @default(cuid())
+  name            String
+  isActive        Boolean  @default(true)
+  priority        Int      @default(0) // lower = evaluated first
+  conditionField  String   // 'description', 'source', 'amount'
+  conditionOp     String   // 'contains', 'equals', 'startsWith', 'gt', 'lt'
+  conditionValue  String
+  actionField     String   // 'category', 'source'
+  actionValue     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive, priority])
 }

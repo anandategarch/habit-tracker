@@ -23,6 +23,9 @@ import {
   Compass,
   BarChart3,
   PieChart,
+  PiggyBank,
+  Repeat,
+  Wand2,
 } from 'lucide-react';
 import { format, id as idLocale } from '@/lib/date-utils';
 // PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
@@ -121,6 +124,60 @@ const CategoryExplorer = dynamic(() => import('./category-explorer'), {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
       </div>
+    </div>
+  ),
+});
+
+// Lazy load savings goals — Firefly III "piggy banks" inspired feature
+// (PHASE2-FINANCE-2). Same skeleton pattern as budgets since the layout is
+// a header + grid of cards.
+const FinanceSavingsGoals = dynamic(() => import('./finance-savings-goals'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-32 rounded" />
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Skeleton key={i} className="h-44 rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  ),
+});
+
+// Lazy load recurring transactions — Actual Budget + Firefly III inspired
+// auto-create transactions on a schedule (PHASE2-FINANCE-1).
+const FinanceRecurring = dynamic(() => import('./finance-recurring'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-40 rounded" />
+        <Skeleton className="h-9 w-40 rounded-md" />
+      </div>
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-24 w-full rounded-xl" />
+      ))}
+    </div>
+  ),
+});
+
+// Lazy load rule engine — Firefly III inspired auto-categorization rules
+// (PHASE2-FINANCE-1).
+const FinanceRules = dynamic(() => import('./finance-rules'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-32 rounded" />
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-20 w-full rounded-xl" />
+      ))}
     </div>
   ),
 });
@@ -455,6 +512,9 @@ export default function Finance() {
           <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
           <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Explorer</span></TabsTrigger>
           <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PieChart className="h-3.5 w-3.5" /><span className="hidden sm:inline">Kategori</span></TabsTrigger>
+          <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ricurring</span></TabsTrigger>
+          <TabsTrigger value="rules" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wand2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Aturan</span></TabsTrigger>
+          <TabsTrigger value="savings" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PiggyBank className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tabungan</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 anim-tab-fade-up">
@@ -508,6 +568,25 @@ export default function Finance() {
 
         <TabsContent value="categories" className="mt-4 anim-tab-fade-up">
           <CategoryExplorer getCategoryMeta={getCategoryMeta} />
+        </TabsContent>
+
+        <TabsContent value="recurring" className="mt-4 anim-tab-fade-up">
+          <FinanceRecurring
+            getCategoryList={getCategoryList}
+            getActiveSources={getActiveSources}
+            getCategoryMeta={getCategoryMeta}
+          />
+        </TabsContent>
+
+        <TabsContent value="rules" className="mt-4 anim-tab-fade-up">
+          <FinanceRules
+            getCategoryList={getCategoryList}
+            getActiveSources={getActiveSources}
+          />
+        </TabsContent>
+
+        <TabsContent value="savings" className="mt-4 anim-tab-fade-up">
+          <FinanceSavingsGoals />
         </TabsContent>
       </Tabs>
 

@@ -55,6 +55,7 @@ import {
   Plus,
   Clock,
   History,
+  Palmtree,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -242,6 +243,10 @@ export default function HabitMaster() {
         trackLastDone: form.trackLastDone,
         lastDoneInterval: form.lastDoneInterval || null,
         groupId: form.groupId || null,
+        // PHASE1-HABIT: vacation mode + end date. Empty string → null so the
+        // API stores null (indefinite vacation) rather than an empty date.
+        vacationMode: form.vacationMode,
+        vacationEnd: form.vacationEnd || null,
       };
 
       if (editingId) {
@@ -758,6 +763,50 @@ export default function HabitMaster() {
                     />
                     <p className="text-xs text-muted-foreground">
                       Contoh: 3d = setiap 3 hari, 1w = setiap minggu. Akan ditandai overdue jika lewat.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* PHASE1-HABIT: Vacation Mode */}
+              <div className="rounded-lg border p-4 space-y-3 bg-sky-50/40 dark:bg-sky-950/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Palmtree className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                    <Label htmlFor="vacation-mode" className="cursor-pointer">
+                      Mode Liburan
+                    </Label>
+                  </div>
+                  <Switch
+                    id="vacation-mode"
+                    checked={form.vacationMode}
+                    onCheckedChange={(v) => updateForm('vacationMode', v)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Jeda habit tanpa memutus streak. Habit tidak dihitung sebagai
+                  &ldquo;belum selesai&rdquo; selama liburan. Streak dipertahankan
+                  dan akan menyala kembali otomatis setelah tanggal berakhir.
+                </p>
+                {form.vacationMode && (
+                  <div className="space-y-2 pt-1">
+                    <Label htmlFor="vacation-end">
+                      Berakhir Pada{' '}
+                      <span className="text-muted-foreground text-xs">
+                        (opsional — kosongkan untuk liburan tanpa batas)
+                      </span>
+                    </Label>
+                    <Input
+                      id="vacation-end"
+                      type="date"
+                      value={form.vacationEnd ?? ''}
+                      onChange={(e) => updateForm('vacationEnd', e.target.value)}
+                      min={jakartaDateString()}
+                      className="w-48"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Setelah tanggal ini, mode liburan otomatis nonaktif dan habit
+                      kembali ditrack normal.
                     </p>
                   </div>
                 )}

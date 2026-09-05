@@ -13,6 +13,7 @@ import { CountUpRupiah, CountUpNumber } from './count-up';
 import type { DashboardData, LastDoneItem } from './finance-types';
 import SourceBalanceSection from './source-balance';
 import DailyRecap from './daily-recap';
+import NetWorthWidget from './net-worth-widget';
 
 function ChartInfo({ text }: { text: string }) {
   return (
@@ -52,6 +53,12 @@ export default function FinanceOverview({
 
   return (
     <div className="space-y-4 mt-4">
+      {/* ── NET WORTH WIDGET (Maybe Finance inspired) ─────────────────── */}
+      {/* Sits at the very top of Ringkasan: total kekayaan + 90-day sparkline
+          + per-source breakdown. Self-fetches from /api/finance/net-worth
+          and renders null if the user has no fund sources yet. */}
+      <NetWorthWidget />
+
       {/* ── DAILY RECAP: Today's transaction insights (premium) ──────── */}
       <DailyRecap />
 

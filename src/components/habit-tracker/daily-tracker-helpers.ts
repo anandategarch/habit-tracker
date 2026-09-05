@@ -46,17 +46,34 @@ export function timeDiffMinutes(time: string, target: string): number {
 /**
  * Compute the current streak (consecutive completed days ending at `date`)
  * for a single habit, using its month-cached logs.
+ *
+ * `options.onVacation` (PHASE1-HABIT): when true, the current `dateStr` is
+ * treated as auto-completed so a vacationing habit's streak continues
+ * through the pause without breaking. The vacation day itself counts as
+ * +1 to the streak (the user is "on break" and the habit is considered
+ * satisfied for them).
  */
-export function computeStreak(logs: HabitLog[], dateStr: string): number {
+export function computeStreak(
+  logs: HabitLog[],
+  dateStr: string,
+  options?: { onVacation?: boolean },
+): number {
   if (!logs || logs.length === 0) return 0;
   const completedDays = new Set(
     logs.filter((l) => l.completed).map((l) => toDateString(l.date)),
   );
+  // Vacation mode: treat the current day as auto-completed so the streak
+  // doesn't break during the pause.
+  if (options?.onVacation) {
+    completedDays.add(dateStr);
+  }
   if (completedDays.size === 0) return 0;
 
   let streak = 0;
   const cursor = parseISO(dateStr);
   // If today isn't completed yet, streak can still count up to yesterday.
+  // (For vacation habits, today was just added to completedDays above, so
+  // the streak starts from today.)
   if (!completedDays.has(dateStr)) {
     cursor.setDate(cursor.getDate() - 1);
   }
@@ -71,6 +88,122 @@ export function computeStreak(logs: HabitLog[], dateStr: string): number {
     }
   }
   return streak;
+}
+
+/**
+ * PHASE1-HABIT — Strength score (inspired by uhabits).
+ *
+ * Instead of a binary streak that resets to 0 on any miss, the strength
+ * score decays gradually as the user skips days. It is computed as:
+ *
+ *   strength = (completions in last `days` days / expected completions) * 100
+ *
+ * - `expected` = `days * target` for daily habits (target is currently
+ *   always 1 per BUG-3, but the formula is forward-compatible).
+ * - `expected` = `(days / 7) * target` for weekly habits.
+ * - `expected` = `(days / 30) * target` for monthly habits.
+ *
+ * Returns an integer 0-100. This is ADDITIONAL to the streak — it does not
+ * replace it. The streak stays binary (break = reset); the strength score
+ * reflects overall consistency over a rolling window.
+ *
+ * Vacation days (habit.vacationMode === true) are counted as auto-completed
+ * so a vacation doesn't tank the strength score.
+ */
+export function computeStrengthScore(
+  logs: HabitLog[],
+  habit: { target: number; targetType: string; vacationMode?: boolean },
+  days: number = 30,
+  dateStr?: string,
+): number {
+  if (!logs || logs.length === 0 || days <= 0) return 0;
+
+  // Build the set of "yyyy-MM-dd" keys for the last `days` days ending at
+  // dateStr (defaults to today in Jakarta TZ). Uses the same jakartaDateKey
+  // helper as computeStreak so the window aligns with how logs are stored.
+  const anchor = dateStr ?? jakartaDateKey(new Date());
+  const anchorDate = parseISO(anchor);
+  const windowKeys = new Set<string>();
+  for (let i = 0; i < days; i++) {
+    windowKeys.add(format(subDays(anchorDate, i), 'yyyy-MM-dd'));
+  }
+
+  let completions = 0;
+  for (const log of logs) {
+    if (!log.completed) continue;
+    const key = toDateString(log.date);
+    if (windowKeys.has(key)) completions++;
+  }
+
+  // Vacation mode: each day in the window counts as auto-completed (the
+  // user is on a deliberate pause — that shouldn't reduce consistency).
+  if (habit.vacationMode) {
+    // Count vacation days that fall inside the window. We don't have a
+    // vacationStart; the approximation is "today is on vacation", which
+    // means at least today is auto-credited. To avoid double-counting
+    // already-completed days, we cap at the window size.
+    const alreadyCounted = completions;
+    const maxVacationCredits = windowKeys.size - alreadyCounted;
+    if (maxVacationCredits > 0) {
+      // Credit 1 vacation day (today) — minimal but safe. We can't reliably
+      // know how many past days were vacation without a vacationStart field.
+      completions += 1;
+    }
+  }
+
+  // Expected completions over the window.
+  const target = habit.target || 1;
+  let expected: number;
+  if (habit.targetType === 'weekly') {
+    expected = Math.max(1, (days / 7) * target);
+  } else if (habit.targetType === 'monthly') {
+    expected = Math.max(1, (days / 30) * target);
+  } else {
+    expected = days * target;
+  }
+
+  if (expected <= 0) return 0;
+  const score = (completions / expected) * 100;
+  return Math.round(Math.max(0, Math.min(100, score)));
+}
+
+/**
+ * PHASE1-HABIT — Map a 0-100 strength score to a tier label + Tailwind
+ * color class. Used by both the HabitCard strength bar and the StreakFlame
+ * dimming logic.
+ *
+ *   >= 60 → "Kuat"     (green)
+ *   30-59 → "Sedang"   (amber)
+ *   <  30 → "Lemah"    (red)
+ */
+export function getStrengthTier(score: number): {
+  label: string;
+  colorClass: string;
+  barClass: string;
+  dimmed: boolean;
+} {
+  if (score >= 60) {
+    return {
+      label: 'Kuat',
+      colorClass: 'text-emerald-600 dark:text-emerald-400',
+      barClass: 'bg-emerald-500',
+      dimmed: false,
+    };
+  }
+  if (score >= 30) {
+    return {
+      label: 'Sedang',
+      colorClass: 'text-amber-600 dark:text-amber-400',
+      barClass: 'bg-amber-500',
+      dimmed: false,
+    };
+  }
+  return {
+    label: 'Lemah',
+    colorClass: 'text-red-600 dark:text-red-400',
+    barClass: 'bg-red-500',
+    dimmed: true,
+  };
 }
 
 /**

@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { toMoneyInt, signedDelta } from '@/lib/money';
 import { createTransactionSchema, parseOr400 } from '@/lib/validation';
 import { jakartaDateKey } from '@/lib/timezone';
+import { applyRules } from '@/lib/finance/rule-engine';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/finance/transactions?month=2025-01&type=expense&search=xxx
@@ -149,8 +150,32 @@ export async function POST(request: NextRequest) {
     const parsed = parseOr400(createTransactionSchema, body);
     if (!parsed.success) return parsed.response;
 
-    const { type, amount, category, description, date, notes, source } = parsed.data;
+    let { type, amount, category, description, date, notes, source } = parsed.data;
     const sourceName = source ?? 'Kas';
+
+    // PHASE2-FINANCE-1: apply auto-categorization rules BEFORE creating the
+    // transaction. First-match-wins semantics (see lib/finance/rule-engine).
+    // Rules override the user-supplied category/source — this matches Firefly
+    // III behaviour where rules are auto-categorization and take precedence.
+    // Rule failures (e.g. table missing) are caught inside applyRules and
+    // silently skipped, so a broken rule table never blocks transaction
+    // creation.
+    try {
+      const overrides = await applyRules({
+        description: description ?? null,
+        source: sourceName,
+        amount,
+      });
+      if (overrides.category) category = overrides.category;
+      if (overrides.source) {
+        // Override source only if the rule's actionValue is non-empty.
+        source = overrides.source;
+      }
+    } catch (e) {
+      console.error('applyRules failed (skipping rules):', e);
+    }
+
+    const effectiveSource = source ?? sourceName;
 
     // Atomic: create transaction AND update fund source balance in the same DB transaction.
     // If the fund source doesn't exist, we still create the transaction but skip balance update.
@@ -163,7 +188,7 @@ export async function POST(request: NextRequest) {
           description: description ?? null,
           date,
           notes: notes ?? null,
-          source: sourceName,
+          source: effectiveSource,
         },
       });
 
@@ -173,7 +198,7 @@ export async function POST(request: NextRequest) {
       // writes (two POSTs reading the same balance and overwriting each
       // other). `increment` issues a single SQL `UPDATE ... SET balance =
       // balance + ?` which is atomic at the row level.
-      const fundSource = await tx.fundSource.findUnique({ where: { name: sourceName } });
+      const fundSource = await tx.fundSource.findUnique({ where: { name: effectiveSource } });
       if (fundSource) {
         await tx.fundSource.update({
           where: { id: fundSource.id },

@@ -1,0 +1,57 @@
+# Bundle Analysis (PHASE1-HABIT)
+#
+# Runs `next build` on every PR and push to main, then uploads the produced
+# bundle report (per-route byte sizes + first-load JS) as a GitHub Actions
+# artifact. Uses hashicorp/nextjs-bundle-analysis — the de-facto standard
+# action for Next.js bundle size tracking. The action:
+#   1. Runs the install-command (npm install --legacy-peer-deps to match
+#      local dev — peer dep conflicts break `npm ci` otherwise).
+#   2. Runs the build-command (npm run build → prisma generate && next build).
+#   3. Parses the .next/analyze traces and produces a markdown report.
+#   4. Uploads the report + raw JSON as a workflow artifact (retained 30 days).
+#
+# Notes:
+# - We pin to @main (the action doesn't publish tagged releases). This is the
+#   documented usage in the action's README.
+# - install-command runs `npm install --legacy-peer-deps` which triggers the
+#   postinstall hook (`prisma generate`) so the build step has a fresh
+#   Prisma Client.
+# - We use `npm install` rather than `npm ci` because the repo doesn't ship
+#   a checked-in package-lock.json that's compatible with --legacy-peer-deps
+#   under npm 10+. Using install is the documented escape hatch.
+
+name: "📊 Bundle Analysis"
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-progress runs for the same ref — saves CI minutes when a PR is
+# force-pushed multiple times in quick succession.
+concurrency:
+  group: bundle-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Cache the npm store keyed on package-lock.json (or bun.lock if
+          # that's the only lockfile present). Speeds up reruns ~3-5x.
+          cache: npm
+
+      - name: Bundle Analysis
+        uses: hashicorp/nextjs-bundle-analysis@main
+        with:
+          working-directory: .
+          install-command: npm install --legacy-peer-deps
+          build-command: npm run build

@@ -1,0 +1,82 @@
+import { db } from '@/lib/db';
+import {
+  updateSavingsGoalSchema,
+  adjustSavingsGoalSchema,
+  parseOr400,
+} from '@/lib/validation';
+import { NextRequest, NextResponse } from 'next/server';
+
+// PUT /api/finance/savings-goals/[id]
+// Update a specific goal. Same two-branch logic as the collection PUT:
+//  - `{ delta }` → quick adjust (Tambah Tabungan / Tarik).
+//  - Full `updateSavingsGoalSchema` body → edit fields.
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const existing = await db.savingsGoal.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Savings goal not found' }, { status: 404 });
+    }
+
+    if (body && typeof body === 'object' && body.delta !== undefined) {
+      const parsed = parseOr400(adjustSavingsGoalSchema, { delta: body.delta });
+      if (!parsed.success) return parsed.response;
+      const { delta } = parsed.data;
+      const next = Math.max(0, existing.currentAmount + delta);
+      const wasCompleted = existing.isCompleted;
+      const isCompleted = next >= existing.targetAmount;
+      const updated = await db.savingsGoal.update({
+        where: { id },
+        data: { currentAmount: next, isCompleted },
+      });
+      return NextResponse.json({
+        ...updated,
+        justCompleted: !wasCompleted && isCompleted,
+        previousAmount: existing.currentAmount,
+      });
+    }
+
+    const parsed = parseOr400(updateSavingsGoalSchema, body);
+    if (!parsed.success) return parsed.response;
+    const data = parsed.data;
+
+    const nextTarget = data.targetAmount ?? existing.targetAmount;
+    const nextCurrent = data.currentAmount ?? existing.currentAmount;
+    const isCompleted =
+      data.isCompleted !== undefined ? data.isCompleted : nextCurrent >= nextTarget;
+
+    const updated = await db.savingsGoal.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.emoji !== undefined && { emoji: data.emoji }),
+        ...(data.targetAmount !== undefined && { targetAmount: data.targetAmount }),
+        ...(data.currentAmount !== undefined && { currentAmount: data.currentAmount }),
+        ...(data.sourceName !== undefined && { sourceName: data.sourceName }),
+        ...(data.deadline !== undefined && { deadline: data.deadline }),
+        isCompleted,
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error('PUT /api/finance/savings-goals/[id] error:', error);
+    return NextResponse.json({ error: 'Failed to update savings goal' }, { status: 500 });
+  }
+}
+
+// DELETE /api/finance/savings-goals/[id]
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const existing = await db.savingsGoal.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Savings goal not found' }, { status: 404 });
+    }
+    await db.savingsGoal.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /api/finance/savings-goals/[id] error:', error);
+    return NextResponse.json({ error: 'Failed to delete savings goal' }, { status: 500 });
+  }
+}

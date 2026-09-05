@@ -26,6 +26,13 @@ interface StreakFlameProps {
   size?: 'sm' | 'md' | 'lg';
   /** Optional className passthrough for layout/spacing. */
   className?: string;
+  /**
+   * Optional 0-100 strength score (PHASE1-HABIT). When provided and < 30,
+   * the flame is dimmed (reduced opacity) to visually signal that the
+   * habit's consistency is weak even though a streak is technically active.
+   * The streak counter itself is unaffected — strength is ADDITIONAL.
+   */
+  strength?: number;
 }
 
 const SIZE_CLASSES: Record<NonNullable<StreakFlameProps['size']>, string> = {
@@ -65,6 +72,7 @@ export function StreakFlame({
   streak,
   size = 'md',
   className,
+  strength,
 }: StreakFlameProps) {
   const tier = getTier(streak);
   const sizeClass = SIZE_CLASSES[size];
@@ -76,6 +84,10 @@ export function StreakFlame({
   // This reduces concurrent infinite animations from 19 → ~2-3 (typical).
   const shouldAnimate = streak > 0;
 
+  // PHASE1-HABIT: dim the flame when strength < 30% (weak consistency).
+  // Only applies to active streaks (don't dim the empty placeholder).
+  const isDimmed = streak > 0 && typeof strength === 'number' && strength < 30;
+
   // The embers wrapper is only used at fire tier — pure CSS pseudo-elements
   // generate the rising ember particles (see globals.css `.anim-flame-embers`).
   const wrapperClass =
@@ -83,8 +95,13 @@ export function StreakFlame({
 
   return (
     <span
-      className={cn('inline-flex items-center', wrapperClass, className)}
-      aria-label={`${streak} ${streak === 1 ? 'day' : 'days'} streak`}
+      className={cn(
+        'inline-flex items-center',
+        wrapperClass,
+        isDimmed && 'opacity-50',
+        className,
+      )}
+      aria-label={`${streak} ${streak === 1 ? 'day' : 'days'} streak${isDimmed ? ' (lemah)' : ''}`}
       role="img"
     >
       <Flame

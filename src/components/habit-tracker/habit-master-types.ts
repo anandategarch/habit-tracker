@@ -21,6 +21,9 @@ export interface Habit {
   trackLastDone: boolean;
   lastDoneInterval: string | null;
   groupId: string | null;
+  // Vacation mode (PHASE1-HABIT)
+  vacationMode: boolean;
+  vacationEnd: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +79,8 @@ export function emptyForm(): HabitFormData {
     trackLastDone: false,
     lastDoneInterval: '',
     groupId: null,
+    vacationMode: false,
+    vacationEnd: '',
   };
 }
 
@@ -100,5 +105,7 @@ export function habitToForm(h: Habit): HabitFormData {
     trackLastDone: h.trackLastDone ?? false,
     lastDoneInterval: h.lastDoneInterval ?? '',
     groupId: h.groupId ?? null,
+    vacationMode: h.vacationMode ?? false,
+    vacationEnd: h.vacationEnd ? h.vacationEnd.split('T')[0] : '',
   };
 }

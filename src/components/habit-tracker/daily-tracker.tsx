@@ -158,21 +158,38 @@ export default function DailyTracker() {
     if (viewFilter === 'completed')
       list = list.filter((h) => completionMap[h.id] ?? false);
     if (viewFilter === 'incomplete')
-      list = list.filter((h) => !(completionMap[h.id] ?? false));
+      // PHASE1-HABIT: vacation habits don't count as "incomplete" — they're
+      // paused, not missed. Exclude them so the "Belum" filter never shows
+      // vacationing habits.
+      list = list.filter(
+        (h) =>
+          !(completionMap[h.id] ?? false) && !h.vacationMode,
+      );
     return list;
   }, [activeHabits, completionMap, viewFilter]);
 
-  const completedCount = Object.values(completionMap).filter(Boolean).length;
-  const totalCount = activeHabits.length;
+  // PHASE1-HABIT: vacation habits don't count toward today's completion stats.
+  // They're excluded from both completedCount and totalCount so the daily
+  // summary's X/Y and percentage reflect only the habits the user is actually
+  // expected to do today. Vacation habits still appear in the grid (with a
+  // 🏖️ badge) when the "Semua" filter is active.
+  const trackableHabits = useMemo(
+    () => activeHabits.filter((h) => !h.vacationMode),
+    [activeHabits],
+  );
+  const completedCount = trackableHabits.filter(
+    (h) => completionMap[h.id] ?? false,
+  ).length;
+  const totalCount = trackableHabits.length;
   const completionPct =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const todayXP = useMemo(() => {
-    return activeHabits.reduce((sum, h) => {
+    return trackableHabits.reduce((sum, h) => {
       if (completionMap[h.id] ?? false) return sum + (xpMap[h.difficulty] || 20);
       return sum;
     }, 0);
-  }, [activeHabits, completionMap, xpMap]);
+  }, [trackableHabits, completionMap, xpMap]);
 
   // Best current streak across all active habits
   const bestStreak = useMemo(() => {
@@ -182,7 +199,11 @@ export default function DailyTracker() {
     let best = 0;
     for (const h of activeHabits) {
       const logs = cache[h.id] || [];
-      const s = computeStreak(logs, selectedDate);
+      // PHASE1-HABIT: pass vacationMode so vacationing habits' streaks don't
+      // break during the pause.
+      const s = computeStreak(logs, selectedDate, {
+        onVacation: !!h.vacationMode,
+      });
       if (s > best) best = s;
     }
     return best;

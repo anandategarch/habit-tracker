@@ -1,13 +1,46 @@
 import { db } from '@/lib/db';
 import { createHabitSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
+import { jakartaDateString } from '@/lib/jakarta-date';
 
 // GET /api/habits - list all habits
 // Include 'archived' so the UI's status filter "Archived" returns results
 // (BUG-2 fix). The UI filters client-side; previously archived habits were
 // permanently hidden with no way to unarchive.
+//
+// PHASE1-HABIT: auto-resume expired vacations. Any habit with
+// vacationMode=true AND vacationEnd < today (Jakarta midnight) is updated
+// to vacationMode=false in-place before returning. This makes the resume
+// "automatic" without needing a cron job — every time the user opens the
+// app, expired vacations are cleared. The update is non-blocking: errors
+// are logged but don't fail the GET (so the user still sees their habits).
 export async function GET() {
   try {
+    // ── Auto-resume expired vacations ─────────────────────────────────
+    // Compare vacationEnd against today's Jakarta date string. vacationEnd
+    // is stored as a DateTime (ISO); we compare the yyyy-MM-dd parts so a
+    // vacation set to end "today" stays active through end-of-day and only
+    // auto-resumes "tomorrow" (Jakarta).
+    const todayStr = jakartaDateString();
+    try {
+      const expired = await db.habit.findMany({
+        where: {
+          vacationMode: true,
+          vacationEnd: { not: null, lt: new Date(todayStr + 'T00:00:00+07:00') },
+        },
+        select: { id: true },
+      });
+      if (expired.length > 0) {
+        await db.habit.updateMany({
+          where: { id: { in: expired.map((h) => h.id) } },
+          data: { vacationMode: false, vacationEnd: null },
+        });
+      }
+    } catch (resumeErr) {
+      // Non-fatal: log and continue so the user still gets their habit list.
+      console.error('GET /api/habits — vacation auto-resume error:', resumeErr);
+    }
+
     const habits = await db.habit.findMany({
       where: { status: { in: ['active', 'paused', 'archived'] } },
       orderBy: { order: 'asc' },
@@ -60,6 +93,9 @@ export async function POST(request: NextRequest) {
           trackLastDone: d.trackLastDone ?? false,
           lastDoneInterval: d.lastDoneInterval ?? null,
           groupId: d.groupId ?? null,
+          // PHASE1-HABIT: vacation mode defaults
+          vacationMode: d.vacationMode ?? false,
+          vacationEnd: d.vacationEnd ?? null,
           order: (maxOrder._max.order ?? 0) + 1,
         },
       });
