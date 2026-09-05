@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
-import { startOfDay, subDays, format } from 'date-fns';
+import { startOfDay, subDays, format } from '@/lib/date-utils';
 
 // "Today" is computed from the real UTC clock. Date boundaries for the
 // rolling 90-day window are not timezone-critical for analytics; using
