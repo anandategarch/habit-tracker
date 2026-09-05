@@ -88,3 +88,6 @@ panduan-deploy*.pdf
 # Tool results
 tool-results/
 upload/
+*.db
+prisma/db/
+prisma/prisma/
