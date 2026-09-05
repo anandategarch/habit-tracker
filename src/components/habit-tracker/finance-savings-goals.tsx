@@ -48,7 +48,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { celebrate } from '@/lib/confetti';
-import { jakartaNowParts } from '@/lib/timezone';
+import { jakartaNowParts, jakartaDateKey } from '@/lib/timezone';
 import {
   formatRupiah,
   formatNominalInput,
@@ -341,8 +341,16 @@ export default function FinanceSavingsGoals() {
     const jp = jakartaNowParts();
     // Build today's date at Jakarta midnight for a clean day-diff.
     const todayMs = new Date(jp.year, jp.month - 1, jp.day).getTime();
-    const dl = new Date(g.deadline);
-    const dlMs = new Date(dl.getFullYear(), dl.getMonth(), dl.getDate()).getTime();
+    // BUG-PHASE12: previously used `dl.getFullYear/getMonth/getDate` which
+    // reads the deadline in the BROWSER's local TZ. For a UTC browser, a
+    // deadline of "2026-09-15T00:00:00+07:00" (= 2026-09-14T17:00:00Z)
+    // would be read as Sep 14, making the countdown off by 1 day. Now we
+    // extract the Jakarta date key (yyyy-MM-dd) and parse that as a
+    // browser-local midnight — consistent with how `todayMs` is built from
+    // Jakarta parts.
+    const dlJakartaStr = jakartaDateKey(new Date(g.deadline));
+    const [y2, m2, d2] = dlJakartaStr.split('-').map(Number);
+    const dlMs = new Date(y2, m2 - 1, d2).getTime();
     const daysLeft = Math.round((dlMs - todayMs) / 86_400_000);
     if (daysLeft < 0) {
       return { label: `Lewat ${Math.abs(daysLeft)}h`, urgent: false, past: true };

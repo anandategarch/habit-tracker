@@ -120,6 +120,7 @@ export async function PUT(request: NextRequest) {
     const nextTarget = data.targetAmount ?? existing.targetAmount;
     const nextCurrent = data.currentAmount ?? existing.currentAmount;
     // If the caller explicitly passes isCompleted, honor it. Otherwise derive.
+    const wasCompleted = existing.isCompleted;
     const isCompleted =
       data.isCompleted !== undefined ? data.isCompleted : nextCurrent >= nextTarget;
 
@@ -135,7 +136,16 @@ export async function PUT(request: NextRequest) {
         isCompleted,
       },
     });
-    return NextResponse.json(updated);
+    // BUG-PHASE12: full-edit branch previously returned the bare updated
+    // record. The UI's edit-dialog handler checks `data.justCompleted` to
+    // fire confetti when currentAmount crosses target via the edit form —
+    // but the flag was missing, so completing a goal via Edit → set
+    // currentAmount never celebrated. Now we mirror the delta branch.
+    return NextResponse.json({
+      ...updated,
+      justCompleted: !wasCompleted && isCompleted,
+      previousAmount: existing.currentAmount,
+    });
   } catch (error) {
     console.error('PUT /api/finance/savings-goals error:', error);
     return NextResponse.json({ error: 'Failed to update savings goal' }, { status: 500 });

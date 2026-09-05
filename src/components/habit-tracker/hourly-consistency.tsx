@@ -9,10 +9,10 @@
 // Cell color intensity = completion rate (count / max count across all hours).
 //
 // Cells are grouped into 4 time-of-day bands with Indonesian labels:
-//   Pagi   (05-11) — orange/yellow
-//   Siang  (12-14) — primary
-//   Sore   (15-18) — emerald
-//   Malam  (19-04) — violet
+//   Pagi   (06-11) — orange/yellow
+//   Siang  (12-15) — primary
+//   Sore   (16-18) — emerald
+//   Malam  (19-05) — violet
 //
 // Uses CSS grid + Tailwind only (no recharts). Fetches data from
 // /api/analytics/hourly-consistency?period=30 (added in PHASE3-HABIT).
@@ -53,10 +53,19 @@ const BAND_META: Record<TimeBand, { label: string; icon: typeof Sunrise; bar: st
   malam: { label: 'Malam', icon: Moon, bar: 'bg-violet-500 dark:bg-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20' },
 };
 
+// BUG-PHASE3 BUG-2: the time-band boundaries were off by one hour at the
+// edges. Spec is:
+//   Pagi  = 06-11  (sunrise to late morning)
+//   Siang = 12-15  (noon to mid-afternoon)
+//   Sore  = 16-18  (late afternoon to sunset)
+//   Malam = 19-05  (evening + night + early morning)
+// Previously the code used Pagi=05-11, Siang=12-14, Sore=15-18, Malam=19-04
+// — hour 5 was misclassified as Pagi (should be Malam), hour 15 as Sore
+// (should be Siang). Aligned the boundaries to match the spec.
 function hourToBand(hour: number): TimeBand {
-  if (hour >= 5 && hour <= 11) return 'pagi';
-  if (hour >= 12 && hour <= 14) return 'siang';
-  if (hour >= 15 && hour <= 18) return 'sore';
+  if (hour >= 6 && hour <= 11) return 'pagi';
+  if (hour >= 12 && hour <= 15) return 'siang';
+  if (hour >= 16 && hour <= 18) return 'sore';
   return 'malam';
 }
 

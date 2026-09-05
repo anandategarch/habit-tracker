@@ -384,20 +384,39 @@ export const createRecurringSchema = z
   );
 export type CreateRecurringInput = z.infer<typeof createRecurringSchema>;
 
-export const updateRecurringSchema = z.object({
-  type: z.enum(['income', 'expense']).optional(),
-  amount: moneyInput.optional(),
-  category: nonEmpty(100).optional(),
-  description: optionalString(500),
-  source: nonEmpty(100).optional(),
-  frequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
-  dayOfMonth: z.number().int().min(1).max(31).nullish(),
-  dayOfWeek: z.number().int().min(0).max(6).nullish(),
-  interval: z.number().int().min(1).max(365).optional(),
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().nullish(),
-  isActive: z.boolean().optional(),
-});
+export const updateRecurringSchema = z
+  .object({
+    type: z.enum(['income', 'expense']).optional(),
+    amount: moneyInput.optional(),
+    category: nonEmpty(100).optional(),
+    description: optionalString(500),
+    source: nonEmpty(100).optional(),
+    frequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+    dayOfMonth: z.number().int().min(1).max(31).nullish(),
+    dayOfWeek: z.number().int().min(0).max(6).nullish(),
+    interval: z.number().int().min(1).max(365).optional(),
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().nullish(),
+    isActive: z.boolean().optional(),
+  })
+  // BUG-PHASE12: updateRecurringSchema previously had no cross-field refine,
+  // so a PUT could set `frequency: 'monthly'` while clearing `dayOfMonth`
+  // to null (or `frequency: 'weekly'` with `dayOfWeek: null`), leaving the
+  // row in a state the process endpoint can't compute a due date for
+  // (computeNextDue silently falls back to day 1 / Sunday). Mirror the
+  // createRecurringSchema refines so the invariant holds on update too.
+  .refine(
+    (d) => d.frequency !== 'monthly' || (d.dayOfMonth != null),
+    { message: 'dayOfMonth wajib diisi untuk frequency "monthly"', path: ['dayOfMonth'] }
+  )
+  .refine(
+    (d) => d.frequency !== 'weekly' || (d.dayOfWeek != null),
+    { message: 'dayOfWeek wajib diisi untuk frequency "weekly"', path: ['dayOfWeek'] }
+  )
+  .refine(
+    (d) => !d.endDate || !d.startDate || d.endDate.getTime() >= d.startDate.getTime(),
+    { message: 'endDate harus setelah startDate', path: ['endDate'] }
+  );
 export type UpdateRecurringInput = z.infer<typeof updateRecurringSchema>;
 
 // ── Transaction Rule (PHASE2-FINANCE-1) ─────────────────────────────────

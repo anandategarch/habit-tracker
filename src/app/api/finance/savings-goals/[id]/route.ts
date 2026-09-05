@@ -43,6 +43,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const nextTarget = data.targetAmount ?? existing.targetAmount;
     const nextCurrent = data.currentAmount ?? existing.currentAmount;
+    const wasCompleted = existing.isCompleted;
     const isCompleted =
       data.isCompleted !== undefined ? data.isCompleted : nextCurrent >= nextTarget;
 
@@ -58,7 +59,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         isCompleted,
       },
     });
-    return NextResponse.json(updated);
+    // BUG-PHASE12: mirror the collection PUT — return justCompleted +
+    // previousAmount so the UI's edit-dialog handler can fire confetti
+    // when currentAmount crosses target via the edit form.
+    return NextResponse.json({
+      ...updated,
+      justCompleted: !wasCompleted && isCompleted,
+      previousAmount: existing.currentAmount,
+    });
   } catch (error) {
     console.error('PUT /api/finance/savings-goals/[id] error:', error);
     return NextResponse.json({ error: 'Failed to update savings goal' }, { status: 500 });

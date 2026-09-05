@@ -217,17 +217,19 @@ export function computeStrengthScore(
   // Vacation mode: each day in the window counts as auto-completed (the
   // user is on a deliberate pause — that shouldn't reduce consistency).
   if (habit.vacationMode) {
-    // Count vacation days that fall inside the window. We don't have a
-    // vacationStart; the approximation is "today is on vacation", which
-    // means at least today is auto-credited. To avoid double-counting
-    // already-completed days, we cap at the window size.
+    // BUG-PHASE12: previously this branch only credited 1 vacation day
+    // (today), which under-counted multi-day vacations — a user on a 5-day
+    // vacation with 25 prior completions would see strength = 26/30 = 87%
+    // instead of the correct 30/30 = 100%. The schema doesn't track
+    // vacationStart, so the best heuristic is "any uncompleted day in the
+    // window is a vacation day". This slightly over-credits the edge case
+    // of a user who just toggled vacation today after missing many days,
+    // but that's a friendlier failure mode than penalizing an actual
+    // vacationer. Capped at windowSize to avoid double-counting completed
+    // days.
     const alreadyCounted = completions;
-    const maxVacationCredits = windowKeys.size - alreadyCounted;
-    if (maxVacationCredits > 0) {
-      // Credit 1 vacation day (today) — minimal but safe. We can't reliably
-      // know how many past days were vacation without a vacationStart field.
-      completions += 1;
-    }
+    const vacationCredits = Math.max(0, windowKeys.size - alreadyCounted);
+    completions += vacationCredits;
   }
 
   // Expected completions over the window.

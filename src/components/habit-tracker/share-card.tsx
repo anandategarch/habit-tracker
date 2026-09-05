@@ -47,6 +47,11 @@ interface ShareButtonProps {
     dimmed: boolean;
   };
   last7Days: { done: boolean; dateNum: number }[];
+  /** BUG-PHASE3 BUG-3: today's relapse state for avoid habits. When true,
+   * the share card's "Status" line shows "Kambuh" (red) instead of "Bersih"
+   * (green). Ignored for normal/amount habits — they always show "Selesai"
+   * when streak > 0 / strength > 0, falling back to "Belum" otherwise. */
+  todayRelapsed?: boolean;
   className?: string;
 }
 
@@ -58,14 +63,20 @@ export function ShareButton({
   strength,
   strengthTier,
   last7Days,
+  todayRelapsed = false,
   className,
 }: ShareButtonProps) {
   const [busy, setBusy] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const isAvoid = habit.habitType === 'avoid';
-  // For avoid habits: "Bersih" instead of "Selesai" on the share card.
-  const successLabel = isAvoid ? 'Bersih' : 'Selesai';
+  // BUG-PHASE3 BUG-3: the share card previously always showed "Bersih" for
+  // avoid habits, even on a day the user relapsed. Now we honour todayRelapsed
+  // to surface "Kambuh" (red) so the shared image reflects the actual state.
+  const successLabel = isAvoid
+    ? (todayRelapsed ? 'Kambuh' : 'Bersih')
+    : 'Selesai';
+  const statusColor = isAvoid && todayRelapsed ? '#dc2626' : '#16a34a';
 
   const handleShare = useCallback(async () => {
     if (!cardRef.current || busy) return;
@@ -136,7 +147,7 @@ export function ShareButton({
     } finally {
       setBusy(false);
     }
-  }, [busy, habit, streak, isAvoid]);
+  }, [busy, habit, streak, isAvoid, todayRelapsed]);
 
   return (
     <>
@@ -286,7 +297,10 @@ export function ShareButton({
                   style={{
                     fontSize: '14px',
                     fontWeight: 700,
-                    color: isAvoid ? '#16a34a' : '#16a34a',
+                    // BUG-PHASE3 BUG-3: red when avoid habit relapsed today,
+                    // green otherwise. (Previously the ternary always
+                    // returned green — dead code.)
+                    color: statusColor,
                   }}
                 >
                   {successLabel}
@@ -308,9 +322,11 @@ export function ShareButton({
                     flex: 1,
                     aspectRatio: '1',
                     borderRadius: '10px',
-                    background: day.done
-                      ? (isAvoid ? '#22c55e' : '#22c55e')
-                      : '#f1f5f9',
+                    // BUG-PHASE3 BUG-4: removed dead ternary
+                    // (isAvoid ? '#22c55e' : '#22c55e' — both branches
+                    // identical). For both normal and avoid habits, a
+                    // "done" day is green (clean/completed).
+                    background: day.done ? '#22c55e' : '#f1f5f9',
                     color: day.done ? '#ffffff' : '#94a3b8',
                     display: 'flex',
                     flexDirection: 'column',

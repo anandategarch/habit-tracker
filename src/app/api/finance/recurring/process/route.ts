@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { signedDelta } from '@/lib/money';
+import { jakartaDateKey } from '@/lib/timezone';
 import { NextResponse } from 'next/server';
 import type { RecurringTransaction } from '@prisma/client';
 
@@ -27,25 +28,77 @@ import type { RecurringTransaction } from '@prisma/client';
 //
 // Returns: { processed: number, skipped: number, total: number, items: [...] }
 
-/** Returns a Date with only year/month/day (time = midnight local). */
-function dateOnly(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+// BUG-PHASE12: all date math in this file previously used server-local TZ
+// (`date.getFullYear()`, `new Date(y, m, d)`, etc.). On a UTC server (the
+// Vercel default) this caused a 1-day offset for Jakarta users — a recurring
+// with `startDate` "2026-01-15" (sent from the form as 2026-01-14T17:00:00Z,
+// i.e. Jakarta midnight) was read by `getFullYear/getMonth/getDate` as
+// Jan 14 (UTC), so the transaction was dated Jan 14 instead of Jan 15. Now
+// every Date is converted to a Jakarta YMD triplet up front, and all
+// arithmetic + comparisons happen in YMD space. The resulting Date object
+// is constructed via `ymdToDate()` (= server-local midnight of the Jakarta
+// YMD), which round-trips correctly through `jakartaDateKey()` regardless
+// of the server's TZ.
+
+interface YMD {
+  y: number;
+  m: number; // 0-indexed (Jan = 0) — matches Date.getMonth()
+  d: number;
 }
 
-/** Returns the number of days in a given (0-indexed) month. */
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
+/** Convert any Date to its Jakarta-TZ YMD triplet (month 0-indexed). */
+function toYMD(date: Date): YMD {
+  const [y, m, d] = jakartaDateKey(date).split('-').map(Number);
+  return { y, m: m - 1, d };
 }
 
-/** Adds `months` months to `date`, clamping the day to month-end if needed. */
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  const originalDay = d.getDate();
-  d.setDate(1); // avoid overflow shifting the month
-  d.setMonth(d.getMonth() + months);
-  const last = daysInMonth(d.getFullYear(), d.getMonth());
-  d.setDate(Math.min(originalDay, last));
-  return d;
+/** Construct a Date at server-local midnight for the given YMD. Because the
+ * YMD was extracted in Jakarta TZ, `jakartaDateKey(ymdToDate(...))` always
+ * returns the same YMD back — the storage round-trip is TZ-consistent. */
+function ymdToDate(ymd: YMD): Date {
+  return new Date(ymd.y, ymd.m, ymd.d);
+}
+
+/** Number of days in a given (0-indexed) month. */
+function daysInMonth(y: number, m: number): number {
+  return new Date(y, m + 1, 0).getDate();
+}
+
+/** Day of week (0=Sun..6=Sat) for a YMD. Uses Date.UTC so the result is
+ * independent of the server's TZ. */
+function dayOfWeek(ymd: YMD): number {
+  return new Date(Date.UTC(ymd.y, ymd.m, ymd.d)).getUTCDay();
+}
+
+/** Add `months` to a YMD, clamping the day to the new month's last day. */
+function addMonths(ymd: YMD, months: number): YMD {
+  let ny = ymd.y;
+  let nm = ymd.m + months;
+  // Normalize month into [0, 11], carrying years.
+  while (nm < 0) {
+    ny--;
+    nm += 12;
+  }
+  while (nm > 11) {
+    ny++;
+    nm -= 12;
+  }
+  const last = daysInMonth(ny, nm);
+  return { y: ny, m: nm, d: Math.min(ymd.d, last) };
+}
+
+/** Add `days` to a YMD. Uses Date.UTC so the day arithmetic is exact. */
+function addDays(ymd: YMD, days: number): YMD {
+  const ms = Date.UTC(ymd.y, ymd.m, ymd.d) + days * 86_400_000;
+  const dt = new Date(ms);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth(), d: dt.getUTCDate() };
+}
+
+/** Signed day difference: b - a (both YMDs). Positive if b is after a. */
+function diffDays(a: YMD, b: YMD): number {
+  const aMs = Date.UTC(a.y, a.m, a.d);
+  const bMs = Date.UTC(b.y, b.m, b.d);
+  return Math.round((bMs - aMs) / 86_400_000);
 }
 
 /**
@@ -58,56 +111,55 @@ function addMonths(date: Date, months: number): Date {
  */
 function computeNextDue(r: RecurringTransaction, now: Date): Date | null {
   if (!r.isActive) return null;
-  if (r.endDate && dateOnly(r.endDate).getTime() < dateOnly(now).getTime()) {
-    return null;
+  const todayYMD = toYMD(now);
+  if (r.endDate) {
+    const endYMD = toYMD(r.endDate);
+    // End date exclusive: if today is past the end date, no more runs.
+    // diffDays(endYMD, todayYMD) = todayYMD - endYMD; > 0 means today is
+    // past endDate.
+    if (diffDays(endYMD, todayYMD) > 0) return null;
   }
 
   const interval = Math.max(1, r.interval);
-  const anchor = r.lastRunAt ?? r.startDate;
-  let next: Date;
+  const anchorDate = r.lastRunAt ?? r.startDate;
+  const anchorYMD = toYMD(anchorDate);
+  let nextYMD: YMD;
 
   if (r.frequency === 'daily') {
-    next = new Date(anchor.getTime() + interval * 24 * 60 * 60 * 1000);
+    nextYMD = addDays(anchorYMD, interval);
   } else if (r.frequency === 'weekly') {
     if (r.lastRunAt == null) {
       // First run: find the first dayOfWeek on or after startDate.
       const dow = r.dayOfWeek ?? 0;
-      const d = new Date(r.startDate);
-      const current = d.getDay();
-      const diff = (dow - current + 7) % 7;
-      d.setDate(d.getDate() + diff);
-      next = d;
+      const currentDow = dayOfWeek(anchorYMD);
+      const diff = (dow - currentDow + 7) % 7;
+      nextYMD = addDays(anchorYMD, diff);
     } else {
       // Subsequent runs: advance by exactly `interval` weeks (same weekday).
-      next = new Date(r.lastRunAt.getTime() + interval * 7 * 24 * 60 * 60 * 1000);
+      nextYMD = addDays(anchorYMD, interval * 7);
     }
   } else {
     // monthly
     const dom = r.dayOfMonth ?? 1;
     if (r.lastRunAt == null) {
-      const sy = r.startDate.getFullYear();
-      const sm = r.startDate.getMonth();
-      const targetDay = Math.min(dom, daysInMonth(sy, sm));
-      let candidate = new Date(sy, sm, targetDay);
+      const targetDay = Math.min(dom, daysInMonth(anchorYMD.y, anchorYMD.m));
+      let candidate: YMD = { y: anchorYMD.y, m: anchorYMD.m, d: targetDay };
       // If the candidate date is before startDate (e.g. startDate=Jan 15,
       // dayOfMonth=10 → candidate=Jan 10 < Jan 15), advance by `interval`
       // months and clamp to the new month's last day.
-      if (dateOnly(candidate).getTime() < dateOnly(r.startDate).getTime()) {
+      const startYMD = toYMD(r.startDate);
+      if (diffDays(startYMD, candidate) < 0) {
         candidate = addMonths(candidate, interval);
       }
-      next = candidate;
+      nextYMD = candidate;
     } else {
-      const candidate = addMonths(r.lastRunAt, interval);
-      const last = daysInMonth(candidate.getFullYear(), candidate.getMonth());
-      next = new Date(
-        candidate.getFullYear(),
-        candidate.getMonth(),
-        Math.min(dom, last)
-      );
+      const candidate = addMonths(anchorYMD, interval);
+      const last = daysInMonth(candidate.y, candidate.m);
+      nextYMD = { y: candidate.y, m: candidate.m, d: Math.min(dom, last) };
     }
   }
 
-  return next;
+  return ymdToDate(nextYMD);
 }
 
 interface ProcessedItem {
@@ -135,15 +187,27 @@ export async function POST() {
         skipped++;
         continue;
       }
-      // Due if next's date-only <= today's date-only.
-      if (dateOnly(next).getTime() > dateOnly(now).getTime()) {
+      // Due if next's Jakarta date <= today's Jakarta date. Both are
+      // converted to YMD so the comparison is TZ-independent.
+      // diffDays(todayYMD, nextYMD) = nextYMD - todayYMD; > 0 means next
+      // is in the future → skip. <= 0 means next is due (today or past).
+      const nextYMD = toYMD(next);
+      const todayYMD = toYMD(now);
+      if (diffDays(todayYMD, nextYMD) > 0) {
+        // next is in the future (today < next).
         skipped++;
         continue;
       }
       // Respect endDate — don't process past the end.
-      if (r.endDate && dateOnly(next).getTime() > dateOnly(r.endDate).getTime()) {
-        skipped++;
-        continue;
+      // diffDays(endYMD, nextYMD) = nextYMD - endYMD; > 0 means next is
+      // past endDate → skip.
+      if (r.endDate) {
+        const endYMD = toYMD(r.endDate);
+        if (diffDays(endYMD, nextYMD) > 0) {
+          // next is past endDate.
+          skipped++;
+          continue;
+        }
       }
 
       // Create transaction + update fund source balance atomically.

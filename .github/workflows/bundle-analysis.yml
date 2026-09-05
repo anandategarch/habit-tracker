@@ -45,9 +45,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # Cache the npm store keyed on package-lock.json (or bun.lock if
-          # that's the only lockfile present). Speeds up reruns ~3-5x.
-          cache: npm
+          # BUG-PHASE12: previously `cache: npm` — but the repo ships only
+          # `bun.lock` (no `package-lock.json`), which made setup-node@v4
+          # fail with "No file found to cache" and aborted the whole workflow
+          # on every PR/push. The cache directive is omitted; install-command
+          # below still works via `npm install --legacy-peer-deps` (which
+          # resolves from package.json without a lockfile).
 
       - name: Bundle Analysis
         uses: hashicorp/nextjs-bundle-analysis@main

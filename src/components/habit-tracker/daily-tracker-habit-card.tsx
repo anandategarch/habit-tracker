@@ -306,7 +306,11 @@ export const HabitCard = memo(function HabitCard({
               )}
               <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-0.5 justify-end tabular-nums">
                 <StreakFlame streak={streak} size="sm" strength={strength} />
-                {streak} {streak === 1 ? 'hari' : 'hari'}
+                {/* BUG-PHASE3 BUG-5: removed dead ternary
+                    (streak === 1 ? 'hari' : 'hari' — both branches
+                    identical). Indonesian has no plural form, so a single
+                    'hari' suffix works for all values. */}
+                {streak} hari
               </p>
               {/* PHASE1-HABIT: strength bar (0-100%) */}
               <div className="flex items-center gap-1 mt-1 justify-end">
@@ -446,6 +450,7 @@ export const HabitCard = memo(function HabitCard({
               strength={strength}
               strengthTier={strengthTier}
               last7Days={last7Days}
+              todayRelapsed={isRelapsed}
             />
           </div>
 

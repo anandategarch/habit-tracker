@@ -58,6 +58,16 @@ interface Cell {
  * Sunday on or after Dec 31.
  *
  * Returns an array of 53 columns, each an array of 7 cells (Mon→Sun).
+ *
+ * BUG-PHASE3 BUG-1: for "avoid" habits, an in-range day with no relapse log
+ * is a CLEAN day (success), not a "missed" day. The previous logic fell
+ * through to 'missed' for any day without a relapse log, rendering avoid
+ * heatmaps as a wall of gray with sparse red relapse dots — the opposite
+ * of the intended "mostly green wall of clean days with red relapse dots".
+ * The fix: when `isAvoid` is true, in-range non-relapse days are 'completed'
+ * (green = "Bersih"), never 'missed'. The 'missed' state is meaningless for
+ * avoid habits (there is no "didn't do it" — only "did the bad thing" or
+ * "didn't do the bad thing").
  */
 function buildYearGrid(
   year: number,
@@ -65,6 +75,7 @@ function buildYearGrid(
   relapseDays: Set<string>,
   habitStartDate: string | null,
   todayStr: string,
+  isAvoid: boolean,
 ): Cell[][] {
   const yearStart = new Date(year, 0, 1);
   // Find the Monday on or before Jan 1.
@@ -78,6 +89,8 @@ function buildYearGrid(
   const dec31Dow = yearEnd.getDay();
   const sunFirstDowFromEnd = (6 - dec31Dow); // days to add to reach Sunday
   const gridEnd = addDays(yearEnd, sunFirstDowFromEnd);
+
+  const startDateYMD = habitStartDate ? habitStartDate.slice(0, 10) : null;
 
   // Walk from gridStart to gridEnd, building columns of 7 days each.
   const columns: Cell[][] = [];
@@ -94,7 +107,7 @@ function buildYearGrid(
       if (!inYear) {
         // Outside the year window — show as "future" (white).
         state = 'future';
-      } else if (habitStartDate && dateStr < habitStartDate.slice(0, 10)) {
+      } else if (startDateYMD && dateStr < startDateYMD) {
         // Before the habit existed — show as "future" (white).
         state = 'future';
       } else if (dateStr > todayStr) {
@@ -102,6 +115,10 @@ function buildYearGrid(
         state = 'future';
       } else if (relapseDays.has(dateStr)) {
         state = 'relapse';
+      } else if (isAvoid) {
+        // BUG-PHASE3 BUG-1 fix: avoid habits have no "missed" state — any
+        // in-range day without a relapse log is a clean day (green).
+        state = 'completed';
       } else if (completedDays.has(dateStr)) {
         state = 'completed';
       } else {
@@ -154,8 +171,8 @@ export function YearlyHeatmap({ habitId, habitType, startDate }: YearlyHeatmapPr
   }, [logs, isAvoid]);
 
   const grid = useMemo(
-    () => buildYearGrid(year, completedDays, relapseDays, startDate, todayStr),
-    [year, completedDays, relapseDays, startDate, todayStr],
+    () => buildYearGrid(year, completedDays, relapseDays, startDate, todayStr, isAvoid),
+    [year, completedDays, relapseDays, startDate, todayStr, isAvoid],
   );
 
   // Compute summary stats.
@@ -271,10 +288,15 @@ export function YearlyHeatmap({ habitId, habitType, startDate }: YearlyHeatmapPr
                 Kambuh
               </span>
             )}
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-[2px] bg-muted-foreground/20 inline-block" />
-              Belum
-            </span>
+            {/* BUG-PHASE3 BUG-1: avoid habits have no "missed" state (any
+                in-range day without a relapse log is clean). Hide the Belum
+                swatch for avoid habits to avoid a misleading legend entry. */}
+            {!isAvoid && (
+              <span className="inline-flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-muted-foreground/20 inline-block" />
+                Belum
+              </span>
+            )}
             <span className="inline-flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-[2px] bg-transparent border border-border/40 inline-block" />
               {todayStr > format(parseISO(startDate), 'yyyy-MM-dd') ? 'Akan datang' : 'Sebelum mulai'}

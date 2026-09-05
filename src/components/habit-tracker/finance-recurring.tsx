@@ -249,8 +249,14 @@ function formToPayload(form: RecurringFormState) {
     source: form.source,
     frequency: form.frequency,
     interval: parseInt(form.interval || '1', 10) || 1,
-    startDate: new Date(form.startDate + 'T00:00:00'),
-    endDate: form.endDate ? new Date(form.endDate + 'T00:00:00') : null,
+    // BUG-PHASE12: previously `new Date(form.startDate + 'T00:00:00')` —
+    // this constructs a Date in the BROWSER's local TZ, so a Jakarta user
+    // picking "2026-01-15" would send 2026-01-14T17:00:00Z (UTC) and the
+    // server's monthly first-run candidate would land on Jan 14 instead of
+    // Jan 15. Pin to Jakarta offset (+07:00) for consistency with the
+    // savings-goals form (which already does this for `deadline`).
+    startDate: new Date(form.startDate + 'T00:00:00+07:00'),
+    endDate: form.endDate ? new Date(form.endDate + 'T00:00:00+07:00') : null,
     isActive: form.isActive,
   };
   if (form.frequency === 'monthly') {
