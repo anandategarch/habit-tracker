@@ -367,7 +367,20 @@ export const createRecurringSchema = z
   );
 export type CreateRecurringInput = z.infer<typeof createRecurringSchema>;
 
-export const updateRecurringSchema = createRecurringSchema.partial();
+export const updateRecurringSchema = z.object({
+  type: z.enum(['income', 'expense']).optional(),
+  amount: moneyInput.optional(),
+  category: nonEmpty(100).optional(),
+  description: optionalString(500),
+  source: nonEmpty(100).optional(),
+  frequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  dayOfMonth: z.number().int().min(1).max(31).nullish(),
+  dayOfWeek: z.number().int().min(0).max(6).nullish(),
+  interval: z.number().int().min(1).max(365).optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().nullish(),
+  isActive: z.boolean().optional(),
+});
 export type UpdateRecurringInput = z.infer<typeof updateRecurringSchema>;
 
 // ── Transaction Rule (PHASE2-FINANCE-1) ─────────────────────────────────
