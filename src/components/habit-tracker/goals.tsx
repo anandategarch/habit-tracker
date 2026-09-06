@@ -5,28 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,91 +15,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Plus,
-  Target,
-  Edit,
-  Trash2,
-  Calendar,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  X,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format, differenceInCalendarDays, id as idLocale } from '@/lib/date-utils';
-// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
-// utility module. Output is identical for the patterns and helpers used
-// here ('MMM d, yyyy' + differenceInCalendarDays) — verified via test
-// script in worklog FIX-TIER3 entry.
+import { Plus, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
-import { getBadgeClass } from '@/lib/label-colors';
-import { jakartaDateString } from '@/lib/jakarta-date';
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface Milestone {
-  id?: string; // optional stable id for React keys (generated client-side)
-  text: string;
-  done: boolean;
-}
-
-interface Goal {
-  id: string;
-  title: string;
-  description: string | null;
-  deadline: string | null;
-  progress: number;
-  priority: string;
-  status: string;
-  milestones: string; // JSON string
-  achievement: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface GoalFormData {
-  id?: string;
-  title: string;
-  description: string;
-  deadline: string;
-  priority: string;
-  milestones: Milestone[];
-}
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80',
-  completed: 'bg-success/10 text-success dark:bg-success/15 dark:text-success/80',
-  cancelled: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-};
-
-function parseMilestones(json: string): Milestone[] {
-  try {
-    const parsed = JSON.parse(json);
-    if (Array.isArray(parsed)) return parsed;
-  } catch {
-    // ignore
-  }
-  return [];
-}
-
-function calcProgress(milestones: Milestone[]): number {
-  if (milestones.length === 0) return 0;
-  const done = milestones.filter((m) => m.done).length;
-  return Math.round((done / milestones.length) * 100);
-}
-
-const EMPTY_FORM: GoalFormData = {
-  title: '',
-  description: '',
-  deadline: '',
-  priority: 'Medium',
-  milestones: [],
-};
+// Types / helpers / sub-components extracted during PHASE-A-3
+// (see goals-types.ts, goals-helpers.ts, goal-card.tsx, goal-form-dialog.tsx,
+// goals-skeleton.tsx). This file is now a thin orchestrator:
+// state + queries + handlers + composition of <GoalCard> /
+// <GoalFormDialog> / <GoalsSkeleton>. Handlers stay here because they are
+// tightly coupled to the query cache + mutation flow (especially the
+// BUG-M16 toggleMilestone + BUG-L7 handleCancelGoal fixes).
+import { type Goal, type GoalFormData } from './goals-types';
+import { EMPTY_FORM, parseMilestones, calcProgress } from './goals-helpers';
+import { GoalCard } from './goal-card';
+import { GoalFormDialog } from './goal-form-dialog';
+import { GoalsSkeleton } from './goals-skeleton';
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -378,422 +288,10 @@ export default function GoalsTab() {
     setExpandedId((prev) => (prev === id ? null : id));
   }
 
-  // ── Render helpers ────────────────────────────────────────────────────────
-
-  function getProgressColor(progress: number): string {
-    if (progress >= 80) return '[&>div]:bg-success';
-    if (progress >= 50) return '[&>div]:bg-lime-500';
-    if (progress >= 25) return '[&>div]:bg-warning';
-    return '[&>div]:bg-orange-500';
-  }
-
-  function renderGoalCard(goal: Goal) {
-    const isExpanded = expandedId === goal.id;
-    const milestones = parseMilestones(goal.milestones);
-    const isCompleted = goal.status === 'completed';
-    const isCancelled = goal.status === 'cancelled';
-    // BUGHUNT-OTHER-1 BUG-M4: `isPast(parseISO(deadline))` returns true the
-    // moment "now" exceeds the UTC midnight of the deadline. For Jakarta
-    // users, the deadline's UTC midnight = 07:00 WIB on the deadline day,
-    // so goals would be marked overdue at 07:00 WIB on the deadline day
-    // itself (a full day early). Instead, compare YMD strings: the goal is
-    // overdue only when today's Jakarta date is strictly after the deadline
-    // date. The deadline is stored as UTC midnight, so its YMD portion is
-    // the user-meaningful calendar date.
-    const isOverdue = (() => {
-      if (!goal.deadline || isCompleted || isCancelled) return false;
-      const deadlineYmd = goal.deadline.slice(0, 10); // "2025-01-15"
-      const todayYmd = jakartaDateString();
-      return deadlineYmd < todayYmd;
-    })();
-    // Deadline within 7 days (not overdue yet) — subtle urgency pulse
-    const isUrgent = !isOverdue && goal.deadline && (() => {
-      const deadlineYmd = goal.deadline.slice(0, 10);
-      const todayYmd = jakartaDateString();
-      if (deadlineYmd <= todayYmd) return false;
-      const [y, m, d] = deadlineYmd.split('-').map(Number);
-      const days = differenceInCalendarDays(new Date(y, m - 1, d), new Date());
-      return days >= 0 && days <= 7;
-    })();
-
-    return (
-      <Card
-        key={goal.id}
-        className={cn(
-          'group transition-all hover:shadow-md',
-          isCompleted && 'opacity-75',
-          isCancelled && 'opacity-50'
-        )}
-      >
-        <CardContent className="p-4 sm:p-5">
-          {/* Title row */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3
-                  className={cn(
-                    'font-semibold text-sm sm:text-base leading-tight',
-                    isCompleted && 'line-through text-muted-foreground'
-                  )}
-                >
-                  {goal.title}
-                </h3>
-                <Badge
-                  variant="outline"
-                  className={cn('text-xs px-1.5 py-0', getBadgeClass(priorityMap[goal.priority]?.color || 'gray'))}
-                >
-                  {goal.priority}
-                </Badge>
-                <Badge
-                  variant="secondary"
-                  className={cn('text-xs px-1.5 py-0', STATUS_STYLES[goal.status] ?? '')}
-                >
-                  {goal.status}
-                </Badge>
-                {isOverdue && (
-                  <Badge variant="destructive" className="text-xs px-1.5 py-0">
-                    Terlewat
-                  </Badge>
-                )}
-              </div>
-
-              {goal.description && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                  {goal.description}
-                </p>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => openEditForm(goal)}
-                disabled={isCompleted || isCancelled}
-              >
-                <Edit className="h-3.5 w-3.5" />
-              </Button>
-              {goal.status === 'active' && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/5"
-                  onClick={() => handleCompleteGoal(goal)}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-              {/* BUGHUNT-OTHER-1 BUG-L7: add Cancel action so users can stop
-                  an active goal without deleting it. */}
-              {goal.status === 'active' && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                  onClick={() => handleCancelGoal(goal)}
-                  aria-label="Batalkan tujuan"
-                  title="Batalkan tujuan"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15"
-                onClick={() => setDeleteTarget(goal)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-3 space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium tabular-nums">{goal.progress}%</span>
-            </div>
-            <Progress
-              value={goal.progress}
-              className={cn('h-2', getProgressColor(goal.progress))}
-            />
-          </div>
-
-          {/* Footer row: deadline + milestone toggle */}
-          <div className="flex items-center justify-between mt-3">
-            {goal.deadline ? (
-              <span
-                className={cn(
-                  'flex items-center gap-1 text-xs rounded px-1 py-0.5',
-                  isOverdue
-                    ? 'text-destructive font-medium'
-                    : isUrgent
-                    ? 'text-warning dark:text-warning/80 font-medium anim-urgency-pulse'
-                    : 'text-muted-foreground'
-                )}
-              >
-                <Calendar className="h-3 w-3" />
-                {/* BUGHUNT-OTHER-1 BUG-M3: build a local Date from the YMD
-                    portion of the ISO so the calendar day is preserved in
-                    any browser tz (was `parseISO(goal.deadline)` which reads
-                    UTC midnight → shifted to one day earlier on negative-tz
-                    browsers). */}
-                {format(new Date(goal.deadline.slice(0, 10)), 'd MMM yyyy', { locale: idLocale })}
-              </span>
-            ) : (
-              <span />
-            )}
-
-            {milestones.length > 0 && (
-              <button
-                onClick={() => toggleExpand(goal.id)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {milestones.filter((m) => m.done).length}/{milestones.length} milestone
-                {isExpanded ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Milestones section */}
-          {isExpanded && milestones.length > 0 && (
-            <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
-              <Separator className="mb-3" />
-              <div className="space-y-2">
-                {milestones.map((ms, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2.5 group/milestone"
-                  >
-                    <Checkbox
-                      checked={ms.done}
-                      disabled={isCompleted || isCancelled}
-                      onCheckedChange={() => toggleMilestone(goal.id, idx, goal.milestones, goal.status)}
-                      className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                    />
-                    <span
-                      className={cn(
-                        'text-sm flex-1 transition-colors',
-                        ms.done
-                          ? 'line-through text-muted-foreground'
-                          : 'text-foreground'
-                      )}
-                    >
-                      {ms.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  function renderForm() {
-    return (
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogTrigger asChild>
-          <Button
-            onClick={openNewForm}
-          >
-            <Plus className="h-4 w-4" />
-            Tujuan Baru
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              {form.id ? 'Edit Tujuan' : 'Tujuan Baru'}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="grid gap-5 py-4">
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="goal-title">Judul *</Label>
-              <Input
-                id="goal-title"
-                placeholder="Apa yang ingin kamu capai?"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="goal-desc">Deskripsi</Label>
-              <Textarea
-                id="goal-desc"
-                placeholder="Jelaskan tujuan kamu secara detail..."
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              />
-            </div>
-
-            {/* Deadline + Priority row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="goal-deadline">Tenggat</Label>
-                <Input
-                  id="goal-deadline"
-                  type="date"
-                  value={form.deadline}
-                  onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Prioritas</Label>
-                <Select
-                  value={form.priority}
-                  onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="High">Tinggi</SelectItem>
-                    <SelectItem value="Medium">Sedang</SelectItem>
-                    <SelectItem value="Low">Rendah</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Milestones */}
-            <div className="space-y-3">
-              <Label>Milestone</Label>
-              <p className="text-xs text-muted-foreground">
-                Pecah tujuan kamu jadi langkah kecil yang bisa dilacak
-              </p>
-
-              {/* Existing milestones */}
-              {form.milestones.length > 0 && (
-                <div className="space-y-2">
-                  {form.milestones.map((ms, idx) => (
-                    <div key={ms.id ?? idx} className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <Input
-                          value={ms.text}
-                          onChange={(e) => updateMilestoneText(idx, e.target.value)}
-                          placeholder="Deskripsi milestone"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 text-destructive/80 hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15 flex-shrink-0"
-                        onClick={() => removeMilestone(idx)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add milestone */}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newMilestone}
-                  onChange={(e) => setNewMilestone(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addMilestone();
-                    }
-                  }}
-                  placeholder="Tambah milestone..."
-                  className="h-9 text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addMilestone}
-                  disabled={!newMilestone.trim()}
-                  className="h-9 flex-shrink-0 border-primary/20 text-primary hover:bg-primary/5"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Tambah
-                </Button>
-              </div>
-
-              {form.milestones.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {form.milestones.length} milestone ·{' '}
-                  {form.milestones.filter((m) => m.done).length} selesai
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                onClick={handleSave}
-                disabled={saving || !form.title.trim()}
-                className="min-w-[120px]"
-              >
-                {saving ? 'Menyimpan...' : form.id ? 'Perbarui Tujuan' : 'Buat Tujuan'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   // ── Loading skeleton ──────────────────────────────────────────────────────
 
   if (loading || goals === null) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-8 rounded-lg" />
-            <Skeleton className="h-7 w-24" />
-          </div>
-          <Skeleton className="h-10 w-28 rounded-md" />
-        </div>
-        {/* Stats skeleton */}
-        <div className="grid grid-cols-3 gap-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-16 mb-2" />
-                <Skeleton className="h-7 w-10" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-5 w-14 rounded-full" />
-                </div>
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-2 w-full rounded-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return <GoalsSkeleton />;
   }
 
   // ── Main render ───────────────────────────────────────────────────────────
@@ -804,7 +302,22 @@ export default function GoalsTab() {
       <PageHeader
         title="Tujuan"
         description="Pantau progress menuju target kamu"
-        action={renderForm()}
+        action={
+          <GoalFormDialog
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            form={form}
+            setForm={setForm}
+            newMilestone={newMilestone}
+            setNewMilestone={setNewMilestone}
+            onCreateNew={openNewForm}
+            onAddMilestone={addMilestone}
+            onRemoveMilestone={removeMilestone}
+            onUpdateMilestoneText={updateMilestoneText}
+            onSave={handleSave}
+            saving={saving}
+          />
+        }
       />
 
       {/* Quick Stats */}
@@ -855,7 +368,20 @@ export default function GoalsTab() {
         </Card>
       ) : (
         <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-1 custom-scrollbar">
-          {goals.map((goal) => renderGoalCard(goal))}
+          {goals.map((goal) => (
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              expanded={expandedId === goal.id}
+              priorityMap={priorityMap}
+              onEdit={openEditForm}
+              onComplete={handleCompleteGoal}
+              onCancel={handleCancelGoal}
+              onDelete={setDeleteTarget}
+              onToggleMilestone={(g, idx) => toggleMilestone(g.id, idx, g.milestones, g.status)}
+              onToggleExpand={toggleExpand}
+            />
+          ))}
         </div>
       )}
 
