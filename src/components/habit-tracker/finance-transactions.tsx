@@ -178,7 +178,7 @@ export default function FinanceTransactions({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Cari transaksi..."
+          placeholder="Cari transaksi di semua periode..."
           value={txFilter.search}
           onChange={e => onFilterChange({ ...txFilter, search: e.target.value })}
           className="pl-9 h-10 text-sm rounded-xl bg-card border-border"
@@ -192,6 +192,25 @@ export default function FinanceTransactions({
           </button>
         )}
       </div>
+
+      {/* FEAT-SEARCH-ALLTIME: Badge shown when search is active. Tells the
+          user the search spans all periods (not just the selected month)
+          and shows result count. Provides a quick clear button. */}
+      {txFilter.search.trim() && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary">
+          <Search className="h-3 w-3 shrink-0" />
+          <span className="flex-1">
+            Mencari di <strong>semua periode</strong> — {filteredTransactions.length} transaksi ditemukan
+          </span>
+          <button
+            onClick={() => onFilterChange({ ...txFilter, search: '' })}
+            className="shrink-0 hover:bg-primary/20 rounded px-1.5 py-0.5 transition-colors"
+            aria-label="Hapus pencarian"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
 
       {/* ── Filter Chips ─────────────────────────────────────── */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-0.5 px-0.5" style={{ scrollbarWidth: 'none' }}>

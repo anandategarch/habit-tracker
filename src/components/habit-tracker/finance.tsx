@@ -290,7 +290,15 @@ export default function Finance() {
   const { data: transactions = [] } = useQuery<Transaction[]>({
     queryKey: ['finance', 'transactions', selectedMonth, { ...txFilter, search: debouncedSearch }],
     queryFn: async () => {
-      const params = new URLSearchParams({ month: selectedMonth });
+      // FEAT-SEARCH-ALLTIME: When user types a search query, skip the month
+      // param so the search spans ALL periods. This lets users find a
+      // transaction from any month without navigating to that month first.
+      // When search is empty, fall back to month-scoped view (normal mode).
+      const params = new URLSearchParams();
+      const isSearching = debouncedSearch.trim().length > 0;
+      if (!isSearching) {
+        params.set('month', selectedMonth);
+      }
       if (txFilter.type !== 'all') params.set('type', txFilter.type);
       if (txFilter.category !== 'all') params.set('category', txFilter.category);
       if (txFilter.source !== 'all') params.set('source', txFilter.source);
@@ -409,7 +417,25 @@ export default function Finance() {
     if (txFilter.type !== 'all' && tx.type !== txFilter.type) return false;
     if (txFilter.category !== 'all' && tx.category !== txFilter.category) return false;
     if (txFilter.source !== 'all' && tx.source !== txFilter.source) return false;
-    if (txFilter.search && !tx.description?.toLowerCase().includes(txFilter.search.toLowerCase()) && !(tx.category ?? '').toLowerCase().includes(txFilter.search.toLowerCase()) && !tx.notes?.toLowerCase().includes(txFilter.search.toLowerCase())) return false;
+    // FEAT-SEARCH-ALLTIME: Client-side search filter must match the server-side
+    // filter logic (description OR category OR source OR tags) so that
+    // instant (non-debounced) filtering doesn't discard source/tags matches
+    // that the server correctly returned. Notes is also checked for
+    // completeness (client has notes in the Transaction type even though the
+    // API select drops it — notes will be undefined, which safely skips).
+    if (txFilter.search) {
+      const term = txFilter.search.toLowerCase();
+      const tagsStr = typeof tx.tags === 'string' ? tx.tags : '';
+      let tagsArr: string[] = [];
+      try { tagsArr = JSON.parse(tagsStr || '[]'); } catch { /* malformed */ }
+      const matches =
+        tx.description?.toLowerCase().includes(term) ||
+        (tx.category ?? '').toLowerCase().includes(term) ||
+        (tx.source ?? '').toLowerCase().includes(term) ||
+        tx.notes?.toLowerCase().includes(term) ||
+        tagsArr.some((t) => t.toLowerCase().includes(term));
+      if (!matches) return false;
+    }
     return true;
   }), [transactions, txFilter]);
 

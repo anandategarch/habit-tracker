@@ -15,8 +15,10 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get('source');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    // FIN-BUG-6: `search` param intentionally not read server-side — see
-    // comment below the filter section for details.
+    // FEAT-SEARCH-ALLTIME: `search` param is now read server-side again for
+    // all-time search mode (when no month is provided). See post-query filter
+    // below for the case-insensitive JS filter implementation.
+    const search = searchParams.get('search');
 
     const where: Record<string, unknown> = {};
 
@@ -135,6 +137,24 @@ export async function GET(request: NextRequest) {
         transactions = transactions.filter(
           (t) => jakartaDateKey(t.date).slice(0, 7) === month
         );
+      }
+      // FEAT-SEARCH-ALLTIME: When in all-time search mode (search param
+      // present, no month), do a case-insensitive JS filter on
+      // description/category/source/tags. SQLite LIKE is unreliable for
+      // case-insensitivity, so we filter post-query in JS. Matches against
+      // tags (JSON-encoded array string) by parsing + joining. Cap at 200.
+      if (search && search.trim() && !month) {
+        const term = search.trim().toLowerCase();
+        transactions = transactions.filter((t) => {
+          if (t.description?.toLowerCase().includes(term)) return true;
+          if (t.category?.toLowerCase().includes(term)) return true;
+          if (t.source?.toLowerCase().includes(term)) return true;
+          try {
+            const tagsArr = JSON.parse(t.tags || '[]') as string[];
+            if (tagsArr.some((tag) => tag.toLowerCase().includes(term))) return true;
+          } catch { /* malformed tags JSON — skip */ }
+          return false;
+        }).slice(0, 200);
       }
     } catch (e) {
       console.error('GET /api/finance/transactions query failed:', e);
