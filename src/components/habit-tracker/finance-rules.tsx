@@ -14,158 +14,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit3, Trash2, Wand2, ArrowRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import {
+  type TransactionRule,
+  type CategoryOption,
+  type SourceOption,
+  FIELD_LABELS,
+  OP_LABELS,
+  ACTION_FIELD_LABELS,
+  type RuleFormState,
+  emptyForm,
+  formFromRule,
+  formToPayload,
+} from './finance-rules-helpers';
+import { RuleFormDialog, RuleDeleteDialog } from './finance-rules-dialog';
 
 // ── Types ─────────────────────────────────────────────────────────────────
-
-interface TransactionRule {
-  id: string;
-  name: string;
-  isActive: boolean;
-  priority: number;
-  conditionField: string;
-  conditionOp: string;
-  conditionValue: string;
-  actionField: string;
-  actionValue: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface CategoryOption {
-  value: string;
-  emoji: string;
-  color: string;
-}
-
-interface SourceOption {
-  id: string;
-  name: string;
-  emoji: string;
-}
 
 interface FinanceRulesProps {
   /** Returns the category list (any type) for the action value dropdown. */
   getCategoryList: (type: string) => CategoryOption[];
   /** Returns the active source list (for actionField = 'source'). */
   getActiveSources: () => SourceOption[];
-}
-
-// ── Labels ───────────────────────────────────────────────────────────────
-
-const FIELD_LABELS: Record<string, string> = {
-  description: 'Deskripsi',
-  source: 'Sumber',
-  amount: 'Jumlah',
-};
-
-const OP_LABELS: Record<string, string> = {
-  contains: 'mengandung',
-  equals: 'sama dengan',
-  startsWith: 'diawali',
-  gt: 'lebih dari',
-  lt: 'kurang dari',
-};
-
-const ACTION_FIELD_LABELS: Record<string, string> = {
-  category: 'Kategori',
-  source: 'Sumber',
-};
-
-// ── Form state ───────────────────────────────────────────────────────────
-
-interface RuleFormState {
-  name: string;
-  isActive: boolean;
-  priority: string;
-  conditionField: 'description' | 'source' | 'amount';
-  conditionOp: 'contains' | 'equals' | 'startsWith' | 'gt' | 'lt';
-  conditionValue: string;
-  actionField: 'category' | 'source';
-  actionValue: string;
-}
-
-function emptyForm(): RuleFormState {
-  return {
-    name: '',
-    isActive: true,
-    priority: '0',
-    conditionField: 'description',
-    conditionOp: 'contains',
-    conditionValue: '',
-    actionField: 'category',
-    actionValue: '',
-  };
-}
-
-function formFromRule(r: TransactionRule): RuleFormState {
-  return {
-    name: r.name,
-    isActive: r.isActive,
-    priority: String(r.priority ?? 0),
-    conditionField: r.conditionField as RuleFormState['conditionField'],
-    conditionOp: r.conditionOp as RuleFormState['conditionOp'],
-    conditionValue: r.conditionValue,
-    actionField: r.actionField as RuleFormState['actionField'],
-    actionValue: r.actionValue,
-  };
-}
-
-function formToPayload(form: RuleFormState) {
-  return {
-    name: form.name.trim(),
-    isActive: form.isActive,
-    priority: parseInt(form.priority || '0', 10) || 0,
-    conditionField: form.conditionField,
-    conditionOp: form.conditionOp,
-    conditionValue: form.conditionValue.trim(),
-    actionField: form.actionField,
-    actionValue: form.actionValue,
-  };
-}
-
-/** Compute the list of valid operators for a given condition field. */
-function opsForField(field: string): Array<{ value: string; label: string }> {
-  if (field === 'amount') {
-    return [
-      { value: 'gt', label: 'lebih dari' },
-      { value: 'lt', label: 'kurang dari' },
-      { value: 'equals', label: 'sama dengan' },
-    ];
-  }
-  return [
-    { value: 'contains', label: 'mengandung' },
-    { value: 'equals', label: 'sama dengan' },
-    { value: 'startsWith', label: 'diawali' },
-  ];
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -300,15 +173,6 @@ export default function FinanceRules({
     }
   };
 
-  // Action value dropdown options depend on actionField.
-  const actionOptions =
-    form.actionField === 'source'
-      ? getActiveSources().map((s) => ({ value: s.name, label: `${s.emoji} ${s.name}` }))
-      : [
-          ...getCategoryList('expense').map((c) => ({ value: c.value, label: `${c.emoji} ${c.value}` })),
-          ...getCategoryList('income').map((c) => ({ value: c.value, label: `${c.emoji} ${c.value}` })),
-        ];
-
   return (
     <div className="space-y-4 mt-4">
       {/* Header */}
@@ -430,231 +294,26 @@ export default function FinanceRules({
       )}
 
       {/* ─── ADD/EDIT DIALOG ─── */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? 'Edit Aturan' : 'Tambah Aturan'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-xs">Nama Aturan</Label>
-              <Input
-                placeholder="Contoh: Indomaret → Makanan"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground">Kondisi (JIKA)</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Field</Label>
-                  <Select
-                    value={form.conditionField}
-                    onValueChange={(v) => {
-                      // Reset op if not valid for the new field
-                      const validOps = opsForField(v).map((o) => o.value);
-                      setForm((f) => ({
-                        ...f,
-                        conditionField: v as RuleFormState['conditionField'],
-                        conditionOp: (validOps.includes(f.conditionOp)
-                          ? f.conditionOp
-                          : validOps[0]) as RuleFormState['conditionOp'],
-                      }));
-                    }}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="description">Deskripsi</SelectItem>
-                      <SelectItem value="source">Sumber</SelectItem>
-                      <SelectItem value="amount">Jumlah</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Operator</Label>
-                  <Select
-                    value={form.conditionOp}
-                    onValueChange={(v) =>
-                      setForm((f) => ({
-                        ...f,
-                        conditionOp: v as RuleFormState['conditionOp'],
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {opsForField(form.conditionField).map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          {op.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">
-                  Nilai{' '}
-                  {form.conditionField === 'amount'
-                    ? '(angka, dalam rupiah)'
-                    : '(teks)'}
-                </Label>
-                <Input
-                  type={form.conditionField === 'amount' ? 'number' : 'text'}
-                  inputMode={form.conditionField === 'amount' ? 'numeric' : 'text'}
-                  placeholder={
-                    form.conditionField === 'amount' ? '100000' : 'indomaret'
-                  }
-                  value={form.conditionValue}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, conditionValue: e.target.value }))
-                  }
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground">Aksi (MAKA)</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Set Field</Label>
-                  <Select
-                    value={form.actionField}
-                    onValueChange={(v) => {
-                      setForm((f) => ({
-                        ...f,
-                        actionField: v as RuleFormState['actionField'],
-                        actionValue: '',
-                      }));
-                    }}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="category">Kategori</SelectItem>
-                      <SelectItem value="source">Sumber</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Menjadi</Label>
-                  <Select
-                    value={form.actionValue}
-                    onValueChange={(v) =>
-                      setForm((f) => ({ ...f, actionValue: v }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Pilih..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-64">
-                      {actionOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {/* Allow custom value via text input as fallback */}
-              <Input
-                placeholder="atau ketik nilai manual..."
-                value={form.actionValue}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, actionValue: e.target.value }))
-                }
-                className="text-xs"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Prioritas</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={10000}
-                  value={form.priority}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, priority: e.target.value }))
-                  }
-                  className="mt-1"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Lebih kecil = dievaluasi lebih dulu.
-                </p>
-              </div>
-              <div className="flex items-end pb-1">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={form.isActive}
-                    onCheckedChange={(checked) =>
-                      setForm((f) => ({ ...f, isActive: checked }))
-                    }
-                  />
-                  <Label className="text-xs">Aktif</Label>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setDialogOpen(false)}
-              >
-                Batal
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? 'Menyimpan...' : editing ? 'Perbarui' : 'Simpan'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RuleFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        getCategoryList={getCategoryList}
+        getActiveSources={getActiveSources}
+      />
 
       {/* ─── DELETE CONFIRMATION ─── */}
-      <AlertDialog
+      <RuleDeleteDialog
         open={!!deletingId}
         onOpenChange={(open) => {
           if (!open) setDeletingId(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Aturan</AlertDialogTitle>
-            <AlertDialogDescription>
-              Yakin ingin menghapus aturan ini? Transaksi yang sudah dibuat
-              tidak akan terpengaruh.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive text-white"
-              onClick={handleDelete}
-            >
-              Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
