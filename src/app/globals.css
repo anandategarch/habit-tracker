@@ -143,6 +143,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* BUGFIX SCROLL-1: prevent scroll chaining at the document level so iOS
+     rubber-band / Android glow don't propagate to the body when the user
+     reaches the top/bottom of the page. This complements the PullToRefresh
+     guard fix (window.scrollY check) by keeping overscroll contained. */
+  html,
+  body {
+    overscroll-behavior-y: contain;
+  }
   body {
     @apply bg-background text-foreground;
     /* Respect iOS notch / dynamic island when viewport-fit=cover is set */

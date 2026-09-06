@@ -271,10 +271,13 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* Main content - shifts right on desktop when sidebar is open */}
+        {/* Main content - shifts right on desktop when sidebar is open.
+            min-h-0 (BUGFIX SCROLL-1) lets flex-1 children shrink below content
+            height so a future bounded-height layout produces a real scroll
+            container instead of growing to fit content. */}
         <main
           className={cn(
-            'flex-1 min-w-0 flex flex-col transition-[margin] duration-300 ease-in-out',
+            'flex-1 min-w-0 min-h-0 flex flex-col transition-[margin] duration-300 ease-in-out',
             sidebarOpen ? 'md:ml-64' : 'md:ml-0'
           )}
         >

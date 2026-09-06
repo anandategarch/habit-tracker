@@ -84,9 +84,15 @@ export function PullToRefresh({ children, onRefresh, className, style }: PullToR
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!active || refreshingRef.current) return;
-    const el = containerRef.current;
-    // Only start tracking when scrolled to the very top.
-    if (!el || el.scrollTop > 0) {
+    // BUGFIX SCROLL-1: The document (html) is the actual scroller on mobile —
+    // PullToRefresh's own scrollTop is always 0 because its height grew to fit
+    // content (its overflow-y-auto is inert when the parent chain uses min-h-dvh
+    // without a bounded height). Using el.scrollTop > 0 meant the "only-at-top"
+    // guard NEVER triggered, so every downward swipe set startYRef, and every
+    // touchmove frame then called setPullDistance() — re-rendering the entire
+    // active tab subtree at 60fps + fighting document scroll with translateY.
+    // Fix: use window.scrollY to detect "at top" so the guard actually works.
+    if (typeof window !== 'undefined' && window.scrollY > 0) {
       startYRef.current = null;
       return;
     }
