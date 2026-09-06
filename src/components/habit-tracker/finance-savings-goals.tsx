@@ -16,25 +16,9 @@ import { useState, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Plus,
   Minus,
@@ -48,65 +32,24 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { celebrate } from '@/lib/confetti';
-import { jakartaNowParts, jakartaDateKey } from '@/lib/timezone';
 import {
   formatRupiah,
   formatNominalInput,
   parseNominalInput,
   type FundSource,
 } from './finance-types';
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-interface SavingsGoal {
-  id: string;
-  name: string;
-  emoji: string;
-  targetAmount: number;
-  currentAmount: number;
-  sourceName: string | null;
-  deadline: string | null;
-  isCompleted: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AdjustResponse extends SavingsGoal {
-  // Returned by PUT /api/finance/savings-goals/[id] when `delta` is sent.
-  // Flags that the goal flipped from incomplete → completed on this call,
-  // so the UI fires the celebration 🎉.
-  justCompleted?: boolean;
-  previousAmount?: number;
-}
-
-// Quick emoji picker options for savings goals — focused on aspiration /
-// celebration emojis (vs the general emoji palette used for transactions).
-const GOAL_EMOJI_OPTIONS = [
-  '🎯', '🏖️', '✈️', '🏝️', '🏠', '🚗', '🏍️', '🛵', '💍', '🎓',
-  '💻', '📱', '🎮', '📚', '🏋️', '⚽', '🎵', '🎬', '🎂', '🎁',
-  '💰', '🏦', '📈', '🪙', '💵', '🛡️', '🚸', '👶', '🐕', '🪴',
-  '🔥', '⭐', '🏆', '🎉', '💎', '🛍️',
-];
-
-// ── Form state ─────────────────────────────────────────────────────────────
-
-interface GoalFormState {
-  name: string;
-  emoji: string;
-  targetAmount: string;
-  currentAmount: string;
-  sourceName: string; // '' = none
-  deadline: string; // '' = none, else yyyy-MM-dd
-}
-
-const EMPTY_FORM: GoalFormState = {
-  name: '',
-  emoji: '🎯',
-  targetAmount: '',
-  currentAmount: '',
-  sourceName: '',
-  deadline: '',
-};
+import {
+  type SavingsGoal,
+  type AdjustResponse,
+  type GoalFormState,
+  EMPTY_FORM,
+  deadlineInfo,
+} from './finance-savings-goals-helpers';
+import {
+  SavingsGoalFormDialog,
+  SavingsGoalAdjustDialog,
+  SavingsGoalDeleteDialog,
+} from './finance-savings-goals-dialogs';
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -335,31 +278,6 @@ export default function FinanceSavingsGoals() {
     setSubmitting(false);
   };
 
-  // ── Deadline countdown ────────────────────────────────────────────────
-  const deadlineInfo = (g: SavingsGoal): { label: string; urgent: boolean; past: boolean } | null => {
-    if (!g.deadline) return null;
-    const jp = jakartaNowParts();
-    // Build today's date at Jakarta midnight for a clean day-diff.
-    const todayMs = new Date(jp.year, jp.month - 1, jp.day).getTime();
-    // BUG-PHASE12: previously used `dl.getFullYear/getMonth/getDate` which
-    // reads the deadline in the BROWSER's local TZ. For a UTC browser, a
-    // deadline of "2026-09-15T00:00:00+07:00" (= 2026-09-14T17:00:00Z)
-    // would be read as Sep 14, making the countdown off by 1 day. Now we
-    // extract the Jakarta date key (yyyy-MM-dd) and parse that as a
-    // browser-local midnight — consistent with how `todayMs` is built from
-    // Jakarta parts.
-    const dlJakartaStr = jakartaDateKey(new Date(g.deadline));
-    const [y2, m2, d2] = dlJakartaStr.split('-').map(Number);
-    const dlMs = new Date(y2, m2 - 1, d2).getTime();
-    const daysLeft = Math.round((dlMs - todayMs) / 86_400_000);
-    if (daysLeft < 0) {
-      return { label: `Lewat ${Math.abs(daysLeft)}h`, urgent: false, past: true };
-    }
-    if (daysLeft === 0) return { label: 'Hari ini', urgent: true, past: false };
-    if (daysLeft <= 7) return { label: `${daysLeft}h lagi`, urgent: true, past: false };
-    return { label: `${daysLeft}h lagi`, urgent: false, past: false };
-  };
-
   // ── Render ────────────────────────────────────────────────────────────
   if (goalsLoading) {
     return (
@@ -567,237 +485,36 @@ export default function FinanceSavingsGoals() {
       )}
 
       {/* ─── ADD / EDIT DIALOG ─── */}
-      <Dialog open={formOpen} onOpenChange={(o) => { if (!submitting) setFormOpen(o); }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? 'Edit Tabungan' : 'Tambah Tabungan'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Name */}
-            <div>
-              <Label className="text-xs">Nama Tabungan</Label>
-              <Input
-                className="mt-1"
-                placeholder="Contoh: Liburan, Dana Darurat, Beli Laptop"
-                value={form.name}
-                maxLength={200}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-
-            {/* Emoji picker — grid of common aspiration emojis */}
-            <div>
-              <Label className="text-xs">Emoji</Label>
-              <div className="mt-1 grid grid-cols-8 sm:grid-cols-10 gap-1.5">
-                {GOAL_EMOJI_OPTIONS.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, emoji: e }))}
-                    className={cn(
-                      'h-8 w-8 rounded-lg text-lg flex items-center justify-center transition-colors',
-                      form.emoji === e
-                        ? 'bg-primary/15 ring-2 ring-primary'
-                        : 'bg-muted/40 hover:bg-muted'
-                    )}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Target amount */}
-            <div>
-              <Label className="text-xs">Target (Rp)</Label>
-              <Input
-                className="mt-1"
-                type="text"
-                inputMode="numeric"
-                placeholder="0"
-                value={form.targetAmount}
-                onChange={(e) => setForm((f) => ({ ...f, targetAmount: formatNominalInput(e.target.value) }))}
-              />
-            </div>
-
-            {/* Initial current amount (only meaningful on create, but editable on edit too) */}
-            <div>
-              <Label className="text-xs">
-                {editingId ? 'Saldo Saat Ini (Rp)' : 'Saldo Awal (Rp) — opsional'}
-              </Label>
-              <Input
-                className="mt-1"
-                type="text"
-                inputMode="numeric"
-                placeholder="0"
-                value={form.currentAmount}
-                onChange={(e) => setForm((f) => ({ ...f, currentAmount: formatNominalInput(e.target.value) }))}
-              />
-            </div>
-
-            {/* Source (optional) */}
-            <div>
-              <Label className="text-xs">Sumber Dana (opsional)</Label>
-              <Select
-                value={form.sourceName || '__none__'}
-                onValueChange={(v) => setForm((f) => ({ ...f, sourceName: v === '__none__' ? '' : v }))}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Pilih sumber dana" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— Tidak ada —</SelectItem>
-                  {sources.map((s) => (
-                    <SelectItem key={s.id} value={s.name}>
-                      {s.emoji} {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Hanya referensi. Saldo sumber dana tidak otomatis berkurang.
-              </p>
-            </div>
-
-            {/* Deadline (optional) */}
-            <div>
-              <Label className="text-xs">Tenggat (opsional)</Label>
-              <Input
-                className="mt-1"
-                type="date"
-                value={form.deadline}
-                onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="flex-1" onClick={() => setFormOpen(false)} disabled={submitting}>
-              Batal
-            </Button>
-            <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Menyimpan...' : editingId ? 'Perbarui' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SavingsGoalFormDialog
+        open={formOpen}
+        onOpenChange={(o) => { if (!submitting) setFormOpen(o); }}
+        editing={!!editingId}
+        form={form}
+        setForm={setForm}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        sources={sources}
+      />
 
       {/* ─── ADJUST (TAMBAH / TARIK) DIALOG ─── */}
-      <Dialog open={adjustOpen} onOpenChange={(o) => { if (!submitting) setAdjustOpen(o); }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {adjustDirection === 'add' ? 'Tambah Tabungan' : 'Tarik Tabungan'}
-            </DialogTitle>
-          </DialogHeader>
-          {adjustGoal && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/40">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg bg-background">
-                  {adjustGoal.emoji}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{adjustGoal.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Saldo: {formatRupiah(adjustGoal.currentAmount)} / {formatRupiah(adjustGoal.targetAmount)}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">
-                  {adjustDirection === 'add' ? 'Jumlah Tambah (Rp)' : 'Jumlah Tarik (Rp)'}
-                </Label>
-                <Input
-                  className="mt-1 text-base font-semibold"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0"
-                  autoFocus
-                  value={adjustAmount}
-                  onChange={(e) => setAdjustAmount(formatNominalInput(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAdjust();
-                  }}
-                />
-                {adjustDirection === 'add' && adjustGoal.targetAmount > adjustGoal.currentAmount && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Butuh {formatRupiah(adjustGoal.targetAmount - adjustGoal.currentAmount)} lagi untuk mencapai target.
-                  </p>
-                )}
-              </div>
-              {/* Quick-fill chips: common amounts + "sisanya" */}
-              <div className="flex flex-wrap gap-1.5">
-                {[50_000, 100_000, 500_000, 1_000_000].map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => setAdjustAmount(formatNominalInput(String(amt)))}
-                    className="px-2 py-1 rounded-md text-xs bg-muted/60 hover:bg-muted transition-colors"
-                  >
-                    {formatRupiah(amt)}
-                  </button>
-                ))}
-                {adjustDirection === 'add' && adjustGoal.targetAmount > adjustGoal.currentAmount && (
-                  <button
-                    type="button"
-                    onClick={() => setAdjustAmount(formatNominalInput(String(adjustGoal.targetAmount - adjustGoal.currentAmount)))}
-                    className="px-2 py-1 rounded-md text-xs bg-success/10 text-success hover:bg-success/20 transition-colors font-medium"
-                  >
-                    Sisanya
-                  </button>
-                )}
-                {adjustDirection === 'withdraw' && adjustGoal.currentAmount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setAdjustAmount(formatNominalInput(String(adjustGoal.currentAmount)))}
-                    className="px-2 py-1 rounded-md text-xs bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors font-medium"
-                  >
-                    Semua
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" className="flex-1" onClick={() => setAdjustOpen(false)} disabled={submitting}>
-              Batal
-            </Button>
-            <Button
-              className={cn('flex-1', adjustDirection === 'withdraw' && 'bg-destructive hover:bg-destructive text-white')}
-              onClick={handleAdjust}
-              disabled={submitting || !adjustAmount}
-            >
-              {submitting ? 'Memproses...' : adjustDirection === 'add' ? 'Tambah' : 'Tarik'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SavingsGoalAdjustDialog
+        open={adjustOpen}
+        onOpenChange={(o) => { if (!submitting) setAdjustOpen(o); }}
+        goal={adjustGoal}
+        adjustAmount={adjustAmount}
+        setAdjustAmount={setAdjustAmount}
+        adjustDirection={adjustDirection}
+        submitting={submitting}
+        onSubmit={handleAdjust}
+      />
 
       {/* ─── DELETE CONFIRMATION ─── */}
-      <Dialog open={!!deleteId} onOpenChange={(o) => { if (!submitting) setDeleteId(o ? deleteId : null); }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Hapus Tabungan?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Tabungan ini akan dihapus permanen dan tidak bisa dikembalikan.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" className="flex-1" onClick={() => setDeleteId(null)} disabled={submitting}>
-              Batal
-            </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
-              onClick={handleDelete}
-              disabled={submitting}
-            >
-              {submitting ? 'Menghapus...' : 'Hapus'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SavingsGoalDeleteDialog
+        open={!!deleteId}
+        onOpenChange={(o) => { if (!submitting) setDeleteId(o ? deleteId : null); }}
+        submitting={submitting}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
