@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
   format,
-  getDay,
   isToday,
   isSameMonth,
   addMonths,
@@ -107,14 +106,6 @@ function rotateWeekdays(weekStartsOn: 0 | 1 | 6): string[] {
   const idx = weekStartsOn === 6 ? 6 : weekStartsOn; // 0 or 1 or 6
   return [...WEEKDAYS_BASE.slice(idx), ...WEEKDAYS_BASE.slice(0, idx)];
 }
-
-const MOOD_EMOJIS: Record<number, string> = {
-  1: '😢',
-  2: '😟',
-  3: '😐',
-  4: '🙂',
-  5: '😊',
-};
 
 function getHeatmapColor(rate: number | null): string {
   if (rate === null) return 'bg-gray-100 dark:bg-gray-800/50';

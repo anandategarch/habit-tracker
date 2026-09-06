@@ -2,13 +2,9 @@
 
 import {
   type ReactNode,
-  type CSSProperties,
   useState,
   useEffect,
   useRef,
-  Children,
-  isValidElement,
-  cloneElement,
 } from 'react';
 // FIX-TIER2 / Fix 4: Converted all components in this file from framer-motion
 // to pure CSS keyframes / native browser APIs. The framer-motion core
@@ -17,8 +13,6 @@ import {
 // - PageTransition: plain `<div key={tabId}>` with `.css-tab-enter` CSS
 //   animation. Loses AnimatePresence's exit animation but the new tab
 //   fades in immediately on mount — feels snappy.
-// - StaggerGroup/StaggerItem: `.css-stagger-item` CSS animation with
-//   per-item `--stagger-index` for the 60ms cascade.
 // - ParallaxBackground: native `scroll` listener (passive) + rAF
 //   coalescing + CSS transform. Replaces `useScroll` + `useTransform`.
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
@@ -56,73 +50,6 @@ import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 export function PageTransition({ children, tabId }: { children: ReactNode; tabId: string }) {
   return (
     <div key={tabId} className="css-tab-enter">
-      {children}
-    </div>
-  );
-}
-
-/**
- * StaggerGroup + StaggerItem — fade-up stagger for child cards.
- *
- * Wrap a grid/list of cards with `<StaggerGroup>` and replace each card's
- * wrapper with `<StaggerItem>` (or wrap the card in `<StaggerItem>`).
- * StaggerGroup injects each child StaggerItem's index via React.cloneElement
- * so each StaggerItem can compute its own `animation-delay` via the
- * `--stagger-index` CSS custom property (60ms per item, 40ms initial delay).
- *
- * Equivalent to the original framer-motion `staggerChildren: 0.06` variant
- * but driven entirely by CSS — no JS animation runtime needed.
- *
- * Usage:
- *   <StaggerGroup className="grid grid-cols-2 gap-4">
- *     <StaggerItem><Card>...</Card></StaggerItem>
- *     <StaggerItem><Card>...</Card></StaggerItem>
- *   </StaggerGroup>
- *
- * Accessibility: under `prefers-reduced-motion`, the `.css-stagger-item`
- * animation is disabled (animation: none) — children appear instantly.
- */
-export function StaggerGroup({
-  children,
-  className = '',
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  // Inject index into each StaggerItem child via cloneElement.
-  let idx = 0;
-  const indexed = Children.map(children, (child) => {
-    if (isValidElement(child) && child.type === StaggerItem) {
-      const index = idx++;
-      // cloneElement preserves the child's own props (className, children)
-      // and merges in the __staggerIndex prop the StaggerItem reads below.
-      return cloneElement(child as React.ReactElement<StaggerItemProps>, {
-        __staggerIndex: index,
-      } as Partial<StaggerItemProps>);
-    }
-    return child;
-  });
-
-  return <div className={className}>{indexed}</div>;
-}
-
-type StaggerItemProps = {
-  children: ReactNode;
-  className?: string;
-  /** Injected by StaggerGroup via cloneElement — do not set manually. */
-  __staggerIndex?: number;
-};
-
-export function StaggerItem({
-  children,
-  className = '',
-  __staggerIndex = 0,
-}: StaggerItemProps) {
-  const style = {
-    '--stagger-index': __staggerIndex,
-  } as CSSProperties;
-  return (
-    <div className={`css-stagger-item ${className}`} style={style}>
       {children}
     </div>
   );

@@ -1,58 +1,24 @@
 // Barrel index for the dashboard service modules.
 // Re-exports the service functions + types so the route can import them
 // all from one path: `@/lib/dashboard`.
+//
+// NOTE: This barrel is consumed by exactly one file —
+// `src/app/api/dashboard/route.ts`. Only the symbols imported by that route
+// are re-exported here; everything else (helpers like `safe`/`calcLevel`/
+// `toMinutesFromISO`, the type-only re-exports for rows/charts, etc.) was
+// removed as dead re-exports (DEADCODE-FIX-1). The underlying symbols
+// remain in their source modules.
 
-export type {
-  Period,
-  DifficultyOptionRow,
-  ActiveGoalRow,
-  RecentDailyLogRow,
-  MonthTransactionRow,
-  BudgetRow,
-  HabitLogRow,
-  TimeHabitLogRow,
-  LatestHabitLogRow,
-  WeeklyChartPoint,
-  MonthlyChartPoint,
-  StackedBarPoint,
-  WeeklyPatternPoint,
-  CategoryPerformancePoint,
-  TodayFocusItem,
-  HabitDetailStat,
-  BestWorstHabit,
-  FinanceOverview,
-  TimeHabitWeekTime,
-  TimeHabitSummary,
-  LastDoneSummaryItem,
-  CompletionStatsResult,
-  DashboardBaseData,
-  DashboardLogData,
-  DashboardResponse,
-} from './types';
+export type { Period } from './types';
 
-export {
-  safe,
-  calcLevel,
-  calcNextLevelXP,
-  getPeriodDays,
-  toMinutesFromISO,
-  minutesToHHmm,
-  intervalToDays,
-  buildHabitCreatedDates,
-  habitsActiveOnDate,
-  theoreticalMaxInRange,
-  buildDailyCompletionMap,
-} from './helpers';
+export { getPeriodDays, buildHabitCreatedDates, buildDailyCompletionMap } from './helpers';
 
 export {
   fetchDashboardBaseData,
   fetchDashboardLogData,
 } from './queries';
 
-export {
-  computeCompletionStats,
-  type CompletionStatsContext,
-} from './completion-stats';
+export { computeCompletionStats } from './completion-stats';
 
 export {
   buildWeeklyChart,

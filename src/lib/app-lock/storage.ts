@@ -185,18 +185,6 @@ export function setLockoutState(state: LockoutState): void {
   writeString(KEYS.LOCKOUT, JSON.stringify(state));
 }
 
-export function isLockedOut(): boolean {
-  const { nextAllowedAt } = getLockoutState();
-  if (nextAllowedAt === null) return false;
-  return Date.now() < nextAllowedAt;
-}
-
-export function getLockoutRemainingMs(): number {
-  const { nextAllowedAt } = getLockoutState();
-  if (nextAllowedAt === null) return 0;
-  return Math.max(0, nextAllowedAt - Date.now());
-}
-
 export function setLastUnlockedAt(timestamp: number = Date.now()): void {
   writeString(KEYS.LAST_UNLOCK, String(timestamp));
 }
@@ -207,5 +195,3 @@ export function getLastUnlockedAt(): number {
   const parsed = parseInt(raw, 10);
   return Number.isFinite(parsed) ? parsed : 0;
 }
-
-export const APP_LOCK_STORAGE_KEYS = KEYS;

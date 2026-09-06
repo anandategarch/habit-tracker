@@ -6,9 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Pencil, Trash2, Clock, History, Pause, Play, Archive, ArchiveRestore } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Clock, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getBadgeClass, getDotClass, getLabelColor } from '@/lib/label-colors';
+import { getBadgeClass, getLabelColor } from '@/lib/label-colors';
 import { STATUS_STYLES, type Habit } from './habit-master-types';
 import type { HabitOption } from '@/hooks/use-habit-options';
 

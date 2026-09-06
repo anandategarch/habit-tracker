@@ -27,11 +27,6 @@ export function buildMonthOptions(): { value: string; label: string }[] {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const label = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-    // For current month, cap end date at today
-    const start = new Date(d.getFullYear(), d.getMonth(), 1);
-    const end = i === 0
-      ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      : new Date(d.getFullYear(), d.getMonth() + 1, 0);
     opts.push({ value: key, label });
   }
   return opts;

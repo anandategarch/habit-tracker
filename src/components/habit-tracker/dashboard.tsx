@@ -37,7 +37,6 @@ import {
   Quote,
   RefreshCw,
   Calendar,
-  BookOpen as BookOpenIcon,
 } from 'lucide-react';
 import { type Period, PERIOD_OPTIONS, type MotivationalQuote, type DashboardData } from './dashboard-types';
 import { DEFAULT_DATA } from './dashboard-default-data';

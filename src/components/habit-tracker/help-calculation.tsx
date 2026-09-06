@@ -5,7 +5,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
 import { SECTION_MAP, type HelpSectionId } from './help-calculation-content';
 
 // ── HelpInfoButton — inline contextual help per section ─────────────────

@@ -35,7 +35,6 @@ export function CategoryInsightRow({
 }) {
   const delta = stats.deltaVsAvgDaily;
   const isBelow = delta < 0;
-  const isAbove = delta > 0;
   const isAtAvg = delta === 0;
 
   const deltaColorClass = isAtAvg ? 'text-muted-foreground'

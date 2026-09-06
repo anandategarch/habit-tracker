@@ -70,19 +70,6 @@ export const createHabitLogSchema = z.object({
 });
 export type CreateHabitLogInput = z.infer<typeof createHabitLogSchema>;
 
-export const batchHabitLogsSchema = z.object({
-  logs: z.array(
-    z.object({
-      habitId: cuid,
-      date: z.coerce.date(),
-      completed: z.boolean(),
-      value: z.number().int().min(0).max(1000).optional(),
-      completedAt: z.string().max(50).nullish(),
-    })
-  ).min(1, 'At least one log is required').max(500, 'Too many logs in one batch'),
-});
-export type BatchHabitLogsInput = z.infer<typeof batchHabitLogsSchema>;
-
 // ── Finance Transaction ─────────────────────────────────────────────────
 
 // PHASE4-POLISH: tags. The schema accepts an array of strings (each tag

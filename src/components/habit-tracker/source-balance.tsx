@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Wallet, ArrowUpRight, ArrowDownRight, Pencil, ArrowLeftRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Pencil, ArrowLeftRight } from 'lucide-react';
 import { formatRupiah, formatNominalInput, parseNominalInput, type FundSource, type Transaction } from './finance-types';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';

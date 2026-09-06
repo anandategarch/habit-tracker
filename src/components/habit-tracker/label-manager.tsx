@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Plus, Pencil, Trash2, Check, X, Tags } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { LABEL_COLORS, type LabelColorSet } from '@/lib/label-colors';
+import { LABEL_COLORS } from '@/lib/label-colors';
 import { useHabitOptions, type HabitOption } from '@/hooks/use-habit-options';
 
 type OptionType = 'category' | 'priority' | 'difficulty';

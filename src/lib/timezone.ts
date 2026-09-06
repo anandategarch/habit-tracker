@@ -11,11 +11,6 @@
 
 export const JAKARTA_TZ = 'Asia/Jakarta';
 
-/** Returns the current Date (real epoch). */
-export function nowUtc(): Date {
-  return new Date();
-}
-
 /**
  * Returns the current date string in Jakarta timezone (UTC+7).
  * e.g. "2025-01-15"
@@ -106,28 +101,6 @@ export function jakartaDateKey(date: Date): string {
     month: '2-digit',
     day: '2-digit',
   }).format(date);
-}
-
-/**
- * Returns a Date whose UTC components match Jakarta's wall-clock components.
- *
- * NOTE: This produces a "shifted epoch" (not a real current-time Date) and
- * should ONLY be used when you need to extract components via `format()` from
- * date-fns (which reads local components). On a UTC server (e.g. Vercel) the
- * result of `format(jakartaShiftedNow(), 'yyyy-MM-dd')` equals today's
- * Jakarta date. Prefer `jakartaDateString()` or `jakartaDateKey(date)` for
- * new code.
- */
-export function jakartaShiftedNow(): Date {
-  return new Date(Date.now() + 7 * 60 * 60 * 1000);
-}
-
-/**
- * Returns a Date whose UTC components match the Jakarta wall-clock
- * components of the input date. Same caveat as `jakartaShiftedNow`.
- */
-export function jakartaShifted(date: Date): Date {
-  return new Date(date.getTime() + 7 * 60 * 60 * 1000);
 }
 
 /**

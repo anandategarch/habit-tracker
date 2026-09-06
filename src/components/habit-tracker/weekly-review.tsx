@@ -1,8 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Sparkles, TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Calendar } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Brain, Sparkles, TrendingUp, Lightbulb, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';

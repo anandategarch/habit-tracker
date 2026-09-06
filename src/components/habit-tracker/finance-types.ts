@@ -35,11 +35,6 @@ export function parseTags(raw: string | null | undefined): string[] {
   }
 }
 
-/** Serialize a string[] of tags into the JSON array string for storage. */
-export function serializeTags(tags: string[]): string {
-  return JSON.stringify(tags.filter((t) => typeof t === 'string' && t.trim().length > 0));
-}
-
 export interface BudgetItem {
   id: string;
   category: string;
@@ -132,10 +127,6 @@ export const FALLBACK_INCOME = [
   { value: 'Penyesuaian Saldo', emoji: '🔧', color: '#64748b' },
 ];
 
-export const EMOJI_OPTIONS = [
-  '🍽️','🚗','🛍️','🎮','🏥','📚','📋','🏦','📦','🐱','🐶','🏠','✈️','👕','💊','☕','🍰','🍕','🛒','💰','💳','📱','💻','🔧','👶','🎵','🎬','⚽','🏋️','🎓','⛽','🚕','🛵','📡','💡','🎁','❤️','⭐','🔥','✅','⚙️','📌','🏷️','🥤','🌮','🍱','🧃','🧹','📖','✏️','🪴','🛡️',
-];
-
 export const FALLBACK_SOURCES = [
   { value: 'Kas', emoji: '💵' },
   { value: 'Bank BCA', emoji: '🏦' },
@@ -150,8 +141,6 @@ export const FALLBACK_SOURCES = [
   { value: 'ShopeePay', emoji: '🧡' },
   { value: 'E-Money Lainnya', emoji: '💳' },
 ];
-
-export const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899', '#8b5cf6', '#a855f7', '#14b8a6', '#22c55e', '#78716c'];
 
 // ── Utilities ───────────────────────────────────────────────────────────
 

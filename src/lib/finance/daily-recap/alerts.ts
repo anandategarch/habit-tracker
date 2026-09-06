@@ -24,7 +24,6 @@ export async function buildAlerts(ctx: DailyRecapContext): Promise<Alert[]> {
     todayExpense,
     daily7d,
     txByDate,
-    todayTx,
     todayTransactions,
     todayParts,
     todayTxCount,

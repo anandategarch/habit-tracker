@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { CalculatorButton, CalculatorDialog } from './calculator';
 import { TimePicker } from './time-picker';
-import { formatNominalInput, formatRupiah, parseNominalInput, type Transaction } from './finance-types';
+import { formatNominalInput, formatRupiah, type Transaction } from './finance-types';
 import type {
   TxFormState,
   SplitRow,
@@ -276,7 +276,3 @@ export function FinanceTxDialog({
     </>
   );
 }
-
-// Re-export so consumers don't need to import parseNominalInput separately
-// if they happen to need it (used by the parent for tx filter clearing).
-export { parseNominalInput };

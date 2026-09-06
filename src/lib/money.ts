@@ -36,18 +36,6 @@ export function toMoneyInt(input: unknown): number {
 }
 
 /**
- * Validate that an amount is a positive integer of whole rupiah.
- * Returns a validated integer or throws.
- */
-export function assertPositiveMoney(input: unknown): number {
-  const n = toMoneyInt(input);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new Error('Amount must be a positive whole number');
-  }
-  return n;
-}
-
-/**
  * Returns the signed delta to apply to a balance for a given transaction.
  * Income: +amount, Expense: -amount.
  *

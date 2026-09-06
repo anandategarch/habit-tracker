@@ -25,9 +25,6 @@ export const articleCache = new Map<string, ArticleData>();
 // Track article titles we've already shown today (per topic)
 export const shownTodayTitles = new Map<string, Set<string>>();
 
-// Global refresh counter per topic for unique cache keys
-export const refreshCounter = new Map<string, number>();
-
 export function getTodayKey(): string {
   return jakartaDateString();
 }
@@ -44,13 +41,6 @@ export function getShownTitles(topic: string): Set<string> {
   const todayKey = getTodayKey();
   const mapKey = `${todayKey}|${topic}`;
   return shownTodayTitles.get(mapKey) || new Set<string>();
-}
-
-export function getNextRefreshId(topic: string): number {
-  const current = refreshCounter.get(topic) || 0;
-  const next = current + 1;
-  refreshCounter.set(topic, next);
-  return next;
 }
 
 // ── Cache cleanup: purge entries from previous days to prevent memory leak ──

@@ -51,10 +51,6 @@ function asBufferSource(bytes: Uint8Array): BufferSource {
   return bytes as unknown as BufferSource;
 }
 
-export function isPinCryptoAvailable(): boolean {
-  return SUBTLE_AVAILABLE;
-}
-
 // Generate a 16-byte random salt and return it base64-encoded.
 export function generateSalt(): string {
   if (typeof crypto === 'undefined' || !crypto.getRandomValues) return '';

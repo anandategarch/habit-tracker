@@ -54,8 +54,6 @@ export interface ProjectionBasis {
 export async function buildProjectionBasis(ctx: DailyRecapContext): Promise<ProjectionBasis> {
   const {
     monthKey,
-    yy,
-    mm,
     daysInMonth,
     daysElapsed,
     allRecentTx,

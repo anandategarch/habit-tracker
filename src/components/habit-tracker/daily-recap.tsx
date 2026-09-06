@@ -13,7 +13,7 @@ import { HelpInfoButton } from './help-calculation';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
-  TrendingUp, TrendingDown, AlertTriangle, Zap, Target, Flame,
+  TrendingUp, TrendingDown, AlertTriangle, Target, Flame,
   Trophy, Sparkles, Clock, ArrowUpRight, ArrowDownRight,
   Activity, Brain, Award, RefreshCw, AlertCircle,
   Pencil,

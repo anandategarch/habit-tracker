@@ -5,16 +5,12 @@
  * fallback. All loaders use `role="status"` + `aria-label` for screen
  * readers. Pick a loader by aesthetic + context:
  *
- * - `SproutGrow`         — signature SVG path drawing (full-screen splash)
- * - `AuroraRing`         — circular progress ring (inline content loaders)
- * - `BreathingSeed`      — calm breathing pulse (overlay / dialog backdrop)
- * - `LiquidGlassSpinner` — iOS 26 glass spinner (inline buttons, headers)
- * - `FallingLeaves`      — particle overlay (full-screen delight)
- * - `MorphingSprout`     — shape morph (short-lived inline contexts)
- * - `DotWave`            — minimal 3-dot wave (universal fallback)
+ * - `SproutGrow`    — signature SVG path drawing (full-screen splash)
+ * - `AuroraRing`    — circular progress ring (inline content loaders)
+ * - `BreathingSeed` — calm breathing pulse (overlay / dialog backdrop)
  *
  * Usage:
- *   import { SproutGrow, DotWave } from '@/components/ui/loaders';
+ *   import { SproutGrow } from '@/components/ui/loaders';
  */
 
 export { SproutGrow } from './sprout-grow';
@@ -25,15 +21,3 @@ export type { AuroraRingProps } from './aurora-ring';
 
 export { BreathingSeed } from './breathing-seed';
 export type { BreathingSeedProps } from './breathing-seed';
-
-export { LiquidGlassSpinner } from './liquid-glass-spinner';
-export type { LiquidGlassSpinnerProps } from './liquid-glass-spinner';
-
-export { FallingLeaves } from './falling-leaves';
-export type { FallingLeavesProps } from './falling-leaves';
-
-export { MorphingSprout } from './morphing-sprout';
-export type { MorphingSproutProps } from './morphing-sprout';
-
-export { DotWave } from './dot-wave';
-export type { DotWaveProps } from './dot-wave';

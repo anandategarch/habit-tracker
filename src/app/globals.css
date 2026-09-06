@@ -190,11 +190,6 @@
   background: oklch(0.65 0 0);
 }
 
-/* Progress ring animation */
-@keyframes progress-ring {
-  from { stroke-dashoffset: 251; }
-}
-
 /* Skeleton shimmer — premium gradient sweep (light + dark mode aware).
    Uses CSS variables (--muted, --primary) so it adapts to theme.
    will-change: background-position hints the browser to optimize the
@@ -484,10 +479,8 @@
 .cat-emerald    { background-color: oklch(0.522 0.154 142 / 0.12); }
 .cat-orange     { background-color: oklch(0.65  0.18  35  / 0.12); }
 .cat-teal       { background-color: oklch(0.52  0.12  180 / 0.12); }
-.cat-sky        { background-color: oklch(0.6   0.15  230 / 0.12); }
 .cat-rose       { background-color: oklch(0.6   0.2   350 / 0.12); }
 .cat-fuchsia    { background-color: oklch(0.62  0.2   300 / 0.12); }
-.cat-violet     { background-color: oklch(0.58  0.18  280 / 0.12); }
 .cat-red        { background-color: oklch(0.6   0.2   25  / 0.12); }
 .cat-slate      { background-color: oklch(0.6   0.01  250 / 0.12); }
 
@@ -1272,12 +1265,7 @@
 /* ── Pull-to-Refresh Sprout ──
    The sprout icon grows + rotates as the user pulls down. When ready
    (pull ≥ 80px), it gets a subtle "snap" wobble. While refreshing, it
-   switches to a continuous spin (handled via Loader2's animate-spin, but
-   we keep the keyframes here for completeness / custom use). */
-@keyframes anim-sprout-grow {
-  0%   { transform: scale(0.3) translateY(10px); opacity: 0; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
-}
+   switches to a continuous spin (handled via Loader2's animate-spin). */
 .anim-sprout {
   /* Smooth spring-y transition when the pull distance changes — matches
      the content's snap-back easing for a unified feel. */
@@ -1310,14 +1298,6 @@
 .backface-hidden {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-}
-
-/* Subtle scale-in for the back face as it rotates into view. Applied
-   opportunistically — the FlipCard component controls the rotation; this
-   keyframe is available for custom entrance effects. */
-@keyframes anim-card-flip-in {
-  0%   { transform: rotateY(180deg) scale(0.92); opacity: 0; }
-  100% { transform: rotateY(180deg) scale(1); opacity: 1; }
 }
 
 /* ── Reduced motion: disable ANIM-3 effects ──
@@ -1354,20 +1334,6 @@
 }
 .css-tab-enter {
   animation: css-tab-enter 0.1s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
-}
-
-/* ── Stagger fade-up for dashboard KPI cards ──
-   Uses --stagger-index custom property (set inline by StaggerItem via
-   style={{ '--stagger-index': i }}) to cascade 60ms per item.
-   Equivalent to framer-motion's staggerChildren variant. */
-@keyframes css-stagger-fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.css-stagger-item {
-  animation: css-stagger-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--stagger-index, 0) * 60ms + 40ms);
   will-change: transform, opacity;
 }
 
@@ -1565,7 +1531,6 @@
 /* ── Reduced motion: disable all FIX-TIER2 CSS animations ── */
 @media (prefers-reduced-motion: reduce) {
   .css-tab-enter,
-  .css-stagger-item,
   .css-dot-wave-dot,
   .css-breathing-core,
   .css-breathing-ripple,

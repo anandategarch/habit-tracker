@@ -34,7 +34,6 @@ import { cn } from '@/lib/utils';
 import { celebrate } from '@/lib/confetti';
 import {
   formatRupiah,
-  formatNominalInput,
   parseNominalInput,
   type FundSource,
 } from './finance-types';

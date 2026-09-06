@@ -579,5 +579,3 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
     invalidateFinance,
   };
 }
-
-export type UseFinanceMutationsReturn = ReturnType<typeof useFinanceMutations>;

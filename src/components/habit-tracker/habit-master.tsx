@@ -25,21 +25,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,11 +45,6 @@ import {
   Ban,
   Gauge,
 } from 'lucide-react';
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
 import { TimePicker } from './time-picker';
@@ -76,10 +56,9 @@ import { jakartaDateString } from '@/lib/jakarta-date';
 // ── Types & Constants (imported from habit-master-types) ──────────────────
 import {
   type Habit, type HabitGroup, type HabitFormData,
-  TARGET_TYPES, STATUSES, DEFAULT_EMOJIS, GROUP_EMOJIS, GROUP_COLORS,
-  STATUS_STYLES, emptyForm, habitToForm,
+  TARGET_TYPES, STATUSES, DEFAULT_EMOJIS,
+  emptyForm, habitToForm,
 } from './habit-master-types';
-import type { HabitOption } from '@/hooks/use-habit-options';
 // Sub-components
 import { QuickAddBar } from './habit-quick-add';
 import { FiltersBar } from './habit-filters';
