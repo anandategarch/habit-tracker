@@ -30,6 +30,12 @@ export interface DashboardData {
   nextLevelXP: number;
   currentLevelXP: number;
   levelProgress: number;
+  // These three fields were missing from the first extraction — the inline
+  // version (which is what was rendering) had them and the KPI grid + badges
+  // card referenced them. Added back during PHASE-A-2 dedup.
+  unlockedBadges: number;
+  totalBadges: number;
+  challengeProgress: number;
   goalProgress: number;
   moodAverage: string;
   sleepAverage: string;
@@ -79,3 +85,11 @@ export interface DashboardData {
     overdue: boolean;
   }[];
 }
+
+// Convenience aliases for the per-row shapes inside DashboardData — used by
+// the dashboard section sub-components (dashboard-time-tracked-habits.tsx,
+// dashboard-last-done.tsx, dashboard-finance-overview.tsx) extracted in
+// PHASE-A-2.
+export type TimeTrackedSummary = DashboardData['timeTrackedSummary'][number];
+export type LastDoneSummary = DashboardData['lastDoneSummary'][number];
+export type FinanceOverview = DashboardData['financeOverview'];

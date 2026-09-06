@@ -89,9 +89,13 @@ export function MoodEmoji({ mood }: { mood: string }) {
     1: '😢', 2: '😔', 3: '😐', 4: '🙂', 5: '😊',
   };
   const emoji = emojiMap[rounded] || '😐';
+  // Literal Tailwind colors (matches the inline version that was rendering
+  // before PHASE-A-2 dedup). The earlier extraction used semantic tokens
+  // (text-destructive/text-warning/text-success) which drift visually
+  // from the inline version — unified here.
   const colorMap: Record<number, string> = {
-    1: 'text-destructive', 2: 'text-orange-500', 3: 'text-warning',
-    4: 'text-success', 5: 'text-success',
+    1: 'text-red-500', 2: 'text-orange-500', 3: 'text-yellow-500',
+    4: 'text-emerald-500', 5: 'text-emerald-500',
   };
   return (
     <span className={cn('text-2xl', colorMap[rounded] || 'text-muted-foreground')}>
@@ -163,7 +167,7 @@ export function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; o
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={onRefresh}
-              aria-label="Refresh kutipan"
+              aria-label="Refresh quote"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
