@@ -39,11 +39,12 @@ interface PullToRefreshProps {
   children: ReactNode;
   onRefresh: () => Promise<void> | void;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const PULL_THRESHOLD = 80; // px — sprout fully grown at this distance
 
-export function PullToRefresh({ children, onRefresh, className }: PullToRefreshProps) {
+export function PullToRefresh({ children, onRefresh, className, style }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -144,7 +145,8 @@ export function PullToRefresh({ children, onRefresh, className }: PullToRefreshP
   return (
     <div
       ref={containerRef}
-      className={cn('relative overflow-auto', className)}
+      className={cn('relative overflow-y-auto overscroll-y-contain', className)}
+      style={{ WebkitOverflowScrolling: 'touch', ...style }}
       onTouchStart={active ? handleTouchStart : undefined}
       onTouchMove={active ? handleTouchMove : undefined}
       onTouchEnd={active ? handleTouchEnd : undefined}

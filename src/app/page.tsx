@@ -311,6 +311,11 @@ export default function Home() {
               Uses pb-28 (112px) to accommodate the morph-bump nav which
               is taller than the previous flat nav (active tab bumps up).
 
+              overflow-y-auto + overscroll-y-contain for smooth touch scroll
+              on mobile (prevents scroll chaining to body / stuck scroll
+              after DnD sensors or CSS animations intercept touch events).
+              WebkitOverflowScrolling: 'touch' enables iOS momentum scrolling.
+
               ANIM-3 / Feature 5: PullToRefresh wraps the content area.
               On touch devices, the user can pull down at the top of the
               scroll area to trigger a full data refresh (a 🌱 sprout
@@ -318,7 +323,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 p-4 md:p-6 overflow-auto pb-28 md:pb-6"
+            className="flex-1 p-4 md:p-6 overscroll-y-contain pb-28 md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
