@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# pre-push git hook — safety protection against accidental force-push to main/master.
+#
+# This file is the SOURCE copy kept under version control at scripts/pre-push.
+# The install script (scripts/install-safety.sh) copies it to .git/hooks/pre-push.
+#
+# What it does:
+#   - Reads stdin lines: "<local-ref> <local-sha> <remote-ref> <remote-sha>"
+#   - For ANY push to refs/heads/main or refs/heads/master:
+#       * Auto-creates a backup tag 'pre-push-<timestamp>' at the remote sha
+#         (i.e. the current origin/main tip) so you can always roll back.
+#   - If that push is a FORCE-push (remote-sha is NOT an ancestor of local-sha,
+#     i.e. `git merge-base --is-ancestor <remote-sha> <local-sha>` returns false):
+#       * Prints a BIG warning banner
+#       * Requires env var FORCE_PUSH_MAIN_CONFIRMED=yes to proceed
+#       * Exits 1 (blocks the push) otherwise
+#
+# To override the block (you really, really mean it):
+#   FORCE_PUSH_MAIN_CONFIRMED=yes git push --force origin main
+#
+# Normal (non-force) pushes to main are NOT blocked — only force-pushes.
+# Pushes to other branches are never blocked.
+
+set -euo pipefail
+
+zero_sha="0000000000000000000000000000000000000000"
+
+# Read each line: <local-ref> <local-sha> <remote-ref> <remote-sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+    # Skip deletions (local_sha == zero) — those are handled elsewhere
+    [[ "$local_sha" == "$zero_sha" ]] && continue
+
+    # Only protect main / master
+    if [[ "$remote_ref" == "refs/heads/main" ]] || [[ "$remote_ref" == "refs/heads/master" ]]; then
+
+        # Always create a backup tag at the current remote tip (origin/main sha)
+        # so we can roll back even a regular push later if needed.
+        if [[ "$remote_sha" != "$zero_sha" ]]; then
+            tag_name="pre-push-$(date +%Y%m%d-%H%M%S)"
+            # Ensure unique tag name in case multiple pushes fire in the same second
+            while git rev-parse --verify "refs/tags/$tag_name" >/dev/null 2>&1; do
+                tag_name="pre-push-$(date +%Y%m%d-%H%M%S)-$RANDOM"
+            done
+            if git tag "$tag_name" "$remote_sha" 2>/dev/null; then
+                echo "Safety: created backup tag '$tag_name' at $remote_sha (current $remote_ref)" >&2
+            fi
+        fi
+
+        # Detect force-push: remote_sha is NOT an ancestor of local_sha
+        if [[ "$remote_sha" != "$zero_sha" ]]; then
+            if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+                # Force-push detected
+                echo "" >&2
+                echo "************************************************************************" >&2
+                echo "*                                                                      *" >&2
+                echo "*   ⚠️  FORCE PUSH TO $remote_ref DETECTED  ⚠️   *" >&2
+                echo "*                                                                      *" >&2
+                echo "*   Force-pushing to main/master REWRITES shared history.              *" >&2
+                echo "*   Other developers may lose commits. This is EXTREMELY dangerous.    *" >&2
+                echo "*                                                                      *" >&2
+                echo "*   A backup tag was just created so you can roll back if needed.      *" >&2
+                echo "*                                                                      *" >&2
+                echo "*   To proceed anyway, re-run with:                                    *" >&2
+                echo "*     FORCE_PUSH_MAIN_CONFIRMED=yes git push ...                       *" >&2
+                echo "*                                                                      *" >&2
+                echo "************************************************************************" >&2
+                echo "" >&2
+                if [[ "${FORCE_PUSH_MAIN_CONFIRMED:-}" != "yes" ]]; then
+                    echo "❌ Push BLOCKED. Set FORCE_PUSH_MAIN_CONFIRMED=yes to override." >&2
+                    exit 1
+                else
+                    echo "⚠️  Override accepted (FORCE_PUSH_MAIN_CONFIRMED=yes). Proceeding with force-push." >&2
+                    echo "    Backup tag '$tag_name' is available for rollback if needed." >&2
+                fi
+            fi
+        fi
+    fi
+done
+
+exit 0
