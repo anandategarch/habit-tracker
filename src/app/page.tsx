@@ -207,7 +207,15 @@ export default function Home() {
           </div>
         </div>
       )}
-      <div className="min-h-dvh flex bg-background">
+      {/* BUGFIX SCROLL-2: h-dvh + overflow-hidden bounds the layout to the
+          viewport so the inner PullToRefresh (content area) becomes a REAL
+          scroll container. Previously min-h-dvh (no max height) let the
+          wrapper grow to fit content, making overflow-y-auto inert and
+          forcing the document (html) to scroll — which on mobile Chrome/
+          iOS Safari intermittently fails to respond to touch after DnD
+          sensors or CSS animations intercept touch events. With the layout
+          bounded, PullToRefresh owns the scroll, document doesn't scroll. */}
+      <div className="h-dvh flex bg-background overflow-hidden">
         {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
             gradient that drifts opposite to scroll direction. Fixed-positioned,
             behind all content (-z-10), pointer-events-none. Renders as a static
@@ -326,7 +334,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 p-4 md:p-6 overscroll-y-contain pb-28 md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-28 md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
