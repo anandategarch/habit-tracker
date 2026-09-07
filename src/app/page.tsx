@@ -102,13 +102,21 @@ export default function Home() {
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
 
-  // Splash screen on initial app load — shows SproutGrow loader for 1.5s
+  // Splash screen on initial app load — shows SproutGrow loader for 2.6s
   // while dynamic imports + React Query fetch data. Makes first load feel
   // premium + branded (sprout theme) instead of blank white flash.
+  // FEAT-SPLASH-REVEAL: Exit animation (fade + scale + slide up) instead of
+  // hard cut. Uses splashExiting state to delay unmount until animation completes.
   const [showSplash, setShowSplash] = useState(true);
+  const [splashExiting, setSplashExiting] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2600);
-    return () => clearTimeout(timer);
+    const exitTimer = setTimeout(() => {
+      setSplashExiting(true);
+      // Unmount after exit animation completes (600ms)
+      const unmountTimer = setTimeout(() => setShowSplash(false), 600);
+      return () => clearTimeout(unmountTimer);
+    }, 2600);
+    return () => clearTimeout(exitTimer);
   }, []);
 
   // ANIM-3 / Feature 5: Pull-to-refresh handler. Called by PullToRefresh
@@ -205,10 +213,19 @@ export default function Home() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      {/* Splash screen — SproutGrow loader on initial app load (1.5s).
-          Premium branded loading experience instead of blank white flash. */}
+      {/* Splash screen — SproutGrow loader on initial app load (2.6s).
+          Premium branded loading experience instead of blank white flash.
+          FEAT-SPLASH-REVEAL: Splash has exit animation (fade + scale + slide up)
+          instead of hard cut. Content underneath has entrance animation
+          (fade + slide up) for smooth transition. Inspired by motion-splash repo. */}
       {showSplash && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-6">
+        <div
+          className={cn(
+            'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-6',
+            splashExiting ? 'anim-splash-exit' : 'anim-splash-enter'
+          )}
+          key="splash"
+        >
           <SproutGrow size={140} />
           <div className="text-center">
             <p className="text-lg font-semibold text-primary tracking-tight">Rutina</p>
@@ -224,7 +241,7 @@ export default function Home() {
           iOS Safari intermittently fails to respond to touch after DnD
           sensors or CSS animations intercept touch events. With the layout
           bounded, PullToRefresh owns the scroll, document doesn't scroll. */}
-      <div className="h-dvh flex bg-background overflow-hidden">
+      <div className={cn('h-dvh flex bg-background overflow-hidden', !showSplash && 'anim-content-reveal')}>
         {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
             gradient that drifts opposite to scroll direction. Fixed-positioned,
             behind all content (-z-10), pointer-events-none. Renders as a static

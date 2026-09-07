@@ -1487,6 +1487,44 @@
   animation: css-sprout-pulse 2.4s ease-in-out infinite;
 }
 
+/* ── FEAT-SPLASH-REVEAL: Splash enter + exit + content reveal animations ─
+   Inspired by motion-splash repo. Smooth transition dari splash → app
+   instead of hard cut.
+   - anim-splash-enter: splash fades in on mount (opacity 0 → 1)
+   - anim-splash-exit: splash fades out + scales up + slides up (reveal)
+   - anim-content-reveal: content fades in + slides up (entrance)
+   Total transition: 600ms (synced dengan splashExiting delay di page.tsx) */
+@keyframes anim-splash-enter {
+  0%   { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes anim-splash-exit {
+  0%   { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(1.05) translateY(-20px); }
+}
+@keyframes anim-content-reveal {
+  0%   { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.anim-splash-enter {
+  animation: anim-splash-enter 0.4s ease-out forwards;
+}
+.anim-splash-exit {
+  animation: anim-splash-exit 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.anim-content-reveal {
+  animation: anim-content-reveal 0.5s ease-out 0.1s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-splash-enter,
+  .anim-splash-exit,
+  .anim-content-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* ── AuroraRing — circular progress ring + rotation ──
    Combines stroke-dashoffset (pathLength equivalent) + CSS rotation.
    The SVG `pathLength="1"` attribute normalizes the path length so
