@@ -108,6 +108,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           // FIN-BUG-2 fix: post-increment check on reverted old source.
           // Edge case: reverting a previous income on a source whose balance
           // has since been spent down to near-zero can drive it negative.
+          if (revertedSource.balance < 0) {
+            throw new Error('NEGATIVE_BALANCE_REVERT');
+          }
         }
 
         // Apply new effect on the NEW source (if it exists as a FundSource row).
@@ -125,6 +128,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           // FIN-BUG-2 fix: post-increment check on new source. Catches the
           // race where the new amount exceeds the source's current balance
           // (e.g. user edits an expense to increase its amount).
+          if (updatedNewSource.balance < 0) {
+            throw new Error('NEGATIVE_BALANCE_NEW');
+          }
         }
       }
 
@@ -165,6 +171,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (error instanceof Error && error.message === 'SOURCE_NOT_FOUND') {
       return NextResponse.json(
         { error: 'Sumber dana tidak ditemukan. Muat ulang halaman dan coba lagi.' },
+        { status: 400 }
+      );
+    }
+    if (error instanceof Error && error.message.startsWith('NEGATIVE_BALANCE')) {
+      return NextResponse.json(
+        { error: 'Saldo sumber dana tidak mencukupi untuk perubahan ini' },
         { status: 400 }
       );
     }

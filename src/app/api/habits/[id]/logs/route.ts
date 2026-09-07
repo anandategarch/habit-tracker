@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { jakartaNowIso, dateFromYMD } from '@/lib/timezone';
+import { jakartaNowIso, dateFromYMD, jakartaDateKey } from '@/lib/timezone';
 import { createHabitLogSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -75,8 +75,11 @@ export async function POST(
     if (!parsed.success) return parsed.response;
     const { date, completed, value, completedAt } = parsed.data;
 
-    // Normalize date to a YYYY-MM-DD string at UTC midnight for the DB unique key.
-    const ymd = date.toISOString().slice(0, 10);
+    // Normalize date to a YYYY-MM-DD string in Jakarta timezone for the DB
+    // unique key. BUG-FIX-API-HIGH: previously used date.toISOString().slice(0,10)
+    // which returns the UTC YMD — for a Jakarta-midnight date (UTC 17:00 the
+    // previous day), this stored the log under the WRONG day.
+    const ymd = jakartaDateKey(date);
     const dateObj = dateFromYMD(ymd);
 
     // Build the completedAt value (stored as ISO string with +07:00 offset).

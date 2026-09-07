@@ -484,7 +484,8 @@ export default function DailyTracker() {
   // callback identity stays stable across toggles — this is what lets
   // React.memo on HabitCard actually skip re-renders for untouched cards.
   const toggleHabit = useCallback(
-    async (habitId: string, completedAt: string | null) => {
+    async (habit: Habit, completedAt: string | null) => {
+      const habitId = habit.id;
       const next = !(completionMapRef.current[habitId] ?? false);
 
       setCompletionMap((p) => ({ ...p, [habitId]: next }));
@@ -554,30 +555,59 @@ export default function DailyTracker() {
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         if (next) {
-          toast.success('Habit selesai! 🎉');
-
-          // ── Confetti — ONLY after successful API response ──
-          // BUG-1 fix: the month cache was already mutated above (lines 619-636
-          // in the original) to include today's completion, so computeStreak
-          // already counts today. The previous `newStreak = currentStreak + 1`
-          // double-counted today, firing milestone confetti (7/30/100/365) one
-          // day early. Now `newStreak = currentStreak`.
-          // BUG-18 fix: when no cache exists, return 0 (not _count.logs which
-          // was the total log count — completely unrelated to a streak).
-          const currentStreak = cache ? computeStreak(cache[habitId] || [], selectedDate) : 0;
-          const newStreak = currentStreak;
-          const el = confettiElRef.current;
-
-          if ([7, 30, 100, 365].includes(newStreak)) {
-            // Big milestone — dispatch to the correct tier-based
-            // full-screen celebration (🌱 → ⚡🔥 → 💯🔥 → 🏆⭐🔥).
-            milestoneForStreak(newStreak);
+          // BUG-FIX-COMP-HIGH #1: For "avoid" habits (habitType === 'avoid'),
+          // checking the box records a RELAPSE — not a success. Do NOT fire
+          // the success toast, confetti burst, or milestone celebration here.
+          // Show a gentle relapse message instead. Only normal/amount habits
+          // get the success path below (toast.success + confetti + milestone).
+          //
+          // Captured as a local const before the branch so TS doesn't narrow
+          // `habit.habitType` to `"normal" | "amount"` inside the else-arm
+          // (which would make `habit.habitType === 'avoid'` an "unintentional
+          // comparison" error TS2367).
+          const isAvoid = habit.habitType === 'avoid';
+          if (isAvoid) {
+            toast.error('Kambuh tercatat. Jangan menyerah! 💪');
+            confettiElRef.current = null;
           } else {
-            // Regular completion — burst from the clicked element
-            burstFromElement(el, { count: 20 });
+            toast.success('Habit selesai! 🎉');
+
+            // ── Confetti — ONLY after successful API response ──
+            // BUG-1 fix: the month cache was already mutated above (lines 619-636
+            // in the original) to include today's completion, so computeStreak
+            // already counts today. The previous `newStreak = currentStreak + 1`
+            // double-counted today, firing milestone confetti (7/30/100/365) one
+            // day early. Now `newStreak = currentStreak`.
+            // BUG-18 fix: when no cache exists, return 0 (not _count.logs which
+            // was the total log count — completely unrelated to a streak).
+            // BUG-FIX-COMP-HIGH #2: pass the options object to computeStreak so
+            // the streak is computed correctly for any habit type. For
+            // normal/amount habits (the only ones reaching this branch — avoid
+            // habits were short-circuited above) `invert` is false; the call
+            // signature is still passed explicitly for safety and forward-
+            // compatibility (so a future refactor that re-enables the success
+            // path for avoid habits doesn't silently regress).
+            const currentStreak = cache
+              ? computeStreak(cache[habitId] || [], selectedDate, {
+                  invert: isAvoid,
+                  startDate: habit.startDate,
+                  onVacation: !!habit.vacationMode,
+                })
+              : 0;
+            const newStreak = currentStreak;
+            const el = confettiElRef.current;
+
+            if ([7, 30, 100, 365].includes(newStreak)) {
+              // Big milestone — dispatch to the correct tier-based
+              // full-screen celebration (🌱 → ⚡🔥 → 💯🔥 → 🏆⭐🔥).
+              milestoneForStreak(newStreak);
+            } else {
+              // Regular completion — burst from the clicked element
+              burstFromElement(el, { count: 20 });
+            }
+            // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
+            confettiElRef.current = null;
           }
-          // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
-          confettiElRef.current = null;
         }
       } catch (e) {
         setCompletionMap((p) => ({ ...p, [habitId]: !next }));
@@ -598,7 +628,7 @@ export default function DailyTracker() {
     (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
       const next = !(completionMapRef.current[habit.id] ?? false);
       if (!next) {
-        toggleHabit(habit.id, null);
+        toggleHabit(habit, null);
         return;
       }
       // Store the triggering element for confetti positioning (used in toggleHabit
@@ -627,7 +657,7 @@ export default function DailyTracker() {
           `${String(now.hours).padStart(2, '0')}:${String(now.minutes).padStart(2, '0')}`,
         );
       } else {
-        toggleHabit(habit.id, null);
+        toggleHabit(habit, null);
       }
     },
     [toggleHabit, selectedDate],
@@ -652,7 +682,7 @@ export default function DailyTracker() {
           // a different ISO on non-Jakarta browsers.
           completedAtISO = `${manualDate}T${manualTime}:00+07:00`;
         }
-        await toggleHabit(timeDialogHabit.id, completedAtISO);
+        await toggleHabit(timeDialogHabit, completedAtISO);
         setTimeDialogHabit(null);
       } catch {
         toast.error('Gagal menyimpan waktu');
@@ -1011,6 +1041,7 @@ export default function DailyTracker() {
                 <p className="text-sm font-medium">Sekarang</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date().toLocaleTimeString('id-ID', {
+                    timeZone: 'Asia/Jakarta',
                     hour: '2-digit',
                     minute: '2-digit',
                   })}

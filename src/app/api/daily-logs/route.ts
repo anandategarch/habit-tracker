@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { createDailyLogSchema, parseOr400 } from '@/lib/validation';
-import { jakartaNowParts } from '@/lib/timezone';
+import { jakartaNowParts, jakartaDateKey, dateFromYMD } from '@/lib/timezone';
 
 // GET /api/daily-logs?month=2024-01
 // GET /api/daily-logs?date=2024-01-15
@@ -86,13 +86,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Build a UTC-midnight Date keyed to the YYYY-MM-DD of the (already-coerced)
-    // Date object. Previously this used `new Date(`${date}T00:00:00Z`)`, but
-    // `date` is a `Date` (z.coerce.date()), so `${date}` stringifies via
-    // `Date.prototype.toString()` → e.g.
-    //   "Wed Jan 15 2025 00:00:00 GMT+0000 (Coordinated Universal Time)T00:00:00Z"
-    // which is unparseable and yields Invalid Date — the entire endpoint was
-    // broken. Extract the YMD from the UTC components and rebuild.
-    const dateObj = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    // Date object — in JAKARTA timezone. BUG-FIX-API-HIGH: previously used
+    // Date.UTC(date.getUTCFullYear(), ...) which returns the UTC YMD — for a
+    // Jakarta-midnight date (UTC 17:00 the previous day), this stored the log
+    // under the WRONG day. Use jakartaDateKey to get the Jakarta wall-clock
+    // YMD, then dateFromYMD to build the UTC-midnight Date the DB expects.
+    const dateObj = dateFromYMD(jakartaDateKey(date));
 
     const log = await db.dailyLog.upsert({
       where: { date: dateObj },

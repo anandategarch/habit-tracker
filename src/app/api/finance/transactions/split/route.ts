@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       // so a split that would drive the source negative is rejected.
       // (FundSource.balance is in whole rupiah, never float.)
       if (fundSource.balance < totalAmount) {
+        throw new Error('INSUFFICIENT_BALANCE');
       }
 
       // Decrement the source balance ONCE by the total amount.
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
       // race: if the result is negative, throw to roll back the entire
       // transaction (balance update + all created rows are undone).
       if (updatedSource.balance < 0) {
+        throw new Error('INSUFFICIENT_BALANCE_POST');
       }
 
       // Create all split transactions in a single query (createMany) instead
@@ -156,6 +158,12 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === 'SOURCE_NOT_FOUND') {
       return NextResponse.json(
         { error: 'Sumber dana tidak ditemukan. Muat ulang halaman dan coba lagi.' },
+        { status: 400 }
+      );
+    }
+    if (error instanceof Error && error.message.startsWith('INSUFFICIENT_BALANCE')) {
+      return NextResponse.json(
+        { error: 'Saldo tidak mencukupi untuk split ini' },
         { status: 400 }
       );
     }

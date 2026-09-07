@@ -23,17 +23,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const parsed = parseOr400(adjustSavingsGoalSchema, { delta: body.delta });
       if (!parsed.success) return parsed.response;
       const { delta } = parsed.data;
-      const next = Math.max(0, existing.currentAmount + delta);
-      const wasCompleted = existing.isCompleted;
-      const isCompleted = next >= existing.targetAmount;
-      const updated = await db.savingsGoal.update({
-        where: { id },
-        data: { currentAmount: next, isCompleted },
+      // BUG-FIX-API-HIGH: wrap the read-modify-write in db.$transaction so
+      // concurrent PUTs serialize against each other (no lost-update race).
+      const result = await db.$transaction(async (tx) => {
+        const existing = await tx.savingsGoal.findUnique({ where: { id } });
+        if (!existing) return null;
+        const next = Math.max(0, existing.currentAmount + delta);
+        const wasCompleted = existing.isCompleted;
+        const isCompleted = next >= existing.targetAmount;
+        const updated = await tx.savingsGoal.update({
+          where: { id },
+          data: { currentAmount: next, isCompleted },
+        });
+        return { updated, wasCompleted, isCompleted, previousAmount: existing.currentAmount };
       });
+      if (!result) {
+        return NextResponse.json({ error: 'Savings goal not found' }, { status: 404 });
+      }
       return NextResponse.json({
-        ...updated,
-        justCompleted: !wasCompleted && isCompleted,
-        previousAmount: existing.currentAmount,
+        ...result.updated,
+        justCompleted: !result.wasCompleted && result.isCompleted,
+        previousAmount: result.previousAmount,
       });
     }
 

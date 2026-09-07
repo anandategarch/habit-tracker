@@ -384,8 +384,19 @@ export default function Home() {
             // Soft shadow underneath + inner glow (upper edge highlight)
             'shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15),0_4px_12px_-2px_rgba(0,0,0,0.05),inset_0_1px_1px_0_rgba(255,255,255,0.3)]',
             // Layout
+            // BUG-NAV-POS: `relative` MUST NOT be added here — it competes
+            // with the `fixed` utility above (same specificity, but Tailwind
+            // emits `.relative` AFTER `.fixed` in its generated CSS, so
+            // `.relative` wins and the nav silently becomes position:relative
+            // instead of position:fixed). When that happens the nav drops out
+            // of fixed positioning, becomes a flex item in normal flow with a
+            // `left: 50%` offset, and ends up at the TOP of the screen instead
+            // of the bottom. `position: fixed` already establishes a
+            // containing block for the absolute-positioned descendants below
+            // (the upper-edge glass reflection + the floating active button),
+            // so no explicit `relative` is needed.
             'flex items-stretch justify-around',
-            'h-[70px] px-4 relative'
+            'h-[70px] px-4'
           )}
         >
           {/* Upper edge glass reflection — subtle white gradient highlight */}

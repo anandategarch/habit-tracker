@@ -84,15 +84,29 @@ export function PullToRefresh({ children, onRefresh, className, style }: PullToR
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!active || refreshingRef.current) return;
-    // BUGFIX SCROLL-1: The document (html) is the actual scroller on mobile —
-    // PullToRefresh's own scrollTop is always 0 because its height grew to fit
-    // content (its overflow-y-auto is inert when the parent chain uses min-h-dvh
-    // without a bounded height). Using el.scrollTop > 0 meant the "only-at-top"
+    // BUGFIX SCROLL-1 (original): The document (html) is the actual scroller on
+    // mobile — PullToRefresh's own scrollTop is always 0 because its height
+    // grew to fit content. Using el.scrollTop > 0 meant the "only-at-top"
     // guard NEVER triggered, so every downward swipe set startYRef, and every
     // touchmove frame then called setPullDistance() — re-rendering the entire
     // active tab subtree at 60fps + fighting document scroll with translateY.
-    // Fix: use window.scrollY to detect "at top" so the guard actually works.
-    if (typeof window !== 'undefined' && window.scrollY > 0) {
+    // Fix (SCROLL-1): use window.scrollY to detect "at top" so the guard
+    // actually works.
+    //
+    // BUG-FIX-COMP-HIGH #3: After BUGFIX SCROLL-2 bounded the layout
+    // (h-dvh overflow-hidden on the root, PullToRefresh's own div becomes
+    // the scroller with overflow-y-auto), `window.scrollY` is now ALWAYS 0
+    // (the document never scrolls). The SCROLL-1 guard therefore never
+    // triggers again → every downward swipe activates pull-to-refresh even
+    // when the user is scrolled deep inside the list. Check the actual scroll
+    // container (`containerRef.current.scrollTop`) first, with the
+    // window.scrollY check kept as a fallback for any caller that still
+    // uses the legacy unbounded layout.
+    const el = containerRef.current;
+    if (
+      (el?.scrollTop ?? 0) > 0 ||
+      (typeof window !== 'undefined' && window.scrollY > 0)
+    ) {
       startYRef.current = null;
       return;
     }
