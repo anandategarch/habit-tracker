@@ -34,14 +34,17 @@ export interface SproutGrowProps {
 export function SproutGrow({ size = 140, className }: SproutGrowProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
 
+  // BUGFIX POST-2 #4: Hapus willChange: 'opacity' — wrapper tidak animate
+  // opacity, hanya children do (css-sprout-glow, css-sprout-leaf-*, dll).
+  // Wasted compositor layer.
   const wrapperStyle: React.CSSProperties = {
     width: size,
     height: size,
-    willChange: 'opacity',
   };
 
   if (prefersReducedMotion) {
-    // Static fallback: fully-drawn sprout with subtle opacity pulse.
+    // BUGFIX POST-2 #5: Static fallback — fully-drawn sprout, no animation.
+    // (Pulse disabled under reduced-motion per globals.css reduced-motion block.)
     return (
       <div
         role="status"

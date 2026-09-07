@@ -76,11 +76,13 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
   }, [transactions, selectedMonth]);
 
   // Max daily spending — used as the denominator for color-intensity scaling.
-  // Floor at 1 to avoid divide-by-zero in months with no expenses.
-  const maxSpending = Math.max(
-    ...Object.values(dailySpending).map(d => d.total),
-    1,
-  );
+  // BUGFIX POST-3 #7: Use separate hasExpenses boolean instead of maxSpending===1
+  // sentinel. Sebelumnya, if a real day had exactly Rp 1 expense, header shows
+  // "Rp 0 max" while cell shows full intensity (ratio 1/1 = 1.0).
+  const hasExpenses = Object.keys(dailySpending).length > 0;
+  const maxSpending = hasExpenses
+    ? Math.max(...Object.values(dailySpending).map(d => d.total))
+    : 0;
 
   // Build the calendar grid for `selectedMonth`.
   const [year, month] = selectedMonth.split('-').map(Number);
@@ -107,7 +109,7 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
   // primary) so the heatmap reads as "intensity of the same thing" rather
   // than "different categories".
   const getColor = (spending: number) => {
-    if (spending === 0) return 'bg-muted/50';
+    if (spending === 0 || maxSpending === 0) return 'bg-muted/50';
     const ratio = spending / maxSpending;
     if (ratio < 0.2) return 'bg-primary/20';
     if (ratio < 0.4) return 'bg-primary/40';
@@ -130,7 +132,7 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold">Heatmap Pengeluaran</h3>
         <span className="text-xs text-muted-foreground tabular-nums">
-          {formatRupiah(maxSpending === 1 ? 0 : maxSpending)} max
+          {hasExpenses ? `${formatRupiah(maxSpending)} max` : 'Belum ada data'}
         </span>
       </div>
 
@@ -203,17 +205,20 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex items-center justify-end gap-1 mt-2">
-        <span className="text-[10px] text-muted-foreground">Sedikit</span>
-        <div className="w-3 h-3 rounded bg-muted/50" />
-        <div className="w-3 h-3 rounded bg-primary/20" />
-        <div className="w-3 h-3 rounded bg-primary/40" />
-        <div className="w-3 h-3 rounded bg-primary/60" />
-        <div className="w-3 h-3 rounded bg-primary/80" />
-        <div className="w-3 h-3 rounded bg-primary" />
-        <span className="text-[10px] text-muted-foreground">Banyak</span>
-      </div>
+      {/* Legend — BUGFIX POST-3 #11: Hide saat 0 expenses (tidak ada range
+          untuk ditampilkan) */}
+      {hasExpenses && (
+        <div className="flex items-center justify-end gap-1 mt-2">
+          <span className="text-[10px] text-muted-foreground">Sedikit</span>
+          <div className="w-3 h-3 rounded bg-muted/50" />
+          <div className="w-3 h-3 rounded bg-primary/20" />
+          <div className="w-3 h-3 rounded bg-primary/40" />
+          <div className="w-3 h-3 rounded bg-primary/60" />
+          <div className="w-3 h-3 rounded bg-primary/80" />
+          <div className="w-3 h-3 rounded bg-primary" />
+          <span className="text-[10px] text-muted-foreground">Banyak</span>
+        </div>
+      )}
     </div>
   );
 }

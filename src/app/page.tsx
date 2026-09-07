@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore, type TabId } from '@/store/app-store';
 import { cn } from '@/lib/utils';
@@ -418,7 +418,7 @@ export default function Home() {
 //   supaya notch tetap perfect circle di semua screen size
 // - Active button absolutely positioned di notch center, left animated
 // - clip-path tidak bisa di-transition, jadi notch snap instantly saat
-//   tab ganti. Button glide smooth via CSS transition: left 0.3s
+//   tab ganti. Button glide smooth via CSS transition: left 0.15s
 
 const NAV_HEIGHT = 76; // was 70 — sedikit lebih besar untuk proporsi lebih baik
 const CORNER_R = 22; // top corners — proporsional dengan nav height 76
@@ -436,8 +436,11 @@ function NotchedBottomNav({
   const navRef = useRef<HTMLDivElement>(null);
   const [navWidth, setNavWidth] = useState(388); // default, updated on mount
 
-  // Measure actual nav width for responsive path computation
-  useEffect(() => {
+  // Measure actual nav width for responsive path computation.
+  // BUGFIX POST-1 #6: use useLayoutEffect (bukan useEffect) supaya measurement
+  // terjadi synchronously sebelum paint → no 1-frame SVG scale mismatch on
+  // narrow viewports.
+  useLayoutEffect(() => {
     if (!navRef.current) return;
     const update = () => setNavWidth(navRef.current?.offsetWidth ?? 388);
     update();

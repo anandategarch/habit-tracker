@@ -76,7 +76,17 @@ export default function FinanceOverview({
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const hoverMq = window.matchMedia('(hover: hover) and (pointer: fine)');
     const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setTiltEnabled(hoverMq.matches && !reduceMq.matches);
+    // BUGFIX POST-3 #5: Reset tilt+shine+hover saat tiltEnabled flips to false
+    // (e.g. user toggles prefers-reduced-motion while hovering)
+    const update = () => {
+      const enabled = hoverMq.matches && !reduceMq.matches;
+      setTiltEnabled(enabled);
+      if (!enabled) {
+        setTilt({ x: 0, y: 0 });
+        setShine({ x: 50, y: 50 });
+        setIsHovering(false);
+      }
+    };
     update();
     hoverMq.addEventListener('change', update);
     reduceMq.addEventListener('change', update);
@@ -86,6 +96,15 @@ export default function FinanceOverview({
     };
   }, []);
 
+  // BUGFIX POST-1 #7: Use useRef + direct style mutation instead of setState
+  // for tilt+shine on every mousemove. Sebelumnya, setTilt+setShine caused
+  // FinanceOverview subtree (NetWorthWidget, DailyRecap, SourceBalance, CountUpRupiah,
+  // SpendingHeatmap) to re-render on every mousemove frame → laggy on desktop.
+  // Now: mousemove directly mutates the card's transform + shine overlay background
+  // via refs → zero React re-renders.
+  const tiltTransformRef = useRef<HTMLDivElement>(null);
+  const shineOverlayRef = useRef<HTMLDivElement>(null);
+
   const handleHeroMouseMove = (e: React.MouseEvent) => {
     if (!tiltEnabled) return;
     const rect = heroCardRef.current?.getBoundingClientRect();
@@ -94,8 +113,15 @@ export default function FinanceOverview({
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
     // Max ~8deg tilt: (0.5 - y) * 16 → ±8deg at edges
-    setTilt({ x: (0.5 - y) * 16, y: (x - 0.5) * 16 });
-    setShine({ x: x * 100, y: y * 100 });
+    const tiltX = (0.5 - y) * 16;
+    const tiltY = (x - 0.5) * 16;
+    // Direct style mutation (no setState → no re-render)
+    if (tiltTransformRef.current) {
+      tiltTransformRef.current.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    }
+    if (shineOverlayRef.current) {
+      shineOverlayRef.current.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.15) 0%, transparent 50%)`;
+    }
   };
 
   const handleHeroMouseEnter = () => {
@@ -129,43 +155,38 @@ export default function FinanceOverview({
         onMouseMove={handleHeroMouseMove}
         onMouseEnter={handleHeroMouseEnter}
         onMouseLeave={handleHeroMouseLeave}
-        style={{
-          animationDelay: '0ms',
-          transform: tiltEnabled
-            ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`
-            : undefined,
-          transition: 'transform 0.2s ease-out',
-          transformStyle: 'preserve-3d',
-        }}
         className={cn(
           'overflow-hidden anim-stagger relative',
           isHovering && tiltEnabled && 'shadow-[0_20px_50px_-10px_rgba(20,184,166,0.4)]'
         )}
       >
-        {/* ── 3D Shine overlay (desktop hover only) ──
-            Subtle radial gloss that follows the cursor. Lives above the
-            gradient section but below interactive tooltips (pointer-events
-            disabled). Rendered only when tilt is enabled to keep the DOM
-            lean on touch devices. */}
-        {tiltEnabled && (
-          <div
-            aria-hidden="true"
-            className={cn(
-              'absolute inset-0 pointer-events-none z-20 transition-opacity duration-200',
-              isHovering ? 'opacity-100' : 'opacity-0'
-            )}
-            style={{
-              background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,0.15) 0%, transparent 50%)`,
-            }}
-          />
-        )}
-        {/* Top section: big balance number — ACTUAL total from fund sources.
-            Animated gradient shift for premium feel. */}
-        <div className="anim-gradient-shift px-4 py-4 sm:px-6 sm:py-5" style={{ backgroundImage: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(280 70% 60% / 0.06), hsl(var(--primary) / 0.08), hsl(200 70% 60% / 0.05))' }}>
-          <p className="text-xs text-muted-foreground font-medium">Total Saldo</p>
-          <p className={cn(
-            'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
-            dashboardData.balance >= 0 ? 'text-primary' : 'text-destructive'
+        {/* BUGFIX POST-1 #7: Inner div holds the transform via ref (direct
+            style mutation) instead of state on Card. Zero re-renders on mousemove. */}
+        <div
+          ref={tiltTransformRef}
+          style={{
+            transform: tiltEnabled ? 'perspective(1000px) rotateX(0deg) rotateY(0deg)' : undefined,
+            transition: 'transform 0.2s ease-out',
+            transformStyle: 'preserve-3d',
+          }}
+        >
+          {/* ── 3D Shine overlay (desktop hover only) ── */}
+          {tiltEnabled && (
+            <div
+              ref={shineOverlayRef}
+              aria-hidden="true"
+              className={cn(
+                'absolute inset-0 pointer-events-none z-20 transition-opacity duration-200',
+                isHovering ? 'opacity-100' : 'opacity-0'
+              )}
+            />
+          )}
+          {/* Top section: big balance number */}
+          <div className="anim-gradient-shift px-4 py-4 sm:px-6 sm:py-5" style={{ backgroundImage: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(280 70% 60% / 0.06), hsl(var(--primary) / 0.08), hsl(200 70% 60% / 0.05))' }}>
+            <p className="text-xs text-muted-foreground font-medium">Total Saldo</p>
+            <p className={cn(
+              'text-2xl sm:text-3xl font-bold tracking-tight mt-0.5',
+              dashboardData.balance >= 0 ? 'text-primary' : 'text-destructive'
           )}>
             <CountUpRupiah amount={dashboardData.balance} bounce={dashboardData.balance >= 0} />
           </p>
@@ -232,6 +253,7 @@ export default function FinanceOverview({
             <span className="text-xs font-semibold">{formatRupiah(dashboardData.projectedMonthlyExpense)}/bln</span>
           </div>
         </div>
+        </div>{/* BUGFIX POST-1 #7: close inner tiltTransformRef div */}
       </Card>
 
       {/* ── SPENDING HEATMAP (shadcn-fintech inspired) ──────────────────── */}

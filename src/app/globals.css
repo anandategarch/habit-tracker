@@ -1402,8 +1402,12 @@
   12%  { opacity: 0; transform: scale(0); }
   25%  { opacity: 1; transform: scale(1.1); }
   30%  { opacity: 1; transform: scale(1); }
-  90%  { opacity: 1; transform: scale(1); }
-  100% { opacity: 1; transform: scale(1); }
+  /* BUGFIX POST-2 #6: Add fade-out 90-100% supaya loop boundary tidak
+     snap (visible blink reset every 4s). Sebelumnya 90%→100% opacity 1→1
+     lalu 100%→0% opacity 1→0 snap. */
+  85%  { opacity: 1; transform: scale(1); }
+  95%  { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(0); }
 }
 @keyframes css-sprout-draw-vein {
   0%   { stroke-dashoffset: 1; }
@@ -1436,17 +1440,24 @@
 .css-sprout-stem {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
+  /* BUGFIX POST-2 #7: will-change untuk stroke-dashoffset animation */
+  will-change: stroke-dashoffset;
   animation: css-sprout-draw-stem 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
-/* Leaves — bloom sequential (left first, then right with 0.2s delay) */
+/* Leaves — bloom sequential (left first, then right with 0.2s delay)
+   BUGFIX POST-1 #8: Hapus transform-box: fill-box — dengan fill-box,
+   transform-origin lengths di-resolve relative ke element's bounding box,
+   bukan user-space. 50px 48px places origin OUTSIDE the leaf → bloom
+   looks like slide-in, bukan centered pop. Default (view-box) uses
+   user-space coords where 50px 48px is correct. */
 .css-sprout-leaf-l {
   transform-origin: 50px 48px;
-  transform-box: fill-box;
+  will-change: opacity, transform;
   animation: css-sprout-leaf-bloom 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 .css-sprout-leaf-r {
   transform-origin: 50px 36px;
-  transform-box: fill-box;
+  will-change: opacity, transform;
   animation: css-sprout-leaf-bloom 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
   animation-delay: 0.2s;
 }
@@ -1454,18 +1465,20 @@
 .css-sprout-vein-l {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
+  will-change: stroke-dashoffset;
   animation: css-sprout-draw-vein 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 .css-sprout-vein-r {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
+  will-change: stroke-dashoffset;
   animation: css-sprout-draw-vein 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
   animation-delay: 0.2s;
 }
 /* Bud — pops last with bounce */
 .css-sprout-bud {
   transform-origin: 50px 14px;
-  transform-box: fill-box;
+  will-change: opacity, transform;
   animation: css-sprout-bud-pop 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 /* Sway group — wraps stem + leaves + bud */
@@ -1474,10 +1487,13 @@
   animation: css-sprout-sway 4s ease-in-out infinite;
 }
 .css-sprout-glow {
+  will-change: opacity;
   animation: css-sprout-glow 2s ease-in-out infinite;
 }
+/* BUGFIX POST-2 #4: Hapus will-change: opacity dari .css-sprout-svg —
+   SVG root tidak animate opacity, hanya children do. Wasted compositor layer. */
 .css-sprout-svg {
-  will-change: opacity;
+  /* no will-change needed — children handle their own */
 }
 @keyframes css-sprout-pulse {
   0%, 100% { opacity: 0.55; }
@@ -1513,6 +1529,8 @@
   animation: anim-splash-exit 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 .anim-content-reveal {
+  /* BUGFIX POST-2 #9: Add will-change untuk smoother first frame */
+  will-change: transform, opacity;
   animation: anim-content-reveal 0.5s ease-out 0.1s both;
 }
 @media (prefers-reduced-motion: reduce) {
