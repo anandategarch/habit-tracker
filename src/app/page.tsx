@@ -98,7 +98,7 @@ export default function Home() {
   // premium + branded (sprout theme) instead of blank white flash.
   const [showSplash, setShowSplash] = useState(true);
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1500);
+    const timer = setTimeout(() => setShowSplash(false), 2600);
     return () => clearTimeout(timer);
   }, []);
 
