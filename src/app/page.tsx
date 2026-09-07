@@ -334,7 +334,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-28 md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-32 md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -349,94 +349,67 @@ export default function Home() {
           </PullToRefresh>
         </main>
 
-        {/* ── Mobile bottom navigation (Morph Bump style) ────────────────────
-            Fixed at the bottom on mobile only (md:hidden).
-            Design: Material You morph-bump — active tab's icon lifts up
-            inside a gradient circle that emerges from the nav bar, giving
-            a 3D depth effect. Inactive tabs stay flat with muted icons.
-            Respects iOS safe-area inset for the home indicator. */}
+        {/* ── Mobile bottom navigation (Glassmorphism Floating Pill) ────────
+            Design: Floating pill-shaped nav with heavy backdrop blur,
+            white translucent background, subtle white border. Content
+            scrolls behind the nav and is visible through the frosted glass.
+            Active tab: filled icon (strokeWidth 2.5) + primary color + bold text.
+            Inactive: outlined icon (strokeWidth 1.5) + muted gray.
+            Labels always visible. Respects iOS safe-area inset. */}
         <nav
           aria-label="Primary mobile navigation"
           className={cn(
-            'fixed bottom-0 left-0 right-0 z-30 md:hidden',
-            'bg-background/95 backdrop-blur-md border-t border-border',
-            'pb-[env(safe-area-inset-bottom)]'
+            'fixed left-1/2 -translate-x-1/2 z-30 md:hidden',
+            'w-[92%] max-w-[400px]',
+            // Position: floating above bottom edge + safe area
+            'bottom-[calc(16px+env(safe-area-inset-bottom))]',
+            // Glassmorphism: translucent white + heavy blur + saturation
+            'bg-white/25 dark:bg-white/10',
+            'backdrop-blur-xl backdrop-saturate-150',
+            // Pill shape + border + shadow
+            'rounded-full border border-white/40 dark:border-white/15',
+            'shadow-[0_8px_32px_-4px_rgba(31,38,135,0.2),0_4px_12px_-2px_rgba(0,0,0,0.08)]',
+            // Layout
+            'flex items-stretch justify-around',
+            'h-[64px] px-2'
           )}
         >
-          <div className="flex items-stretch justify-around h-[68px] relative">
-            {BOTTOM_NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavClick(item.id)}
-                  aria-label={item.label}
-                  aria-current={isActive ? 'page' : undefined}
+          {BOTTOM_NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
+                  'transition-colors duration-200',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:rounded-full',
+                  'motion-reduce:transition-none',
+                  isActive ? 'text-primary' : 'text-muted-foreground/80 hover:text-foreground'
+                )}
+              >
+                <Icon
                   className={cn(
-                    'flex-1 flex flex-col items-center justify-end pb-2 relative',
-                    'transition-all duration-200 active:scale-90',
-                    'min-h-[68px]'
+                    'h-5 w-5 shrink-0 transition-all duration-200 motion-reduce:transition-none',
+                    isActive ? 'text-primary' : 'text-muted-foreground/80'
+                  )}
+                  strokeWidth={isActive ? 2.5 : 1.5}
+                  style={isActive ? { fill: 'currentColor', fillOpacity: 0.15 } : undefined}
+                />
+                <span
+                  className={cn(
+                    'text-[11px] leading-none transition-colors duration-200 motion-reduce:transition-none',
+                    isActive ? 'font-semibold text-primary' : 'font-medium text-muted-foreground/80'
                   )}
                 >
-                  {/* Morph bump circle — gradient background that emerges
-                      when active. Always rendered for smooth morph animation.
-                      Uses scale + translateY for the bump-up effect.
-                      CSS-AUDIT-1: `bg-primary` provides a SOLID-COLOR FALLBACK
-                      for browsers that don't support the `linear-gradient(... in oklab, ...)`
-                      interpolation syntax (Chrome < 111). Without it, the gradient
-                      is invalid → bump circle is invisible → user sees flat nav.
-                      background-color sits BELOW background-image, so on modern
-                      browsers the gradient covers the solid color (no visual
-                      change), but on old browsers the solid color shows through. */}
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'absolute top-2 left-1/2 -translate-x-1/2',
-                      'w-12 h-12 rounded-full',
-                      'bg-primary bg-gradient-to-br from-primary to-primary/85',
-                      'shadow-lg shadow-primary/30',
-                      'transition-all duration-300 ease-out',
-                      'anim-nav-bump',
-                      isActive
-                        ? 'opacity-100 scale-100 -translate-y-3'
-                        : 'opacity-0 scale-50 translate-y-0'
-                    )}
-                  />
-                  {/* Top accent dot — small highlight on active circle */}
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'absolute top-2 left-1/2 -translate-x-1/2',
-                      'w-1.5 h-1.5 rounded-full bg-primary-foreground/40',
-                      'transition-all duration-300 ease-out',
-                      isActive ? 'opacity-100 -translate-y-1' : 'opacity-0'
-                    )}
-                  />
-                  {/* Icon — lifts up with the bump when active, stays flat otherwise */}
-                  <Icon
-                    className={cn(
-                      'shrink-0 relative z-10 transition-all duration-300 ease-out',
-                      isActive
-                        ? 'h-5 w-5 -translate-y-3.5 text-primary-foreground'
-                        : 'h-5 w-5 translate-y-0 text-muted-foreground'
-                    )}
-                  />
-                  {/* Label — always visible; active label uses primary color */}
-                  <span
-                    className={cn(
-                      'text-[10px] font-medium leading-none mt-1.5 transition-all duration-300',
-                      isActive
-                        ? 'text-primary'
-                        : 'text-muted-foreground/70'
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
         </nav>
       </div>
     </TooltipProvider>
