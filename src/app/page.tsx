@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore, type TabId } from '@/store/app-store';
 import { cn } from '@/lib/utils';
@@ -349,128 +349,253 @@ export default function Home() {
           </PullToRefresh>
         </main>
 
-        {/* ── Mobile bottom navigation (Premium Glassmorphism) ─────────────
-            Design: Apple-inspired premium glass nav with floating active button.
-            - Glass surface: translucent white + heavy blur + saturation
-            - Organic rounded shape (rounded-[32px], NOT pill)
-            - Active: floating circular glass button rises above nav edge
-              with teal tint + teal glow + white icon
-            - Inactive: minimalist line icons, muted slate gray
-            - Labels: always visible, active = teal semibold, inactive = slate
+        {/* ── Mobile bottom navigation (Notched Glassmorphism) ──────────────
+            Design: Glass nav bar dengan CIRCULAR NOTCH di border yang pindah
+            mengikuti tab aktif. Active button duduk DI DALAM notch (poking
+            through the hole). Border melengkung mulus mengelilingi notch.
 
-            Glassmorphism details:
-            - Semi-transparent white glass surface
-            - Backdrop blur + saturation (frosted)
-            - Upper edge highlight via inset shadow + gradient overlay
-            - Very soft drop shadow underneath
-            - Thin translucent border
-            - Smooth rounded edges, no sharp corners */}
-        <nav
-          aria-label="Primary mobile navigation"
-          className={cn(
-            'fixed left-1/2 -translate-x-1/2 z-30 md:hidden',
-            // Width: spans almost full screen
-            'w-[calc(100%-32px)] max-w-[420px]',
-            // Position: floating above bottom edge + safe area
-            'bottom-[calc(20px+env(safe-area-inset-bottom))]',
-            // Glass surface: translucent white (light) / slate (dark)
-            'bg-white/25 dark:bg-slate-900/50',
-            // Frosted glass: heavy blur + saturation
-            'backdrop-blur-2xl backdrop-saturate-150',
-            // Organic rounded shape — NOT pill, NOT rectangle
-            'rounded-[32px]',
-            // Thin translucent border
-            'border border-white/30 dark:border-white/10',
-            // Soft shadow underneath + inner glow (upper edge highlight)
-            'shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15),0_4px_12px_-2px_rgba(0,0,0,0.05),inset_0_1px_1px_0_rgba(255,255,255,0.3)]',
-            // Layout
-            // BUG-NAV-POS: `relative` MUST NOT be added here — it competes
-            // with the `fixed` utility above (same specificity, but Tailwind
-            // emits `.relative` AFTER `.fixed` in its generated CSS, so
-            // `.relative` wins and the nav silently becomes position:relative
-            // instead of position:fixed). When that happens the nav drops out
-            // of fixed positioning, becomes a flex item in normal flow with a
-            // `left: 50%` offset, and ends up at the TOP of the screen instead
-            // of the bottom. `position: fixed` already establishes a
-            // containing block for the absolute-positioned descendants below
-            // (the upper-edge glass reflection + the floating active button),
-            // so no explicit `relative` is needed.
-            'flex items-stretch justify-around',
-            'h-[70px] px-4'
-          )}
-        >
-          {/* Upper edge glass reflection — subtle white gradient highlight */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/20 to-transparent pointer-events-none"
-          />
-          {BOTTOM_NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                aria-label={item.label}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex-1 flex flex-col items-center justify-end pb-2 relative',
-                  'transition-colors duration-300',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:rounded-2xl',
-                  'motion-reduce:transition-none'
-                )}
-              >
-                {/* Active: floating circular glass button that rises above nav.
-                    Slightly overlaps the upper edge of the nav bar.
-                    Teal-tinted glass with teal glow + white icon. */}
-                <div
-                  aria-hidden="true"
-                  className={cn(
-                    'absolute -top-6 left-1/2 -translate-x-1/2',
-                    'w-12 h-12 rounded-full',
-                    // Teal-tinted glass gradient
-                    'bg-gradient-to-br from-teal-400 to-teal-600',
-                    // Glass border (white edge)
-                    'border-2 border-white/40',
-                    // Teal glow (box-shadow with teal color)
-                    'shadow-[0_4px_20px_rgba(20,184,166,0.5),0_0_0_4px_rgba(20,184,166,0.12)]',
-                    // Flex center for icon
-                    'flex items-center justify-center',
-                    'transition-all duration-300 ease-out motion-reduce:transition-none',
-                    isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'
-                  )}
-                >
-                  <Icon className="h-5 w-5 text-white" strokeWidth={2.5} />
-                </div>
-                {/* Icon slot — fixed height for layout consistency between
-                    active (icon floats above) and inactive (icon in slot). */}
-                <div className="h-5 mb-1 flex items-center justify-center">
-                  <Icon
-                    className={cn(
-                      'h-5 w-5 transition-opacity duration-300 motion-reduce:transition-none',
-                      isActive ? 'opacity-0' : 'opacity-100',
-                      'text-slate-500 dark:text-slate-400'
-                    )}
-                    strokeWidth={1.5}
-                  />
-                </div>
-                {/* Label — always at bottom. Active: teal + semibold.
-                    Inactive: slate + medium. 11px (WCAG AA legible). */}
-                <span
-                  className={cn(
-                    'text-[11px] leading-none transition-colors duration-300 motion-reduce:transition-none',
-                    isActive
-                      ? 'font-semibold text-teal-600 dark:text-teal-400'
-                      : 'font-medium text-slate-500 dark:text-slate-400'
-                  )}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+            Teknik:
+            1. Glass div (backdrop-blur + bg-white/25) di-clip via clip-path
+               ke notched shape → glass fill hanya terlihat di area nav shape
+            2. SVG stroke (fill=none) di atas untuk border visible
+            3. Active button absolutely positioned di notch center
+            4. Inactive icons + labels di flexbox row
+
+            Path dibangun dynamically dengan actual pixel width (via ref +
+            ResizeObserver) supaya notch tetap perfect circle di semua screen. */}
+        <NotchedBottomNav
+          items={BOTTOM_NAV_ITEMS}
+          activeTab={activeTab}
+          onNavClick={handleNavClick}
+        />
       </div>
     </TooltipProvider>
+  );
+}
+
+// ── NotchedBottomNav ────────────────────────────────────────────────────
+// Glass nav bar dengan circular notch di border yang pindah mengikuti tab
+// aktif. Active button duduk DI DALAM notch (poking through the hole).
+//
+// Teknik:
+// - Glass div dengan backdrop-blur, di-clip via CSS clip-path: path() ke
+//   notched shape → glass fill mengikuti nav shape (termasuk notch bump)
+// - SVG path (stroke only) di atas untuk border visible
+// - Path dibangun dynamically dengan actual pixel width (ResizeObserver)
+//   supaya notch tetap perfect circle di semua screen size
+// - Active button absolutely positioned di notch center, left animated
+// - clip-path tidak bisa di-transition, jadi notch snap instantly saat
+//   tab ganti. Button glide smooth via CSS transition: left 0.3s
+
+const NAV_HEIGHT = 70;
+const CORNER_R = 32;
+const NOTCH_R = 26; // radius of circular notch (button is 48px = 24r, so 2px gap)
+
+function NotchedBottomNav({
+  items,
+  activeTab,
+  onNavClick,
+}: {
+  items: { id: TabId; label: string; icon: React.ElementType }[];
+  activeTab: TabId;
+  onNavClick: (id: TabId) => void;
+}) {
+  const navRef = useRef<HTMLDivElement>(null);
+  const [navWidth, setNavWidth] = useState(388); // default, updated on mount
+
+  // Measure actual nav width for responsive path computation
+  useEffect(() => {
+    if (!navRef.current) return;
+    const update = () => setNavWidth(navRef.current?.offsetWidth ?? 388);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(navRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const activeIndex = items.findIndex(i => i.id === activeTab);
+  const tabCount = items.length;
+  // Notch center X = center of the active tab slot
+  const notchX = (activeIndex + 0.5) * (navWidth / tabCount);
+
+  // Build SVG path: rounded rect with semicircular bump UP at notch position.
+  // Path goes clockwise from top-left corner.
+  const W = navWidth;
+  const H = NAV_HEIGHT;
+  const cR = CORNER_R;
+  const nR = NOTCH_R;
+  const nX = notchX;
+
+  const path = [
+    `M ${cR} 0`,
+    `L ${nX - nR} 0`,
+    // Semicircular arc going UP (sweep=0 in SVG Y-down = counter-clockwise = upward bump)
+    `A ${nR} ${nR} 0 0 0 ${nX + nR} 0`,
+    `L ${W - cR} 0`,
+    // Top-right corner (clockwise = outward)
+    `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
+    `L ${W} ${H - cR}`,
+    // Bottom-right corner
+    `A ${cR} ${cR} 0 0 1 ${W - cR} ${H}`,
+    `L ${cR} ${H}`,
+    // Bottom-left corner
+    `A ${cR} ${cR} 0 0 1 0 ${H - cR}`,
+    `L 0 ${cR}`,
+    // Top-left corner
+    `A ${cR} ${cR} 0 0 1 ${cR} 0`,
+    'Z',
+  ].join(' ');
+
+  const clipPathValue = `path('${path}')`;
+
+  return (
+    <nav
+      ref={navRef}
+      aria-label="Primary mobile navigation"
+      className={cn(
+        'fixed left-1/2 -translate-x-1/2 z-30 md:hidden',
+        'w-[calc(100%-32px)] max-w-[420px]',
+        'bottom-[calc(20px+env(safe-area-inset-bottom))]',
+        'h-[70px]'
+      )}
+    >
+      {/* Glass layer: backdrop-blur + translucent white, clipped to notched shape.
+          clip-path creates the "hole" effect — glass only fills the nav shape
+          (including the notch bump), NOT the area outside. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 backdrop-blur-2xl backdrop-saturate-150"
+        style={{
+          clipPath: clipPathValue,
+          WebkitClipPath: clipPathValue,
+          background: 'rgba(255,255,255,0.25)',
+        }}
+      />
+      {/* Dark mode glass layer — slightly darker for visibility */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 backdrop-blur-2xl backdrop-saturate-150 hidden dark:block"
+        style={{
+          clipPath: clipPathValue,
+          WebkitClipPath: clipPathValue,
+          background: 'rgba(15,23,42,0.5)',
+        }}
+      />
+      {/* Border layer: SVG stroke (fill=none) draws the visible border
+          following the notched path. */}
+      <svg
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        className="absolute inset-0 pointer-events-none"
+        fill="none"
+      >
+        <path
+          d={path}
+          stroke="rgba(255,255,255,0.4)"
+          strokeWidth="1.5"
+        />
+        {/* Upper edge highlight — subtle brighter stroke on top half only */}
+        <path
+          d={path}
+          stroke="rgba(255,255,255,0.15)"
+          strokeWidth="3"
+          style={{
+            clipPath: 'inset(0 0 50% 0)',
+          }}
+        />
+      </svg>
+      {/* Soft drop shadow underneath the nav (simulated via blurred copy) */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10"
+        style={{
+          clipPath: clipPathValue,
+          WebkitClipPath: clipPathValue,
+          background: 'rgba(0,0,0,0.08)',
+          filter: 'blur(12px)',
+          transform: 'translateY(4px)',
+        }}
+      />
+
+      {/* Tab buttons — flexbox row, each tab gets equal space.
+          The active button is absolutely positioned (not in flex flow) so
+          it can sit at the exact notch center. */}
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = activeTab === item.id;
+        const itemIndex = items.findIndex(i => i.id === item.id);
+        return (
+          <button
+            key={item.id}
+            onClick={() => onNavClick(item.id)}
+            aria-label={item.label}
+            aria-current={isActive ? 'page' : undefined}
+            className={cn(
+              'absolute top-0 h-full flex flex-col items-center justify-end pb-2',
+              'transition-colors duration-300',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50',
+              'motion-reduce:transition-none'
+            )}
+            style={{
+              left: `${(itemIndex / tabCount) * 100}%`,
+              width: `${100 / tabCount}%`,
+            }}
+          >
+            {/* Inactive icon — sits in the lower portion of the tab slot.
+                When active, this is hidden (opacity-0) because the active
+                button floats above at the notch. */}
+            <div className="h-5 mb-1 flex items-center justify-center">
+              <Icon
+                className={cn(
+                  'h-5 w-5 transition-opacity duration-300 motion-reduce:transition-none',
+                  isActive ? 'opacity-0' : 'opacity-100',
+                  'text-slate-500 dark:text-slate-400'
+                )}
+                strokeWidth={1.5}
+              />
+            </div>
+            {/* Label — always visible at bottom */}
+            <span
+              className={cn(
+                'text-[11px] leading-none transition-colors duration-300 motion-reduce:transition-none',
+                isActive
+                  ? 'font-semibold text-teal-600 dark:text-teal-400'
+                  : 'font-medium text-slate-500 dark:text-slate-400'
+              )}
+            >
+              {item.label}
+            </span>
+          </button>
+        );
+      })}
+
+      {/* Active floating button — sits at the notch center, half above and
+          half below the nav top edge. Position animates via CSS transition
+          on `left`. The notch itself snaps instantly (clip-path can't
+          transition), but the button glides smoothly. */}
+      <div
+        className="absolute top-0 z-20 transition-[left] duration-300 ease-out motion-reduce:transition-none"
+        style={{
+          left: `${((activeIndex + 0.5) / tabCount) * 100}%`,
+          transform: 'translateX(-50%) translateY(-50%)',
+        }}
+      >
+        <div
+          className={cn(
+            'w-12 h-12 rounded-full',
+            'bg-gradient-to-br from-teal-400 to-teal-600',
+            'border-2 border-white/50',
+            'shadow-[0_4px_20px_rgba(20,184,166,0.5),0_0_0_4px_rgba(20,184,166,0.12)]',
+            'flex items-center justify-center'
+          )}
+        >
+          {(() => {
+            const ActiveIcon = items[activeIndex]?.icon;
+            return ActiveIcon ? <ActiveIcon className="h-5 w-5 text-white" strokeWidth={2.5} /> : null;
+          })()}
+        </div>
+      </div>
+    </nav>
   );
 }
