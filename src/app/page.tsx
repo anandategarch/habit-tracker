@@ -334,7 +334,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(86px+env(safe-area-inset-bottom))] md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -387,9 +387,9 @@ export default function Home() {
 // - clip-path tidak bisa di-transition, jadi notch snap instantly saat
 //   tab ganti. Button glide smooth via CSS transition: left 0.3s
 
-const NAV_HEIGHT = 70;
-const CORNER_R = 20; // top corners — grounded, tidak terlalu round (was 32)
-const NOTCH_R = 24; // notch radius (button is 44px = 22r, so 2px gap)
+const NAV_HEIGHT = 76; // was 70 — sedikit lebih besar untuk proporsi lebih baik
+const CORNER_R = 22; // top corners — proporsional dengan nav height 76
+const NOTCH_R = 27; // notch radius (button is 50px = 25r, so 2px gap)
 
 function NotchedBottomNav({
   items,
@@ -455,7 +455,7 @@ function NotchedBottomNav({
         'fixed bottom-0 left-0 right-0 z-30 md:hidden',
         'bottom-[env(safe-area-inset-bottom)]',
         'w-full',
-        'h-[70px]',
+        'h-[76px]', // was 70px — sedikit lebih besar
         // FIX #5: Subtle top shadow as content separator — solid bg + 1px border
         // alone nyaris tidak terlihat pemisahnya dengan content di atas. Soft
         // upward shadow creates depth without being heavy.
@@ -523,20 +523,20 @@ function NotchedBottomNav({
               width: `${100 / tabCount}%`,
             }}
           >
-            {/* Inactive icon — sits in the lower portion of the tab slot.
-                When active, this is hidden (opacity-0) because the active
-                button floats above at the notch. */}
-            <div className="h-5 mb-1 flex items-center justify-center">
+            {/* Inactive icon — sedikit lebih besar (22px dari 20px) untuk
+                proporsi lebih baik dengan active button 50px. Icon slot
+                fixed height supaya layout konsisten. */}
+            <div className="h-[22px] mb-1.5 flex items-center justify-center">
               <Icon
                 className={cn(
-                  'h-5 w-5 transition-opacity duration-300 motion-reduce:transition-none',
+                  'h-[22px] w-[22px] transition-opacity duration-300 motion-reduce:transition-none',
                   isActive ? 'opacity-0' : 'opacity-100',
                   'text-slate-500 dark:text-slate-400'
                 )}
                 strokeWidth={1.5}
               />
             </div>
-            {/* Label — always visible at bottom */}
+            {/* Label — always visible at bottom. 11px font (WCAG AA). */}
             <span
               className={cn(
                 'text-[11px] leading-none transition-colors duration-300 motion-reduce:transition-none',
@@ -551,37 +551,35 @@ function NotchedBottomNav({
         );
       })}
 
-      {/* Active floating button — sits at the notch center. Protrudes ~18px
-          above nav top (was 24px — too lollipop). Button 44px (was 48px) for
-          better balance with 20px inactive icons.
-          FIX #6: transition duration 0.15s (was 0.3s) — syncs closer to notch
-          snap, less visual disconnect.
-          FIX #3: glow 0.25 opacity (was 0.5) — elegant, not kitsch.
-          FIX #4: no border (was white/50 invisible on teal) — inner shadow
-          subtle for depth. */}
+      {/* Active floating button — 50px (was 44px, user prefer agak besar).
+          Protrudes 20px above nav top (translateY -40% = 50 * 0.4 = 20).
+          Icon 24px (was 20px) — proporsional dengan button 50px.
+          Glow 0.25 opacity (elegant), ring-inset white/20 untuk depth.
+          Transition 0.15s sync dengan notch snap. */}
       <div
         className="absolute top-0 z-20 transition-[left] duration-150 ease-out motion-reduce:transition-none"
         style={{
           left: `${((activeIndex + 0.5) / tabCount) * 100}%`,
-          // translateY(-40%) = button protrudes ~18px above nav (44 * 0.4 = 17.6)
+          // translateY(-40%) = button protrudes 20px above nav (50 * 0.4 = 20)
           transform: 'translateX(-50%) translateY(-40%)',
         }}
       >
         <div
           className={cn(
-            // FIX #2: button 44px (was 48px) — better balance
-            'w-11 h-11 rounded-full',
+            // 50px (was 44px) — agak besar, proporsional dengan nav 76px
+            'w-[50px] h-[50px] rounded-full',
             'bg-gradient-to-br from-teal-400 to-teal-600',
-            // FIX #3: glow 0.25 opacity (was 0.5), hapus outer ring — elegant
+            // Glow 0.25 opacity — elegant, tidak kitsch
             'shadow-[0_4px_16px_rgba(20,184,166,0.25)]',
-            // FIX #4: subtle inner highlight for depth (replace invisible border)
+            // Inner highlight untuk depth
             'ring-1 ring-inset ring-white/20',
             'flex items-center justify-center'
           )}
         >
           {(() => {
             const ActiveIcon = items[activeIndex]?.icon;
-            return ActiveIcon ? <ActiveIcon className="h-5 w-5 text-white" strokeWidth={2.5} /> : null;
+            // Icon 24px (was 20px) — proporsional dengan button 50px
+            return ActiveIcon ? <ActiveIcon className="h-6 w-6 text-white" strokeWidth={2.5} /> : null;
           })()}
         </div>
       </div>
