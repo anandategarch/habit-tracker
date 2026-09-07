@@ -110,13 +110,20 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashExiting, setSplashExiting] = useState(false);
   useEffect(() => {
+    // BUGFIX POST-2 #2: Hoist unmountTimer ke outer scope supaya outer
+    // cleanup bisa clear both timers. Sebelumnya inner return adalah dead
+    // code (setTimeout ignores callback return values) → timer leak +
+    // setState-after-unmount risk.
+    let unmountTimer: ReturnType<typeof setTimeout>;
     const exitTimer = setTimeout(() => {
       setSplashExiting(true);
       // Unmount after exit animation completes (600ms)
-      const unmountTimer = setTimeout(() => setShowSplash(false), 600);
-      return () => clearTimeout(unmountTimer);
+      unmountTimer = setTimeout(() => setShowSplash(false), 600);
     }, 2600);
-    return () => clearTimeout(exitTimer);
+    return () => {
+      clearTimeout(exitTimer);
+      if (unmountTimer) clearTimeout(unmountTimer);
+    };
   }, []);
 
   // ANIM-3 / Feature 5: Pull-to-refresh handler. Called by PullToRefresh
@@ -241,7 +248,7 @@ export default function Home() {
           iOS Safari intermittently fails to respond to touch after DnD
           sensors or CSS animations intercept touch events. With the layout
           bounded, PullToRefresh owns the scroll, document doesn't scroll. */}
-      <div className={cn('h-dvh flex bg-background overflow-hidden', !showSplash && 'anim-content-reveal')}>
+      <div className={cn('h-dvh flex bg-background overflow-hidden', splashExiting && 'anim-content-reveal')}>
         {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
             gradient that drifts opposite to scroll direction. Fixed-positioned,
             behind all content (-z-10), pointer-events-none. Renders as a static
@@ -439,10 +446,19 @@ function NotchedBottomNav({
     return () => observer.disconnect();
   }, []);
 
-  const activeIndex = items.findIndex(i => i.id === activeTab);
+  // BUGFIX POST-1 #1: activeIndex bisa -1 saat activeTab='goals' (via sidebar
+  // drawer, bukan bottom nav). Guard ke 0 supaya notch + button tidak offscreen.
+  const rawActiveIndex = items.findIndex(i => i.id === activeTab);
+  const activeIndex = rawActiveIndex >= 0 ? rawActiveIndex : 0;
   const tabCount = items.length;
   // Notch center X = center of the active tab slot
-  const notchX = (activeIndex + 0.5) * (navWidth / tabCount);
+  // BUGFIX POST-1 #5: Clamp notchX supaya tidak overlap dengan top corners
+  // (cR + nR di kiri, W - cR - nR di kanan). Tanpa clamp, di viewport <392px
+  // notch menabrak corner radius → jagged edges.
+  const minNotchX = CORNER_R + NOTCH_R + 2;
+  const maxNotchX = navWidth - CORNER_R - NOTCH_R - 2;
+  const rawNotchX = (activeIndex + 0.5) * (navWidth / tabCount);
+  const notchX = Math.max(minNotchX, Math.min(maxNotchX, rawNotchX));
 
   // Build SVG path: rounded rect with semicircular bump UP at notch position.
   // Path goes clockwise from top-left corner.

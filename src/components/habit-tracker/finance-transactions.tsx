@@ -556,6 +556,11 @@ function TransactionRow({
             onToggleSelectTx(tx.id);
           } else if (hasExpandContent) {
             onToggleExpand(tx.id);
+          } else {
+            // BUGFIX POST-3 #4: Fallback ke edit dialog saat card tidak punya
+            // notes/tags untuk expand. Sebelum Phase 2, tap card = edit. Sekarang
+            // tap card = expand (jika ada content) atau edit (jika tidak ada).
+            onEditTx(tx);
           }
         }}
       >

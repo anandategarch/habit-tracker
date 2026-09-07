@@ -57,10 +57,15 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
   }
 
   // Group expenses by Jakarta-local day key (yyyy-MM-dd).
+  // BUGFIX POST-3 #1: Filter ke selectedMonth supaya heatmap tidak terpengaruh
+  // oleh active search (saat user search di Transactions tab lalu pindah ke
+  // Overview, transactions array mungkin berisi hasil search all-time).
+  // Tanpa filter ini, maxSpending ke-inflate oleh transaksi dari bulan lain.
   const dailySpending = useMemo(() => {
     const map: Record<string, { total: number; count: number }> = {};
     transactions
-      .filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense' &&
+                    jakartaDateKey(new Date(t.date)).startsWith(selectedMonth))
       .forEach(t => {
         const dayKey = jakartaDateKey(new Date(t.date));
         if (!map[dayKey]) map[dayKey] = { total: 0, count: 0 };
@@ -68,7 +73,7 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
         map[dayKey].count += 1;
       });
     return map;
-  }, [transactions]);
+  }, [transactions, selectedMonth]);
 
   // Max daily spending — used as the denominator for color-intensity scaling.
   // Floor at 1 to avoid divide-by-zero in months with no expenses.

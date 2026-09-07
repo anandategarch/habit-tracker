@@ -234,6 +234,13 @@ export default function Finance() {
   // All dialog/form state + CRUD handlers live in this hook.
   const mutations = useFinanceMutations({ getActiveSources });
 
+  // BUGFIX POST-1 #4: Reset selectedTxIds saat ganti bulan supaya stale tx IDs
+  // dari bulan sebelumnya tidak persist di multi-select UI (e.g. "N dari 0
+  // dipilih" saat bulan baru belum punya transaksi).
+  useEffect(() => {
+    mutations.setSelectedTxIds(new Set());
+  }, [selectedMonth, mutations]);
+
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
     queryKey: ['finance', 'categories'],
     queryFn: async () => {
