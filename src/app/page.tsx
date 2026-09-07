@@ -334,7 +334,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(90px+env(safe-area-inset-bottom))] md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -388,8 +388,8 @@ export default function Home() {
 //   tab ganti. Button glide smooth via CSS transition: left 0.3s
 
 const NAV_HEIGHT = 70;
-const CORNER_R = 32; // top corners only — bottom corners are 0 (flush to screen edge)
-const NOTCH_R = 26; // radius of circular notch (button is 48px = 24r, so 2px gap)
+const CORNER_R = 20; // top corners — grounded, tidak terlalu round (was 32)
+const NOTCH_R = 24; // notch radius (button is 44px = 22r, so 2px gap)
 
 function NotchedBottomNav({
   items,
@@ -455,7 +455,11 @@ function NotchedBottomNav({
         'fixed bottom-0 left-0 right-0 z-30 md:hidden',
         'bottom-[env(safe-area-inset-bottom)]',
         'w-full',
-        'h-[70px]'
+        'h-[70px]',
+        // FIX #5: Subtle top shadow as content separator — solid bg + 1px border
+        // alone nyaris tidak terlihat pemisahnya dengan content di atas. Soft
+        // upward shadow creates depth without being heavy.
+        'shadow-[0_-2px_8px_rgba(0,0,0,0.04),0_-1px_0_rgba(0,0,0,0.06)]'
       )}
     >
       {/* Solid background layer — no transparency, no blur. Clipped to notched
@@ -547,23 +551,31 @@ function NotchedBottomNav({
         );
       })}
 
-      {/* Active floating button — sits at the notch center, half above and
-          half below the nav top edge. Position animates via CSS transition
-          on `left`. The notch itself snaps instantly (clip-path can't
-          transition), but the button glides smoothly. */}
+      {/* Active floating button — sits at the notch center. Protrudes ~18px
+          above nav top (was 24px — too lollipop). Button 44px (was 48px) for
+          better balance with 20px inactive icons.
+          FIX #6: transition duration 0.15s (was 0.3s) — syncs closer to notch
+          snap, less visual disconnect.
+          FIX #3: glow 0.25 opacity (was 0.5) — elegant, not kitsch.
+          FIX #4: no border (was white/50 invisible on teal) — inner shadow
+          subtle for depth. */}
       <div
-        className="absolute top-0 z-20 transition-[left] duration-300 ease-out motion-reduce:transition-none"
+        className="absolute top-0 z-20 transition-[left] duration-150 ease-out motion-reduce:transition-none"
         style={{
           left: `${((activeIndex + 0.5) / tabCount) * 100}%`,
-          transform: 'translateX(-50%) translateY(-50%)',
+          // translateY(-40%) = button protrudes ~18px above nav (44 * 0.4 = 17.6)
+          transform: 'translateX(-50%) translateY(-40%)',
         }}
       >
         <div
           className={cn(
-            'w-12 h-12 rounded-full',
+            // FIX #2: button 44px (was 48px) — better balance
+            'w-11 h-11 rounded-full',
             'bg-gradient-to-br from-teal-400 to-teal-600',
-            'border-2 border-white/50',
-            'shadow-[0_4px_20px_rgba(20,184,166,0.5),0_0_0_4px_rgba(20,184,166,0.12)]',
+            // FIX #3: glow 0.25 opacity (was 0.5), hapus outer ring — elegant
+            'shadow-[0_4px_16px_rgba(20,184,166,0.25)]',
+            // FIX #4: subtle inner highlight for depth (replace invisible border)
+            'ring-1 ring-inset ring-white/20',
             'flex items-center justify-center'
           )}
         >
