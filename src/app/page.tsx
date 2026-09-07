@@ -25,7 +25,6 @@ import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
 import { SproutGrow } from '@/components/ui/loaders';
-import { LoadingState } from '@/components/ui/loading-state';
 
 // FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
 // initial bundle small + avoid SSR for components that use browser-only APIs.
@@ -34,12 +33,22 @@ import { LoadingState } from '@/components/ui/loading-state';
 // during the ~300ms chunk-fetch/parse window, producing a blank white screen
 // ("transisi antar tab hanya putih aja").
 //
-// Now each dynamic() provides a `loading` render-prop that shows AuroraRing
-// inside LoadingState. The loader is mounted immediately when the dynamic
-// wrapper renders, then swapped out atomically once the chunk resolves — no
+// Now each dynamic() provides a `loading` render-prop that shows SproutGrow
+// (same pohon animation as splash screen) for consistent branding across
+// app load + tab transitions. The loader mounts immediately when the dynamic
+// wrapper renders, then swaps out atomically once the chunk resolves — no
 // blank frame in between. The PageTransition's motion.div still animates the
 // surrounding fade, so the loader itself enters with the same fade-in.
-const tabLoading = () => <LoadingState />;
+//
+// FEAT-SPROUT-NAV: SproutGrow digunakan untuk tab loading juga (bukan hanya
+// splash screen) supaya consistent branding — user lihat pohon grow setiap
+// kali pindah tab, bukan AuroraRing generic.
+const tabLoading = () => (
+  <div className="flex flex-col items-center justify-center gap-3 py-8">
+    <SproutGrow size={80} />
+    <p className="text-xs text-muted-foreground">Memuat...</p>
+  </div>
+);
 
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false, loading: tabLoading });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
