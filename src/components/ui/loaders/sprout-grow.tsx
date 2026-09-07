@@ -1,18 +1,27 @@
 'use client';
 
-// SproutGrow — Premium animated tree loader untuk splash screen.
+// SproutGrow — Premium animated sprout loader (Opsi B: Sprout + Leaf Detail)
 //
-// Redesain versi profesional dengan:
-// - Pohon lebih detail: batang utama + 2 cabang + 4 daun + bunga + akar
-// - Animation lebih smooth: cubic-bezier easing, sway loop, glow pulse
-// - Sequential draw: akar → batang → cabang kiri → cabang kanan → daun → bunga
-// - Sway loop setelah draw complete (gentle wind effect)
-// - Soil glow pulse untuk depth
-// - pathLength=1 supaya stroke-dashoffset normalisasi untuk semua path
+// Match dengan logo Rutina:
+// - Single S-curved stem (match logo "S" curve)
+// - 2 oval leaves (left wider, right narrower — match logo)
+// - Subtle vein lines on leaves (detail for visual interest)
+// - Small bud at stem peak (bonus delight)
+// - Rounded rectangle soil base (match logo)
+// - 2-tone green (#22c55e leaves + #16a34a stem/veins for depth)
+// - No flowers (logo tidak punya bunga)
+//
+// Animation (smooth, match flat logo style):
+// - Stem grow dari base ke atas (S-curve draw)
+// - 2 daun bloom sequential (scale 0 → 1, bounce easeOutBack)
+// - Vein lines draw di daun (stroke-dashoffset)
+// - Small bud pop di puncak (scale 0 → 1)
+// - Gentle sway loop (±1.5deg, wind effect)
+// - Soil glow pulse (opacity)
 //
 // Accessibility:
 // - role=status + aria-label
-// - prefers-reduced-motion: static fully-drawn tree dengan opacity pulse
+// - prefers-reduced-motion: static fully-drawn sprout + opacity pulse
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +41,7 @@ export function SproutGrow({ size = 140, className }: SproutGrowProps) {
   };
 
   if (prefersReducedMotion) {
-    // Static fallback: fully-drawn tree with subtle opacity pulse.
+    // Static fallback: fully-drawn sprout with subtle opacity pulse.
     return (
       <div
         role="status"
@@ -48,61 +57,26 @@ export function SproutGrow({ size = 140, className }: SproutGrowProps) {
           xmlns="http://www.w3.org/2000/svg"
           className="css-sprout-static"
         >
-          {/* Soil mound */}
-          <ellipse cx="50" cy="92" rx="22" ry="4" fill="#22c55e" opacity="0.15" />
+          {/* Soil base — rounded rectangle (match logo) */}
+          <rect x="28" y="88" width="44" height="8" rx="4" fill="#22c55e" opacity="0.2" />
+          <rect x="28" y="88" width="44" height="6" rx="3" fill="#16a34a" opacity="0.4" />
+          {/* S-curved stem (match logo "S" shape) */}
           <path
-            d="M 28 92 Q 50 86 72 92"
-            stroke="#22c55e"
-            strokeWidth="2"
-            strokeLinecap="round"
-            opacity="0.5"
-          />
-          {/* Main trunk */}
-          <path
-            d="M 50 90 C 49 78, 48 65, 50 52 C 51 40, 50 30, 50 22"
+            d="M 50 88 C 46 75, 54 62, 50 48 C 46 35, 52 25, 50 18"
             stroke="#16a34a"
-            strokeWidth="4"
+            strokeWidth="3.5"
             strokeLinecap="round"
           />
-          {/* Left branch */}
-          <path
-            d="M 50 50 C 42 45, 32 42, 22 38"
-            stroke="#16a34a"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-          {/* Right branch */}
-          <path
-            d="M 50 42 C 58 38, 68 35, 78 32"
-            stroke="#16a34a"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-          {/* Left leaf (large) */}
-          <path
-            d="M 22 38 C 14 32, 10 24, 14 18 C 22 20, 26 28, 22 38 Z"
-            fill="#22c55e"
-            stroke="#16a34a"
-            strokeWidth="1.5"
-          />
-          {/* Right leaf (large) */}
-          <path
-            d="M 78 32 C 86 26, 90 18, 86 12 C 78 14, 74 22, 78 32 Z"
-            fill="#22c55e"
-            stroke="#16a34a"
-            strokeWidth="1.5"
-          />
-          {/* Top leaf */}
-          <path
-            d="M 50 22 C 46 14, 48 8, 52 6 C 56 10, 54 16, 50 22 Z"
-            fill="#22c55e"
-            stroke="#16a34a"
-            strokeWidth="1.5"
-          />
-          {/* Flower bloom */}
-          <circle cx="50" cy="14" r="3" fill="#fbbf24" />
-          <circle cx="46" cy="12" r="2.5" fill="#f59e0b" opacity="0.8" />
-          <circle cx="54" cy="12" r="2.5" fill="#f59e0b" opacity="0.8" />
+          {/* Left leaf (wider, oval) */}
+          <ellipse cx="38" cy="42" rx="14" ry="8" fill="#22c55e" stroke="#16a34a" strokeWidth="1.5" transform="rotate(-15 38 42)" />
+          {/* Vein line left */}
+          <path d="M 26 42 Q 38 40, 50 44" stroke="#16a34a" strokeWidth="1" opacity="0.5" />
+          {/* Right leaf (narrower, oval) */}
+          <ellipse cx="60" cy="30" rx="11" ry="7" fill="#22c55e" stroke="#16a34a" strokeWidth="1.5" transform="rotate(20 60 30)" />
+          {/* Vein line right */}
+          <path d="M 50 30 Q 60 28, 70 32" stroke="#16a34a" strokeWidth="1" opacity="0.5" />
+          {/* Small bud at stem peak */}
+          <circle cx="50" cy="14" r="4" fill="#22c55e" stroke="#16a34a" strokeWidth="1.5" />
         </svg>
         <span className="sr-only">Memuat Rutina</span>
       </div>
@@ -110,13 +84,14 @@ export function SproutGrow({ size = 140, className }: SproutGrowProps) {
   }
 
   // Animated version: sequential draw + sway + glow pulse
-  // Timeline:
-  // 0.0s - 0.6s:  trunk draws (stroke-dashoffset 1 → 0)
-  // 0.4s - 0.9s:  left branch + leaf draw (overlap with trunk)
-  // 0.7s - 1.2s:  right branch + leaf draw
-  // 1.0s - 1.5s:  top leaf + flower bloom (scale 0 → 1)
-  // 1.5s - 3.0s:  gentle sway loop (rotate ±2deg, 1.5s ease-in-out)
-  // 0.0s - ∞:     soil glow pulse (opacity 0.15 → 0.3 → 0.15, 2s)
+  // Timeline (4s loop):
+  // 0.0s - 0.6s:  stem draws (S-curve grow)
+  // 0.5s - 1.0s:  left leaf blooms (scale 0 → 1.1 → 1, bounce)
+  // 0.7s - 1.2s:  right leaf blooms (stagger 0.2s)
+  // 1.0s - 1.4s:  vein lines draw di daun
+  // 1.2s - 1.6s:  bud pop at peak (scale 0 → 1.2 → 1)
+  // 1.6s - 4.0s:  gentle sway loop (±1.5deg, wind)
+  // 0.0s - ∞:     soil glow pulse
   return (
     <div
       role="status"
@@ -132,89 +107,85 @@ export function SproutGrow({ size = 140, className }: SproutGrowProps) {
         xmlns="http://www.w3.org/2000/svg"
         className="css-sprout-svg"
       >
-        {/* Soil glow pulse — ambient base */}
-        <ellipse
-          cx="50"
-          cy="92"
-          rx="22"
-          ry="4"
+        {/* Soil base — rounded rectangle (match logo) */}
+        <rect
+          x="28"
+          y="88"
+          width="44"
+          height="8"
+          rx="4"
           fill="#22c55e"
           opacity="0.15"
           className="css-sprout-glow"
         />
-        {/* Soil mound line */}
-        <path
-          d="M 28 92 Q 50 86 72 92"
-          stroke="#22c55e"
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity="0.5"
-        />
+        <rect x="28" y="88" width="44" height="6" rx="3" fill="#16a34a" opacity="0.4" />
 
-        {/* Sway group — trunk + branches + leaves + flower all sway together
-            via CSS transform-origin at base (50, 90). */}
+        {/* Sway group — stem + leaves + bud all sway together via CSS
+            transform-origin at base (50, 88). */}
         <g className="css-sprout-sway">
-          {/* Main trunk — drawn first */}
+          {/* S-curved stem (match logo "S" shape) — drawn first */}
           <path
-            d="M 50 90 C 49 78, 48 65, 50 52 C 51 40, 50 30, 50 22"
+            d="M 50 88 C 46 75, 54 62, 50 48 C 46 35, 52 25, 50 18"
             stroke="#16a34a"
-            strokeWidth="4"
+            strokeWidth="3.5"
             strokeLinecap="round"
             pathLength={1}
-            className="css-sprout-trunk"
+            className="css-sprout-stem"
           />
-          {/* Left branch — drawn second (overlaps trunk end) */}
-          <path
-            d="M 50 50 C 42 45, 32 42, 22 38"
-            stroke="#16a34a"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            pathLength={1}
-            className="css-sprout-branch-l"
-          />
-          {/* Right branch — drawn third */}
-          <path
-            d="M 50 42 C 58 38, 68 35, 78 32"
-            stroke="#16a34a"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            pathLength={1}
-            className="css-sprout-branch-r"
-          />
-          {/* Left leaf (filled) — blooms after left branch */}
-          <path
-            d="M 22 38 C 14 32, 10 24, 14 18 C 22 20, 26 28, 22 38 Z"
-            fill="#22c55e"
-            stroke="#16a34a"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-            className="css-sprout-leaf-l"
-          />
-          {/* Right leaf (filled) — blooms after right branch */}
-          <path
-            d="M 78 32 C 86 26, 90 18, 86 12 C 78 14, 74 22, 78 32 Z"
-            fill="#22c55e"
-            stroke="#16a34a"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-            className="css-sprout-leaf-r"
-          />
-          {/* Top leaf — blooms after trunk completes */}
-          <path
-            d="M 50 22 C 46 14, 48 8, 52 6 C 56 10, 54 16, 50 22 Z"
-            fill="#22c55e"
-            stroke="#16a34a"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-            className="css-sprout-leaf-top"
-          />
-          {/* Flower bloom — last element, scale-in */}
-          <g className="css-sprout-bloom">
-            <circle cx="50" cy="14" r="3" fill="#fbbf24" />
-            <circle cx="46" cy="12" r="2.5" fill="#f59e0b" opacity="0.8" />
-            <circle cx="54" cy="12" r="2.5" fill="#f59e0b" opacity="0.8" />
-            <circle cx="50" cy="10" r="2" fill="#fcd34d" />
+          {/* Left leaf (wider, oval) — blooms after stem */}
+          <g className="css-sprout-leaf-l">
+            <ellipse
+              cx="38"
+              cy="42"
+              rx="14"
+              ry="8"
+              fill="#22c55e"
+              stroke="#16a34a"
+              strokeWidth="1.5"
+              transform="rotate(-15 38 42)"
+            />
+            {/* Vein line left — draws after leaf blooms */}
+            <path
+              d="M 26 42 Q 38 40, 50 44"
+              stroke="#16a34a"
+              strokeWidth="1"
+              opacity="0.5"
+              pathLength={1}
+              className="css-sprout-vein-l"
+            />
           </g>
+          {/* Right leaf (narrower, oval) — blooms after left (stagger) */}
+          <g className="css-sprout-leaf-r">
+            <ellipse
+              cx="60"
+              cy="30"
+              rx="11"
+              ry="7"
+              fill="#22c55e"
+              stroke="#16a34a"
+              strokeWidth="1.5"
+              transform="rotate(20 60 30)"
+            />
+            {/* Vein line right */}
+            <path
+              d="M 50 30 Q 60 28, 70 32"
+              stroke="#16a34a"
+              strokeWidth="1"
+              opacity="0.5"
+              pathLength={1}
+              className="css-sprout-vein-r"
+            />
+          </g>
+          {/* Small bud at stem peak — pops last (bonus delight) */}
+          <circle
+            cx="50"
+            cy="14"
+            r="4"
+            fill="#22c55e"
+            stroke="#16a34a"
+            strokeWidth="1.5"
+            className="css-sprout-bud"
+          />
         </g>
       </svg>
       <span className="sr-only">Memuat Rutina</span>
