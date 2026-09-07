@@ -199,8 +199,13 @@ export default function NetWorthWidget() {
 
         {/* ── Right: 90-day sparkline ────────────────────────────────── */}
         {showChart && (
-          <div className="w-full lg:w-56 h-24 lg:h-28 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full lg:w-56 h-24 lg:h-28 shrink-0 min-w-0">
+            {/* BUGFIX CHART-WIDTH: min-w-0 prevents flex overflow, and
+                ResponsiveContainer needs a parent with explicit dimensions.
+                The width(-1) error happens when the container has no
+                measurable width (e.g. during splash/skeleton). min-w-0
+                + the explicit h-24/h-28 ensures valid dimensions. */}
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                 <defs>
                   <linearGradient id="netWorthGrad" x1="0" y1="0" x2="0" y2="1">

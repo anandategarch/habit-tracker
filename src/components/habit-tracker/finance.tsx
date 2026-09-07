@@ -235,11 +235,16 @@ export default function Finance() {
   const mutations = useFinanceMutations({ getActiveSources });
 
   // BUGFIX POST-1 #4: Reset selectedTxIds saat ganti bulan supaya stale tx IDs
-  // dari bulan sebelumnya tidak persist di multi-select UI (e.g. "N dari 0
-  // dipilih" saat bulan baru belum punya transaksi).
+  // dari bulan sebelumnya tidak persist di multi-select UI.
+  // BUGFIX INFINITE-LOOP: Jangan include `mutations` di dependency array —
+  // mutations adalah object baru setiap render (dari hook), jadi useEffect
+  // terus fire → setSelectedTxIds → re-render → mutations baru → infinite loop
+  // (React error #185). setSelectedTxIds adalah stable reference (useState setter),
+  // jadi aman untuk exclude dari deps.
+  const { setSelectedTxIds } = mutations;
   useEffect(() => {
-    mutations.setSelectedTxIds(new Set());
-  }, [selectedMonth, mutations]);
+    setSelectedTxIds(new Set());
+  }, [selectedMonth, setSelectedTxIds]);
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
     queryKey: ['finance', 'categories'],
