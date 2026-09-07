@@ -334,7 +334,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-32 md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -349,31 +349,50 @@ export default function Home() {
           </PullToRefresh>
         </main>
 
-        {/* ── Mobile bottom navigation (Glassmorphism Floating Pill) ────────
-            Design: Floating pill-shaped nav with heavy backdrop blur,
-            white translucent background, subtle white border. Content
-            scrolls behind the nav and is visible through the frosted glass.
-            Active tab: filled icon (strokeWidth 2.5) + primary color + bold text.
-            Inactive: outlined icon (strokeWidth 1.5) + muted gray.
-            Labels always visible. Respects iOS safe-area inset. */}
+        {/* ── Mobile bottom navigation (Premium Glassmorphism) ─────────────
+            Design: Apple-inspired premium glass nav with floating active button.
+            - Glass surface: translucent white + heavy blur + saturation
+            - Organic rounded shape (rounded-[32px], NOT pill)
+            - Active: floating circular glass button rises above nav edge
+              with teal tint + teal glow + white icon
+            - Inactive: minimalist line icons, muted slate gray
+            - Labels: always visible, active = teal semibold, inactive = slate
+
+            Glassmorphism details:
+            - Semi-transparent white glass surface
+            - Backdrop blur + saturation (frosted)
+            - Upper edge highlight via inset shadow + gradient overlay
+            - Very soft drop shadow underneath
+            - Thin translucent border
+            - Smooth rounded edges, no sharp corners */}
         <nav
           aria-label="Primary mobile navigation"
           className={cn(
             'fixed left-1/2 -translate-x-1/2 z-30 md:hidden',
-            'w-[92%] max-w-[400px]',
+            // Width: spans almost full screen
+            'w-[calc(100%-32px)] max-w-[420px]',
             // Position: floating above bottom edge + safe area
-            'bottom-[calc(16px+env(safe-area-inset-bottom))]',
-            // Glassmorphism: translucent white + heavy blur + saturation
-            'bg-white/25 dark:bg-white/10',
-            'backdrop-blur-xl backdrop-saturate-150',
-            // Pill shape + border + shadow
-            'rounded-full border border-white/40 dark:border-white/15',
-            'shadow-[0_8px_32px_-4px_rgba(31,38,135,0.2),0_4px_12px_-2px_rgba(0,0,0,0.08)]',
+            'bottom-[calc(20px+env(safe-area-inset-bottom))]',
+            // Glass surface: translucent white (light) / slate (dark)
+            'bg-white/25 dark:bg-slate-900/50',
+            // Frosted glass: heavy blur + saturation
+            'backdrop-blur-2xl backdrop-saturate-150',
+            // Organic rounded shape — NOT pill, NOT rectangle
+            'rounded-[32px]',
+            // Thin translucent border
+            'border border-white/30 dark:border-white/10',
+            // Soft shadow underneath + inner glow (upper edge highlight)
+            'shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15),0_4px_12px_-2px_rgba(0,0,0,0.05),inset_0_1px_1px_0_rgba(255,255,255,0.3)]',
             // Layout
             'flex items-stretch justify-around',
-            'h-[64px] px-2'
+            'h-[70px] px-4 relative'
           )}
         >
+          {/* Upper edge glass reflection — subtle white gradient highlight */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/20 to-transparent pointer-events-none"
+          />
           {BOTTOM_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -384,25 +403,54 @@ export default function Home() {
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
-                  'transition-colors duration-200',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:rounded-full',
-                  'motion-reduce:transition-none',
-                  isActive ? 'text-primary' : 'text-muted-foreground/80 hover:text-foreground'
+                  'flex-1 flex flex-col items-center justify-end pb-2 relative',
+                  'transition-colors duration-300',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:rounded-2xl',
+                  'motion-reduce:transition-none'
                 )}
               >
-                <Icon
+                {/* Active: floating circular glass button that rises above nav.
+                    Slightly overlaps the upper edge of the nav bar.
+                    Teal-tinted glass with teal glow + white icon. */}
+                <div
+                  aria-hidden="true"
                   className={cn(
-                    'h-5 w-5 shrink-0 transition-all duration-200 motion-reduce:transition-none',
-                    isActive ? 'text-primary' : 'text-muted-foreground/80'
+                    'absolute -top-6 left-1/2 -translate-x-1/2',
+                    'w-12 h-12 rounded-full',
+                    // Teal-tinted glass gradient
+                    'bg-gradient-to-br from-teal-400 to-teal-600',
+                    // Glass border (white edge)
+                    'border-2 border-white/40',
+                    // Teal glow (box-shadow with teal color)
+                    'shadow-[0_4px_20px_rgba(20,184,166,0.5),0_0_0_4px_rgba(20,184,166,0.12)]',
+                    // Flex center for icon
+                    'flex items-center justify-center',
+                    'transition-all duration-300 ease-out motion-reduce:transition-none',
+                    isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'
                   )}
-                  strokeWidth={isActive ? 2.5 : 1.5}
-                  style={isActive ? { fill: 'currentColor', fillOpacity: 0.15 } : undefined}
-                />
+                >
+                  <Icon className="h-5 w-5 text-white" strokeWidth={2.5} />
+                </div>
+                {/* Icon slot — fixed height for layout consistency between
+                    active (icon floats above) and inactive (icon in slot). */}
+                <div className="h-5 mb-1 flex items-center justify-center">
+                  <Icon
+                    className={cn(
+                      'h-5 w-5 transition-opacity duration-300 motion-reduce:transition-none',
+                      isActive ? 'opacity-0' : 'opacity-100',
+                      'text-slate-500 dark:text-slate-400'
+                    )}
+                    strokeWidth={1.5}
+                  />
+                </div>
+                {/* Label — always at bottom. Active: teal + semibold.
+                    Inactive: slate + medium. 11px (WCAG AA legible). */}
                 <span
                   className={cn(
-                    'text-[11px] leading-none transition-colors duration-200 motion-reduce:transition-none',
-                    isActive ? 'font-semibold text-primary' : 'font-medium text-muted-foreground/80'
+                    'text-[11px] leading-none transition-colors duration-300 motion-reduce:transition-none',
+                    isActive
+                      ? 'font-semibold text-teal-600 dark:text-teal-400'
+                      : 'font-medium text-slate-500 dark:text-slate-400'
                   )}
                 >
                   {item.label}
