@@ -422,7 +422,7 @@ export default function Home() {
 
 const NAV_HEIGHT = 76; // was 70 — sedikit lebih besar untuk proporsi lebih baik
 const CORNER_R = 22; // top corners — proporsional dengan nav height 76
-const NOTCH_R = 27; // notch radius (button is 50px = 25r, so 2px gap)
+const NOTCH_R = 34; // notch radius — wider cradle around button (was 27, gap was only 2px). Button is 50px = 25r, so gap = 34-25 = 9px per side (visible cradle)
 
 function NotchedBottomNav({
   items,
