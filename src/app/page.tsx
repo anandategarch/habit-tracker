@@ -334,7 +334,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(90px+env(safe-area-inset-bottom))] md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -388,7 +388,7 @@ export default function Home() {
 //   tab ganti. Button glide smooth via CSS transition: left 0.3s
 
 const NAV_HEIGHT = 70;
-const CORNER_R = 32;
+const CORNER_R = 32; // top corners only — bottom corners are 0 (flush to screen edge)
 const NOTCH_R = 26; // radius of circular notch (button is 48px = 24r, so 2px gap)
 
 function NotchedBottomNav({
@@ -434,12 +434,10 @@ function NotchedBottomNav({
     `L ${W - cR} 0`,
     // Top-right corner (clockwise = outward)
     `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
-    `L ${W} ${H - cR}`,
-    // Bottom-right corner
-    `A ${cR} ${cR} 0 0 1 ${W - cR} ${H}`,
-    `L ${cR} ${H}`,
-    // Bottom-left corner
-    `A ${cR} ${cR} 0 0 1 0 ${H - cR}`,
+    // Bottom-right: flush to screen edge — no corner radius
+    `L ${W} ${H}`,
+    `L 0 ${H}`,
+    // Bottom-left: flush to screen edge — no corner radius
     `L 0 ${cR}`,
     // Top-left corner
     `A ${cR} ${cR} 0 0 1 ${cR} 0`,
@@ -453,36 +451,36 @@ function NotchedBottomNav({
       ref={navRef}
       aria-label="Primary mobile navigation"
       className={cn(
-        'fixed left-1/2 -translate-x-1/2 z-30 md:hidden',
-        'w-[calc(100%-32px)] max-w-[420px]',
-        'bottom-[calc(20px+env(safe-area-inset-bottom))]',
+        // Flush to bottom (no floating margin), full width (no side margin)
+        'fixed bottom-0 left-0 right-0 z-30 md:hidden',
+        'bottom-[env(safe-area-inset-bottom)]',
+        'w-full',
         'h-[70px]'
       )}
     >
-      {/* Glass layer: backdrop-blur + translucent white, clipped to notched shape.
-          clip-path creates the "hole" effect — glass only fills the nav shape
-          (including the notch bump), NOT the area outside. */}
+      {/* Solid background layer — no transparency, no blur. Clipped to notched
+          shape via clip-path. Light mode: white. Dark mode: slate-900. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 backdrop-blur-2xl backdrop-saturate-150"
+        className="absolute inset-0"
         style={{
           clipPath: clipPathValue,
           WebkitClipPath: clipPathValue,
-          background: 'rgba(255,255,255,0.25)',
+          background: 'rgb(255, 255, 255)',
         }}
       />
-      {/* Dark mode glass layer — slightly darker for visibility */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 backdrop-blur-2xl backdrop-saturate-150 hidden dark:block"
+        className="absolute inset-0 hidden dark:block"
         style={{
           clipPath: clipPathValue,
           WebkitClipPath: clipPathValue,
-          background: 'rgba(15,23,42,0.5)',
+          background: 'rgb(15, 23, 42)',
         }}
       />
       {/* Border layer: SVG stroke (fill=none) draws the visible border
-          following the notched path. */}
+          following the notched path. Solid border color for contrast
+          on solid background (no longer glass transparency). */}
       <svg
         width={W}
         height={H}
@@ -492,31 +490,10 @@ function NotchedBottomNav({
       >
         <path
           d={path}
-          stroke="rgba(255,255,255,0.4)"
-          strokeWidth="1.5"
-        />
-        {/* Upper edge highlight — subtle brighter stroke on top half only */}
-        <path
-          d={path}
-          stroke="rgba(255,255,255,0.15)"
-          strokeWidth="3"
-          style={{
-            clipPath: 'inset(0 0 50% 0)',
-          }}
+          stroke="rgb(226, 232, 240)"
+          strokeWidth="1"
         />
       </svg>
-      {/* Soft drop shadow underneath the nav (simulated via blurred copy) */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          clipPath: clipPathValue,
-          WebkitClipPath: clipPathValue,
-          background: 'rgba(0,0,0,0.08)',
-          filter: 'blur(12px)',
-          transform: 'translateY(4px)',
-        }}
-      />
 
       {/* Tab buttons — flexbox row, each tab gets equal space.
           The active button is absolutely positioned (not in flex flow) so
