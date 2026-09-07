@@ -307,7 +307,13 @@ export default function Finance() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: activeSubTab === 'transactions',
+    // SHADCN-PHASE-3: also fetch on the overview tab so the SpendingHeatmap
+    // has per-day expense data + counts. The queryKey still includes txFilter
+    // + debouncedSearch, but those are at default ('all' / '') when the user
+    // hasn't visited the transactions tab, so we get the full month's data.
+    // Cache is shared — switching to the transactions tab reuses this data
+    // if the filter is unchanged.
+    enabled: activeSubTab === 'transactions' || activeSubTab === 'overview',
     staleTime: 15_000,
   });
 
@@ -549,6 +555,8 @@ export default function Finance() {
               dashboardData={dashboardData}
               lastDoneData={lastDoneData}
               getCategoryMeta={getCategoryMeta}
+              transactions={transactions}
+              selectedMonth={selectedMonth}
             />
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>

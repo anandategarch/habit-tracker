@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, Info, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -9,10 +10,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { formatRupiah } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
-import type { DashboardData, LastDoneItem } from './finance-types';
+import type { DashboardData, LastDoneItem, Transaction } from './finance-types';
 import SourceBalanceSection from './source-balance';
 import DailyRecap from './daily-recap';
 import NetWorthWidget from './net-worth-widget';
+import { SpendingHeatmap } from './finance-spending-heatmap';
 
 function ChartInfo({ text }: { text: string }) {
   return (
@@ -35,12 +37,21 @@ interface FinanceOverviewProps {
   dashboardData: DashboardData;
   lastDoneData: LastDoneItem[];
   getCategoryMeta: (cat: string) => { emoji: string; color: string };
+  // SHADCN-PHASE-3: SpendingHeatmap needs the month's transactions (to
+  // compute per-day expense totals + counts) and the selected month key
+  // (yyyy-MM) to build the calendar grid. Both come from the parent
+  // <Finance> component, which already fetches transactions via useQuery
+  // (enabled on overview + transactions tabs — see finance.tsx).
+  transactions: Transaction[];
+  selectedMonth: string;
 }
 
 export default function FinanceOverview({
   dashboardData,
   lastDoneData,
   getCategoryMeta,
+  transactions,
+  selectedMonth,
 }: FinanceOverviewProps) {
   const incomeChange = dashboardData.previousMonth.income > 0
     ? Math.round(((dashboardData.totalIncome - dashboardData.previousMonth.income) / dashboardData.previousMonth.income) * 100)
@@ -49,6 +60,54 @@ export default function FinanceOverview({
   const expenseChange = dashboardData.previousMonth.expense > 0
     ? Math.round(((dashboardData.totalExpense - dashboardData.previousMonth.expense) / dashboardData.previousMonth.expense) * 100)
     : 0;
+
+  // ── 3D Tilt + shine effect for the hero "Total Saldo" card ──────────────
+  // Inspired by shadcn-fintech's 3D credit cards. Only enabled when:
+  //   1. Device has a fine pointer + hover capability (skip touch / coarse)
+  //   2. User has NOT requested reduced motion
+  // On mobile/touch the card stays static — better perf + UX.
+  const heroCardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [shine, setShine] = useState({ x: 50, y: 50 });
+  const [isHovering, setIsHovering] = useState(false);
+  const [tiltEnabled, setTiltEnabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const hoverMq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setTiltEnabled(hoverMq.matches && !reduceMq.matches);
+    update();
+    hoverMq.addEventListener('change', update);
+    reduceMq.addEventListener('change', update);
+    return () => {
+      hoverMq.removeEventListener('change', update);
+      reduceMq.removeEventListener('change', update);
+    };
+  }, []);
+
+  const handleHeroMouseMove = (e: React.MouseEvent) => {
+    if (!tiltEnabled) return;
+    const rect = heroCardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Normalised position within the card (0..1)
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    // Max ~8deg tilt: (0.5 - y) * 16 → ±8deg at edges
+    setTilt({ x: (0.5 - y) * 16, y: (x - 0.5) * 16 });
+    setShine({ x: x * 100, y: y * 100 });
+  };
+
+  const handleHeroMouseEnter = () => {
+    if (!tiltEnabled) return;
+    setIsHovering(true);
+  };
+
+  const handleHeroMouseLeave = () => {
+    setIsHovering(false);
+    setTilt({ x: 0, y: 0 });
+    setShine({ x: 50, y: 50 });
+  };
 
   return (
     <div className="space-y-4 mt-4">
@@ -65,7 +124,41 @@ export default function FinanceOverview({
       <SourceBalanceSection />
 
       {/* ── HERO CARD: Finance Summary ─────────────────────────── */}
-      <Card className="overflow-hidden anim-stagger" style={{ animationDelay: '0ms' }}>
+      <Card
+        ref={heroCardRef}
+        onMouseMove={handleHeroMouseMove}
+        onMouseEnter={handleHeroMouseEnter}
+        onMouseLeave={handleHeroMouseLeave}
+        style={{
+          animationDelay: '0ms',
+          transform: tiltEnabled
+            ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`
+            : undefined,
+          transition: 'transform 0.2s ease-out',
+          transformStyle: 'preserve-3d',
+        }}
+        className={cn(
+          'overflow-hidden anim-stagger relative',
+          isHovering && tiltEnabled && 'shadow-[0_20px_50px_-10px_rgba(20,184,166,0.4)]'
+        )}
+      >
+        {/* ── 3D Shine overlay (desktop hover only) ──
+            Subtle radial gloss that follows the cursor. Lives above the
+            gradient section but below interactive tooltips (pointer-events
+            disabled). Rendered only when tilt is enabled to keep the DOM
+            lean on touch devices. */}
+        {tiltEnabled && (
+          <div
+            aria-hidden="true"
+            className={cn(
+              'absolute inset-0 pointer-events-none z-20 transition-opacity duration-200',
+              isHovering ? 'opacity-100' : 'opacity-0'
+            )}
+            style={{
+              background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,0.15) 0%, transparent 50%)`,
+            }}
+          />
+        )}
         {/* Top section: big balance number — ACTUAL total from fund sources.
             Animated gradient shift for premium feel. */}
         <div className="anim-gradient-shift px-4 py-4 sm:px-6 sm:py-5" style={{ backgroundImage: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(280 70% 60% / 0.06), hsl(var(--primary) / 0.08), hsl(200 70% 60% / 0.05))' }}>
@@ -139,6 +232,20 @@ export default function FinanceOverview({
             <span className="text-xs font-semibold">{formatRupiah(dashboardData.projectedMonthlyExpense)}/bln</span>
           </div>
         </div>
+      </Card>
+
+      {/* ── SPENDING HEATMAP (shadcn-fintech inspired) ──────────────────── */}
+      {/* Monthly calendar grid colored by daily expense intensity. Tap a
+          cell to reveal that day's total + transaction count. Sits below
+          the hero summary card so users see the "where did my money go this
+          month" picture immediately after the headline numbers. */}
+      <Card className="anim-stagger" style={{ animationDelay: '60ms' }}>
+        <CardContent className="pt-4">
+          <SpendingHeatmap
+            transactions={transactions}
+            selectedMonth={selectedMonth}
+          />
+        </CardContent>
       </Card>
 
       {/* ── Last Done Tracking (compact list, no grid of cards) ── */}

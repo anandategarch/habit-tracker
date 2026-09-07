@@ -120,6 +120,13 @@ export default function FinanceTransactions({
 }: FinanceTransactionsProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [multiSelect, setMultiSelect] = useState(false);
+  // SHADCN-PHASE-2: tracks which transaction card is currently tap-expanded
+  // (shows notes + tags). Null = all collapsed. At most one card expands at
+  // a time — tapping a new card collapses the previous. State lives in the
+  // parent (not per-row) so virtualized rows can unmount/remount without
+  // losing expand state, and so toggling is O(1) without prop-drilling a
+  // setter per row.
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
   // FIN-BUG-7 fix: only compute + render "today's expense" when viewing
   // the current month. filteredTransactions is scoped to selectedMonth,
@@ -421,6 +428,10 @@ export default function FinanceTransactions({
                       txIdx={row.txIdx}
                       multiSelect={multiSelect}
                       selectedTxIds={selectedTxIds}
+                      expandedTxId={expandedTxId}
+                      onToggleExpand={(id: string) =>
+                        setExpandedTxId(prev => (prev === id ? null : id))
+                      }
                       getCategoryMeta={getCategoryMeta}
                       getSourceEmoji={getSourceEmoji}
                       onToggleSelectTx={onToggleSelectTx}
@@ -470,6 +481,10 @@ interface TransactionRowProps {
   txIdx: number;
   multiSelect: boolean;
   selectedTxIds: Set<string>;
+  // SHADCN-PHASE-2: expand support. expandedTxId is the currently-expanded
+  // tx id (owned by parent). onToggleExpand flips it (id -> id, same id -> null).
+  expandedTxId: string | null;
+  onToggleExpand: (id: string) => void;
   getCategoryMeta: (cat: string) => { emoji: string; color: string };
   getSourceEmoji: (name: string) => string;
   onToggleSelectTx: (id: string) => void;
@@ -482,6 +497,8 @@ function TransactionRow({
   txIdx,
   multiSelect,
   selectedTxIds,
+  expandedTxId,
+  onToggleExpand,
   getCategoryMeta,
   getSourceEmoji,
   onToggleSelectTx,
@@ -490,6 +507,15 @@ function TransactionRow({
 }: TransactionRowProps) {
   const meta = getCategoryMeta(tx.category);
   const isExpense = tx.type === 'expense';
+  // SHADCN-PHASE-2: tap-to-expand state. parseTags is null-safe (returns []
+  // for missing/invalid tags), so legacy rows without the column render no
+  // expand section. hasExpandContent gates both the onClick handler and the
+  // expand panel render — cards with no notes AND no tags are not
+  // tappable (the edit button remains the only interaction), avoiding a
+  // confusing "tapped but nothing happened" UX.
+  const isExpanded = expandedTxId === tx.id;
+  const tags = parseTags(tx.tags);
+  const hasExpandContent = !!(tx.notes || tags.length > 0);
   return (
     <div className="relative anim-stagger" style={{ animationDelay: `${Math.min(txIdx, 8) * 30}ms` }}>
       {/* Timeline node */}
@@ -500,14 +526,36 @@ function TransactionRow({
         }}
       />
 
-      {/* Transaction card */}
+      {/* Transaction card.
+          SHADCN-PHASE-2: added hover lift + tap-expand.
+          - transition-all duration-200: smooth border/box-shadow/transform.
+          - border border-transparent: reserves 1px so hover:border-primary/30
+            doesn't cause layout shift (the existing .tx-card CSS uses
+            box-shadow for its visual edge, not border, so without this the
+            card would grow by 1px on hover).
+          - motion-safe:hover:-translate-y-0.5 + motion-safe:hover:shadow-md:
+            the lift effect. Wrapped in motion-safe: so prefers-reduced-motion
+            users get NO lift (the constraint). Border-color change is NOT
+            motion, so it stays for everyone.
+          - active:scale-[0.98]: press feedback (also exists in .tx-card:active
+            CSS — redundant but harmless; explicit here for clarity).
+          onClick behavior:
+          - multiSelect mode: toggle selection (preserved from before).
+          - single-select + hasExpandContent: toggle expand.
+          - single-select + no expand content: no-op (use the edit button). */}
       <div
-        className="tx-card group"
+        className={cn(
+          'tx-card group',
+          'transition-all duration-200',
+          'border border-transparent hover:border-primary/30',
+          'motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md',
+          'active:scale-[0.98]'
+        )}
         onClick={() => {
           if (multiSelect) {
             onToggleSelectTx(tx.id);
-          } else {
-            onEditTx(tx);
+          } else if (hasExpandContent) {
+            onToggleExpand(tx.id);
           }
         }}
       >
@@ -532,12 +580,19 @@ function TransactionRow({
         )}
 
         <div className="flex items-start gap-4">
-          {/* Large category icon */}
+          {/* Category icon with colored circle background.
+              SHADCN-PHASE-2: switched from type-based red/green tint to the
+              category's own brand color (meta.color) at 12.5% opacity (hex
+              alpha "20" = 32/255). More meaningful — each category gets a
+              subtle tinted circle that matches its emoji color, instead of
+              every expense being red and every income being green.
+              meta.color is always a 6-digit hex from getCategoryMeta (falls
+              back to '#78716c' stone-gray), so `${meta.color}20` produces a
+              valid 8-digit hex (RRGGBBAA) — same pattern the previous
+              type-based tint used ('#ef444415'). */}
           <div
-            className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg"
-            style={{
-              backgroundColor: isExpense ? '#ef444415' : '#22c55e15',
-            }}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
+            style={{ backgroundColor: `${meta.color}20` }}
           >
             {meta.emoji}
           </div>
@@ -571,25 +626,11 @@ function TransactionRow({
                   <span>{getSourceEmoji(tx.source || 'Kas')}</span>
                   <span className="truncate">{tx.source || 'Kas'}</span>
                 </p>
-                {/* PHASE4-POLISH: tag badges. parseTags is null-safe —
-                    returns [] for missing/invalid/malformed tags strings,
-                    so legacy transactions without the column render nothing. */}
-                {(() => {
-                  const tags = parseTags(tx.tags);
-                  if (tags.length === 0) return null;
-                  return (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {tags.map((tag, i) => (
-                        <span
-                          key={`${tag}-${i}`}
-                          className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/60"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {/* SHADCN-PHASE-2: tag badges moved into the tap-to-expand
+                    panel below (previously rendered inline here). Showing
+                    them only on expand declutters the default card view —
+                    the category emoji circle + amount + source are enough
+                    at-a-glance info; notes + tags are detail-level. */}
               </div>
 
               {/* Amount */}
@@ -642,6 +683,40 @@ function TransactionRow({
             </div>
           )}
         </div>
+
+        {/* SHADCN-PHASE-2: tap-to-expand panel (notes + tags).
+            Renders only when this card is expanded AND has content.
+            anim-tab-enter (defined in globals.css) provides a smooth
+            fade + slide-in from the right, and respects
+            prefers-reduced-motion (globals.css sets it to `none` under
+            the reduced-motion media query).
+            Virtualization note: the parent virtualizer uses
+            measureElement (ResizeObserver) on each row, so when this
+            panel mounts/unmounts and the row's height changes, the
+            virtualizer auto-re-measures — no manual invalidate needed.
+            This is why state lives in the parent: a row can unmount when
+            scrolled out of view and remount when scrolled back, and its
+            expand state survives because it's keyed by tx.id in the
+            parent, not held in row-local state. */}
+        {isExpanded && hasExpandContent && (
+          <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground anim-tab-enter">
+            {tx.notes && (
+              <p className="mb-1 break-words">{tx.notes}</p>
+            )}
+            {tags.length > 0 && (
+              <div className="flex gap-1 flex-wrap">
+                {tags.map((tag, i) => (
+                  <span
+                    key={`${tag}-${i}`}
+                    className="px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground border border-border/60"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
