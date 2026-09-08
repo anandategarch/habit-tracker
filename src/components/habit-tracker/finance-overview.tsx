@@ -67,8 +67,11 @@ export default function FinanceOverview({
   //   2. User has NOT requested reduced motion
   // On mobile/touch the card stays static — better perf + UX.
   const heroCardRef = useRef<HTMLDivElement>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [shine, setShine] = useState({ x: 50, y: 50 });
+  // BUGFIX POST-1 #7 + DESIGN-1: Use refs for direct style mutation (zero re-renders
+  // on mousemove). Declared BEFORE useEffect supaya react-hooks/immutability rule
+  // tidak complain (refs modified in effect must be declared before effect).
+  const tiltTransformRef = useRef<HTMLDivElement>(null);
+  const shineOverlayRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [tiltEnabled, setTiltEnabled] = useState(false);
 
@@ -82,9 +85,14 @@ export default function FinanceOverview({
       const enabled = hoverMq.matches && !reduceMq.matches;
       setTiltEnabled(enabled);
       if (!enabled) {
-        setTilt({ x: 0, y: 0 });
-        setShine({ x: 50, y: 50 });
+        // BUGFIX DESIGN-1: Reset DOM directly (not dead setState)
         setIsHovering(false);
+        if (tiltTransformRef.current) {
+          tiltTransformRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg)';
+        }
+        if (shineOverlayRef.current) {
+          shineOverlayRef.current.style.background = '';
+        }
       }
     };
     update();
@@ -96,14 +104,8 @@ export default function FinanceOverview({
     };
   }, []);
 
-  // BUGFIX POST-1 #7: Use useRef + direct style mutation instead of setState
-  // for tilt+shine on every mousemove. Sebelumnya, setTilt+setShine caused
-  // FinanceOverview subtree (NetWorthWidget, DailyRecap, SourceBalance, CountUpRupiah,
-  // SpendingHeatmap) to re-render on every mousemove frame → laggy on desktop.
-  // Now: mousemove directly mutates the card's transform + shine overlay background
-  // via refs → zero React re-renders.
-  const tiltTransformRef = useRef<HTMLDivElement>(null);
-  const shineOverlayRef = useRef<HTMLDivElement>(null);
+  // BUGFIX POST-1 #7: handleHeroMouseMove uses direct ref mutation (declared
+  // above) instead of setState for tilt+shine. Zero React re-renders on mousemove.
 
   const handleHeroMouseMove = (e: React.MouseEvent) => {
     if (!tiltEnabled) return;
@@ -131,8 +133,15 @@ export default function FinanceOverview({
 
   const handleHeroMouseLeave = () => {
     setIsHovering(false);
-    setTilt({ x: 0, y: 0 });
-    setShine({ x: 50, y: 50 });
+    // BUGFIX DESIGN-1: Direct ref mutation (not setState) — tilt/shine state
+    // is dead (never read in render). Sebelumnya setTilt/setShine adalah no-op
+    // → card STAYS TILTED after mouse leaves. Now: reset DOM directly.
+    if (tiltTransformRef.current) {
+      tiltTransformRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg)';
+    }
+    if (shineOverlayRef.current) {
+      shineOverlayRef.current.style.background = '';
+    }
   };
 
   return (
@@ -167,7 +176,10 @@ export default function FinanceOverview({
           style={{
             transform: tiltEnabled ? 'perspective(1000px) rotateX(0deg) rotateY(0deg)' : undefined,
             transition: 'transform 0.2s ease-out',
-            transformStyle: 'preserve-3d',
+            // BUGFIX DESIGN-2: Hapus transformStyle: preserve-3d — di preserve-3d
+            // context, z-index di-ignore (children paint by 3D Z-position). Shine
+            // overlay (z-20) ter-hidden behind content. Default 'flat' restores
+            // normal z-index stacking.
           }}
         >
           {/* ── 3D Shine overlay (desktop hover only) ── */}

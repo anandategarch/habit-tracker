@@ -487,15 +487,16 @@ function NotchedBottomNav({
   const baseDepth = nR * 0.6; // flare depth into nav (subtle)
   const bumpHeight = nR; // bump height above nav top (matches button protrusion)
 
+  // BUGFIX NOTCH-3: Smooth peak — align C2 of left + C1 of right horizontally
+  // through peak untuk C1 continuity (no kink). Sebelumnya peak ~99° interior
+  // = "pointed/ridged". Now: smooth dome.
   const path = [
     `M ${cR} 0`,
     `L ${nX - nR} 0`,
-    // Left cubic Bezier: flare out at base, curve up to peak
-    // Start: (nX-nR, 0), Control1: (nX-nR, baseDepth), Control2: (nX-nR-nB, baseDepth), End: (nX, -bumpHeight)
-    `C ${nX - nR} ${baseDepth} ${nX - nR - nB} ${baseDepth} ${nX} ${-bumpHeight}`,
-    // Right cubic Bezier: mirror, curve down from peak to flat bar
-    // Start: (nX, -bumpHeight), Control1: (nX+nR+nB, baseDepth), Control2: (nX+nR, baseDepth), End: (nX+nR, 0)
-    `C ${nX + nR + nB} ${baseDepth} ${nX + nR} ${baseDepth} ${nX + nR} 0`,
+    // Left cubic Bezier: flare out at base, smooth curve up to peak
+    `C ${nX - nR} ${baseDepth} ${nX - nR - nB} ${-bumpHeight * 0.3} ${nX} ${-bumpHeight}`,
+    // Right cubic Bezier: mirror, smooth curve down from peak
+    `C ${nX + nR + nB} ${-bumpHeight * 0.3} ${nX + nR} ${baseDepth} ${nX + nR} 0`,
     `L ${W - cR} 0`,
     // Top-right corner (clockwise = outward)
     `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
@@ -624,7 +625,10 @@ function NotchedBottomNav({
       <div
         className="absolute top-0 z-20 transition-[left] duration-150 ease-out motion-reduce:transition-none"
         style={{
-          left: `${((activeIndex + 0.5) / tabCount) * 100}%`,
+          // BUGFIX NOTCH-1: Use clamped notchX (px) supaya button SELALU aligned
+          // dengan notch. Sebelumnya pakai unclamped % → misalign saat clamp
+          // aktif (tab 0/3 di viewport <414px, button pokes out of notch).
+          left: `${notchX}px`,
           // translateY(-40%) = button protrudes 20px above nav (50 * 0.4 = 20)
           transform: 'translateX(-50%) translateY(-40%)',
         }}
