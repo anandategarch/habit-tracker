@@ -36,10 +36,20 @@ export async function GET() {
     //   - Last 7 days of expense totals (for avg, trend, sparkline)
     //   - This month's daily expense totals (for best/worst day, projection)
     //   - Yesterday's transactions (for recurring detection, hour pattern)
-    // Single query covering 30 days is cheaper than 4 separate queries.
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Single query is cheaper than 4 separate queries.
+    // BUGHUNT-ROUND2 RECAP-WINDOW: the window was a plain rolling 30 days
+    // (`Date.now() - 30d`). On day 31 of a 31-day month, transactions from
+    // the 1st with an earlier time-of-day fell OUTSIDE the window and
+    // silently vanished from monthExpenseSoFar / monthEndProjection /
+    // bestDay / worstDay. Extend the window to also cover the FULL current
+    // Jakarta month: min(30 days ago, Jakarta midnight of the 1st).
+    const rolling30DaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const monthStartJakarta = new Date(`${monthKey}-01T00:00:00+07:00`);
+    const fetchSince = new Date(
+      Math.min(rolling30DaysAgo.getTime(), monthStartJakarta.getTime())
+    );
     const allRecentTxRaw = await db.transaction.findMany({
-      where: { date: { gte: thirtyDaysAgo } },
+      where: { date: { gte: fetchSince } },
       select: { id: true, type: true, amount: true, category: true, description: true, date: true, source: true },
       orderBy: { date: 'desc' },
     });

@@ -3,15 +3,43 @@
 // Extracted from daily-tracker.tsx during SPLIT-PHASE3.
 // ---------------------------------------------------------------------------
 
-import { format, subDays, parseISO } from '@/lib/date-utils';
+import { parseISO } from '@/lib/date-utils';
 // PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
 // utility module. Output is identical for the patterns used here
 // ('yyyy-MM-dd') and the `subDays`/`parseISO` helpers — verified via
 // test script in worklog FIX-TIER3 entry.
+// BUGHUNT-ROUND2 STREAK-TZ: `format`/`subDays` are no longer imported —
+// every local-TZ date walk in this file now uses UTC-safe key arithmetic
+// (shiftYmdKey) instead. parseISO remains for pure UTC ms comparisons.
 import { jakartaDateKey } from '@/lib/timezone';
 import type { HabitLog } from './daily-tracker-types';
 
 export function toDateString(isoLike: string): string {
+  return jakartaDateKey(new Date(isoLike));
+}
+
+// BUGHUNT-ROUND2 STREAK-TZ: UTC-safe "yyyy-MM-dd" arithmetic helpers.
+//
+// The streak/strength/last-7-days walks below used date-fns-style
+// `format(cursor, 'yyyy-MM-dd')` + `cursor.setDate()`, which read/mutate
+// the BROWSER's local timezone. Log keys, however, are Jakarta YMD keys
+// (toDateString → jakartaDateKey). On any browser west of UTC (e.g.
+// America/New_York), a UTC-midnight cursor formats as the PREVIOUS local
+// day — every walk key shifted by one day, so streaks read 0/wrong for
+// users outside UTC+7. These helpers do pure string/UTC arithmetic so the
+// keys are timezone-independent:
+//   - date-only ISO strings parse as UTC midnight (ES spec)
+//   - YMD strings compare lexicographically == chronologically
+
+/** Shift a "yyyy-MM-dd" key by N days using pure UTC arithmetic. */
+export function shiftYmdKey(key: string, days: number): string {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Jakarta YMD key for any date input (full ISO or date-only). */
+export function toJakartaYmdKey(isoLike: string): string {
   return jakartaDateKey(new Date(isoLike));
 }
 
@@ -93,19 +121,18 @@ export function computeStreak(
     // If today has a relapse log, streak = 0.
     if (relapseDays.has(dateStr)) return 0;
 
-    const today = parseISO(dateStr);
-    const startBound = options.startDate
-      ? parseISO(options.startDate)
-      : subDays(today, 365);
+    const startKey = options.startDate
+      ? toJakartaYmdKey(options.startDate)
+      : shiftYmdKey(dateStr, -365);
     // cursor starts at today (today is "clean" since no relapse log).
+    // BUGHUNT-ROUND2 STREAK-TZ: walk via UTC-safe key arithmetic.
     let streak = 0;
-    const cursor = parseISO(dateStr);
+    let key = dateStr;
     for (let i = 0; i < 365; i++) {
-      const key = format(cursor, 'yyyy-MM-dd');
       if (relapseDays.has(key)) break;
-      if (cursor.getTime() < startBound.getTime()) break;
+      if (key < startKey) break;
       streak++;
-      cursor.setDate(cursor.getDate() - 1);
+      key = shiftYmdKey(key, -1);
     }
     return streak;
   }
@@ -122,19 +149,19 @@ export function computeStreak(
   if (completedDays.size === 0) return 0;
 
   let streak = 0;
-  const cursor = parseISO(dateStr);
+  // BUGHUNT-ROUND2 STREAK-TZ: walk via UTC-safe key arithmetic.
+  let key = dateStr;
   // If today isn't completed yet, streak can still count up to yesterday.
   // (For vacation habits, today was just added to completedDays above, so
   // the streak starts from today.)
   if (!completedDays.has(dateStr)) {
-    cursor.setDate(cursor.getDate() - 1);
+    key = shiftYmdKey(dateStr, -1);
   }
   // Walk backwards counting consecutive completed days (cap at 365 for safety).
   for (let i = 0; i < 365; i++) {
-    const key = format(cursor, 'yyyy-MM-dd');
     if (completedDays.has(key)) {
       streak++;
-      cursor.setDate(cursor.getDate() - 1);
+      key = shiftYmdKey(key, -1);
     } else {
       break;
     }
@@ -186,11 +213,14 @@ export function computeStrengthScore(
   // Build the set of "yyyy-MM-dd" keys for the last `days` days ending at
   // dateStr (defaults to today in Jakarta TZ). Uses the same jakartaDateKey
   // helper as computeStreak so the window aligns with how logs are stored.
+  // BUGHUNT-ROUND2 STREAK-TZ: key window via shiftYmdKey (UTC-safe) — the
+  // old `format(subDays(parseISO(anchor), i), 'yyyy-MM-dd')` formatted
+  // UTC midnights in the BROWSER's local TZ, shifting the window by a day
+  // on non-UTC+7 browsers.
   const anchor = dateStr ?? jakartaDateKey(new Date());
-  const anchorDate = parseISO(anchor);
   const windowKeys = new Set<string>();
   for (let i = 0; i < days; i++) {
-    windowKeys.add(format(subDays(anchorDate, i), 'yyyy-MM-dd'));
+    windowKeys.add(shiftYmdKey(anchor, -i));
   }
 
   // PHASE3-HABIT — Avoid habit: count relapses; strength = clean days / total.
@@ -305,11 +335,11 @@ export function getLast7DaysStatus(
   const completedDays = new Set(
     (logs || []).filter((l) => l.completed).map((l) => toDateString(l.date)),
   );
-  const today = parseISO(todayStr);
+  // BUGHUNT-ROUND2 STREAK-TZ: keys via shiftYmdKey (UTC-safe); dateNum read
+  // from the key string so it matches the key's day on every TZ.
   const result: { done: boolean; dateNum: number }[] = [];
   for (let i = 6; i >= 0; i--) {
-    const day = subDays(today, i);
-    const key = format(day, 'yyyy-MM-dd');
+    const key = shiftYmdKey(todayStr, -i);
     const hadActivity = completedDays.has(key);
     // For avoid habits, "done" = clean (no relapse). A day is "clean" if
     // there's no relapse log for it. (We can't distinguish "no log" from
@@ -317,7 +347,7 @@ export function getLast7DaysStatus(
     // mini-calendar the optimistic interpretation is fine — show green
     // unless there's a relapse.)
     const done = options?.invert ? !hadActivity : hadActivity;
-    result.push({ done, dateNum: day.getDate() });
+    result.push({ done, dateNum: Number(key.slice(8, 10)) });
   }
   return result;
 }
@@ -368,19 +398,20 @@ export function computeLongestStreak(
     );
     // The earliest bound is the habit's startDate (or the earliest log date).
     const earliestLogDate = toDateString(sorted[0].date);
+    // BUGHUNT-ROUND2 STREAK-TZ: startDate → Jakarta YMD key (was
+    // local-TZ `format(parseISO(...))` — off-by-one outside UTC+7).
     const startDateStr = options.startDate
-      ? format(parseISO(options.startDate), 'yyyy-MM-dd')
+      ? toJakartaYmdKey(options.startDate)
       : earliestLogDate;
-    const startBound = parseISO(startDateStr < earliestLogDate ? startDateStr : earliestLogDate);
+    const startBoundKey = startDateStr < earliestLogDate ? startDateStr : earliestLogDate;
     // Walk from startBound to today (or latest log date, whichever later),
-    // counting consecutive non-relapse days.
-    const today = new Date();
-    const cursor = new Date(startBound);
+    // counting consecutive non-relapse days. UTC-safe key walk.
+    const todayKey = jakartaDateKey(new Date());
+    let key = startBoundKey;
     let longest = 0;
     let current = 0;
     const safetyCap = 366 * 2; // 2 years max
     for (let i = 0; i < safetyCap; i++) {
-      const key = format(cursor, 'yyyy-MM-dd');
       if (relapseDays.has(key)) {
         if (current > longest) longest = current;
         current = 0;
@@ -388,8 +419,8 @@ export function computeLongestStreak(
         current++;
         if (current > longest) longest = current;
       }
-      if (cursor.getTime() > today.getTime()) break;
-      cursor.setDate(cursor.getDate() + 1);
+      if (key >= todayKey) break;
+      key = shiftYmdKey(key, 1);
     }
     return Math.min(365, longest);
   }

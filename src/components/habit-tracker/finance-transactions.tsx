@@ -657,7 +657,10 @@ function TransactionRow({
             <div className="flex flex-col gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ml-1">
               {/* Disable edit + delete for transfer transactions —
                   they're linked pairs that can't be modified
-                  independently without corrupting balances. */}
+                  independently without corrupting balances.
+                  BUGHUNT-ROUND2 TRANSFER-DEL: delete now WORKS for
+                  transfers (the API atomically removes the sibling pair +
+                  reverts both balances), but edit stays disabled. */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -674,14 +677,11 @@ function TransactionRow({
                 className="h-9 w-9 text-destructive hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (tx.category === 'Transfer Antar Sumber') {
-                    toast.error('Transfer tidak bisa dihapus. Hapus kedua sisi (expense + income) secara manual.');
-                    return;
-                  }
+                  // BUGHUNT-ROUND2 TRANSFER-DEL: transfers CAN be deleted now —
+                  // the API deletes the linked pair atomically.
                   onDeleteTx(tx.id);
                 }}
-                disabled={tx.category === 'Transfer Antar Sumber'}
-                title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa dihapus' : 'Hapus'}
+                title={tx.category === 'Transfer Antar Sumber' ? 'Hapus transfer (kedua sisi otomatis)' : 'Hapus'}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>

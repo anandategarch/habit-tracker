@@ -8,6 +8,14 @@ export type TabId =
   | 'finance'
   | 'settings';
 
+// BUGHUNT-ROUND2 FAB-1: the mobile FAB quick-add menu previously only
+// navigated to a tab ("Pengeluaran" → finance tab) without ever opening the
+// add-transaction / add-habit dialog — the buttons did nothing "quick".
+// quickAddAction is the cross-component trigger that makes the target tab
+// open the real dialog after mounting. Ephemeral (not persisted) by design:
+// if the navigation is interrupted, the stale action dies on next reload.
+export type QuickAddAction = 'expense' | 'income' | 'habit';
+
 // BUGHUNT-OTHER-1 BUG-L8: persistence note — `activeTab` is intentionally
 // NOT persisted via zustand persist middleware. Instead, the page.tsx
 // component syncs `activeTab` to the URL `?tab=` query param (deep
@@ -27,6 +35,10 @@ interface AppState {
   setSelectedMonth: (month: string) => void;
   refreshKey: number;
   triggerRefresh: () => void;
+  // FAB quick-add trigger (see QuickAddAction above).
+  quickAddAction: QuickAddAction | null;
+  triggerQuickAdd: (action: QuickAddAction) => void;
+  clearQuickAdd: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -42,4 +54,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedMonth: (month) => set({ selectedMonth: month }),
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),
+  quickAddAction: null,
+  triggerQuickAdd: (action) => set({ quickAddAction: action }),
+  clearQuickAdd: () => set({ quickAddAction: null }),
 }));

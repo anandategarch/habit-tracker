@@ -16,8 +16,15 @@ const SAMPLE_TRANSACTIONS = (() => {
     // Income
     txs.push({ type: 'income', amount: 8000000, category: 'Gaji', description: 'Gaji bulanan', date: new Date(year, month, 1), notes: null });
     if (m === 0) {
-      txs.push({ type: 'income', amount: 2500000, category: 'Freelance', description: 'Project website klien', date: new Date(year, month, 5), notes: 'DP 50%' });
-      txs.push({ type: 'income', amount: 350000, category: 'Investasi', description: 'Dividen saham BBCA', date: new Date(year, month, 10), notes: null });
+      // BUGHUNT-ROUND2 SEED-1: the special income entries below used
+      // hardcoded days (5/10/12/15) that can exceed today's date in the
+      // current month (maxDay clamps only the daily-expense loop), creating
+      // FUTURE-dated transactions that skew monthly summaries + the
+      // heatmap. Clamp each day to maxDay (today) so seeded data never
+      // travels forward in time.
+      const clampDay = (day: number) => Math.min(day, maxDay);
+      txs.push({ type: 'income', amount: 2500000, category: 'Freelance', description: 'Project website klien', date: new Date(year, month, clampDay(5)), notes: 'DP 50%' });
+      txs.push({ type: 'income', amount: 350000, category: 'Investasi', description: 'Dividen saham BBCA', date: new Date(year, month, clampDay(10)), notes: null });
     }
     if (m === 1) {
       txs.push({ type: 'income', amount: 1500000, category: 'Freelance', description: 'Desain logo', date: new Date(year, month, 12), notes: null });

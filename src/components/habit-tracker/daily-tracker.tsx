@@ -359,7 +359,17 @@ export default function DailyTracker() {
   }, [activeHabits, selectedDate, completionMap]);
 
   // ---- fetch completions (month-cached) ----
-  const fetchCompletions = async (habitList: Habit[], date: string) => {
+  // BUGHUNT-ROUND2 RACE-1: `isCancelled` guard (passed by the loading
+  // effect) prevents a SLOWER stale fetch (e.g. for the previous date/
+  // month after rapid navigation) from overwriting the state of the
+  // NEWER fetch that already resolved. Previously only `setLoading` was
+  // guarded — the completion maps could be painted with the wrong day's
+  // data.
+  const fetchCompletions = async (
+    habitList: Habit[],
+    date: string,
+    isCancelled?: () => boolean,
+  ) => {
     const month = date.slice(0, 7);
 
     // BUG-16 fix: include refreshKey in the cache hit check. Without this,
@@ -402,6 +412,12 @@ export default function DailyTracker() {
     } catch {
       // fall through to empty defaults
     }
+
+    // RACE-1: a newer fetch may have resolved while this one was in flight.
+    // Bailing here avoids: (a) painting stale completion maps over the
+    // current date's state, (b) flipping cachedMonthRef back to the stale
+    // month (which would only cost a redundant re-fetch later, but still).
+    if (isCancelled?.()) return;
 
     const monthCache: Record<string, HabitLog[]> = {};
     const map: Record<string, boolean> = {};
@@ -731,7 +747,7 @@ export default function DailyTracker() {
     const load = async () => {
       setLoading(true);
       try {
-        await fetchCompletions(habits, selectedDate);
+        await fetchCompletions(habits, selectedDate, () => cancelled);
       } finally {
         if (!cancelled) setLoading(false);
       }

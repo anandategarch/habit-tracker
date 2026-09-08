@@ -20,6 +20,12 @@ export async function GET() {
       budgetSnapshots,
       habitGroups,
       habitOptions,
+      // BUGHUNT-ROUND2 EXPORT-1: 3 missing tables — savings goals, recurring
+      // templates, and auto-categorization rules were silently dropped by
+      // export, so a backup→reset→import cycle lost them permanently.
+      savingsGoals,
+      recurringTransactions,
+      transactionRules,
     ] = await Promise.all([
       db.habit.findMany(),
       db.habitLog.findMany(),
@@ -34,6 +40,9 @@ export async function GET() {
       db.budgetSnapshot.findMany(),
       db.habitGroup.findMany(),
       db.habitOption.findMany(),
+      db.savingsGoal.findMany(),
+      db.recurringTransaction.findMany(),
+      db.transactionRule.findMany(),
     ]);
 
     const data = {
@@ -50,6 +59,9 @@ export async function GET() {
       budgetSnapshots,
       habitGroups,
       habitOptions,
+      savingsGoals,
+      recurringTransactions,
+      transactionRules,
     };
 
     const today = new Date().toISOString().slice(0, 10);

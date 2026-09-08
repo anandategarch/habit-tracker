@@ -16,6 +16,12 @@ interface ImportPayload {
   budgetSnapshots?: Record<string, unknown>[];
   habitGroups?: Record<string, unknown>[];
   habitOptions?: Record<string, unknown>[];
+  // BUGHUNT-ROUND2 IMPORT-1: these 3 tables were missing from the export →
+  // import round-trip. Savings goals, recurring templates, and rules were
+  // silently lost on restore.
+  savingsGoals?: Record<string, unknown>[];
+  recurringTransactions?: Record<string, unknown>[];
+  transactionRules?: Record<string, unknown>[];
 }
 
 const FIELDS_TO_STRIP = new Set(['id', 'createdAt', 'updatedAt']);
@@ -38,11 +44,20 @@ function stripAutoFields(records: Record<string, unknown>[]): any[] {
 
 function isValidPayload(body: unknown): body is ImportPayload {
   if (typeof body !== 'object' || body === null) return false;
+  // BUGHUNT-ROUND2 IMPORT-2 (HIGH): allowedKeys was missing the HABIT-side
+  // keys (habits, habitLogs, dailyLogs, goals, habitGroups, habitOptions)
+  // — the exact keys /api/data/export emits. Every full backup failed
+  // validation with 400 "Invalid payload". The handler below already
+  // processed them; only the allow-list was wrong.
   const allowedKeys = new Set([
+    'habits', 'habitLogs', 'dailyLogs', 'goals',
     'transactions',
     'budgets', 'financeCategories', 'settings',
     // Added 6 missing tables
     'fundSources', 'weeklyBudgets', 'budgetSnapshots',
+    'habitGroups', 'habitOptions',
+    // BUGHUNT-ROUND2 IMPORT-1: 3 finance tables for complete round-trip
+    'savingsGoals', 'recurringTransactions', 'transactionRules',
     // Old backups may contain these keys from the removed features —
     // kept in allowedKeys so old backups import gracefully (silently ignored).
     'challenges', 'badges', 'rewards',
@@ -108,6 +123,17 @@ export async function POST(request: NextRequest) {
       }
       if (body.fundSources && body.fundSources.length > 0) {
         await tx.fundSource.deleteMany();
+      }
+      // BUGHUNT-ROUND2 IMPORT-1: wipe the 3 previously-missing finance
+      // tables so a restore is a true replacement, not a merge.
+      if (body.savingsGoals && body.savingsGoals.length > 0) {
+        await tx.savingsGoal.deleteMany();
+      }
+      if (body.recurringTransactions && body.recurringTransactions.length > 0) {
+        await tx.recurringTransaction.deleteMany();
+      }
+      if (body.transactionRules && body.transactionRules.length > 0) {
+        await tx.transactionRule.deleteMany();
       }
 
       // Insert in dependency order: parents first, then children.
@@ -275,6 +301,27 @@ export async function POST(request: NextRequest) {
         const data = stripAutoFields(body.budgetSnapshots);
         const res = await tx.budgetSnapshot.createMany({ data });
         counts.budgetSnapshots = res.count;
+      }
+
+      // BUGHUNT-ROUND2 IMPORT-1: 3 previously-missing finance tables —
+      // savings goals, recurring templates, and auto-categorization rules
+      // are now part of the backup/restore cycle.
+      if (body.savingsGoals && body.savingsGoals.length > 0) {
+        const data = stripAutoFields(body.savingsGoals);
+        const res = await tx.savingsGoal.createMany({ data });
+        counts.savingsGoals = res.count;
+      }
+
+      if (body.recurringTransactions && body.recurringTransactions.length > 0) {
+        const data = stripAutoFields(body.recurringTransactions);
+        const res = await tx.recurringTransaction.createMany({ data });
+        counts.recurringTransactions = res.count;
+      }
+
+      if (body.transactionRules && body.transactionRules.length > 0) {
+        const data = stripAutoFields(body.transactionRules);
+        const res = await tx.transactionRule.createMany({ data });
+        counts.transactionRules = res.count;
       }
 
       return counts;

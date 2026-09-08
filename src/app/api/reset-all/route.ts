@@ -59,6 +59,13 @@ export async function DELETE(request: Request) {
       db.weeklyBudget.deleteMany(),
       db.fundSource.deleteMany(),
       db.financeCategory.deleteMany(),
+      // BUGHUNT-ROUND2 RESET-1: recurring templates, savings goals, and
+      // auto-categorization rules survived the reset — leaving active
+      // recurrings that later re-fired transactions into the wiped ledger
+      // ("Semua data berhasil dihapus" was not true). Delete them too.
+      db.recurringTransaction.deleteMany(),
+      db.savingsGoal.deleteMany(),
+      db.transactionRule.deleteMany(),
       // Learning
     ]);
 

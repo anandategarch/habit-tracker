@@ -215,6 +215,25 @@ export async function POST() {
       // historical catch-up reflects when the recurring SHOULD have run.
       try {
         const created = await db.$transaction(async (tx) => {
+          // BUGHUNT-ROUND2 RECUR-RACE: atomic claim gate (compare-and-set).
+          // The outer findMany read `lastRunAt` outside any transaction, so
+          // two concurrent process calls (two tabs, PWA + browser, or a
+          // double-click before the button re-renders as disabled) could
+          // BOTH compute the same due date and BOTH create the transaction —
+          // duplicating the money movement. This updateMany only succeeds
+          // when `lastRunAt` is still the value we read (and the recurring
+          // is still active); the losing call matches 0 rows and skips.
+          // Single-statement UPDATE = atomic in SQLite/libsql.
+          const claimed = await tx.recurringTransaction.updateMany({
+            where: { id: r.id, isActive: true, lastRunAt: r.lastRunAt },
+            data: { lastRunAt: next },
+          });
+          if (claimed.count === 0) {
+            // A concurrent call already processed (or deactivated) this
+            // recurring — do not create a duplicate transaction.
+            return null;
+          }
+
           const tx_record = await tx.transaction.create({
             data: {
               type: r.type,
@@ -240,15 +259,16 @@ export async function POST() {
             });
           }
 
-          // Update lastRunAt to the due date (not "now") so the next call
-          // computes the correct next-run even if process was called late.
-          await tx.recurringTransaction.update({
-            where: { id: r.id },
-            data: { lastRunAt: next },
-          });
+          // lastRunAt was already advanced by the claim above.
 
           return tx_record;
         });
+
+        if (!created) {
+          // Lost the race to a concurrent process call — not an error.
+          skipped++;
+          continue;
+        }
 
         processed.push({
           id: created.id,

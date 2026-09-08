@@ -101,16 +101,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           // If original was income (+amount), revert is -amount. If expense,
           // revert is +amount. Equivalent to signedDelta(amount, inverseType).
           const revertDelta = -signedDelta(existing.amount, existing.type);
-          const revertedSource = await tx.fundSource.update({
+          await tx.fundSource.update({
             where: { id: oldFundSource.id },
             data: { balance: { increment: revertDelta } },
           });
-          // FIN-BUG-2 fix: post-increment check on reverted old source.
-          // Edge case: reverting a previous income on a source whose balance
-          // has since been spent down to near-zero can drive it negative.
-          if (revertedSource.balance < 0) {
-            throw new Error('NEGATIVE_BALANCE_REVERT');
-          }
+          // BUGHUNT-ROUND2 PUT-GUARD: no negative check on the INTERMEDIATE
+          // revert state. Previously this threw for edits whose revert step
+          // alone dipped below zero (e.g. shrinking an old income on a
+          // low-balance source) even though the final post-apply balance was
+          // fine — while DELETE of the same transaction (identical revert
+          // math) and POST (no balance check by design) were both allowed.
+          // The final-state check after applying the new effect below is
+          // kept; intermediate dips are consistent with delete/post policy.
         }
 
         // Apply new effect on the NEW source (if it exists as a FundSource row).
@@ -192,6 +194,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 // Deleting only one side corrupts balances (the other side's effect
 // is never reverted). User must delete BOTH sides manually, or use
 // the transfer endpoint to reverse a transfer.
+//
+// BUGHUNT-ROUND2 TRANSFER-DEL: previously BOTH sides were individually
+// blocked, so a mistaken transfer could NEVER be deleted — the error text
+// even told the user to "delete both sides manually", which the API itself
+// refused. Deleting one side now atomically deletes its sibling too and
+// reverts BOTH balance effects (from-source gets its money back, to-source
+// loses the received amount). Transfers are linked by category + mirrored
+// type + identical amount + identical description (the pair is created
+// together with the same transferNote — see POST /api/finance/transfer).
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -199,8 +210,43 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     await db.$transaction(async (tx) => {
       const existing = await tx.transaction.findUnique({ where: { id } });
       if (!existing) throw new Error('NOT_FOUND');
+
       if (existing.category === 'Transfer Antar Sumber') {
-        throw new Error('TRANSFER_BLOCKED');
+        // ── Pair delete: find + revert + delete both sides atomically ──
+        const sibling = await tx.transaction.findFirst({
+          where: {
+            category: 'Transfer Antar Sumber',
+            type: existing.type === 'expense' ? 'income' : 'expense',
+            amount: existing.amount,
+            description: existing.description,
+            id: { not: existing.id },
+          },
+          orderBy: { date: 'desc' },
+        });
+
+        // Revert this side's balance effect.
+        const fundSource = await tx.fundSource.findUnique({ where: { name: existing.source } });
+        if (fundSource) {
+          await tx.fundSource.update({
+            where: { id: fundSource.id },
+            data: { balance: { increment: -signedDelta(existing.amount, existing.type) } },
+          });
+        }
+
+        if (sibling) {
+          // Revert the sibling's (opposite) balance effect.
+          const siblingSource = await tx.fundSource.findUnique({ where: { name: sibling.source } });
+          if (siblingSource) {
+            await tx.fundSource.update({
+              where: { id: siblingSource.id },
+              data: { balance: { increment: -signedDelta(sibling.amount, sibling.type) } },
+            });
+          }
+          await tx.transaction.delete({ where: { id: sibling.id } });
+        }
+        // Delete the requested side last.
+        await tx.transaction.delete({ where: { id } });
+        return;
       }
 
       // Revert the effect on the fund source using an atomic increment

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
@@ -201,6 +201,22 @@ export default function HabitMaster() {
     setForm(habitToForm(h));
     setDialogOpen(true);
   }
+
+  // BUGHUNT-ROUND2 FAB-1: FAB quick-add consumer. The mobile FAB "Habit
+  // Baru" button navigates to the Settings tab; settings.tsx switches to
+  // the 'habits' section (mounting this component), then this effect opens
+  // the add-habit dialog and clears the store action. If the user is
+  // already on this section, it fires directly.
+  const quickAddAction = useAppStore(s => s.quickAddAction);
+  const clearQuickAdd = useAppStore(s => s.clearQuickAdd);
+  const openAddRef = useRef(openAdd);
+  openAddRef.current = openAdd;
+  useEffect(() => {
+    if (quickAddAction === 'habit') {
+      openAddRef.current();
+      clearQuickAdd();
+    }
+  }, [quickAddAction, clearQuickAdd]);
 
   async function handleSubmit() {
     if (!form.name.trim()) {

@@ -80,6 +80,17 @@ export default function Settings() {
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<SettingsSection>('umum');
+  // BUGHUNT-ROUND2 FAB-1: FAB "Habit Baru" navigates to this tab and sets
+  // quickAddAction='habit'. Switch to the Habit Master section so the
+  // HabitMaster component mounts (it consumes + clears the action and
+  // opens its add-habit dialog). Deliberately does NOT clear the action
+  // here — HabitMaster owns the consumption.
+  const quickAddAction = useAppStore(s => s.quickAddAction);
+  useEffect(() => {
+    if (quickAddAction === 'habit') {
+      setActiveSection('habits');
+    }
+  }, [quickAddAction]);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);

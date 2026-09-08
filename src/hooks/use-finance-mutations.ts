@@ -88,6 +88,11 @@ export interface UseFinanceMutationsParams {
 export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsParams) {
   const queryClient = useQueryClient();
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  // BUGHUNT-ROUND2 FAB-1: FAB quick-add trigger — opens the add-transaction
+  // dialog (expense/income mode) after the Finance tab mounts. Cleared on
+  // consumption so a stale action can't re-fire later.
+  const quickAddAction = useAppStore(s => s.quickAddAction);
+  const clearQuickAdd = useAppStore(s => s.clearQuickAdd);
 
   // ── Dialog states ──
   const [txDialogOpen, setTxDialogOpen] = useState(false);
@@ -188,6 +193,20 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
     ]);
     setTxDialogOpen(true);
   }, []);
+
+  // BUGHUNT-ROUND2 FAB-1: consume the FAB quick-add action. Runs whenever
+  // the Finance tab is live (this hook is only used by the Finance page)
+  // and the store holds an expense/income action — opens the pre-filled
+  // transaction dialog, then clears the action. Uses functional deps so
+  // eslint is satisfied and the latest openNewTx identity is used.
+  const openNewTxRef = useRef(openNewTx);
+  openNewTxRef.current = openNewTx;
+  useEffect(() => {
+    if (quickAddAction === 'expense' || quickAddAction === 'income') {
+      openNewTxRef.current(quickAddAction);
+      clearQuickAdd();
+    }
+  }, [quickAddAction, clearQuickAdd]);
 
   const openEditTx = useCallback((tx: Transaction) => {
     setEditingTx(tx);
@@ -320,7 +339,15 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
     try {
       if (editingTx) {
         const res = await fetch(`/api/finance/transactions/${editingTx.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) toast.success('Transaksi berhasil diupdate'); else { toast.error('Gagal mengupdate transaksi'); return; }
+        // BUGHUNT-ROUND2 TOAST-ERR: surface the API's specific error message
+        // (e.g. "Saldo sumber dana tidak mencukupi...") instead of a generic
+        // one — matches the delete handler's behavior.
+        if (res.ok) toast.success('Transaksi berhasil diupdate');
+        else {
+          const err = await res.json().catch(() => null);
+          toast.error(err?.error || 'Gagal mengupdate transaksi');
+          return;
+        }
       } else {
         const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop(event?.currentTarget); } else { toast.error('Gagal menambahkan transaksi'); return; }

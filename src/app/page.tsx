@@ -95,6 +95,7 @@ export default function Home() {
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
   const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
+  const triggerQuickAdd = useAppStore(s => s.triggerQuickAdd);
   const queryClient = useQueryClient();
 
   // Splash screen on initial app load — shows SproutGrow loader for 2.6s
@@ -189,10 +190,16 @@ export default function Home() {
   // BUGHUNT-OTHER-1 BUG-L16: also react to window resize — previously the
   // sidebar only opened if the user happened to be on desktop at first
   // mount, and never re-opened when resizing from mobile to desktop.
+  // BUGHUNT-ROUND2 SIDEBAR-1: the resize listener only ever OPENED the
+  // sidebar (>=768px) — shrinking the window back to mobile left the
+  // sidebar drawer open, covering ~2/3 of a phone screen with the dark
+  // overlay. Now resize sets the state to match the viewport: open on
+  // desktop, closed on mobile. A deliberately-opened mobile drawer is
+  // unaffected until the user actually resizes/rotates the device.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const apply = () => {
-      if (window.innerWidth >= 768) setSidebarOpen(true);
+      setSidebarOpen(window.innerWidth >= 768);
     };
     apply();
     window.addEventListener('resize', apply);
@@ -422,6 +429,9 @@ function FlutterBottomNav({
   const navRef = useRef<HTMLDivElement>(null);
   const [navWidth, setNavWidth] = useState(388);
   const [fabOpen, setFabOpen] = useState(false);
+  // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
+  // deep nav component can fire it without prop-drilling from Home().
+  const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
 
   useLayoutEffect(() => {
     if (!navRef.current) return;
@@ -594,7 +604,10 @@ function FlutterBottomNav({
           <div className="flex flex-col gap-1 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 min-w-[160px] anim-tab-enter">
             <button
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
-              onClick={() => { onNavClick('finance'); setFabOpen(false); }}
+              // BUGHUNT-ROUND2 FAB-1: was just onNavClick('finance') — the
+              // dialog never opened. Now the quick-add action makes the
+              // Finance tab open the expense dialog after mounting.
+              onClick={() => { triggerQuickAdd('expense'); onNavClick('finance'); setFabOpen(false); }}
             >
               <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center shrink-0">
                 <ArrowDownRight className="h-4 w-4 text-red-500" />
@@ -606,7 +619,7 @@ function FlutterBottomNav({
             </button>
             <button
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
-              onClick={() => { onNavClick('finance'); setFabOpen(false); }}
+              onClick={() => { triggerQuickAdd('income'); onNavClick('finance'); setFabOpen(false); }}
             >
               <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
                 <ArrowUpRight className="h-4 w-4 text-teal-500" />
@@ -618,7 +631,11 @@ function FlutterBottomNav({
             </button>
             <button
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
-              onClick={() => { onNavClick('tracker'); setFabOpen(false); }}
+              // "Habit Baru" previously went to the tracker tab — but the
+              // tracker has no add-habit entry; the form lives in Settings →
+              // Habit Master. Navigate there and let HabitMaster open its
+              // dialog via the same quick-add trigger.
+              onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
             >
               <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
                 <CheckSquare className="h-4 w-4 text-teal-500" />
