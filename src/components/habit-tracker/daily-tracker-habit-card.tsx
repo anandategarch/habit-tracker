@@ -22,7 +22,7 @@
 'use client';
 
 import { memo } from 'react';
-import { Check, Clock, RotateCw, Ban, BarChart3 } from 'lucide-react';
+import { Check, Clock, RotateCw, Ban, BarChart3, Minus, Plus } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { FlipCard } from '@/components/habit-tracker/flip-card';
@@ -58,6 +58,12 @@ export interface HabitCardProps {
   categoryColor: string;
   /** Theme primary color (hex) for the ProgressRing "done" state. */
   primaryColor: string;
+  /** WAVE1 Task 9-b — today's amount progress (habitType 'amount' only;
+   *  0 = no log row yet). Ignored for normal/avoid habits. */
+  amountValue?: number;
+  /** WAVE1 Task 9-b — stepper delta handler (+1/-1) for amount habits.
+   *  Required for amount cards; unused elsewhere. */
+  onAmountDelta?: (habit: Habit, delta: number) => void;
   onToggleHabit: (
     habit: Habit,
     event?: React.MouseEvent | React.KeyboardEvent,
@@ -90,6 +96,8 @@ export const HabitCard = memo(function HabitCard({
   todayStr,
   categoryColor,
   primaryColor,
+  amountValue = 0,
+  onAmountDelta,
   onToggleHabit,
   onSetConfettiEl,
   onOpenAnalysis,
@@ -99,9 +107,23 @@ export const HabitCard = memo(function HabitCard({
   // RELAPSE happened today. Success = NOT relapsed. The card visualization
   // is inverted: green when success (no relapse), red when relapsed.
   const isAvoid = habit.habitType === 'avoid';
+  // WAVE1 Task 9-b — amount habits are quantitative: the front face shows a
+  // −/+ stepper instead of the binary checkbox, and the ring fills with
+  // value/target instead of jumping 0 → 100. `completed` (and therefore
+  // streak/XP/KPIs) still flips only when value >= target, so every
+  // downstream stat keeps the exact same semantics as binary habits.
+  const isAmount = habit.habitType === 'amount';
+  // Guard: target <= 0 (schema allows 0 via API) is treated as 1 so the
+  // progress math never divides by zero.
+  const amountTarget = habit.target > 0 ? habit.target : 1;
+  const amountProgress = Math.min(amountValue, amountTarget);
   const isRelapsed = isAvoid && isDone;
   const isSuccess = isAvoid ? !isDone : isDone;
-  const pct = isSuccess ? 100 : 0;
+  const pct = isAmount
+    ? Math.min(100, Math.round((amountProgress / amountTarget) * 100))
+    : isSuccess
+      ? 100
+      : 0;
   // BUG-18 fix: return 0 when no cache (was _count.logs which is the total
   // log count, not a streak — completely unrelated and could show e.g. "47"
   // instead of the actual streak).
@@ -178,34 +200,39 @@ export const HabitCard = memo(function HabitCard({
             )}
           />
           {/* Checkbox top-right (stopPropagation: clicking it
-              toggles the habit without flipping the card). */}
-          <div className="absolute top-4 right-4 z-10">
-            <Checkbox
-              checked={isDone}
-              onCheckedChange={() => onToggleHabit(habit)}
-              disabled={isToggling}
-              onClick={(e) => {
-                e.stopPropagation();
-                // Set confetti origin to the checkbox button itself,
-                // since onCheckedChange doesn't receive a DOM event.
-                onSetConfettiEl(e.currentTarget as HTMLElement);
-              }}
-              className={cn(
-                'h-6 w-6 rounded-full border-2 transition-all duration-200',
-                'data-[state=unchecked]:border-muted-foreground/30 dark:data-[state=unchecked]:border-white/25',
-                'data-[state=checked]:border-transparent data-[state=checked]:text-white',
-                // Gradient fill when done — teal→emerald for normal/amount
-                // habits (success), rose→red for avoid habits (relapse).
-                isDone &&
-                  !isAvoid &&
-                  'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-teal-400 data-[state=checked]:to-emerald-600 data-[state=checked]:shadow-[0_4px_12px_-2px_rgba(16,185,129,0.6)]',
-                isDone &&
-                  isAvoid &&
-                  'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-rose-400 data-[state=checked]:to-red-600 data-[state=checked]:shadow-[0_4px_12px_-2px_rgba(244,63,94,0.6)]',
-                justCompleted && 'anim-nav-icon-pop',
-              )}
-            />
-          </div>
+              toggles the habit without flipping the card).
+              WAVE1 Task 9-b: amount habits have NO checkbox — the front face
+              shows the −/+ stepper row below instead, so the top-right slot
+              is left free (the value lives in the stepper, not here). */}
+          {!isAmount && (
+            <div className="absolute top-4 right-4 z-10">
+              <Checkbox
+                checked={isDone}
+                onCheckedChange={() => onToggleHabit(habit)}
+                disabled={isToggling}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Set confetti origin to the checkbox button itself,
+                  // since onCheckedChange doesn't receive a DOM event.
+                  onSetConfettiEl(e.currentTarget as HTMLElement);
+                }}
+                className={cn(
+                  'h-6 w-6 rounded-full border-2 transition-all duration-200',
+                  'data-[state=unchecked]:border-muted-foreground/30 dark:data-[state=unchecked]:border-white/25',
+                  'data-[state=checked]:border-transparent data-[state=checked]:text-white',
+                  // Gradient fill when done — teal→emerald for normal/amount
+                  // habits (success), rose→red for avoid habits (relapse).
+                  isDone &&
+                    !isAvoid &&
+                    'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-teal-400 data-[state=checked]:to-emerald-600 data-[state=checked]:shadow-[0_4px_12px_-2px_rgba(16,185,129,0.6)]',
+                  isDone &&
+                    isAvoid &&
+                    'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-rose-400 data-[state=checked]:to-red-600 data-[state=checked]:shadow-[0_4px_12px_-2px_rgba(244,63,94,0.6)]',
+                  justCompleted && 'anim-nav-icon-pop',
+                )}
+              />
+            </div>
+          )}
 
           {/* ANIM-3: Flip hint icon — top-left, pointer-events-none
               so taps pass through to the FlipCard flip handler. */}
@@ -329,6 +356,18 @@ export const HabitCard = memo(function HabitCard({
                 <span className="text-[11px] font-medium text-sky-600 dark:text-sky-400 flex items-center gap-1 justify-end">
                   🏖️ Liburan
                 </span>
+              ) : isAmount ? (
+                // WAVE1 Task 9-b: amount progress headline — "3/8 menuju
+                // target" (the exact count also lives big in the stepper row).
+                <span className="text-[11px] font-medium text-muted-foreground tabular-nums flex items-center gap-1 justify-end">
+                  <span className="premium-stat text-sm text-foreground">
+                    {amountProgress}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    / {amountTarget}
+                  </span>
+                  menuju target
+                </span>
               ) : (
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {isAvoid ? 'Bersih hari ini' : 'Belum dimulai'}
@@ -365,6 +404,67 @@ export const HabitCard = memo(function HabitCard({
               </div>
             </div>
           </div>
+
+          {/* WAVE1 Task 9-b — amount stepper (replaces the binary checkbox).
+              − / + round buttons with 44px touch targets; the value/target
+              reads big in the middle (premium-stat). stopPropagation keeps
+              taps from flipping the card. Minus disables at 0; plus disables
+              once the target is reached (going back below the target is
+              still possible via −, which un-completes the day — correct
+              semantics: streak/XP follow the `completed` flag). */}
+          {isAmount && onAmountDelta && (
+            <div className="mt-3 pt-3 border-t border-border/70 flex items-center gap-2">
+              <button
+                type="button"
+                aria-label={`Kurangi progres ${habit.name}`}
+                title="Kurangi 1"
+                disabled={isToggling || amountValue <= 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAmountDelta(habit, -1);
+                }}
+                className={cn(
+                  'h-11 w-11 shrink-0 rounded-full border border-border/70',
+                  'flex items-center justify-center bg-muted/60 hover:bg-accent',
+                  'text-foreground transition-all duration-150 active:scale-90',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'disabled:opacity-40 disabled:pointer-events-none',
+                )}
+              >
+                <Minus className="h-4.5 w-4.5" aria-hidden="true" />
+              </button>
+              <div className="flex-1 min-w-0 text-center leading-tight">
+                <span className="premium-stat text-lg text-foreground">
+                  {amountProgress}
+                </span>
+                <span className="ml-1 text-xs font-semibold text-muted-foreground">
+                  / {amountTarget} target
+                </span>
+              </div>
+              <button
+                type="button"
+                aria-label={`Tambah progres ${habit.name}`}
+                title="Tambah 1"
+                disabled={isToggling || isSuccess}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Confetti origin: the + button (fires from toggleHabit
+                  // after the API confirms the completing step).
+                  onSetConfettiEl(e.currentTarget as HTMLElement);
+                  onAmountDelta(habit, 1);
+                }}
+                className={cn(
+                  'h-11 w-11 shrink-0 rounded-full border border-border/70',
+                  'flex items-center justify-center bg-muted/60 hover:bg-accent',
+                  'text-foreground transition-all duration-150 active:scale-90',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'disabled:opacity-40 disabled:pointer-events-none',
+                )}
+              >
+                <Plus className="h-4.5 w-4.5" aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
       }
       back={

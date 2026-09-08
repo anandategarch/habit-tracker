@@ -13,8 +13,9 @@ export interface SettingsFormState {
   primaryColor: string;
   secondaryColor: string;
   weekStart: string;
-  language: string;
-  targetCompletion: number;
+  // NOTE (Gelombang-1 D): `language` & `targetCompletion` tidak lagi bagian
+  // dari form — keduanya kontrol no-op yang sudah dihapus dari UI. Kolomnya
+  // tetap ada di AppSettings (DB + API) supaya API tetap kompatibel.
 }
 
 // BUGHUNT-ROUND3 SETTINGS-SECTION-1: SettingsSection now lives in the global

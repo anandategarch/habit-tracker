@@ -130,7 +130,14 @@ export async function POST(
       },
       update: {
         completed: completed ?? true,
-        value: value ?? 1,
+        // WAVE1 Task 9-b: partial-update semantics — only overwrite `value`
+        // when the client actually sent one. Binary toggles (normal/avoid
+        // habits) POST {completed} without a value; resetting the row's
+        // value to 1 on every toggle would clobber an amount habit's
+        // stepper progress (e.g. 5/8 → 1/8 on an incidental binary write).
+        // The create branch keeps the `?? 1` default (a fresh row has no
+        // progress to preserve).
+        ...(value !== undefined && { value }),
         completedAt: completed ? completedAtStr : null,
       },
     });

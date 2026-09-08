@@ -2,6 +2,8 @@ import { db } from '@/lib/db';
 import { createHabitSchema, parseOr400 } from '@/lib/validation';
 import { NextRequest, NextResponse } from 'next/server';
 import { jakartaDateString } from '@/lib/jakarta-date';
+import { jakartaToday } from '@/lib/timezone';
+import { startOfDay } from '@/lib/date-utils';
 
 // GET /api/habits - list all habits
 // Include 'archived' so the UI's status filter "Archived" returns results
@@ -48,7 +50,43 @@ export async function GET() {
         _count: { select: { logs: true } },
       },
     });
-    return NextResponse.json(habits);
+
+    // WAVE1 Task 9-a (Task C — total XP): per-habit count of COMPLETED logs
+    // for ACTIVE habits, aggregated with the EXACT window the dashboard's
+    // completion-stats uses for period='all': from the earliest active
+    // habit's creation day (startOfDay) through today (Jakarta). The tracker's
+    // Level KPI (Σ completedLogCount × difficultyXP, computed client-side
+    // with the shared xpMap + calcLevel) then equals the dashboard's Level by
+    // construction — including on quirky data where logs predate the habit
+    // row (demo seeds). groupBy keeps this one SQL aggregate instead of
+    // shipping every log to the client.
+    const activeHabits = habits.filter((h) => h.status === 'active');
+    const periodStart =
+      activeHabits.length > 0
+        ? startOfDay(
+            new Date(Math.min(...activeHabits.map((h) => h.createdAt.getTime()))),
+          )
+        : null;
+    const completedGroups =
+      activeHabits.length > 0 && periodStart
+        ? await db.habitLog.groupBy({
+            by: ['habitId'],
+            where: {
+              completed: true,
+              habitId: { in: activeHabits.map((h) => h.id) },
+              date: { gte: periodStart, lte: jakartaToday() },
+            },
+            _count: { _all: true },
+          })
+        : [];
+    const completedCountMap = new Map(
+      completedGroups.map((g) => [g.habitId, g._count._all]),
+    );
+    const habitsWithCounts = habits.map((h) => ({
+      ...h,
+      completedLogCount: completedCountMap.get(h.id) ?? 0,
+    }));
+    return NextResponse.json(habitsWithCounts);
   } catch (error) {
     console.error('GET /api/habits error:', error);
     // Return a proper 500 instead of `[]` — the old behavior silently masked

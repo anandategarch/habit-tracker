@@ -1,12 +1,19 @@
 // ---------------------------------------------------------------------------
-// DailySummary — 4 KPI cards row (Completed / XP Today / Streak / Level XP)
+// DailySummary — 4 KPI cards row (Selesai / XP Hari Ini / Streak / Level)
 // Extracted from daily-tracker.tsx during SPLIT-PHASE3.
 //
 // PREMIUM REDESIGN (Rutina Aurora / Task 2-b, light polish): accent chips
 // harmonized with the new KpiCard chip colors (teal / amber / rose / violet),
 // the progress mini-bar now uses `.premium-progress-fill` (gradient), and the
 // streak KPI gets an animated flame icon (`anim-flame-pulse`) so the streak
-// feels alive instead of a static "1 hari". All numbers/props unchanged.
+// feels alive instead of a static "1 hari".
+//
+// WAVE1 Task 9-a (Task C): the 4th KPI is now the all-time Level — it uses
+// calcLevel(totalXP), the EXACT sqrt scale the dashboard's Level KPI uses
+// (imported from lib/dashboard/helpers — a pure lib module), fed by totalXP
+// = Σ completedLogCount × difficultyXP from the habits query. Previously it
+// showed "Lv {floor(todayXP/100)+1}" — a level that reset every morning and
+// used a different scale than the dashboard. The XP KPI stays todayXP.
 // ---------------------------------------------------------------------------
 
 'use client';
@@ -14,6 +21,7 @@
 import { Check, Zap, Flame, Star } from 'lucide-react';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { FlashNumber } from '@/components/habit-tracker/flash-number';
+import { calcLevel } from '@/lib/dashboard/helpers';
 import { cn } from '@/lib/utils';
 import { KpiCard } from './daily-tracker-kpi-card';
 
@@ -22,12 +30,15 @@ export function DailySummary({
   totalCount,
   completionPct,
   todayXP,
+  totalXP,
   bestStreak,
 }: {
   completedCount: number;
   totalCount: number;
   completionPct: number;
   todayXP: number;
+  /** All-time XP (Σ completedLogCount × difficultyXP) — drives the Level KPI. */
+  totalXP: number;
   bestStreak: number;
 }) {
   // Streak flame (VLM critique #3): pulses while a streak is active so the
@@ -35,6 +46,11 @@ export function DailySummary({
   const StreakFlameIcon = ({ className }: { className?: string }) => (
     <Flame className={cn(className, bestStreak > 0 && 'anim-flame-pulse')} />
   );
+
+  // WAVE1 Task 9-a (Task C): NaN/negative-guard — a malformed payload must
+  // never paint "Lv NaN". calcLevel is the dashboard's own sqrt scale.
+  const safeTotalXP = Number.isFinite(totalXP) ? Math.max(0, totalXP) : 0;
+  const level = calcLevel(safeTotalXP);
 
   return (
     <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -99,16 +115,19 @@ export function DailySummary({
       />
       <KpiCard
         icon={Star}
-        label="XP"
+        label="Level"
         accent="amber"
         staggerIndex={3}
         value={
           <span>
-            <FlashNumber value={todayXP} />
-            <span className="text-sm font-semibold text-muted-foreground ml-1">XP</span>
+            Lv <FlashNumber value={level} />
           </span>
         }
-        sub={<span className="text-violet-600 dark:text-violet-400">Lv {Math.floor(todayXP / 100) + 1} · {todayXP % 100}/100</span>}
+        sub={
+          <span className="text-violet-600 dark:text-violet-400 tabular-nums">
+            XP total {safeTotalXP}
+          </span>
+        }
       />
     </section>
   );

@@ -40,12 +40,21 @@ export default function ServiceWorkerRegister() {
         // (like the morph-bump nav redesign) to returning users.
         reg.update().catch(() => {});
 
+        // Single-source versi cache = sw.js: fetch '/sw.js' (no-store, tidak
+        // lewat cache SW karena destination fetch() bukan script/navigate)
+        // dan parse CACHE_NAME-nya SEBELUM blok compare localStorage di
+        // bawah — register() async, jadi tidak ada race dengan register().
+        // Dengan ini nilai pembanding halaman tidak pernah "lag" di
+        // belakang sw.js hasil deploy baru (dulu konstanta build-time
+        // 'v12' yang mandek sejak v13).
+        const cacheVersion = await readSwCacheVersion();
+
         // FIX: Race condition — if SW activated BEFORE React mounted (which
         // happens on fast SW install), controllerchange already fired and
         // was missed by the listener. Detect this by comparing the SW
-        // version stored in localStorage against the current build's
-        // CACHE_VERSION. If they differ, the page loaded with an old SW
-        // but new SW is now active → force reload.
+        // version stored in localStorage against the version we just parsed
+        // from the live sw.js. If they differ, the page loaded with an old
+        // SW but new SW is now active → force reload.
         //
         // BUG-SW-PERF BUG-3: removed dead `controllerUrl`/`activeUrl`
         // declarations — they were declared but never compared (the
@@ -54,7 +63,7 @@ export default function ServiceWorkerRegister() {
         // so comparing scriptURLs would be a no-op anyway.
         if (reg.active && navigator.serviceWorker.controller) {
           const storedVersion = localStorage.getItem('sw-version');
-          const currentVersion = reg.active.scriptURL + '|' + CACHE_VERSION;
+          const currentVersion = reg.active.scriptURL + '|' + cacheVersion;
           if (storedVersion && storedVersion !== currentVersion) {
             localStorage.setItem('sw-version', currentVersion);
             window.location.reload();
@@ -105,6 +114,22 @@ export default function ServiceWorkerRegister() {
   return null;
 }
 
-// Build-time cache version — injected from sw.js CACHE_NAME.
-// If this doesn't match what's stored in localStorage, force reload.
-const CACHE_VERSION = 'v12';
+// Fallback bila fetch/parse /sw.js gagal (offline, non-200, regex miss) —
+// HARUS identik dengan CACHE_NAME di public/sw.js pada ronde ini;
+// sumber kebenaran utama tetap sw.js yang di-parse dinamis di atas.
+const FALLBACK_CACHE_VERSION = 'habit-tracker-v15';
+
+// Baca versi cache langsung dari sw.js yang sedang di-deploy (single-source).
+// sw.js memakai nama konstanta CACHE_NAME; regex juga menerima CACHE_VERSION
+// bila suatu saat di-rename, dan mengambil nilai string pertamanya.
+async function readSwCacheVersion(): Promise<string> {
+  try {
+    const res = await fetch('/sw.js', { cache: 'no-store' });
+    if (!res.ok) return FALLBACK_CACHE_VERSION;
+    const txt = await res.text();
+    const m = txt.match(/CACHE_(?:NAME|VERSION)\s*=\s*['"]([^'"]+)['"]/);
+    return m?.[1] ?? FALLBACK_CACHE_VERSION;
+  } catch {
+    return FALLBACK_CACHE_VERSION;
+  }
+}

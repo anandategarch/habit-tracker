@@ -91,3 +91,19 @@ upload/
 *.db
 prisma/db/
 prisma/prisma/
+
+# ── Sandbox/template scaffold (not part of the app) ──────────────────────
+# WAVE1 cleanup: untracked from git — local-only artifacts of the dev
+# template. Keep them on disk for local tooling, out of the repo/deploy.
+/Caddyfile
+/start-dev.sh
+/examples/
+/.zscripts/
+/mini-services/
+/download/
+# Design mockups accidentally tracked via the `!public/**` re-include above.
+# App icons (icon-*, apple-touch-icon, favicon) stay tracked — these three
+# are early layout mockups, not shipped assets.
+/public/tree-option-a.png
+/public/tree-option-b.png
+/public/tree-option-c.png

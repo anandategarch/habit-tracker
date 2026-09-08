@@ -258,7 +258,7 @@ export default function Dashboard() {
         <Skeleton className="h-24 w-full rounded-2xl" />
         <Skeleton className="h-10 w-64 rounded-full" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          {Array.from({ length: 15 }).map((_, i) => (
+          {Array.from({ length: 13 }).map((_, i) => (
             <Skeleton key={i} className="h-32 w-full rounded-2xl" />
           ))}
         </div>
@@ -378,7 +378,6 @@ export default function Dashboard() {
             { label: '30 Hari', icon: TrendingUp, chip: 'chip-teal', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, key: 'monthly' },
             { label: 'Total XP', icon: Star, chip: 'chip-amber', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, chip: 'chip-violet', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
-            { label: 'Lencana', icon: Award, chip: 'chip-rose', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
             { label: 'Skor', icon: Brain, chip: 'chip-emerald', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
             { label: 'Target', icon: Flag, chip: 'chip-sky', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals', nav: () => setActiveTab('goals'), navLabel: 'Buka tab target untuk melihat progres goal' },
             { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log mood' },
@@ -387,13 +386,15 @@ export default function Dashboard() {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce
             // cognitive overload. → 6 on mobile.
-            // Hidden: longest, success, weekly, monthly, level, badges,
+            // Hidden: longest, success, weekly, monthly, level,
             // productivity, goals.
             // Visible: habits, completion, streak, xp, mood, sleep.
-            // NOTE: kartu "Tantangan" (challengeProgress) dihapus — API tidak
-            // pernah mengirim field itu (fitur belum ada di backend), jadi
-            // kartunya selalu menampilkan "%" tanpa angka (tampak rusak).
-            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'goals']);
+            // NOTE: kartu hantu "Tantangan" (challengeProgress) & "Lencana"
+            // (unlockedBadges/totalBadges) dihapus — API tidak pernah
+            // mengirim field-field itu (fitur tidak ada di backend), jadi
+            // kartunya selalu menampilkan 0/0 atau "%" tanpa angka (tampak
+            // rusak / menyesatkan user).
+            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'productivity', 'goals']);
             const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
             // KPI body shared by both the interactive <button> and the
             // static <div> variants below.

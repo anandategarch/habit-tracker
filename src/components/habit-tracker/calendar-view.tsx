@@ -34,6 +34,8 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+// WAVE1-9a: shared mood emoji map (was a local const here).
+import { MOOD_EMOJIS } from '@/lib/mood';
 import {
   ChevronLeft,
   ChevronRight,
@@ -155,13 +157,9 @@ function getHeatmapHover(rate: number | null): string {
 // Mood emoji for days whose daily-log has mood data (1–5 scale, same map
 // as the dashboard's MoodEmoji). Renders inside the day cell so the legend
 // row "😊 Mood tercatat" is no longer a dead promise.
-const MOOD_EMOJIS: Record<number, string> = {
-  1: '😢',
-  2: '😔',
-  3: '😐',
-  4: '🙂',
-  5: '😊',
-};
+// WAVE1-9a: the map itself moved to src/lib/mood.ts (imported at the top) so
+// the tracker's check-in card can share it without importing this heavy
+// component module.
 
 // Task 4-c: Indonesian aria-label for the day buttons, e.g.
 // "Rabu 15 Januari 2025, 3 dari 5 habit selesai".

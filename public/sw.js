@@ -1,7 +1,11 @@
-const CACHE_NAME = 'habit-tracker-v14';
+const CACHE_NAME = 'habit-tracker-v15';
 
 // Bump cache version (v1 → v2 → ... → v10) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
+// v15: Gelombang-1 — hapus fitur hantu (KPI Lencana + kontrol Bahasa/Target
+// Penyelesaian di Settings) + sinkron versi SW (sw-register kini parse
+// CACHE_NAME ini secara dinamis). Satu bump menutupi semua asset yang juga
+// berubah ronde ini oleh agent paralel.
 // v14: Premium UI redesign seluruh app ("Rutina Aurora") — design tokens,
 // hero/kartu premium, chip gradien, dsb. Purge v13 chunks agar user lihat UI baru.
 // v13: Premium bottom-nav redesign (floating glass dock + liquid indicator +

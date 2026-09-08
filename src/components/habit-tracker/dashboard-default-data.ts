@@ -16,11 +16,6 @@ export const DEFAULT_DATA: DashboardData = {
   nextLevelXP: 100,
   currentLevelXP: 0,
   levelProgress: 0,
-  // These three fields were missing from the first extraction — match the
-  // inline DEFAULT_DATA values (all 0). Added back during PHASE-A-2 dedup.
-  unlockedBadges: 0,
-  totalBadges: 0,
-  challengeProgress: 0,
   goalProgress: 0,
   moodAverage: '3.0',
   sleepAverage: '7.0',

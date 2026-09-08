@@ -57,6 +57,7 @@ import {
 } from './daily-tracker-helpers';
 import { DateNav } from './daily-tracker-date-nav';
 import { DailySummary } from './daily-tracker-daily-summary';
+import { DailyCheckInCard } from './daily-check-in-card';
 import { HabitCard } from './daily-tracker-habit-card';
 import { SortableHabitCard } from './daily-tracker-sortable-card';
 import { LoadingSkeleton } from './daily-tracker-skeleton';
@@ -97,7 +98,23 @@ export default function DailyTracker() {
   // ---- state ----
   const [loading, setLoading] = useState(true);
   const [completionMap, setCompletionMap] = useState<Record<string, boolean>>({});
+  // WAVE1 Task 9-b — today's amount progress per habit (habitId → value),
+  // mirroring completionMap's optimistic pattern: seeded from the month log
+  // cache on every date change (fetchCompletions), optimistically updated at
+  // tap time, reverted on API error. Layered value source for the habit
+  // card's −/+ stepper display.
+  const [amountValueMap, setAmountValueMap] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState('');
+  // WAVE1 Task 9-a — optimistic check-in overrides (mood / energy / sleep).
+  // Applied on top of the gated query row so a tap paints instantly; the
+  // draft is per-date and keyed off `selectedDate`, so switching days never
+  // leaks day A's draft into day B (same principle as the notes gate below).
+  const [checkInDraft, setCheckInDraft] = useState<{
+    date: string;
+    mood?: number;
+    energy?: number;
+    sleep?: number;
+  } | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [viewFilter, setViewFilter] = useState<'all' | 'incomplete' | 'completed'>('all');
   const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set());
@@ -119,6 +136,13 @@ export default function DailyTracker() {
 
   // ---- time analysis dialog ----
   const [analysisHabitId, setAnalysisHabitId] = useState<string | null>(null);
+
+  // WAVE1 Task 9-b — pending amount value while the time-confirmation dialog
+  // is open for an amount habit's completing tap. When the dialog submits,
+  // toggleHabit posts {value, completed:true, completedAt} together so the
+  // (habitId, date) upsert never separates the value from the completion.
+  // null = the dialog was opened from the ordinary binary checkbox path.
+  const [amountDialogValue, setAmountDialogValue] = useState<number | null>(null);
 
   // ONE-CLICK-1: consume the global habit focus (set by openHabitFocus anywhere
   // in the app — dashboard rows, calendar, weekly review, …). Opens the
@@ -152,6 +176,11 @@ export default function DailyTracker() {
   // debounced save was cancelled on unmount, so typing-then-navigating within
   // 600ms lost the user's notes silently.
   const pendingSaveRef = useRef<{ date: string; notes?: string } | null>(null);
+  // WAVE1 Task 9-a — serialized POST queue for the check-in card. Each tap
+  // enqueues an absolute-value partial update; the chain runs them one at a
+  // time so rapid taps can never interleave (double-tap sends two identical
+  // idempotent writes — harmless by design).
+  const checkInChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // PERF-REACT-1 fix: mirror `completionMap` into a ref so toggleHabit and
   // handleHabitCheck can read the latest value WITHOUT having `completionMap`
@@ -164,6 +193,14 @@ export default function DailyTracker() {
   useEffect(() => {
     completionMapRef.current = completionMap;
   }, [completionMap]);
+  // WAVE1 Task 9-b — ref mirror of amountValueMap (same PERF-REACT-1 pattern)
+  // so toggleHabit can read the pre-toggle value for the error-revert without
+  // depending on the state itself (stable callback identity → React.memo on
+  // HabitCard keeps skipping untouched cards).
+  const amountValueMapRef = useRef(amountValueMap);
+  useEffect(() => {
+    amountValueMapRef.current = amountValueMap;
+  }, [amountValueMap]);
 
   // ---- TanStack Query: habits, daily-log ----
   const { data: queryHabits = [] } = useQuery<Habit[]>({
@@ -186,7 +223,7 @@ export default function DailyTracker() {
   const habits = localHabitsOverride ?? queryHabits;
 
   const { data: dailyLogData } = useQuery<
-    { notes: string | null; date?: string } | null
+    { notes: string | null; date?: string; mood?: number; energy?: number; sleep?: number } | null
   >({
     queryKey: ['daily-logs', selectedDate],
     queryFn: async () => {
@@ -210,6 +247,90 @@ export default function DailyTracker() {
       setNotes('');
     }
   }, [dailyLogData, selectedDate]);
+
+  // WAVE1 Task 9-a — check-in values (mood / energy / sleep) for the selected
+  // day. Same keepPreviousData gate as the notes effect above: right after a
+  // date switch `dailyLogData` is still the PREVIOUS day's row, and painting
+  // day A's mood/sleep under day B's header is exactly the "check-in lies"
+  // bug this task fixes. No row for the day → null → the card shows every
+  // option unpressed ("Belum diisi") instead of fake 3/3/7 defaults.
+  const checkInLog =
+    dailyLogData && dailyLogData.date?.slice(0, 10) === selectedDate
+      ? dailyLogData
+      : null;
+  const checkInDraftForDate =
+    checkInDraft && checkInDraft.date === selectedDate ? checkInDraft : null;
+  const checkInMood = checkInDraftForDate?.mood ?? checkInLog?.mood ?? null;
+  const checkInEnergy =
+    checkInDraftForDate?.energy ?? checkInLog?.energy ?? null;
+  const checkInSleep = checkInDraftForDate?.sleep ?? checkInLog?.sleep ?? null;
+
+  // ---- check-in save (mood / energy / sleep) ----
+  // POST /api/daily-logs is a partial upsert (update only touches the fields
+  // present in the body), so each tap sends ONLY the changed field — a mood
+  // tap can never clobber a separately-saved sleep value. Taps are rare, so
+  // no debounce; a serialized promise chain keeps rapid taps from racing:
+  // each queued POST carries the absolute latest value captured at enqueue
+  // time, so even a double-tap is two identical idempotent writes.
+  const handleSetCheckIn = useCallback(
+    (patch: { mood?: number; energy?: number; sleep?: number }) => {
+      // Optimistic per-date draft → instant pressed state.
+      setCheckInDraft((prev) =>
+        prev && prev.date === selectedDate
+          ? { ...prev, ...patch }
+          : { date: selectedDate, ...patch },
+      );
+      const payload = { date: selectedDate, ...patch };
+      checkInChainRef.current = checkInChainRef.current
+        .then(async () => {
+          try {
+            const res = await fetch('/api/daily-logs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await queryClient.invalidateQueries({
+              queryKey: ['daily-logs', payload.date],
+            });
+            // Keep dependents fresh: dashboard mood/sleep KPIs + the
+            // calendar's mood emoji overlay (['daily-logs-month'] prefix).
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
+          } catch {
+            toast.error('Gagal menyimpan check-in');
+            // Revert the optimistic draft for the failed fields only.
+            setCheckInDraft((prev) => {
+              if (!prev || prev.date !== payload.date) return prev;
+              const next = { ...prev };
+              for (const key of Object.keys(patch) as (keyof typeof patch)[]) {
+                delete next[key];
+              }
+              return next;
+            });
+          }
+        })
+        // The chain head must never reject — a rejected link would swallow
+        // every later tap.
+        .catch(() => {});
+    },
+    [selectedDate, queryClient],
+  );
+
+  // Stable wrappers so the memoized DailyCheckInCard doesn't re-render on
+  // unrelated parent state changes (same PERF-REACT-1 pattern as HabitCard).
+  const handleSetCheckInMood = useCallback(
+    (v: number) => handleSetCheckIn({ mood: v }),
+    [handleSetCheckIn],
+  );
+  const handleSetCheckInEnergy = useCallback(
+    (v: number) => handleSetCheckIn({ energy: v }),
+    [handleSetCheckIn],
+  );
+  const handleSetCheckInSleep = useCallback(
+    (v: number) => handleSetCheckIn({ sleep: v }),
+    [handleSetCheckIn],
+  );
 
   // ---- derived ----
   // STREAK-TZ-class fix: `parseISO(selectedDate)` produced a UTC-midnight
@@ -382,6 +503,25 @@ export default function DailyTracker() {
     }, 0);
   }, [trackableHabits, completionMap, xpMap, isSuccess]);
 
+  // WAVE1 Task 9-a (Task C — Level = XP total): all-time XP from the habits
+  // query — Σ completedLogCount × difficultyXP. The server aggregates the
+  // completed-log counts with the same filter (active habits, ≤ today
+  // Jakarta) the dashboard's completion-stats uses, and xpMap comes from the
+  // same habit-options source, so calcLevel(totalXP) here equals the
+  // dashboard's Level on identical data. habits is invalidated after every
+  // toggle, so the Level KPI updates live. Number.isFinite guards against a
+  // malformed API payload ever painting "Lv NaN".
+  const totalXP = useMemo(() => {
+    const sum = habits.reduce(
+      (s, h) =>
+        h.status === 'active'
+          ? s + (h.completedLogCount ?? 0) * (xpMap[h.difficulty] || 20)
+          : s,
+      0,
+    );
+    return Number.isFinite(sum) ? sum : 0;
+  }, [habits, xpMap]);
+
   // Best current streak across all active habits
   const bestStreak = useMemo(() => {
     const month = selectedDate.slice(0, 7);
@@ -429,18 +569,23 @@ export default function DailyTracker() {
       const cache = monthLogsCacheRef.current[month];
       const map: Record<string, boolean> = {};
       const atMap: Record<string, string> = {};
+      // WAVE1 Task 9-b: re-seed the amount progress map for the newly
+      // selected date from the same cache (same pattern as completionMap).
+      const valueMap: Record<string, number> = {};
       habitList
         .filter((h) => h.status === 'active')
         .forEach((h) => {
           const logs = cache[h.id] || [];
           const dayLog = logs.find((l) => toDateString(l.date) === date);
           map[h.id] = dayLog?.completed ?? false;
+          valueMap[h.id] = dayLog?.value ?? 0;
           if (dayLog?.completedAt) {
             atMap[h.id] = formatJakartaTime(dayLog.completedAt);
           }
         });
       setCompletionMap(map);
       setCompletedAtMap(atMap);
+      setAmountValueMap(valueMap);
       return;
     }
 
@@ -468,12 +613,16 @@ export default function DailyTracker() {
     const monthCache: Record<string, HabitLog[]> = {};
     const map: Record<string, boolean> = {};
     const atMap: Record<string, string> = {};
+    // WAVE1 Task 9-b: amount progress map (habitId → value) seeded together
+    // with completionMap so the stepper has a value source on first load.
+    const valueMap: Record<string, number> = {};
 
     active.forEach((habit) => {
       const logs = groupedLogs[habit.id] || [];
       monthCache[habit.id] = logs;
       const dayLog = logs.find((l) => toDateString(l.date) === date);
       map[habit.id] = dayLog?.completed ?? false;
+      valueMap[habit.id] = dayLog?.value ?? 0;
       if (dayLog?.completedAt) {
         atMap[habit.id] = formatJakartaTime(dayLog.completedAt);
       }
@@ -486,6 +635,7 @@ export default function DailyTracker() {
     cachedRefreshKeyRef.current = refreshKey;
     setCompletionMap(map);
     setCompletedAtMap(atMap);
+    setAmountValueMap(valueMap);
   };
 
   // ---- debounced save (notes only) ----
@@ -546,11 +696,34 @@ export default function DailyTracker() {
   // callback identity stays stable across toggles — this is what lets
   // React.memo on HabitCard actually skip re-renders for untouched cards.
   const toggleHabit = useCallback(
-    async (habit: Habit, completedAt: string | null) => {
+    // WAVE1 Task 9-b: `override` lets callers dictate the FINAL log state
+    // instead of flipping it. The amount stepper passes {completed:
+    // value >= target, value} so partial progress keeps completed=false;
+    // the binary checkbox path passes nothing and keeps the flip semantics.
+    async (
+      habit: Habit,
+      completedAt: string | null,
+      override?: { completed: boolean; value: number },
+    ) => {
       const habitId = habit.id;
-      const next = !(completionMapRef.current[habitId] ?? false);
+      const next = override
+        ? override.completed
+        : !(completionMapRef.current[habitId] ?? false);
+      // WAVE1 Task 9-b: capture the pre-toggle amount value for the error
+      // revert (undefined = not an amount write, nothing to restore). A
+      // missing map entry means "no row yet" → 0, matching the display's
+      // `amountValueMap[id] ?? 0` fallback.
+      const prevAmountValue = override
+        ? (amountValueMapRef.current[habitId] ?? 0)
+        : undefined;
 
       setCompletionMap((p) => ({ ...p, [habitId]: next }));
+      // WAVE1 Task 9-b: optimistic amount progress — the stepper reads this
+      // map, so the +/− display reacts instantly (completed stays false for
+      // partial progress, so completionMap above is often a no-op write).
+      if (override) {
+        setAmountValueMap((p) => ({ ...p, [habitId]: override.value }));
+      }
       setTogglingIds((p) => new Set(p).add(habitId));
 
       if (next) {
@@ -572,6 +745,9 @@ export default function DailyTracker() {
             date: selectedDate,
             completed: next,
             completedAt: next ? completedAt : undefined,
+            // WAVE1 Task 9-b: explicit amount value (the API is a partial
+            // upsert — value is only written when present).
+            ...(override && { value: override.value }),
           }),
         });
         if (!res.ok) {
@@ -595,7 +771,9 @@ export default function DailyTracker() {
             // refetch. UTC noon always maps to the same Jakarta day.
             date: new Date(selectedDate + 'T12:00:00Z').toISOString(),
             completed: next,
-            value: 1,
+            // WAVE1 Task 9-b: amount overrides carry their own value; the
+            // binary path keeps the legacy 1.
+            value: override ? override.value : 1,
             completedAt: next && completedAt ? completedAt : null,
           };
           if (idx >= 0) {
@@ -675,9 +853,20 @@ export default function DailyTracker() {
             // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
             confettiElRef.current = null;
           }
+        } else {
+          // WAVE1 Task 9-b: the un-completing path (amount minus below target
+          // or binary uncheck) also drops the confetti origin — a stale
+          // element from a previous completion could otherwise burst from
+          // the wrong card on the next programmatic completion.
+          confettiElRef.current = null;
         }
       } catch (e) {
         setCompletionMap((p) => ({ ...p, [habitId]: !next }));
+        // WAVE1 Task 9-b: also restore the pre-toggle amount value (undefined
+        // skip keeps the binary path untouched).
+        if (prevAmountValue !== undefined) {
+          setAmountValueMap((p) => ({ ...p, [habitId]: prevAmountValue }));
+        }
         toast.error(e instanceof Error ? e.message : 'Gagal memperbarui habit');
         confettiElRef.current = null;
       } finally {
@@ -691,6 +880,48 @@ export default function DailyTracker() {
     [selectedDate, queryClient],
   );
 
+  // WAVE1 Task 9-b — amount-habit stepper handler. Reads the CURRENT value
+  // from the same month cache the checkbox path uses, computes the next
+  // absolute value (clamped 0..target), and posts {value, completed} together
+  // so the (habitId, date) upsert never separates them. `completed` follows
+  // the value: reaching the target completes the day (streak/XP/KPIs react
+  // exactly like the binary check), dropping below it un-completes it.
+  const handleAmountDelta = useCallback(
+    (habit: Habit, delta: number) => {
+      if (habit.habitType !== 'amount') return;
+      // Same FUTURE-DATE GUARD as handleHabitCheck below.
+      if (selectedDate > todayStr) {
+        toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
+        return;
+      }
+      const month = selectedDate.slice(0, 7);
+      const cache = monthLogsCacheRef.current[month];
+      const logs = cache?.[habit.id] || [];
+      const dayLog = logs.find((l) => toDateString(l.date) === selectedDate);
+      const current = dayLog?.value ?? 0;
+      const target = habit.target > 0 ? habit.target : 1;
+      const newValue = Math.max(0, Math.min(target, current + delta));
+      if (newValue === current) return; // no-op (clamped)
+      const willComplete = newValue >= target;
+
+      if (willComplete && habit.trackTime) {
+        // Completing tap on a trackTime habit → same time-confirmation dialog
+        // as the binary checkbox path. The pending value rides along via
+        // amountDialogValue and is posted by handleTimeDialogSubmit.
+        const now = jakartaNowParts();
+        setAmountDialogValue(newValue);
+        setTimeDialogHabit(habit);
+        setManualDate(selectedDate);
+        setManualTime(
+          `${String(now.hours).padStart(2, '0')}:${String(now.minutes).padStart(2, '0')}`,
+        );
+        return;
+      }
+      toggleHabit(habit, null, { completed: willComplete, value: newValue });
+    },
+    [toggleHabit, selectedDate, todayStr],
+  );
+
   const handleHabitCheck = useCallback(
     (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
       // FUTURE-DATE GUARD: the tracker grid is reachable for future dates
@@ -701,6 +932,13 @@ export default function DailyTracker() {
       // (max attr on the date input) — block the checkbox path too.
       if (selectedDate > todayStr) {
         toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
+        return;
+      }
+      // WAVE1 Task 9-b: amount habits are driven by the stepper, never the
+      // binary toggle. Redirect any legacy binary invocation (defense in
+      // depth — the card renders no checkbox for amount habits) to +1.
+      if (habit.habitType === 'amount') {
+        handleAmountDelta(habit, 1);
         return;
       }
       const next = !(completionMapRef.current[habit.id] ?? false);
@@ -759,15 +997,27 @@ export default function DailyTracker() {
           // a different ISO on non-Jakarta browsers.
           completedAtISO = `${manualDate}T${manualTime}:00+07:00`;
         }
-        await toggleHabit(timeDialogHabit, completedAtISO);
+        await toggleHabit(
+          timeDialogHabit,
+          completedAtISO,
+          // WAVE1 Task 9-b: when the dialog was opened by an amount habit's
+          // completing tap, ride the pending value along so the upsert writes
+          // {value, completed:true, completedAt} atomically (no window where
+          // completed=true but value is stale).
+          amountDialogValue != null &&
+            timeDialogHabit.habitType === 'amount'
+            ? { completed: true, value: amountDialogValue }
+            : undefined,
+        );
         setTimeDialogHabit(null);
+        setAmountDialogValue(null);
       } catch {
         toast.error('Gagal menyimpan waktu');
       } finally {
         setTimeSubmitting(false);
       }
     },
-    [timeDialogHabit, toggleHabit, manualDate, manualTime],
+    [timeDialogHabit, toggleHabit, manualDate, manualTime, amountDialogValue],
   );
 
   // PERF-REACT-1 fix: stable callback wrappers for the inline arrow functions
@@ -911,7 +1161,21 @@ export default function DailyTracker() {
         totalCount={totalCount}
         completionPct={completionPct}
         todayXP={todayXP}
+        totalXP={totalXP}
         bestStreak={bestStreak}
+      />
+
+      {/* ─────────────────── Daily Check-in (mood / energi / tidur) ── */}
+      {/* WAVE1 Task 9-a: 1-tap inputs for the DailyLog mood/energy/sleep
+          columns the dashboard + calendar already visualize. Sits in the
+          Catatan Harian area, right before the RichNotesEditor. */}
+      <DailyCheckInCard
+        mood={checkInMood}
+        energy={checkInEnergy}
+        sleep={checkInSleep}
+        onSetMood={handleSetCheckInMood}
+        onSetEnergy={handleSetCheckInEnergy}
+        onSetSleep={handleSetCheckInSleep}
       />
 
       {/* ─────────────────── Daily Notes (full-width) ────────── */}
@@ -1065,6 +1329,12 @@ export default function DailyTracker() {
                   const isToggling = togglingIds.has(habit.id);
                   const justCompleted = recentlyCompleted.has(habit.id);
                   const doneTime = isDone ? completedAtMap[habit.id] : null;
+                  // WAVE1 Task 9-b: amount progress for the stepper (drag mode
+                  // keeps full interactivity — DnD listeners live on the handle).
+                  const amountValue =
+                    habit.habitType === 'amount'
+                      ? (amountValueMap[habit.id] ?? 0)
+                      : undefined;
 
                   return (
                     <SortableHabitCard
@@ -1080,6 +1350,8 @@ export default function DailyTracker() {
                       todayStr={todayStr}
                       categoryColor={categoryMap[habit.category]?.color || 'slate'}
                       primaryColor={primaryColor}
+                      amountValue={amountValue}
+                      onAmountDelta={handleAmountDelta}
                       onToggleHabit={handleHabitCheck}
                       onSetConfettiEl={handleSetConfettiEl}
                       onOpenAnalysis={handleOpenAnalysis}
@@ -1097,6 +1369,12 @@ export default function DailyTracker() {
               const isToggling = togglingIds.has(habit.id);
               const justCompleted = recentlyCompleted.has(habit.id);
               const doneTime = isDone ? completedAtMap[habit.id] : null;
+              // WAVE1 Task 9-b: amount progress for the −/+ stepper (0 = no
+              // row yet; non-amount habits pass undefined → prop ignored).
+              const amountValue =
+                habit.habitType === 'amount'
+                  ? (amountValueMap[habit.id] ?? 0)
+                  : undefined;
 
               return (
                 <HabitCard
@@ -1112,6 +1390,8 @@ export default function DailyTracker() {
                   todayStr={todayStr}
                   categoryColor={categoryMap[habit.category]?.color || 'slate'}
                   primaryColor={primaryColor}
+                  amountValue={amountValue}
+                  onAmountDelta={handleAmountDelta}
                   onToggleHabit={handleHabitCheck}
                   onSetConfettiEl={handleSetConfettiEl}
                   onOpenAnalysis={handleOpenAnalysis}
@@ -1125,7 +1405,14 @@ export default function DailyTracker() {
       {/* ── Time Confirmation Dialog ── */}
       <Dialog
         open={!!timeDialogHabit}
-        onOpenChange={(open) => !open && setTimeDialogHabit(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTimeDialogHabit(null);
+            // WAVE1 Task 9-b: cancel path — drop the pending amount value so a
+            // later binary dialog open can't accidentally reuse it.
+            setAmountDialogValue(null);
+          }
+        }}
       >
         <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>

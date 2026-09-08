@@ -113,8 +113,6 @@ export default function Settings() {
     primaryColor: '#22c55e',
     secondaryColor: '#10b981',
     weekStart: 'monday',
-    language: 'en',
-    targetCompletion: 80,
   });
 
   const updateField = useCallback(<K extends keyof SettingsFormState>(key: K, value: SettingsFormState[K]) => {
@@ -178,8 +176,6 @@ export default function Settings() {
         primaryColor: settings.primaryColor || '#22c55e',
         secondaryColor: settings.secondaryColor || '#10b981',
         weekStart: settings.weekStart || 'monday',
-        language: settings.language || 'en',
-        targetCompletion: settings.targetCompletion ?? 80,
       });
     }
   }, [settings]);
@@ -602,45 +598,11 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </FormRow>
-
-            <Separator className="my-2" />
-
-            {/* TODO(BUGHUNT-OTHER-1 BUG-H3): `language` is stored in AppSettings
-                but no i18n implementation exists yet. The UI is hardcoded to a
-                mix of English + Indonesian. Implement next-intl or remove this
-                dropdown to avoid confusing users. Leaving as-is for now since
-                changing it has no effect. */}
-            <FormRow label="Bahasa" description="Bahasa antarmuka (belum diimplementasikan)">
-              <Select value={form.language} onValueChange={(v) => updateField('language', v)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="id">Bahasa Indonesia</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormRow>
-
-            <Separator className="my-2" />
-
-            {/* TODO(BUGHUNT-OTHER-1 BUG-H3): `targetCompletion` is stored in
-                AppSettings but no component reads it for any "completion target"
-                logic yet. The value is display-only. Either implement a visual
-                indicator (e.g., highlight habits below target) or remove. */}
-            <FormRow label="Target Penyelesaian" description="Persentase target penyelesaian harian (hanya tampilan)">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={form.targetCompletion}
-                  onChange={(e) => updateField('targetCompletion', Math.min(100, Math.max(0, Number(e.target.value))))}
-                  className="h-9 w-20 text-center"
-                />
-                <span className="text-sm text-muted-foreground font-medium">%</span>
-              </div>
-            </FormRow>
+            {/* CATATAN (Gelombang-1 D): kontrol "Bahasa" & "Target
+                Penyelesaian" dihapus — keduanya no-op (tidak ada i18n /
+                tidak ada konsumen targetCompletion di KPI/chart mana pun).
+                Kolom AppSettings.language & targetCompletion tetap ada di
+                DB + API, hanya tidak lagi dikirim dari UI ini. */}
           </SectionCard>
 
           {/* Habit Labels Section */}

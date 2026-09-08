@@ -37,6 +37,11 @@ export interface Habit {
   // progress toward habit.target).
   habitType: 'normal' | 'avoid' | 'amount';
   _count: { logs: number };
+  // WAVE1 Task 9-a (Task C — total XP): count of COMPLETED logs for ACTIVE
+  // habits (0 for paused/archived), aggregated server-side in GET /api/habits
+  // with the same filter the dashboard's totalXP uses. Multiplied client-side
+  // by the difficulty XP to build the tracker's all-time Level KPI.
+  completedLogCount?: number;
 }
 
 export interface HabitLog {

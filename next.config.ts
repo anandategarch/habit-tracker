@@ -17,10 +17,10 @@ const nextConfig: NextConfig = {
   // lucide-react tree-shakes into a shared chunk instead of being
   // re-bundled per-tab.
   //
-  // BUG-SW-PERF BUG-4: removed `date-fns` from the list — date-fns was
-  // replaced by `src/lib/date-utils.ts` (FIX-TIER3 / Fix 15) and is no
-  // longer a dependency (verified: `grep date-fns package.json` empty).
-  // Keeping the dead entry was harmless but confusing for future readers.
+  // NOTE: `date-fns` is intentionally NOT in this list — it remains a real
+  // dependency (used by src/lib/date-utils.ts and many components/routes)
+  // and its ESM build already tree-shakes well, so dedupe hints add nothing.
+  // (An earlier comment here claimed date-fns had been removed — wrong.)
   experimental: {
     optimizePackageImports: ['recharts', 'lucide-react'],
   },
