@@ -470,3 +470,72 @@ Work Log:
 
 Stage Summary:
 - Kondisi umum: fungsional & visual matang (48.5K LOC, 0 error tsc/eslint, bug hunt 4 ronde ~70+ bug terkumpul), tapi AKAN GAGAL saat go-live publik karena: (1) RISIKO TINGGI #1 — auth production rusak dua arah (client tidak pernah kirim API key yang middleware wajibkan; apiFetch/README fiktif) → pilih antara app 401 total atau API terbuka publik; (2) RISIKO TINGGI #2 — nol test + CI hanya bundle-analysis (tidak ada lint/test/typecheck job terpisah; install CI pakai npm tanpa lockfile → non-reproducible); (3) RISIKO TINGGI #3 — tidak ada prisma/migrations: prod schema dikelola skrip regex sync-turso.ts manual, README bohong soal migrate deploy; (4) PAT GitHub tertanam di git remote URL (rotasi!). SEDANG: sw-register CACHE_VERSION v12 vs sw v14 (mekanisme update-mismatch mati), manifest start_url absolut, README menyebut fitur mati (challenges/badges/rewards/learning hub tanpa UI) + file fiktif (api-client.ts), take:500 memotong search all-time, agregasi dashboard JS-side O(habits×logs), import tanpa validasi field, goals GET masking error dengan [], error.tsx English tanpa telemetry, 14 dialog tanpa description, nol rate limit server, pre-push hook tidak terpasang (safety system 100% manual). RENDAH: touch target 16/28px, kontras emerald 10-11px, kontras N+1 bulk-delete, dep mati date-fns + @types/jszip stub, leftover scaffold repo, monolit 1000+ baris 102 file flat + globals.css 2212 unlayered, chart tanpa alternatif screen-reader. SEHAT: zod validation 427 baris di API CRUD, atomic $transaction di transfer/recurring-CAS/import, app-store ramping, dynamic import & code splitting, app-lock PBKDF2+WebAuthn (privacy screen), SW LRU cleanup + reg.update(), FAB keyboard nav, layout lang=id + theme bootstrap anti-FOUC, .gitignore rapi, secrets repo bersih. Rekomendasi test stack: bun test (unit pure: money/timezone/streak/rule-engine/chart-builders) + Playwright E2E golden path (codified dari skrip bug-hunt manual) + GitHub Actions lint+typecheck+test sebelum Vercel deploy.
+
+---
+Task ID: 9-b
+Agent: cleanup-phantom-agent
+Task: Gelombang 1 tugas D/E — hapus fitur hantu (KPI Lencana, dropdown Bahasa, targetCompletion?) + sinkron versi SW (parse dinamis + bump v15).
+
+Work Log:
+- Baca worklog penuh (472 baris; Task 2/3 desain, 6-d, 6-integration, audit 8-a/8-b) → pahami anti-pattern Card+premium-class, sesi browser shared dgn 9-a, file milik 9-a yang tidak boleh disentuh.
+- TUGAS D — audit grep dulu sebelum hapus:
+  * unlockedBadges/totalBadges/challengeProgress: seluruh repo hanya dashboard.tsx:381 (kartu Lencana), dashboard-types.ts:36-38, dashboard-default-data.ts:21-23, komentar NOTE (Tantangan). weekly-review/ai-insights/chart-builders = 0 pemakaian → aman dihapus semua. API /api/dashboard memang tidak pernah mengirim field itu (curl konfirmasi).
+  * targetCompletion/language: 0 konsumen UI di luar settings.tsx (grep: hanya settings.tsx, settings-types, api/settings route + lib/validation + export-csv dump — semuanya API-side, tetap utuh). targetCompletion tidak dipakai KPI/chart mana pun → DIHAPUS sesuai kriteria task.
+- dashboard.tsx: hapus entry KPI "Lencana" (baris 381) + hapus 'badges' dari set MOBILE_HIDDEN + update komentar (catatan kartu hantu kini mencakup Tantangan & Lencana). Ikon Award TETAP dipakai kartu "Level" → tidak ada import ikon yang jadi unused (chip-rose juga masih dipakai kartu Mood). Grid responsif (2/3/4/6 col) dibiarkan — grid auto-flow tidak pernah menghasilkan lubang; 13 kartu = baris terakhir 1 kartu ("tidak penuh tapi rapi", dicek VLM). Skeleton loading KPI 15 → 13 supaya slot loading = slot asli.
+- dashboard-types.ts + dashboard-default-data.ts: hapus field mati unlockedBadges/totalBadges/challengeProgress (+ komentar PHASE-A-2 basi).
+- settings.tsx: hapus kontrol "Bahasa" (~608-623) DAN "Target Penyelesaian" (~627-643) beserta 2 Separator + 2 komentar TODO BUG-H3 di antaranya; hapus field language/targetCompletion dari useState form + efek sync settings→form; sisakan komentar Indonesia pendek menjelaskan kolom DB tetap ada. SectionCard "Preferensi" kini hanya berisi "Awal Minggu" (tidak kosong, tetap rapi). Import Select/Input/Separator/Globe semuanya masih terpakai kontrol lain.
+- settings-types.ts (komponen): SettingsFormState turunkan ke 5 field (tanpa language/targetCompletion) + komentar. AppSettings (src/lib/settings-types.ts) TIDAK diubah — mirror API/DB yang masih mengembalikan kolom itu. Payload PUT = JSON.stringify(form) → otomatis tidak lagi mengirim language/targetCompletion (API tetap menerima, kolom DB tidak tersentuh).
+- TUGAS E — sw-register.tsx: ganti konstanta hardcoded 'v12' (baris 110) dengan readSwCacheVersion(): fetch('/sw.js', { cache: 'no-store' }) lalu regex parse. NOTE: brief bilang konstanta sw.js bernama CACHE_VERSION, tapi realitasnya CACHE_NAME → regex dibuat /CACHE_(?:NAME|VERSION)\s*=\s*['"]([^'"]+)['"]/ (menerima keduanya). Fallback 'habit-tracker-v15' bila fetch gagal/non-200/regex miss. fetch dilakukan SEBELUM blok compare localStorage (register() async — aman); currentVersion = reg.active.scriptURL + '|' + versi parsed. Semua mekanisme lain dipertahankan: controllerchange listener module-scope + flag refreshing, reg.update(), SKIP_WAITING (waiting + updatefound/installed), pageshow/bfcache. Komentar Indonesia menjelaskan single-source = sw.js. Catatan teknis: fetch() dari halaman tidak dicegat SW sendiri (destination '' bukan script/navigate → tidak masuk cabang respondWith mana pun) + no-store → selalu sw.js segar.
+- public/sw.js: bump CACHE_NAME 'habit-tracker-v14' → 'habit-tracker-v15' + entri riwayat versi (Gelombang-1: hapus fitur hantu + sinkron versi SW; satu bump menutupi asset yang juga berubah oleh 9-a).
+- Verifikasi statis: bunx eslint 6 file berubah = 0 error; bunx tsc --noEmit = 0 error (seluruh repo, termasuk file 9-a yang sedang paralel — bersih saat cek akhir).
+- Verifikasi browser (sesi shared — tab sempat berpindah sendiri ke about:blank, diatasi dengan close --all + tab baru sesuai instruksi):
+  * Dashboard: 13 kartu KPI (DOM: "Total Habit…Tidur"), TANPA kartu Lencana/0-0; desktop 1280×800 light+dark (VLM: grid rapi, "standard scrollable dashboard, nothing missing", dark kontras OK); mobile 400×820 = 6 kartu terlihat (7 hidden) grid 2 kolom rapi, light+dark (VLM; FAB menutup baris bawah = by design dock mengambang).
+  * Settings: tanpa dropdown "Bahasa"/"belum diimplementasikan" & tanpa "Target Penyelesaian"; "Preferensi" hanya "Awal Minggu"; struktur snapshot bersih (Profil → Tampilan → Preferensi → Label Habit → Kunci Aplikasi → Simpan); VLM light+dark: "sangat rapi, tidak ada bagian kosong/menggantung".
+  * Form save: ubah Nama User "User"→"User 9b Tes" → Simpan → toast "Pengaturan berhasil disimpan" + userName tersimpan. Uji payload: set marker DB language='id'/targetCompletion=42 via curl (API masih menerima ✓), lalu simpan form dari UI → GET settings: language tetap 'id', targetCompletion tetap 42 (form TIDAK menimpa → payload benar-benar bersih dari field phantom). Semua data uji dikembalikan via API: userName='User', language='en', targetCompletion=80 (identik kondisi awal; theme/warna/weekStart tak berubah).
+  * SW: pipeline parse diverifikasi live di browser (fetch no-store → regex → 'habit-tracker-v15'); set localStorage 'sw-version'='/sw.js|habit-tracker-v14' → reload → TEPAT SATU auto-reload (dokumen baru lahir ~880ms setelah t0 marker) → nilai akhir localStorage = 'http://localhost:3000/sw.js|habit-tracker-v15' (scriptURL + versi parsed) → reload kedua manual: docAge = elapsed (TANPA auto-reload lagi → tidak loop). agent-browser errors kosong di semua tahap; console hanya warning recharts width(0) pre-existing + log 'SW:' normal.
+- Sisa pemakaian 'badges'/'challenges' lain: api/data/import/route.ts:61-63 (toleransi key lama untuk backup zaman dulu — backward-compat API, bukan fitur hantu UI) dibiarkan; sisanya hanya komentar dokumentasi.
+
+Stage Summary:
+- 7 file diubah (+~50/−~70): dashboard.tsx, dashboard-types.ts, dashboard-default-data.ts, settings.tsx, settings-types.ts, sw-register.tsx, public/sw.js. Tidak menyentuh file milik agent 9-a, tidak ubah API/schema/DB (kolom AppSettings.language & targetCompletion tetap), tidak ada dep baru.
+- Keputusan targetCompletion: DIHAPUS dari UI — grep membuktikan 0 konsumen nyata (tidak dipakai KPI/chart/komponen mana pun; hanya dump export-csv + validasi API yang tetap jalan). Bahasa: kolom & API tetap, kontrol no-op hilang; UI sepenuhnya bahasa Indonesia by design.
+- KPI grid 13 kartu: mobile 6 (2×3, tanpa lubang), desktop xl 6 kolom × 2 baris + 1 kartu terakhir (VLM nilai tetap rapi/standar); skeleton disinkronkan 13.
+- SW: mekanisme deteksi versi-basis HIDUP KEMBALI — versi kini single-source dari sw.js yang di-parse dinamis saat register (fallback 'habit-tracker-v15'), sw.js dibump v15; test end-to-end: 1× auto-reload, konvergen (no loop), localStorage final = scriptURL|parsed-version, 0 page error.
+- eslint 0 error + tsc 0 error (file saya); dev server port 3000 tidak disentuh; data uji dikembalikan 100%.
+
+---
+Task ID: 9-a
+Agent: main-agent (Z.ai Code) — forensic & verifikasi (laporan balik subagent tracker-features-agent 2x hilang karena transport error "failed to unmarshal chunk", tetapi pekerjaannya selesai penuh)
+Task: Gelombang 1 tugas A/B/C — input mood/energi/tidur, habit amount stepper+value, level XP total.
+
+Work Log:
+- Subagent 9-a jalan 2x, keduanya hasilnya gagal di-parse transport, tapi kode lengkap tertinggal di working tree; Task C bahkan baru tuntas di run kedua.
+- Forensic: git diff seluruh file milik 9-a + baca file baru (daily-check-in-card.tsx, lib/mood.ts) — file utuh (keanehan tampilan diff "[h" termakan hanyalah artefak output Bash, terbukti node menemukan 45 kemunculan [h dan Read tool menampilkan kode normal).
+- Bunxi tsc --noEmit = 0 error seluruh repo; bunx eslint semua file 9-a = 0 error.
+- Verifikasi browser end-to-end (agent-browser, mobile 400x820 + desktop 1280x800, light+dark):
+  * Check-in card: 5 tombol mood + 5 energi + stepper tidur; mood 5 ter-press sesuai DB; tap mood 3 → DB mood=3 + UI pressed pindah; tap − tidur → DB sleep=7 + UI "7,0 jam"; state "Belum diisi" jujur saat row tidak ada.
+  * Habit amount (Tes Amount Wave1, target 8): kartu TANPA checkbox, "0/8 menuju target"; +3 → DB value=3 completed=false UI 3/8; +5 → value=8 completed=true + state selesai; −1 → value=7 completed=false (un-complete benar). handleHabitCheck amount → redirect +1 (defense in depth); guard tanggal future aktif; trackTime+amount → dialog waktu (amountDialogValue).
+  * Level: tracker "Lv 1 · XP total 20" == dashboard "totalXP 20 · currentLevel 1" (calcLevel sqrt sama-sama dari lib/dashboard/helpers; window agregat SQL identik dgn route dashboard: jakartaToday + startOfDay(earliest)).
+  * Habit normal tetap binary: klik checkbox Meditasi → dialog waktu terbuka → Simpan → completed=true + completedAt Jakarta (+07:00) → uncheck → false.
+- API habits/[id]/logs: update kini partial (`...(value !== undefined && { value })`) — binary toggle tidak lagi menghancurkan progress amount.
+- API /api/habits: +completedLogCount per habit (groupBy SQL, hanya habit aktif, window == dashboard period 'all').
+- Data tes dibersihkan (habit Tes Amount Wave1 & 2 habit tes agent dihapus, Meditasi dikembalikan uncheck, daily-log hari ini kembali default 3/3/7).
+
+Stage Summary:
+- File 9-a: daily-check-in-card.tsx (baru), lib/mood.ts (baru, MOOD_EMOJIS disinkronkan dgn calendar-view via import), daily-tracker.tsx (+~300: checkInDraft optimistic + promise-chain save + amountValueMap + handleAmountDelta + override toggleHabit), daily-tracker-habit-card.tsx (stepper amount −/+, tanpa checkbox), daily-tracker-daily-summary.tsx (KPI 4 = Level totalXP), daily-tracker-types.ts (+completedLogCount), api/habits/route.ts (agregat), api/habits/[id]/logs (partial value), calendar-view.tsx (import mood.ts).
+- "Kebohongan" mood/energi/tidur, habit amount, dan level-reset-harian TELAH DITEPATKI. 0 console error; lint 0; tsc 0.
+
+---
+Task ID: 9-F
+Agent: main-agent (Z.ai Code)
+Task: Gelombang 1 repo hygiene — untrack scaffold, README jujur, .env.example, dep mati, penamaan package.
+
+Work Log:
+- git rm --cached 15 file scaffold template (.zscripts/*.sh, Caddyfile, examples/websocket, mini-services/.gitkeep, download/README.md, start-dev.sh, public/tree-option-{a,b,c}.png) + blok .gitignore baru (folder + 3 PNG mockup; file tetap di disk lokal, hilang dari repo/deploy).
+- README.md rewrite jujur: fitur list (habit 3 tipe + check-in + amount + gamifikasi level all-time; hapus klaim challenges/badges/rewards/learning-hub/"offline-capable"), Security (UI belum mengirim x-api-key — sarankan Vercel Password Protection sampai wave 3), Deployment (tanpa klaim migrate deploy; realita turso:sync manual additive-only), Structure (hapus api-client.ts & seed-options.ts fiktif, + mood.ts), env table (hapus NEXT_PUBLIC_APP_API_KEY klaim; + TURSO_DATABASE_URL/TURSO_AUTH_TOKEN).
+- .env.example: honest limitation APP_API_KEY + blok TURSO_* untuk sync script.
+- next.config.ts: komentar keliru "date-fns sudah dihapus" dikoreksi (date-fns MASIH dependency nyata — dipakai 20+ file; audit 8-b salah, diverifikasi ulang).
+- bun remove @types/jszip (stub deprecated; jszip tetap — dipakai export-csv); package.json name nextjs_tailwind_shadcn_ts → rutina, version 0.3.0.
+- Verifikasi: bun run lint 0 error; tsc 0; page 200; browser sweep final 0 console error; sw-version localStorage = habit-tracker-v15.
+
+Stage Summary:
+- 5 file dimodifikasi + 15 file di-untrack + 1 dep dihapus. Repo kini hanya berisi app sungguhan; dokumentasi tidak lagi menjanjikan fitur yang tidak ada. Semua perubahan siap di-commit sebagai wave 1.

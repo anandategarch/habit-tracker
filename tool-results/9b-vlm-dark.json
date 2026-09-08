@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Based on the provided image (which appears to be a blank or black screen), I cannot identify any specific UI elements, KPI cards, or text labels. \n\nHowever, if this were a standard **Indonesian habit-tracker dashboard in dark mode**, here is what you would typically expect:\n\n1.  **KPI Card Labels (Typical Order):**\n    *   **Total Kebiasaan** (Total Habits)\n    *   **Streak Terpanjang** (Longest Streak)\n    *   **Tingkat Penyelesaian** (Completion Rate / %)\n    *   **Hari Ini** (Today's Progress)\n\n2.  **Is there a card labeled 'Lencana'?**\n    *   **Yes**, it is very common for Indonesian habit trackers to include a **\"Lencana\"** (Badges/Achievements) card or section, often showing the count of earned badges or a \"Latest Badge\" preview.\n\n3.  **Is the grid tidy?**\n    *   In a well-designed dark mode dashboard, the grid should be **tidy and aligned**, using a consistent gap (e.g., 16px or 24px) and equal card heights. There should be **no overlap or broken layout**; dark mode designs typically use subtle borders or background color differences (e.g., `#1e1e1e` vs `#2d2d2d`) to clearly separate cards.\n\n*Note: Since the image provided is empty/black, the above is a generalized answer based on common Indonesian UI patterns for this type of application.*",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1788859767,
+  "id": "2026090817285059cfb79ad1594945",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "2026090817285059cfb79ad1594945",
+  "usage": {
+    "completion_tokens": 334,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 962,
+    "prompt_tokens_details": {
+      "cached_tokens": 1
+    },
+    "total_tokens": 1296
+  }
+}
