@@ -18,6 +18,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sprout,
+  Plus,
+  ArrowDownRight,
+  ArrowUpRight,
+  X,
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
@@ -66,18 +70,9 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
 ];
 
-// Primary tabs shown in the mobile bottom navigation bar.
-// BUG-FINANCE-CAL BUG-4: the previous comment said "Other tabs (Calendar,
-// Goals) remain accessible via the hamburger sidebar drawer on mobile." —
-// that was stale (Calendar was merged into Tracker as the 'Riwayat' sub-tab
-// in commit e5174c2). Only Goals + the four bottom-nav tabs remain in the
-// sidebar drawer.
-const BOTTOM_NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-  { id: 'tracker', label: 'Track', icon: CheckSquare },
-  { id: 'finance', label: 'Keuangan', icon: Wallet },
-  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
-];
+// FLUTTER PATTERN: Bottom nav = 2 left + FAB center + 2 right.
+// NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in FlutterBottomNav below.
+// Goals accessible via sidebar drawer (hamburger menu).
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   dashboard: Dashboard,
@@ -382,22 +377,11 @@ export default function Home() {
           </PullToRefresh>
         </main>
 
-        {/* ── Mobile bottom navigation (Notched Glassmorphism) ──────────────
-            Design: Glass nav bar dengan CIRCULAR NOTCH di border yang pindah
-            mengikuti tab aktif. Active button duduk DI DALAM notch (poking
-            through the hole). Border melengkung mulus mengelilingi notch.
-
-            Teknik:
-            1. Glass div (backdrop-blur + bg-white/25) di-clip via clip-path
-               ke notched shape → glass fill hanya terlihat di area nav shape
-            2. SVG stroke (fill=none) di atas untuk border visible
-            3. Active button absolutely positioned di notch center
-            4. Inactive icons + labels di flexbox row
-
-            Path dibangun dynamically dengan actual pixel width (via ref +
-            ResizeObserver) supaya notch tetap perfect circle di semua screen. */}
-        <NotchedBottomNav
-          items={BOTTOM_NAV_ITEMS}
+        {/* ── Mobile bottom navigation (Flutter BottomAppBar + FAB style) ────
+            Design: 2 tabs left + FAB center (fixed notch) + 2 tabs right.
+            FAB = quick-add button (popup: Pengeluaran/Pemasukan/Habit).
+            Notch FIXED di center. Active tab = teal + filled icon + pill bg. */}
+        <FlutterBottomNav
           activeTab={activeTab}
           onNavClick={handleNavClick}
         />
@@ -406,41 +390,39 @@ export default function Home() {
   );
 }
 
-// ── NotchedBottomNav ────────────────────────────────────────────────────
-// Glass nav bar dengan circular notch di border yang pindah mengikuti tab
-// aktif. Active button duduk DI DALAM notch (poking through the hole).
-//
-// Teknik:
-// - Glass div dengan backdrop-blur, di-clip via CSS clip-path: path() ke
-//   notched shape → glass fill mengikuti nav shape (termasuk notch bump)
-// - SVG path (stroke only) di atas untuk border visible
-// - Path dibangun dynamically dengan actual pixel width (ResizeObserver)
-//   supaya notch tetap perfect circle di semua screen size
-// - Active button absolutely positioned di notch center, left animated
-// - clip-path tidak bisa di-transition, jadi notch snap instantly saat
-//   tab ganti. Button glide smooth via CSS transition: left 0.15s
 
-const NAV_HEIGHT = 76; // was 70 — sedikit lebih besar untuk proporsi lebih baik
-const CORNER_R = 22; // top corners — proporsional dengan nav height 76
-const NOTCH_R = 34; // notch top radius (button is 50px = 25r, gap = 9px per side at top)
-const NOTCH_BASE_W = 30; // how far the cradle flares out at base (each side) — organic cradle shape
+// ── FlutterBottomNav ───────────────────────────────────────────────────
+// Flutter BottomAppBar + FAB style: 2 tabs left + FAB center (fixed notch)
+// + 2 tabs right. FAB = quick-add popup. Notch FIXED di center.
+// Active tab = teal color + filled icon + pill background.
+// Mobile-only (md:hidden).
 
-function NotchedBottomNav({
-  items,
+const FLUTTER_NAV_HEIGHT = 76;
+const FLUTTER_CORNER_R = 22;
+const FLUTTER_NOTCH_R = 34; // notch top radius (FAB is 50px = 25r, gap = 9px)
+const FLUTTER_NOTCH_BASE_W = 30; // flare width at base
+
+const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+  { id: 'tracker', label: 'Track', icon: CheckSquare },
+];
+
+const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: 'finance', label: 'Keuangan', icon: Wallet },
+  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+];
+
+function FlutterBottomNav({
   activeTab,
   onNavClick,
 }: {
-  items: { id: TabId; label: string; icon: React.ElementType }[];
   activeTab: TabId;
   onNavClick: (id: TabId) => void;
 }) {
   const navRef = useRef<HTMLDivElement>(null);
-  const [navWidth, setNavWidth] = useState(388); // default, updated on mount
+  const [navWidth, setNavWidth] = useState(388);
+  const [fabOpen, setFabOpen] = useState(false);
 
-  // Measure actual nav width for responsive path computation.
-  // BUGFIX POST-1 #6: use useLayoutEffect (bukan useEffect) supaya measurement
-  // terjadi synchronously sebelum paint → no 1-frame SVG scale mismatch on
-  // narrow viewports.
   useLayoutEffect(() => {
     if (!navRef.current) return;
     const update = () => setNavWidth(navRef.current?.offsetWidth ?? 388);
@@ -450,86 +432,101 @@ function NotchedBottomNav({
     return () => observer.disconnect();
   }, []);
 
-  // BUGFIX POST-1 #1: activeIndex bisa -1 saat activeTab='goals' (via sidebar
-  // drawer, bukan bottom nav). Guard ke 0 supaya notch + button tidak offscreen.
-  const rawActiveIndex = items.findIndex(i => i.id === activeTab);
-  const activeIndex = rawActiveIndex >= 0 ? rawActiveIndex : 0;
-  const tabCount = items.length;
-  // Notch center X = center of the active tab slot
-  // BUGFIX POST-1 #5: Clamp notchX supaya tidak overlap dengan top corners
-  // (cR + nR di kiri, W - cR - nR di kanan). Tanpa clamp, di viewport <392px
-  // notch menabrak corner radius → jagged edges.
-  const minNotchX = CORNER_R + NOTCH_R + 2;
-  const maxNotchX = navWidth - CORNER_R - NOTCH_R - 2;
-  const rawNotchX = (activeIndex + 0.5) * (navWidth / tabCount);
-  const notchX = Math.max(minNotchX, Math.min(maxNotchX, rawNotchX));
+  // Close FAB popup on outside tap
+  useEffect(() => {
+    if (!fabOpen) return;
+    const handler = () => setFabOpen(false);
+    const timer = setTimeout(() => document.addEventListener('click', handler), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handler);
+    };
+  }, [fabOpen]);
 
-  // Build SVG path: rounded rect with semicircular bump UP at notch position.
-  // Path goes clockwise from top-left corner.
+  // Fixed center notch — always at navWidth/2
   const W = navWidth;
-  const H = NAV_HEIGHT;
-  const cR = CORNER_R;
-  const nR = NOTCH_R;
-  const nX = notchX;
+  const H = FLUTTER_NAV_HEIGHT;
+  const cR = FLUTTER_CORNER_R;
+  const nR = FLUTTER_NOTCH_R;
+  const nB = FLUTTER_NOTCH_BASE_W;
+  const nX = W / 2; // FIXED center
+  const baseDepth = nR * 0.6;
+  const bumpHeight = nR;
 
-  // BUGFIX NOTCH-SHAPE: Ganti semicircular arc (A) dengan cubic Bezier (C)
-  // untuk organic cradle shape. Sebelumnya: perfect circle = "pinched" look.
-  // Sekarang: curve flare out di base (NOTCH_BASE_W), narrow di top (NOTCH_R).
-  // Shape seperti "flower petal" / cradle — match referensi premium:
-  // react-native-curved-bottom-bar, Kyle Shevlin, Flutter BottomAppBar, Material M2.
-  //
-  // Path untuk notch (2 cubic Bezier, left + right):
-  //   Left: dari (nX-nR, 0) → control (nX-nR, baseDepth) → control (nX-nR-baseW, baseDepth) → end (nX, -notchHeight)
-  //   Right: mirror of left
-  // baseDepth = how deep the flare goes (positive Y = down into nav)
-  // notchHeight = how high the bump goes (negative Y = above nav top)
-  const nB = NOTCH_BASE_W;
-  const baseDepth = nR * 0.6; // flare depth into nav (subtle)
-  const bumpHeight = nR; // bump height above nav top (matches button protrusion)
-
-  // BUGFIX NOTCH-3: Smooth peak — align C2 of left + C1 of right horizontally
-  // through peak untuk C1 continuity (no kink). Sebelumnya peak ~99° interior
-  // = "pointed/ridged". Now: smooth dome.
   const path = [
     `M ${cR} 0`,
     `L ${nX - nR} 0`,
-    // Left cubic Bezier: flare out at base, smooth curve up to peak
     `C ${nX - nR} ${baseDepth} ${nX - nR - nB} ${-bumpHeight * 0.3} ${nX} ${-bumpHeight}`,
-    // Right cubic Bezier: mirror, smooth curve down from peak
     `C ${nX + nR + nB} ${-bumpHeight * 0.3} ${nX + nR} ${baseDepth} ${nX + nR} 0`,
     `L ${W - cR} 0`,
-    // Top-right corner (clockwise = outward)
     `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
-    // Bottom-right: flush to screen edge — no corner radius
     `L ${W} ${H}`,
     `L 0 ${H}`,
-    // Bottom-left: flush to screen edge — no corner radius
     `L 0 ${cR}`,
-    // Top-left corner
     `A ${cR} ${cR} 0 0 1 ${cR} 0`,
     'Z',
   ].join(' ');
 
   const clipPathValue = `path('${path}')`;
 
+  const renderTab = (item: { id: TabId; label: string; icon: React.ElementType }) => {
+    const Icon = item.icon;
+    const isActive = activeTab === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onNavClick(item.id)}
+        aria-label={item.label}
+        aria-current={isActive ? 'page' : undefined}
+        className={cn(
+          'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
+          'transition-colors duration-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:rounded-2xl',
+          'motion-reduce:transition-none'
+        )}
+      >
+        {/* Active pill background */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-x-2 top-1 bottom-1 rounded-xl transition-opacity duration-200',
+            isActive ? 'bg-teal-500/10 opacity-100' : 'opacity-0'
+          )}
+        />
+        <Icon
+          className={cn(
+            'h-[22px] w-[22px] shrink-0 relative z-10 transition-all duration-200 motion-reduce:transition-none',
+            isActive ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'
+          )}
+          strokeWidth={isActive ? 2.5 : 1.5}
+        />
+        <span
+          className={cn(
+            'text-[11px] leading-none relative z-10 transition-colors duration-200 motion-reduce:transition-none',
+            isActive
+              ? 'font-semibold text-teal-600 dark:text-teal-400'
+              : 'font-medium text-slate-500 dark:text-slate-400'
+          )}
+        >
+          {item.label}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <nav
       ref={navRef}
       aria-label="Primary mobile navigation"
       className={cn(
-        // Flush to bottom (no floating margin), full width (no side margin)
         'fixed bottom-0 left-0 right-0 z-30 md:hidden',
         'bottom-[env(safe-area-inset-bottom)]',
         'w-full',
-        'h-[76px]', // was 70px — sedikit lebih besar
-        // FIX #5: Subtle top shadow as content separator — solid bg + 1px border
-        // alone nyaris tidak terlihat pemisahnya dengan content di atas. Soft
-        // upward shadow creates depth without being heavy.
+        'h-[76px]',
         'shadow-[0_-2px_8px_rgba(0,0,0,0.04),0_-1px_0_rgba(0,0,0,0.06)]'
       )}
     >
-      {/* Solid background layer — no transparency, no blur. Clipped to notched
-          shape via clip-path. Light mode: white. Dark mode: slate-900. */}
+      {/* Solid background — clipped to notched shape */}
       <div
         aria-hidden="true"
         className="absolute inset-0"
@@ -548,109 +545,107 @@ function NotchedBottomNav({
           background: 'rgb(15, 23, 42)',
         }}
       />
-      {/* Border layer: SVG stroke (fill=none) draws the visible border
-          following the notched path. Solid border color for contrast
-          on solid background (no longer glass transparency). */}
+      {/* Border */}
       <svg
         width={W}
         height={H}
-        viewBox={`0 0 ${W} ${H}`}
-        className="absolute inset-0 pointer-events-none"
+        viewBox={`${-2} ${-bumpHeight - 2} ${W + 4} ${H + bumpHeight + 4}`}
+        className="absolute inset-0 pointer-events-none overflow-visible"
         fill="none"
       >
-        <path
-          d={path}
-          stroke="rgb(226, 232, 240)"
-          strokeWidth="1"
-        />
+        <path d={path} stroke="rgb(226, 232, 240)" strokeWidth="1" />
       </svg>
 
-      {/* Tab buttons — flexbox row, each tab gets equal space.
-          The active button is absolutely positioned (not in flex flow) so
-          it can sit at the exact notch center. */}
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive = activeTab === item.id;
-        const itemIndex = items.findIndex(i => i.id === item.id);
-        return (
-          <button
-            key={item.id}
-            onClick={() => onNavClick(item.id)}
-            aria-label={item.label}
-            aria-current={isActive ? 'page' : undefined}
-            className={cn(
-              'absolute top-0 h-full flex flex-col items-center justify-end pb-2',
-              'transition-colors duration-300',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50',
-              'motion-reduce:transition-none'
-            )}
-            style={{
-              left: `${(itemIndex / tabCount) * 100}%`,
-              width: `${100 / tabCount}%`,
-            }}
-          >
-            {/* Inactive icon — sedikit lebih besar (22px dari 20px) untuk
-                proporsi lebih baik dengan active button 50px. Icon slot
-                fixed height supaya layout konsisten. */}
-            <div className="h-[22px] mb-1.5 flex items-center justify-center">
-              <Icon
-                className={cn(
-                  'h-[22px] w-[22px] transition-opacity duration-300 motion-reduce:transition-none',
-                  isActive ? 'opacity-0' : 'opacity-100',
-                  'text-slate-500 dark:text-slate-400'
-                )}
-                strokeWidth={1.5}
-              />
-            </div>
-            {/* Label — always visible at bottom. 11px font (WCAG AA). */}
-            <span
-              className={cn(
-                'text-[11px] leading-none transition-colors duration-300 motion-reduce:transition-none',
-                isActive
-                  ? 'font-semibold text-teal-600 dark:text-teal-400'
-                  : 'font-medium text-slate-500 dark:text-slate-400'
-              )}
-            >
-              {item.label}
-            </span>
-          </button>
-        );
-      })}
+      {/* Left tabs */}
+      <div className="absolute left-0 top-0 h-full flex items-stretch" style={{ width: '37.5%' }}>
+        {NAV_LEFT_ITEMS.map(renderTab)}
+      </div>
 
-      {/* Active floating button — 50px (was 44px, user prefer agak besar).
-          Protrudes 20px above nav top (translateY -40% = 50 * 0.4 = 20).
-          Icon 24px (was 20px) — proporsional dengan button 50px.
-          Glow 0.25 opacity (elegant), ring-inset white/20 untuk depth.
-          Transition 0.15s sync dengan notch snap. */}
+      {/* Right tabs */}
+      <div className="absolute right-0 top-0 h-full flex items-stretch" style={{ width: '37.5%' }}>
+        {NAV_RIGHT_ITEMS.map(renderTab)}
+      </div>
+
+      {/* FAB popup menu */}
+      {fabOpen && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-40"
+          style={{ bottom: '70px' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex flex-col gap-1 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 min-w-[160px] anim-tab-enter">
+            <button
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+              onClick={() => { onNavClick('finance'); setFabOpen(false); }}
+            >
+              <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center shrink-0">
+                <ArrowDownRight className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Pengeluaran</p>
+                <p className="text-[10px] text-slate-500">Catat pengeluaran</p>
+              </div>
+            </button>
+            <button
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+              onClick={() => { onNavClick('finance'); setFabOpen(false); }}
+            >
+              <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
+                <ArrowUpRight className="h-4 w-4 text-teal-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Pemasukan</p>
+                <p className="text-[10px] text-slate-500">Catat pemasukan</p>
+              </div>
+            </button>
+            <button
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+              onClick={() => { onNavClick('tracker'); setFabOpen(false); }}
+            >
+              <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
+                <CheckSquare className="h-4 w-4 text-teal-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Habit Baru</p>
+                <p className="text-[10px] text-slate-500">Tambah habit</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FAB — fixed center, protrudes above nav */}
       <div
-        className="absolute top-0 z-20 transition-[left] duration-150 ease-out motion-reduce:transition-none"
+        className="absolute left-1/2 z-20"
         style={{
-          // BUGFIX NOTCH-1: Use clamped notchX (px) supaya button SELALU aligned
-          // dengan notch. Sebelumnya pakai unclamped % → misalign saat clamp
-          // aktif (tab 0/3 di viewport <414px, button pokes out of notch).
-          left: `${notchX}px`,
-          // translateY(-40%) = button protrudes 20px above nav (50 * 0.4 = 20)
+          top: 0,
           transform: 'translateX(-50%) translateY(-40%)',
         }}
       >
-        <div
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setFabOpen(!fabOpen);
+          }}
+          aria-label="Tambah cepat"
           className={cn(
-            // 50px (was 44px) — agak besar, proporsional dengan nav 76px
             'w-[50px] h-[50px] rounded-full',
             'bg-gradient-to-br from-teal-400 to-teal-600',
-            // Glow 0.25 opacity — elegant, tidak kitsch
             'shadow-[0_4px_16px_rgba(20,184,166,0.25)]',
-            // Inner highlight untuk depth
             'ring-1 ring-inset ring-white/20',
-            'flex items-center justify-center'
+            'flex items-center justify-center',
+            'transition-transform duration-200',
+            'active:scale-90',
+            'motion-reduce:transition-none',
+            fabOpen && 'rotate-45'
           )}
         >
-          {(() => {
-            const ActiveIcon = items[activeIndex]?.icon;
-            // Icon 24px (was 20px) — proporsional dengan button 50px
-            return ActiveIcon ? <ActiveIcon className="h-6 w-6 text-white" strokeWidth={2.5} /> : null;
-          })()}
-        </div>
+          {fabOpen ? (
+            <X className="h-6 w-6 text-white" strokeWidth={2.5} />
+          ) : (
+            <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
+          )}
+        </button>
       </div>
     </nav>
   );
