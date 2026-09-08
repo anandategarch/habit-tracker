@@ -1,0 +1,720 @@
+     1→'use client';
+     2→
+     3→import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+     4→import { useQueryClient } from '@tanstack/react-query';
+     5→import { useAppStore, type TabId } from '@/store/app-store';
+     6→import { cn } from '@/lib/utils';
+     7→import { Button } from '@/components/ui/button';
+     8→import { ScrollArea } from '@/components/ui/scroll-area';
+     9→import { Separator } from '@/components/ui/separator';
+    10→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+    11→import {
+    12→  LayoutDashboard,
+    13→  CheckSquare,
+    14→  Target,
+    15→
+    16→  Wallet,
+    17→  Settings as SettingsIcon,
+    18→  PanelLeftClose,
+    19→  PanelLeftOpen,
+    20→  Sprout,
+    21→  Plus,
+    22→  ArrowDownRight,
+    23→  ArrowUpRight,
+    24→  ArrowLeftRight,
+    25→} from 'lucide-react';
+    26→import { jakartaDateString } from '@/lib/jakarta-date';
+    27→
+    28→import dynamic from 'next/dynamic';
+    29→import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
+    30→import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
+    31→import { SproutGrow } from '@/components/ui/loaders';
+    32→
+    33→// FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
+    34→// initial bundle small + avoid SSR for components that use browser-only APIs.
+    35→// Previously these had NO `loading` fallback — when the user switched to a
+    36→// tab whose chunk wasn't yet loaded, the dynamic component returned `null`
+    37→// during the ~300ms chunk-fetch/parse window, producing a blank white screen
+    38→// ("transisi antar tab hanya putih aja").
+    39→//
+    40→// Now each dynamic() provides a `loading` render-prop that shows SproutGrow
+    41→// (same pohon animation as splash screen) for consistent branding across
+    42→// app load + tab transitions. The loader mounts immediately when the dynamic
+    43→// wrapper renders, then swaps out atomically once the chunk resolves — no
+    44→// blank frame in between. The PageTransition's motion.div still animates the
+    45→// surrounding fade, so the loader itself enters with the same fade-in.
+    46→//
+    47→// FEAT-SPROUT-NAV: SproutGrow digunakan untuk tab loading juga (bukan hanya
+    48→// splash screen) supaya consistent branding — user lihat pohon grow setiap
+    49→// kali pindah tab, bukan AuroraRing generic.
+    50→const tabLoading = () => (
+    51→  <div className="flex flex-col items-center justify-center gap-3 py-8">
+    52→    <SproutGrow size={80} />
+    53→    <p className="text-xs text-muted-foreground">Memuat...</p>
+    54→  </div>
+    55→);
+    56→
+    57→const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false, loading: tabLoading });
+    58→const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
+    59→const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
+    60→
+    61→const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
+    62→const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
+    63→
+    64→const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+    65→  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    66→  { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
+    67→  { id: 'goals', label: 'Tujuan', icon: Target },
+    68→
+    69→  { id: 'finance', label: 'Keuangan', icon: Wallet },
+    70→  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+    71→];
+    72→
+    73→// PREMIUM DOCK PATTERN: Bottom nav = 2 left + FAB center + 2 right.
+    74→// NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in PremiumBottomNav below.
+    75→// Goals accessible via sidebar drawer (hamburger menu).
+    76→
+    77→const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
+    78→  dashboard: Dashboard,
+    79→  tracker: DailyTracker,
+    80→  goals: Goals,
+    81→
+    82→  finance: Finance,
+    83→  settings: SettingsTab,
+    84→};
+    85→
+    86→// BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
+    87→const VALID_TAB_IDS = new Set<string>([
+    88→  'dashboard', 'tracker', 'goals',
+    89→  'finance', 'settings',
+    90→]);
+    91→
+    92→export default function Home() {
+    93→  const activeTab = useAppStore(s => s.activeTab);
+    94→  const setActiveTab = useAppStore(s => s.setActiveTab);
+    95→  const sidebarOpen = useAppStore(s => s.sidebarOpen);
+    96→  const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
+    97→  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+    98→  const triggerQuickAdd = useAppStore(s => s.triggerQuickAdd);
+    99→  const queryClient = useQueryClient();
+   100→
+   101→  // Splash screen on initial app load — shows SproutGrow loader for 2.6s
+   102→  // while dynamic imports + React Query fetch data. Makes first load feel
+   103→  // premium + branded (sprout theme) instead of blank white flash.
+   104→  // FEAT-SPLASH-REVEAL: Exit animation (fade + scale + slide up) instead of
+   105→  // hard cut. Uses splashExiting state to delay unmount until animation completes.
+   106→  const [showSplash, setShowSplash] = useState(true);
+   107→  const [splashExiting, setSplashExiting] = useState(false);
+   108→  useEffect(() => {
+   109→    // BUGFIX POST-2 #2: Hoist unmountTimer ke outer scope supaya outer
+   110→    // cleanup bisa clear both timers. Sebelumnya inner return adalah dead
+   111→    // code (setTimeout ignores callback return values) → timer leak +
+   112→    // setState-after-unmount risk.
+   113→    let unmountTimer: ReturnType<typeof setTimeout>;
+   114→    const exitTimer = setTimeout(() => {
+   115→      setSplashExiting(true);
+   116→      // Unmount after exit animation completes (600ms)
+   117→      unmountTimer = setTimeout(() => setShowSplash(false), 600);
+   118→    }, 2600);
+   119→    return () => {
+   120→      clearTimeout(exitTimer);
+   121→      if (unmountTimer) clearTimeout(unmountTimer);
+   122→    };
+   123→  }, []);
+   124→
+   125→  // ANIM-3 / Feature 5: Pull-to-refresh handler. Called by PullToRefresh
+   126→  // when the user pulls past the threshold on a touch device. Invalidates
+   127→  // all React Query caches (active queries refetch immediately) AND bumps
+   128→  // `refreshKey` for components that use the non-React-Query refresh
+   129→  // pattern (e.g. daily-tracker's month-cache useEffect). Wrapped in
+   130→  // Promise.resolve so the caller can always `await` even if the inner
+   131→  // work is sync.
+   132→  const handleRefresh = useCallback(async () => {
+   133→    await Promise.all([
+   134→      queryClient.invalidateQueries(),
+   135→      Promise.resolve(triggerRefresh()),
+   136→    ]);
+   137→  }, [queryClient, triggerRefresh]);
+   138→
+   139→  // BUGHUNT-OTHER-1 BUG-L9: header date string should use Jakarta wall-clock
+   140→  // date, not the browser-local date, so it stays consistent for users in
+   141→  // non-WIB timezones. We compute the initial value lazily on the client.
+   142→  const [dateString, setDateString] = useState(() =>
+   143→    typeof window !== 'undefined'
+   144→      ? new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+   145→      : ''
+   146→  );
+   147→
+   148→  // Refresh date string every minute so it stays accurate past midnight
+   149→  // (Jakarta midnight, not browser-local midnight).
+   150→  useEffect(() => {
+   151→    const update = () => {
+   152→      setDateString(
+   153→        new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+   154→      );
+   155→    };
+   156→    update();
+   157→    const id = setInterval(update, 60_000);
+   158→    return () => clearInterval(id);
+   159→  }, []);
+   160→
+   161→  // BUGHUNT-OTHER-1 BUG-M14: deep-link `?tab=` from URL on first mount.
+   162→  // This makes tabs shareable and survives reload. The replaceState below
+   163→  // also updates the URL whenever the user changes tabs (without breaking
+   164→  // the back button — we use replace, not push).
+   165→  // Intentionally run once on mount — we don't want to override the
+   166→  // store when the URL changes via setActiveTab's replaceState.
+   167→  useEffect(() => {
+   168→    if (typeof window === 'undefined') return;
+   169→    const params = new URLSearchParams(window.location.search);
+   170→    const tab = params.get('tab');
+   171→    if (tab && VALID_TAB_IDS.has(tab) && tab !== activeTab) {
+   172→      setActiveTab(tab as TabId);
+   173→    }
+   174→  }, []);
+   175→
+   176→  // Sync activeTab → URL (replaceState so back button still works).
+   177→  useEffect(() => {
+   178→    if (typeof window === 'undefined') return;
+   179→    const url = new URL(window.location.href);
+   180→    if (activeTab === 'dashboard') {
+   181→      url.searchParams.delete('tab'); // keep URLs clean for the default tab
+   182→    } else {
+   183→      url.searchParams.set('tab', activeTab);
+   184→    }
+   185→    window.history.replaceState(null, '', url.toString());
+   186→  }, [activeTab]);
+   187→
+   188→  // Auto-open sidebar on desktop (≥768px) on first mount.
+   189→  // Default is closed to avoid jarring overlay on mobile first load.
+   190→  // BUGHUNT-OTHER-1 BUG-L16: also react to window resize — previously the
+   191→  // sidebar only opened if the user happened to be on desktop at first
+   192→  // mount, and never re-opened when resizing from mobile to desktop.
+   193→  // BUGHUNT-ROUND2 SIDEBAR-1: the resize listener only ever OPENED the
+   194→  // sidebar (>=768px) — shrinking the window back to mobile left the
+   195→  // sidebar drawer open, covering ~2/3 of a phone screen with the dark
+   196→  // overlay. Now resize sets the state to match the viewport: open on
+   197→  // desktop, closed on mobile. A deliberately-opened mobile drawer is
+   198→  // unaffected until the user actually resizes/rotates the device.
+   199→  useEffect(() => {
+   200→    if (typeof window === 'undefined') return;
+   201→    const apply = () => {
+   202→      setSidebarOpen(window.innerWidth >= 768);
+   203→    };
+   204→    apply();
+   205→    window.addEventListener('resize', apply);
+   206→    return () => window.removeEventListener('resize', apply);
+   207→  }, [setSidebarOpen]);
+   208→
+   209→  const handleNavClick = useCallback((id: TabId) => {
+   210→    setActiveTab(id);
+   211→    // Auto-close sidebar on mobile after clicking a nav item
+   212→    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+   213→      setSidebarOpen(false);
+   214→    }
+   215→  }, [setActiveTab, setSidebarOpen]);
+   216→
+   217→  const toggleSidebar = useCallback(() => {
+   218→    setSidebarOpen(!sidebarOpen);
+   219→  }, [sidebarOpen, setSidebarOpen]);
+   220→
+   221→  const ActiveComponent = TAB_COMPONENTS[activeTab];
+   222→
+   223→  return (
+   224→    <TooltipProvider delayDuration={300}>
+   225→      {/* Splash screen — SproutGrow loader on initial app load (2.6s).
+   226→          Premium branded loading experience instead of blank white flash.
+   227→          FEAT-SPLASH-REVEAL: Splash has exit animation (fade + scale + slide up)
+   228→          instead of hard cut. Content underneath has entrance animation
+   229→          (fade + slide up) for smooth transition. Inspired by motion-splash repo. */}
+   230→      {showSplash && (
+   231→        <div
+   232→          className={cn(
+   233→            'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background app-ambience gap-6',
+   234→            splashExiting ? 'anim-splash-exit' : 'anim-splash-enter'
+   235→          )}
+   236→          key="splash"
+   237→        >
+   238→          <SproutGrow size={140} />
+   239→          <div className="text-center">
+   240→            <p className="text-lg font-semibold text-primary tracking-tight">Rutina</p>
+   241→            <p className="text-xs text-muted-foreground mt-1">Menumbuhkan habit harian</p>
+   242→          </div>
+   243→        </div>
+   244→      )}
+   245→      {/* BUGFIX SCROLL-2: h-dvh + overflow-hidden bounds the layout to the
+   246→          viewport so the inner PullToRefresh (content area) becomes a REAL
+   247→          scroll container. Previously min-h-dvh (no max height) let the
+   248→          wrapper grow to fit content, making overflow-y-auto inert and
+   249→          forcing the document (html) to scroll — which on mobile Chrome/
+   250→          iOS Safari intermittently fails to respond to touch after DnD
+   251→          sensors or CSS animations intercept touch events. With the layout
+   252→          bounded, PullToRefresh owns the scroll, document doesn't scroll. */}
+   253→      <div className={cn('h-dvh flex bg-background overflow-hidden', splashExiting && 'anim-content-reveal')}>
+   254→        {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
+   255→            gradient that drifts opposite to scroll direction. Fixed-positioned,
+   256→            behind all content (-z-10), pointer-events-none. Renders as a static
+   257→            layer when prefers-reduced-motion is set. */}
+   258→        <ParallaxBackground className="app-ambience" />
+   259→
+   260→        {/* Mobile dark overlay */}
+   261→        {sidebarOpen && (
+   262→          <div
+   263→            className="fixed inset-0 bg-black/40 z-40 md:hidden"
+   264→            onClick={() => setSidebarOpen(false)}
+   265→          />
+   266→        )}
+   267→
+   268→        {/* Sidebar - fixed position, slides in/out.
+   269→            PREMIUM-UI: glass panel + gradient logo + active pill gradien. */}
+   270→        <aside
+   271→          className={cn(
+   272→            'fixed top-0 left-0 z-50 h-dvh w-64 flex flex-col',
+   273→            'bg-card/95 backdrop-blur-xl border-r border-border',
+   274→            'transition-transform duration-300 ease-in-out',
+   275→            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+   276→          )}
+   277→        >
+   278→          {/* Logo */}
+   279→          <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
+   280→            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-500 text-white premium-fab-shadow">
+   281→              <Sprout className="h-5 w-5" strokeWidth={2.2} />
+   282→            </div>
+   283→            <div className="leading-tight">
+   284→              <span className="font-bold text-sm tracking-tight">Rutina</span>
+   285→              <p className="text-[10px] text-muted-foreground/70">Habit & Keuangan</p>
+   286→            </div>
+   287→          </div>
+   288→
+   289→          {/* Navigation */}
+   290→          <ScrollArea className="flex-1 py-3 custom-scrollbar">
+   291→            <nav className="px-2.5 space-y-1">
+   292→              {NAV_ITEMS.map((item) => {
+   293→                const Icon = item.icon;
+   294→                const isActive = activeTab === item.id;
+   295→                return (
+   296→                  <button
+   297→                    key={item.id}
+   298→                    onClick={() => handleNavClick(item.id)}
+   299→                    className={cn(
+   300→                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+   301→                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+   302→                      isActive
+   303→                        ? 'btn-primary-gradient text-primary-foreground shadow-md'
+   304→                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/70 active:scale-[0.98]',
+   305→                    )}
+   306→                  >
+   307→                    <Icon className={cn('h-4 w-4 shrink-0', isActive && 'anim-nav-icon-pop')} />
+   308→                    <span>{item.label}</span>
+   309→                  </button>
+   310→                );
+   311→              })}
+   312→            </nav>
+   313→          </ScrollArea>
+   314→
+   315→          <Separator />
+   316→
+   317→          {/* Footer */}
+   318→          <div className="px-4 py-3 shrink-0">
+   319→            <p className="text-[10px] text-muted-foreground/60">by Ananda Tegar</p>
+   320→          </div>
+   321→        </aside>
+   322→
+   323→        {/* Main content - shifts right on desktop when sidebar is open.
+   324→            min-h-0 (BUGFIX SCROLL-1) lets flex-1 children shrink below content
+   325→            height so a future bounded-height layout produces a real scroll
+   326→            container instead of growing to fit content. */}
+   327→        <main
+   328→          className={cn(
+   329→            'flex-1 min-w-0 min-h-0 flex flex-col transition-[margin] duration-300 ease-in-out',
+   330→            sidebarOpen ? 'md:ml-64' : 'md:ml-0'
+   331→          )}
+   332→        >
+   333→          {/* Top bar — PREMIUM-UI: kaca blur + hairline bawah fade */}
+   334→          <header className="sticky top-0 z-30 h-14 bg-background/75 backdrop-blur-xl flex items-center px-4 md:px-6 gap-3 border-b border-border/70">
+   335→            <Tooltip>
+   336→              <TooltipTrigger asChild>
+   337→                <Button
+   338→                  variant="ghost"
+   339→                  size="icon"
+   340→                  onClick={toggleSidebar}
+   341→                  aria-label={sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
+   342→                >
+   343→                  {sidebarOpen
+   344→                    ? <PanelLeftClose className="h-5 w-5" />
+   345→                    : <PanelLeftOpen className="h-5 w-5" />
+   346→                  }
+   347→                </Button>
+   348→              </TooltipTrigger>
+   349→              <TooltipContent side="right">
+   350→                {sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
+   351→              </TooltipContent>
+   352→            </Tooltip>
+   353→            <h1 className="text-lg font-semibold">
+   354→              {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}
+   355→            </h1>
+   356→            <div className="ml-auto text-xs text-muted-foreground hidden xs:block sm:block" suppressHydrationWarning>
+   357→              {dateString}
+   358→            </div>
+   359→          </header>
+   360→
+   361→          {/* Content area — extra bottom padding on mobile so content
+   362→              doesn't get hidden behind the floating glass dock.
+   363→              Dock stack: 62px bar + 10px bottom margin + 16px breathing
+   364→              gap = 88px (excluding safe-area inset).
+   365→
+   366→              overflow-y-auto + overscroll-y-contain for smooth touch scroll
+   367→              on mobile (prevents scroll chaining to body / stuck scroll
+   368→              after DnD sensors or CSS animations intercept touch events).
+   369→              WebkitOverflowScrolling: 'touch' enables iOS momentum scrolling.
+   370→
+   371→              ANIM-3 / Feature 5: PullToRefresh wraps the content area.
+   372→              On touch devices, the user can pull down at the top of the
+   373→              scroll area to trigger a full data refresh (a 🌱 sprout
+   374→              grows as they pull, then spins while refreshing). On
+   375→              desktop (no touch), it's a pass-through wrapper — no
+   376→              behaviour change. */}
+   377→          <PullToRefresh
+   378→            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-6"
+   379→            onRefresh={handleRefresh}
+   380→          >
+   381→            {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
+   382→                content with a smooth enter/exit (fade + slide x).
+   383→                Replaces the previous `anim-tab-enter` CSS-only transition
+   384→                with framer-motion's AnimatePresence for crossfade-aware
+   385→                enter/exit (no overlap). `tabId={activeTab}` triggers a
+   386→                re-mount on tab change. */}
+   387→            <PageTransition tabId={activeTab}>
+   388→              <ActiveComponent />
+   389→            </PageTransition>
+   390→          </PullToRefresh>
+   391→        </main>
+   392→
+   393→        {/* ── Mobile bottom navigation (Premium Floating Glass Dock) ────
+   394→            Design: floating frosted-glass dock (mx-3, rounded-[26px]) with
+   395→            2 tabs left + FAB center + 2 tabs right. A gradient "liquid"
+   396→            indicator slides between tabs with spring easing (passes behind
+   397→            the FAB). FAB = quick-add (glass popup: Pengeluaran/Pemasukan/
+   398→            Habit) with staggered spring item entrance + dimmed backdrop. */}
+   399→        <PremiumBottomNav
+   400→          activeTab={activeTab}
+   401→          onNavClick={handleNavClick}
+   402→        />
+   403→      </div>
+   404→    </TooltipProvider>
+   405→  );
+   406→}
+   407→
+   408→
+   409→// ── PremiumBottomNav ───────────────────────────────────────────────────
+   410→// PREMIUM REDESIGN (replaces the old Flutter notched bar):
+   411→// "Floating Glass Dock" — iOS-18 / modern-fintech design language.
+   412→//  • Floating frosted-glass bar (mx-3, rounded-[26px], backdrop-blur-2xl)
+   413→//    with layered teal-tinted depth shadows + top hairline highlight.
+   414→//  • Gradient "liquid" indicator that slides between tabs with a spring
+   415→//    curve (cubic-bezier overshoot) and passes BEHIND the FAB.
+   416→//  • Center FAB: teal→emerald gradient, glow, socket ring illusion,
+   417→//    rotates 45° into an X when the menu is open.
+   418→//  • Quick-add popup: frosted glass card, spring-staggered items, tail
+   419→//    pointer, dimmed backdrop (tap/Escape to close).
+   420→//  • Mobile-only (md:hidden). a11y: aria-current, aria-expanded,
+   421→//    role=menu, focus-visible rings, prefers-reduced-motion respected.
+   422→
+   423→const DOCK_H = 62; // dock height (px)
+   424→const DOCK_SIDE = 0.375; // width share of each tab group (left/right)
+   425→const IND_INSET = 3; // indicator horizontal inset inside a tab
+   426→const FAB_SIZE = 56; // FAB diameter (px)
+   427→const FAB_PROTRUDE = 22; // px of FAB protruding above the dock top edge
+   428→
+   429→const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+   430→  { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+   431→  { id: 'tracker', label: 'Track', icon: CheckSquare },
+   432→];
+   433→
+   434→const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+   435→  { id: 'finance', label: 'Keuangan', icon: Wallet },
+   436→  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+   437→];
+   438→
+   439→// Left-edge x-offset of each dock tab, as a fraction of dock width.
+   440→// `goals` is NOT in the dock (sidebar-only) → undefined → indicator hides.
+   441→const TAB_X_FRACTION: Partial<Record<TabId, number>> = {
+   442→  dashboard: 0,
+   443→  tracker: DOCK_SIDE / 2,
+   444→  finance: 1 - DOCK_SIDE,
+   445→  settings: 1 - DOCK_SIDE / 2,
+   446→};
+   447→
+   448→function PremiumBottomNav({
+   449→  activeTab,
+   450→  onNavClick,
+   451→}: {
+   452→  activeTab: TabId;
+   453→  onNavClick: (id: TabId) => void;
+   454→}) {
+   455→  const dockRef = useRef<HTMLDivElement>(null);
+   456→  const [dockW, setDockW] = useState(0);
+   457→  const [fabOpen, setFabOpen] = useState(false);
+   458→  // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
+   459→  // deep nav component can fire it without prop-drilling from Home().
+   460→  const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
+   461→  // ONE-CLICK-2: sub-tab deep-link for the Transfer quick action.
+   462→  const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
+   463→
+   464→  useLayoutEffect(() => {
+   465→    if (!dockRef.current) return;
+   466→    const update = () => setDockW(dockRef.current?.offsetWidth ?? 0);
+   467→    update();
+   468→    const observer = new ResizeObserver(update);
+   469→    observer.observe(dockRef.current);
+   470→    return () => observer.disconnect();
+   471→  }, []);
+   472→
+   473→  // Close popup on Escape (a11y parity with the tap-to-close backdrop).
+   474→  useEffect(() => {
+   475→    if (!fabOpen) return;
+   476→    const onKey = (e: KeyboardEvent) => {
+   477→      if (e.key === 'Escape') setFabOpen(false);
+   478→    };
+   479→    window.addEventListener('keydown', onKey);
+   480→    return () => window.removeEventListener('keydown', onKey);
+   481→  }, [fabOpen]);
+   482→
+   483→  // Liquid indicator geometry. GPU-friendly: fixed width per tab +
+   484→  // translateX transition with a spring (overshoot) easing curve.
+   485→  const tabW = (dockW * DOCK_SIDE) / 2;
+   486→  const activeFraction = TAB_X_FRACTION[activeTab];
+   487→  const indVisible = activeFraction !== undefined && dockW > 0;
+   488→  const indX = indVisible ? activeFraction * dockW + IND_INSET : 0;
+   489→
+   490→  const renderTab = (item: { id: TabId; label: string; icon: React.ElementType }) => {
+   491→    const Icon = item.icon;
+   492→    const isActive = activeTab === item.id;
+   493→    return (
+   494→      <button
+   495→        key={item.id}
+   496→        onClick={() => onNavClick(item.id)}
+   497→        aria-label={item.label}
+   498→        aria-current={isActive ? 'page' : undefined}
+   499→        className={cn(
+   500→          'relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px]',
+   501→          'whitespace-nowrap',
+   502→          'transition-transform duration-150 motion-reduce:transition-none active:scale-[0.94]',
+   503→          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70',
+   504→          'focus-visible:ring-offset-1 focus-visible:rounded-2xl'
+   505→        )}
+   506→      >
+   507→        <span
+   508→          aria-hidden="true"
+   509→          className={cn('grid place-items-center', isActive && 'anim-nav-icon-pop')}
+   510→        >
+   511→          <Icon
+   512→            className={cn(
+   513→              'h-[21px] w-[21px] shrink-0 transition-colors duration-300 motion-reduce:transition-none',
+   514→              isActive
+   515→                ? 'text-white drop-shadow-[0_1px_1px_rgba(0,66,55,0.25)]'
+   516→                : 'text-slate-500 dark:text-slate-400'
+   517→            )}
+   518→            strokeWidth={isActive ? 2.4 : 1.7}
+   519→          />
+   520→        </span>
+   521→        <span
+   522→          className={cn(
+   523→            'premium-dock-label transition-colors duration-300 motion-reduce:transition-none',
+   524→            isActive
+   525→              ? 'font-bold text-white'
+   526→              : 'font-medium text-slate-500 dark:text-slate-400'
+   527→          )}
+   528→        >
+   529→          {item.label}
+   530→        </span>
+   531→      </button>
+   532→    );
+   533→  };
+   534→
+   535→  return (
+   536→    <div className="fixed bottom-0 inset-x-0 z-40 md:hidden">
+   537→      {/* Dimmed backdrop while the quick-add popup is open — tap to close.
+   538→          Rendered OUTSIDE the animated nav element (no transformed
+   539→          ancestor) so position:fixed is always viewport-correct. */}
+   540→      {fabOpen && (
+   541→        <div
+   542→          className="fixed inset-0 z-30 bg-slate-950/25 dark:bg-black/40 backdrop-blur-[2px] anim-fab-backdrop"
+   543→          onClick={() => setFabOpen(false)}
+   544→          aria-hidden="true"
+   545→        />
+   546→      )}
+   547→
+   548→      <nav
+   549→        ref={dockRef}
+   550→        aria-label="Navigasi utama"
+   551→        className={cn(
+   552→          'relative z-40 mx-3 mb-[calc(env(safe-area-inset-bottom)+10px)]',
+   553→          'anim-nav-dock-enter',
+   554→          'rounded-[26px]',
+   555→          'bg-white/80 dark:bg-slate-900/80',
+   556→          'backdrop-blur-2xl backdrop-saturate-150',
+   557→          'border border-slate-900/[0.07] dark:border-white/10',
+   558→          'premium-dock-shadow'
+   559→        )}
+   560→        style={{ height: DOCK_H }}
+   561→      >
+   562→        {/* Glass hairline highlight along the top edge (light refraction) */}
+   563→        <div
+   564→          aria-hidden="true"
+   565→          className="absolute inset-x-[16px] top-0 h-px rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-white/15 pointer-events-none"
+   566→        />
+   567→
+   568→        {/* Liquid gradient indicator — slides between tabs, passes behind
+   569→            the FAB (z-0 vs z-20). Fades out when a non-dock tab (goals)
+   570→            is active. */}
+   571→        <div
+   572→          aria-hidden="true"
+   573→          className="nav-liquid-indicator absolute left-0 top-[7px] z-0 rounded-full"
+   574→          style={{
+   575→            height: DOCK_H - 14,
+   576→            width: Math.max(0, tabW - IND_INSET * 2),
+   577→            transform: `translateX(${indX}px)`,
+   578→            opacity: indVisible ? 1 : 0,
+   579→          }}
+   580→        />
+   581→
+   582→        {/* Soft teal halo behind the FAB — glows through the glass dock */}
+   583→        <div
+   584→          aria-hidden="true"
+   585→          className="absolute left-1/2 -top-[46px] -translate-x-1/2 w-[104px] h-[104px] rounded-full bg-teal-400/20 dark:bg-teal-400/25 blur-3xl pointer-events-none"
+   586→        />
+   587→
+   588→        {/* Tab groups — 37.5% each side; the center 25% is the FAB zone */}
+   589→        <div className="absolute left-0 top-0 h-full flex items-stretch" style={{ width: `${DOCK_SIDE * 100}%` }}>
+   590→          {NAV_LEFT_ITEMS.map(renderTab)}
+   591→        </div>
+   592→        <div className="absolute right-0 top-0 h-full flex items-stretch" style={{ width: `${DOCK_SIDE * 100}%` }}>
+   593→          {NAV_RIGHT_ITEMS.map(renderTab)}
+   594→        </div>
+   595→
+   596→        {/* Quick-add popup — frosted glass card, spring-staggered items.
+   597→            bottom is nav-relative: dock height + FAB protrusion + 10px gap
+   598→            (the nav already sits above the safe-area inset). */}
+   599→        {fabOpen && (
+   600→          <div
+   601→            role="menu"
+   602→            aria-label="Menu tambah cepat"
+   603→            className="absolute left-1/2 -translate-x-1/2 z-40 w-[212px] rounded-[22px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl backdrop-saturate-150 border border-slate-900/[0.07] dark:border-white/10 premium-pop-shadow p-2"
+   604→            style={{ bottom: DOCK_H + FAB_PROTRUDE + 10 }}
+   605→            onClick={(e) => e.stopPropagation()}
+   606→          >
+   607→            {/* Tail pointer aimed at the FAB */}
+   608→            <div
+   609→              aria-hidden="true"
+   610→              className="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 rounded-[3px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border-b border-r border-slate-900/[0.07] dark:border-white/10"
+   611→            />
+   612→            <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400 dark:text-slate-500">
+   613→              Tambah Cepat
+   614→            </p>
+   615→
+   616→            <button
+   617→              role="menuitem"
+   618→              className="anim-fab-item anim-fab-item-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+   619→              // BUGHUNT-ROUND2 FAB-1: was just onNavClick('finance') — the
+   620→              // dialog never opened. The quick-add action makes the
+   621→              // Finance tab open the expense dialog after mounting.
+   622→              onClick={() => { triggerQuickAdd('expense'); onNavClick('finance'); setFabOpen(false); }}
+   623→            >
+   624→              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-rose-500 to-red-600 shadow-[0_4px_10px_-2px_rgba(244,63,94,0.5)]">
+   625→                <ArrowDownRight className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+   626→              </span>
+   627→              <span className="min-w-0">
+   628→                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Pengeluaran</span>
+   629→                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Catat pengeluaran</span>
+   630→              </span>
+   631→            </button>
+   632→
+   633→            <button
+   634→              role="menuitem"
+   635→              className="anim-fab-item anim-fab-item-2 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+   636→              onClick={() => { triggerQuickAdd('income'); onNavClick('finance'); setFabOpen(false); }}
+   637→            >
+   638→              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 shadow-[0_4px_10px_-2px_rgba(16,185,129,0.5)]">
+   639→                <ArrowUpRight className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+   640→              </span>
+   641→              <span className="min-w-0">
+   642→                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Pemasukan</span>
+   643→                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Catat pemasukan</span>
+   644→              </span>
+   645→            </button>
+   646→
+   647→            <button
+   648→              role="menuitem"
+   649→              className="anim-fab-item anim-fab-item-3 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+   650→              // ONE-CLICK-2: Transfer quick-add. Opens the transfer dialog on
+   651→              // the finance overview sub-tab (SourceBalance consumes the
+   652→              // 'transfer' action). Previously the transfer feature was
+   653→              // buried: Finance → Ringkasan → scroll to bottom → "Transfer".
+   654→              onClick={() => { triggerQuickAdd('transfer'); openFinanceSubTab('overview'); setFabOpen(false); }}
+   655→            >
+   656→              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-400 to-purple-600 shadow-[0_4px_10px_-2px_rgba(139,92,246,0.5)]">
+   657→                <ArrowLeftRight className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+   658→              </span>
+   659→              <span className="min-w-0">
+   660→                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Transfer</span>
+   661→                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Pindahkan antar dompet</span>
+   662→              </span>
+   663→            </button>
+   664→
+   665→            <button
+   666→              role="menuitem"
+   667→              className="anim-fab-item anim-fab-item-4 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+   668→              // "Habit Baru" — the add-habit form lives in Settings →
+   669→              // Habit Master. Navigate there and let HabitMaster open its
+   670→              // dialog via the same quick-add trigger.
+   671→              onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
+   672→            >
+   673→              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_4px_10px_-2px_rgba(245,158,11,0.5)]">
+   674→                <Sprout className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+   675→              </span>
+   676→              <span className="min-w-0">
+   677→                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Habit Baru</span>
+   678→                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Tambah habit baru</span>
+   679→              </span>
+   680→            </button>
+   681→          </div>
+   682→        )}
+   683→
+   684→        {/* FAB — half-socketed into the dock, protruding above the edge */}
+   685→        <div
+   686→          className="absolute left-1/2 z-20 -translate-x-1/2"
+   687→          style={{ top: -FAB_PROTRUDE }}
+   688→        >
+   689→          <button
+   690→            onClick={() => setFabOpen(!fabOpen)}
+   691→            aria-label={fabOpen ? 'Tutup menu tambah cepat' : 'Tambah cepat'}
+   692→            aria-haspopup="menu"
+   693→            aria-expanded={fabOpen}
+   694→            className={cn(
+   695→              'relative grid place-items-center rounded-full',
+   696→              'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-500',
+   697→              'premium-fab-shadow',
+   698→              // Socket illusion: the ring approximates the dock bg color so
+   699→              // the FAB looks punched through the frosted glass.
+   700→              'ring-[4px] ring-white/80 dark:ring-slate-900/90',
+   701→              'transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+   702→              'active:scale-90 motion-reduce:transition-none',
+   703→              fabOpen && 'rotate-45'
+   704→            )}
+   705→            style={{ width: FAB_SIZE, height: FAB_SIZE }}
+   706→          >
+   707→            {/* Inner sheen — subtle 3D glass-metal feel */}
+   708→            <span
+   709→              aria-hidden="true"
+   710→              className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 via-transparent to-black/10 pointer-events-none"
+   711→            />
+   712→            {/* Plus rotated 45° = X when open (clean swap-free close icon) */}
+   713→            <Plus className="h-6 w-6 text-white drop-shadow-[0_1px_2px_rgba(0,66,55,0.35)]" strokeWidth={2.5} />
+   714→          </button>
+   715→        </div>
+   716→      </nav>
+   717→    </div>
+   718→  );
+   719→}
+   720→

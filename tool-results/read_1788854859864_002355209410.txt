@@ -1,0 +1,265 @@
+     1→# Worklog — Shared Agent Log
+     2→
+     3→---
+     4→Task ID: 1
+     5→Agent: main-agent (Z.ai Code)
+     6→Task: Vibe coding session — bug hunt & fix di repo GitHub user `anandategarch/habit-tracker` lalu push balik ke GitHub.
+     7→
+     8→Work Log:
+     9→- Clone repo via HTTPS + PAT ke /home/z/habit-tracker (branch main).
+    10→- Install deps (bun), setup .env + SQLite (db/dev.db), jalankan dev server di port 3001.
+    11→- Verifikasi statis: `tsc --noEmit` bersih, `eslint .` bersih.
+    12→- Bug hunt runtime pakai agent-browser (desktop + mobile 390x844): dashboard, tracker (centang habit), finance 8 sub-tab, tambah/edit transaksi, goals + milestone, settings, FAB mobile, export/import API.
+    13→- Dispatch subagent general-purpose untuk deep code review (API routes, streaks, timezone, transfer, recurring, savings, data routes).
+    14→- Verifikasi & fix 12 bug (lihat Stage Summary), termasuk E2E test: export→import round-trip (136 record), transfer pair-delete (saldo kedua sumber kembali), recurring race (2 panggilan paralel → hanya 1 transaksi via CAS gate), reset-all (recurring/savings/rules ikut terhapus), seed re-run (0 transaksi future-dated).
+    15→- Regression pass: centang habit (streak 1 hari ✓), sweep semua tab tanpa error, sidebar resize desktop→mobile auto-close ✓.
+    16→- Final `tsc` + `eslint` bersih → commit `dba8b48` dengan email user (anandategarch@gmail.com) → push ke origin/main sukses.
+    17→
+    18→Stage Summary:
+    19→- 15 file diubah, +343/−61 baris, 12 bug fixed (3 HIGH data-integrity, 7 MEDIUM, 2 LOW).
+    20→- HIGH: import allowedKeys bolong (restore selalu 400), export/import bolong 3 tabel (SavingsGoal/RecurringTransaction/TransactionRule), reset-all tidak menghapus recurring/savings/rules.
+    21→- MEDIUM: FAB quick-add cuma navigasi (kini beneran buka dialog via quickAddAction di zustand), computeStreak campur TZ Jakarta vs browser (kini shiftYmdKey UTC murni), transfer mustahil dihapus (kini pair-delete atomik), recurring double-fire race (kini CAS gate updateMany), daily recap window 30-hari (kini min(30d, awal bulan)), sidebar resize, PUT guard asimetris, seed future-dated.
+    22→- LOW: fetch race daily tracker (cancelled guard), toast error PUT menelan pesan API.
+    23→- Bug diketahui TIDAK difix (dilaporkan ke user): tipe habit "amount" diiklankan di form tapi belum ada progress tracking (keputusan produk), all-time search dibatasi take:500, rule engine bisa inject kategori tak-ada, bulk-delete N+1.
+    24→- Artifact: dev server habit-tracker jalan di port 3001 (DATABASE_URL absolut ke /home/z/habit-tracker/db/dev.db); test data (habit "Minum air", transaksi seed) ada di db lokal — bukan bagian dari repo.
+    25→
+    26→---
+    27→Task ID: 2
+    28→Agent: main-agent (Z.ai Code)
+    29→Task: Redesain bottom navigation habit-tracker jadi lebih bagus & premium (request user: "Coba redesain botton navigation jadi lebih bagus dan premium").
+    30→
+    31→Work Log:
+    32→- Ganti FlutterBottomNav → PremiumBottomNav di src/app/page.tsx: floating frosted-glass dock (mx-3, rounded-[26px], h-62, backdrop-blur-2xl+saturate, layered teal-tinted shadows, hairline top), liquid indicator gradient (translateX spring cubic-bezier(0.34,1.4,0.5,1), lewat di belakang FAB), FAB gradient 56px socket-ring + glow + rotate-45, popup glass stagger (fab-item-pop) + tail + backdrop dim + Escape.
+    33→- globals.css: +premium-dock-shadow/pop/fab-shadow, .nav-liquid-indicator, .premium-dock-label (10→9.5→9px media query agar "Pengaturan" muat), keyframes nav-icon-pop/fab-item-pop/nav-dock-enter/fab-backdrop-in, reduced-motion guard.
+    34→- Konten pb 86→88px; sw.js cache bump v12→v13 (penting: SW stale-while-revalidate menahan JS chunk lama — tanpa bump, user lama tak akan melihat nav baru).
+    35→- Infra issue yang dipecahkan: (1) Turbopack CSS stale → rm -rf .next + restart; watcher mati setelahnya → perlu restart lagi setelah tiap edit CSS late-session. (2) OOM 4GB: 2 dev server Next.js tak muat → my-project dev (3000) dihentikan, habit-tracker kini jalan DI PORT 3000 (default gateway:81) sehingga Preview Panel user langsung menampilkan habit-tracker. (3) Proses background dari tool-call dibunuh di call boundary → solusi double-fork Python daemon (fork→setsid→fork→exec) — server kini persist.
+    36→- Verifikasi agent-browser 390x844 + VLM: dock glass light+dark ✓, indicator slide antar tab + fade saat goals ✓, label muat di 360px ✓, FAB popup (backdrop click, Escape, quick-add Pengeluaran→tab Keuangan+dialog "Tambah Transaksi" terbuka) ✓, clearance konten 16px saat scroll penuh ✓, md:hidden di desktop ✓, zero console error setelah reload fresh ✓. VLM rating premium feel 8.5/10.
+    37→- tsc + eslint bersih → commit eaf06d3 (email anandategarch@gmail.com) → push origin/main sukses (dba8b48..eaf06d3).
+    38→
+    39→Stage Summary:
+    40→- 3 file diubah (+358/−212): page.tsx (PremiumBottomNav), globals.css (treatments & keyframes), sw.js (v13).
+    41→- Desain final: "Premium Floating Glass Dock" — dock kaca melayang + pill gradient cair + FAB glow + popup glass stagger; semua fungsi lama (quick-add trigger, URL ?tab= sync, a11y) terjaga.
+    42→- Dev server habit-tracker sekarang di port 3000 via double-fork daemon (persist antar tool-call); gateway :81 default route langsung ke sana → preview panel = habit-tracker.
+    43→- Catatan: theme user sempat di-set 'dark' untuk testing, sudah dikembalikan ke 'system' via API.
+    44→
+    45→---
+    46→Task ID: 2-a
+    47→Agent: dashboard-ui-agent
+    48→Task: Premium UI redesign (visual-only) tab Dashboard — terapkan design system "Rutina Aurora" (PREMIUM UI SYSTEM v2 di globals.css) ke dashboard habit-tracker. Tidak ada perubahan logika/data/props.
+    49→
+    50→Work Log:
+    51→- Baca worklog, globals.css (PREMIUM UI v2, line 1820+), 4 file target, ui/card.tsx + ui/progress.tsx, lib/timezone.ts.
+    52→- dashboard.tsx (rewrite visual):
+    53→  - Hero greeting baru di paling atas (sebelum kartu quote): `.premium-hero` + `.premium-hero-bubbles` + `.premium-fade-up` (delay 120ms untuk stat). Sapaan per jam Jakarta (4-11 pagi 🌤 / 11-15 siang ☀️ / 15-19 sore 🌇 / malam 🌙) via `jakartaNowParts()`; tanggal Indonesia via `Intl.DateTimeFormat('id-ID')` pada Date local-midnight dari `jakartaDateString()` (stabil di TZ browser manapun); guard `typeof window`. Mini-stat glass "Hari ini {successToday}%" (chip putih/10 + border white/25 + Zap + `.premium-stat`). Kompak: px-5 py-5, flex-wrap (stat turun ke bawah di 360-400px — terverifikasi mobile).
+    54→  - Root div dapat `.app-ambience` (wash gradien ambient mengikuti --primary).
+    55→  - Quote card → `div.premium-quote` (glass tint) — QuoteDisplay/typewriter/refresh button & aria-label tetap; ikon Quote dekoratif di-restyle (h-14, opacity-10, pointer-events-none, aria-hidden).
+    56→  - KPI grid (15 kartu): `div.premium-card premium-card-sheen rounded-2xl p-4` + `anim-stagger` + delay + `hidden sm:block` mobile-set (MOBILE_HIDDEN keys tidak berubah). Header kartu: `chip-icon h-9 w-9` (chip-teal/emerald/orange/amber/lime/sky/violet/rose/slate per KPI, ikon putih h-4.5) + label `.premium-label`; angka `.premium-stat` (tabular, w800, tracking rapat). Progress bar & sub-label dipertahankan (fill gradien otomatis dari base Progress). Override `progressColor` flat (weekly/monthly) dihapus — redundan karena base Progress kini gradien (`.premium-progress-fill` background-image menutup background-color override).
+    57→  - Section containers (Ringkasan Progres, Peringkat Habit, Fokus Hari Ini, Performa Per Habit): `div.premium-card premium-card-sheen rounded-2xl p-5` + header `.premium-label` + ChartInfo tooltip tetap.
+    58→  - Leaderboard best/worst: border lembut berbasis opacity (primary/15-20, orange-500/20 + varian dark), emoji habit dalam `chip-soft chip-soft-teal|chip-soft-amber h-11 w-11`, rate pakai `.premium-stat`, Crown/AlertTriangle tetap, mini-label uppercase.
+    59→  - Fokus Hari Ini: list item rounded-xl border-border/70 + emoji `chip-soft chip-soft-teal h-9 w-9`; badge prioritas & priorityVariant tetap; empty state → `.premium-empty` + `.premium-empty-orb` (CheckCircle).
+    60→  - Performa Per Habit: row rounded-xl + `chip-soft chip-soft-teal h-10 w-10` untuk emoji habit; streak flame/rate/progress/completed-total tetap.
+    61→  - Quick Insights ("Insight Cepat"): header + `chip-soft chip-soft-violet` Sparkles; ikon insight dibungkus `chip-soft` (amber/teal/rose/violet); varian tint dipertahankan tapi border lebih lembut (rounded-xl, border-primary/20→/15, orange pakai opacity + dark varian). Masih pakai komponen `Card` (shadow default card-shadow-premium cocok untuk kartu tinted).
+    62→  - Period row: label `.premium-label` "Periode"; spinner & badge tetap; error banner rounded-xl + tombol "Coba Lagi" (tadinya "Retry").
+    63→  - Skeleton loading di-update mengikuti layout baru (hero h-[88px] rounded-2xl, KPI h-32, dst). Chart lazy-loading skeleton → rounded-2xl.
+    64→- dashboard-helpers.tsx:
+    65→  - `PeriodFilter` → `.premium-segment` + `.premium-segment-item` (data-active → warna primary-foreground via CSS; active tambah `bg-primary shadow-sm`), + `role="group"`/`aria-label`/`aria-pressed`/`type="button"` (a11y naik). Props & PERIOD_OPTIONS tetap.
+    66→  - `ProgressRing`: angka tengah → `.premium-stat text-lg`; label bawah → `.premium-label`. Label text di dashboard.tsx diganti "Keseluruhan/Minggu Ini/Bulan Ini".
+    67→  - `QuoteDisplay`: avatar sparkle → `chip-soft chip-soft-teal h-9 w-9` (h-4.5 icon). Logika typewriter/crossfade/refresh/aria-label tetap.
+    68→  - `ChartInfo` & `MoodEmoji` & `getMoodLabel` tidak disentuh.
+    69→- dashboard-charts.tsx (light polish, logika chart TIDAK diubah): 5 container Card → `div.premium-card premium-card-sheen rounded-2xl p-4 sm:p-5`; header → `.premium-label` + `chip-soft` ikon (BarChart3 teal, Tags violet, TrendingUp teal, Layers amber, CalendarDays violet); ChartContainer/Recharts/props/tick/tooltip/Cell tetap persis; sub-caption tetap. Import Card/CardContent dihapus.
+    70→- dashboard-finance-overview.tsx (light polish): container → premium-card; header → chip-soft-teal Wallet + `.premium-label`; 4 box stat → rounded-xl border opacity-based + dark varian + chip-soft ikon (teal/rose) + nilai `.premium-stat`; semua conditional (netBalance warna, budgetExceeded/Warning/aman) & format IDR tetap.
+    71→- Catatan teknis penting: premium-card dipakai sebagai `div` polong (bukan komponen `Card`) karena `.card-shadow-premium` milik Card (line 2140, setelah `.premium-card` line 1831, specificity sama) akan menimpa multi-layer box-shadow `.premium-card` — dengan div polong efek premium penuh (bg gradien + hairline + shadow berlapis) terjaga. Class premium di globals.css berada DI LUAR @layer (line 146 hanya menutup blok base) → menang dari utility Tailwind pada elemen yang sama; karena itu tidak mencampur utility warna/ukuran font dengan class premium pada elemen yang sama (anak elemen aman, hanya inheritance).
+    72→- Verifikasi: eslint 4 file bersih (0 error/warning). agent-browser: desktop 1280x800, mobile 400x820, dark mode (add .dark). VLM konfirmasi: hero gradient + glass stat ✓, KPI chip gradien + label uppercase + angka besar ✓, quote glass ✓, ring/charts/leaderboard/focus/finance/per-habit/insight semua premium & konsisten ✓, mobile tanpa overflow (stat hero wrap ke bawah, segmented control muat 1 baris) ✓, dark mode kontras OK tanpa box putih ✓. `agent-browser errors` kosong setelah reload fresh (warning hydration muncul SEKALI saat HMR setelah edit — hilang pada reload; warning recharts "width(0)" transient pre-existing saat mount chart).
+    73→- Isu lingkungan (BUKAN file saya): sesi agent-browser SHARED dengan agent paralel (tab pindah ke tracker/goals sendiri di tengah verifikasi); sempat muncul build overlay "Unterminated regex literal" di finance-transactions.tsx (file milik agent lain yang sedang diedit — git status 20 file modified oleh agent-agent paralel) — hilang dengan sendirinya setelah agent tersebut selesai edit; `GET /api/analytics/hourly-consistency?period=365` sempat 500 2x saat compile paralel berat (3.3s) lalu 200 normal.
+    74→
+    75→Stage Summary:
+    76→- 4 file diubah (dashboard.tsx, dashboard-helpers.tsx, dashboard-charts.tsx, dashboard-finance-overview.tsx) — visual-only; query/period/refresh/badge/a11y-semantics/dark-mode/responsive & seluruh logika chart tidak berubah.
+    77→- Deviasi disengaja dari brief: (1) string UI Inggris yang tersisa dilokalkan ke Indonesia (label KPI, header section, teks insight, sub-label, "Retry"→"Coba Lagi", label ring) sesuai aturan "app language Indonesian"; (2) `progressColor` KPI weekly/monthly dihapus (override flat kini no-op di bawah fill gradien otomatis); (3) PeriodFilter ikut di-upgrade ke `.premium-segment` + aria (di luar 6 poin kritik VLM tapi dalam scope file & design system); (4) premium-card pakai div polong bukan Card (alasan cascade shadow, lihat work log).
+    78→- Dashboard dirender penuh tanpa console error pada reload fresh; lint bersih.
+    79→
+    80→---
+    81→Task ID: 2-b
+    82→Agent: tracker-ui-agent
+    83→Task: Premium UI redesign visual-only tab "Tracker Harian" (daily-tracker + sub-komponen) ke design system "Rutina Aurora" — merespons VLM critique (KPI pastel "baby app", tipografi lemah, streak statis, ring flat, habit card & date nav polos). TANPA mengubah logic/data-fetch/DnD/props-API.
+    84→
+    85→Work Log:
+    86→- Baca worklog task 1-2 + foundation class globals.css "PREMIUM UI SYSTEM v2" (premium-card/chip-icon/chip-soft/premium-hero/premium-label/premium-stat/premium-segment/premium-empty/anim-flame-pulse/anim-nav-icon-pop). Catatan cascade penting: CSS custom di globals.css UNLAYERED → menang atas Tailwind utilities (box-shadow/border/background) → state class lama (.habit-card-completed/relapsed, kpi-card-*) kalah lawan .premium-card (source order lebih akhir) → state visual dipindah ke overlay div (gradient tint + inset hairline ring via arbitrary shadow) supaya shadow premium multi-layer tetap utuh.
+    87→- daily-tracker-kpi-card.tsx: Card pastel → .premium-card + .premium-card-sheen, ikon → .chip-soft (green→teal, orange→amber, rose→rose, amber→violet), label → .premium-label, angka → .premium-stat text-2xl. Props/API tidak berubah.
+    88→- daily-tracker-daily-summary.tsx (light polish): mini progress bar pakai .premium-progress-fill (gradient), streak KPI ikon flame animasi (anim-flame-pulse saat bestStreak>0, ikon = komponen fungsi kecil yang ditutup ke prop icon React.ElementType KpiCard tanpa ubah API), sub-text warna disharmonikan (teal/amber/rose/violet), hapus ternary ' hari':' hari' mati.
+    89→- daily-tracker-progress-ring.tsx: stroke 4→5px, gradient stroke via <defs><linearGradient> id unik (useId, non-alphanum dibuang), mixWhite helper untuk stop terang, drop-shadow glow match warna (hexToRgba) hanya saat pct>0, linecap rounded tetap; props/API tetap.
+    90→- daily-tracker-habit-card.tsx: front/back Card → .premium-card (+hover+sheen) tanpa anim-lift ganda (hover lift = premium-card-hover saja; drag transform tetap di wrapper sortable luar jadi aman); state selesai/kambuh → overlay aria-hidden pointer-events-none (emerald/rose wash + inset ring 1px); Checkbox → h-6 w-6 rounded-full border-2, gradient fill data-[state=checked] (teal→emerald utk normal, rose→red utk avoid) + glow shadow + pop anim-nav-icon-pop saat justCompleted (ganti ringPop); ikon kategori + ring hairline inset; badge kategori uppercase tracking; back: sel "7 hari terakhir" selesai pakai .premium-progress-fill, semua label kecil → .premium-label.
+    91→- daily-tracker-date-nav.tsx: PageHeader → nav pill .premium-card .premium-card-sheen rounded-full: live ping dot (motion-safe) saat hari ini, h2 + sub tanggal (teks sama persis), chip "Hari ini" (bg-primary/10, Calendar icon, aria-label "Kembali ke hari ini") hanya saat bukan hari ini, panah ghost tombol bulat h-10 w-10, semua aria-label dipertahankan.
+    92→- daily-tracker.tsx: view toggle & filter chips → .premium-segment + .premium-segment-item data-active + bg-primary pill (role=group + aria-pressed, bukan tablist, supaya keyboard native); header "Habits" → .premium-label; banner drag mode → .premium-card + chip-soft handle; empty state emoji → .premium-empty + .premium-empty-orb (ClipboardList/Flag/CheckCircle2); header Catatan Harian → chip-soft-teal + NotebookPen; tombol Atur Urutan rounded-full. Hapus import cn yang jadi unused.
+    93→- daily-tracker-sortable-card.tsx (light): grip handle → rounded-full + shadow-sm + active:scale-95.
+    94→- Skip (sesuai instruksi "don't force it"): mini 7-day dot chain di summary card (butuh props baru = bukan light polish).
+    95→- ESLint semua file bersih (exit 0). Tidak menjalankan tsc (sesuai batasan memori).
+    96→- Verifikasi agent-browser 400x820 + 1280x900 (light & dark via class .dark sementara): KPI putih + chip tinted 4 warna ✓, date pill + panah + ping dot ✓, mobile 2x2 → desktop 1x4 ✓, dark legible ✓. Interaksi: centang habit OFF→ON (state checkbox, strikethrough hilang/kembali, toast "Habit selesai! 🎉" + confetti burst dari checkbox) ✓; navigasi tanggal next-day ("Rabu" + chip HARI INI muncul) → klik chip balik ke hari ini ✓; filter "Belum" → premium-empty + orb ✓; drag mode masuk/keluar (banner + grip handle) ✓; flip card ke back face (label premium + sel gradient) ✓; gradient stroke ring terdeteksi di DOM (circle[stroke^=url]) ✓. agent-browser errors → kosong di semua langkah.
+    97→- Issue infra ditemukan: agent-browser daemon DIKONSUMSI BERSAMA oleh agent lain (tab berpindah goals/finance sendiri di sela verifikasi) + SW stale-while-revalidate menahan chunk lama di reload pertama (perlu reload ke-2). Verifikasi ulang pakai `close --all` + buka tab baru. Bukan bug aplikasi — komponen tracker tidak menyentuh navigasi.
+    98→
+    99→Stage Summary:
+   100→- 7 file diubah (kpi-card, daily-summary, progress-ring, habit-card, date-nav, daily-tracker, sortable-card) — visual-only: nol perubahan logic/data-fetching/DnD/props-API/state. Semua fungsi (toggle habit + toast + confetti + cache bulanan, dialog waktu, flip card, drag mode, filter, notes debounce, a11y label) terverifikasi tetap jalan tanpa console error.
+   101→- Desain: KPI = kartu putih premium + chip tinted (teal selesai / amber XP / rose streak+flame animasi / violet level) + premium-stat/label; habit card = premium-card + sheen + state wash emerald/rose + checkbox gradient + ring gradient stroke glow; date nav = pill premium + ping dot + chip "Hari ini"; toggle/filter = premium-segment; empty state = premium-empty-orb.
+   102→- Keputusan desain mencatat: streak pakai rose (bukan violet) agar koheren dgn warna api StreakFlame — violet dipakai utk kartu Level/XP.
+   103→
+   104→---
+   105→Task ID: 2-c
+   106→Agent: goals-finance-ui-agent
+   107→Task: Premium UI redesign (visual-only) tab "Tujuan" (Goals) + bagian atas tab "Keuangan" (Finance overview + transaction list) ke design system "Rutina Aurora" — merespons VLM critique (stat "0" tampak rusak, empty state polos, kartu tujuan generik, toggle merah/hijau generik, area saldo & baris transaksi belum premium). TANPA mengubah data-fetching/state/props-API/fungsionalitas.
+   108→
+   109→Work Log:
+   110→- Konteks penting: sesi sebelumnya dari task yang sama sudah menaruh class premium di 5 file target, TAPI memakai komponen `Card` shadcn sebagai host `.premium-card`/`.premium-hero` — anti-pattern: `.card-shadow-premium` (unlayered, globals.css line 2140, SETELAH .premium-card line 1831 / .premium-hero line 1944, specificity sama) menimpa multi-layer shadow premium → kartu tampak flat; Card juga membawa py-6/gap-6/rounded-xl yang harus dilawan. Pekerjaan task ini = konversi semua `Card`+premium-class → `<div>` polong (pola agent 2-a/2-b) + polish + verifikasi penuh + worklog.
+   111→- goals.tsx: 3 stat card (Total Tujuan chip-teal Target, Selesai chip-emerald CheckCircle2, Sedang Berjalan chip-amber Flame) → div.premium-card.premium-card-sheen rounded-2xl p-3 sm:p-4 + premium-fade-up (delay 40/90/140ms) + premium-label (min-h-7 agar angka sejajar saat label wrap) + premium-stat (text-success/text-warning — token warna ada di theme). Empty state → div premium-card rounded-2xl + .premium-empty min-h-[22rem] + .premium-empty-orb (Target h-9) + headline "Mulai Milestone Pertamamu" + CTA "Tujuan Baru" (Button default kini btn-primary-gradient). Import Card/CardContent dihapus. Semua handler (openNewForm/openEditForm/toggleMilestone BUG-M16/handleCompleteGoal/handleCancelGoal BUG-L7/handleDelete) tidak disentuh.
+   112→- goal-card.tsx: Card+CardContent → div polong premium-card premium-card-hover premium-card-sheen group relative rounded-2xl + content wrapper `relative p-4 sm:p-5`. State selesai/batal: opacity 90/55 + WASH OVERLAY child div (aria-hidden pointer-events-none; emerald gradient tint + ring-inset emerald-500/25 utk completed, slate utk cancelled) — sesuai catatan cascade (tint harus di child, bukan bg-* di elemen premium-card, pola agent 2-b). Checkbox milestone → pola agent 2-b (h-5 w-5 rounded-full border-2, gradient teal→emerald + glow saat checked, tanpa ubah state/API). Tombol expand milestone + focus-visible ring. Badge prioritas/status/terlewat, chip deadline amber+anim-urgency-pulse saat ≤7 hari / rose saat lewat, progress bar (fill gradien otomatis base Progress) tetap.
+   113→- goals-skeleton.tsx: Card → div premium-card rounded-2xl dengan slot yang meniru layout final (slot chip 36px rounded-xl, label+angka, avatar 40px + title row + bar progress + footer chip).
+   114→- finance-overview.tsx: HERO "Total Saldo" Card → div.premium-hero (ref heroCardRef + mouse handler tilt/shine dipindah ke div yang sama; tiltTransformRef/shineOverlayRef/bubbles/logic persis). FIX chip Pemasukan/Pengeluaran: layout horizontal (ikon+angka 3 baris) mem-truncate nominal panjang di mobile ("Rp 10.850.000" → "Rp 10.850.0", terverifikasi scrollWidth 125 > avail 89) → diubah ke layout vertikal (header row: chip-icon h-7 + label uppercase; nominal premium-stat text-sm di baris sendiri, avail 139 ≥ 137 → NOT clipped, dicek via eval). Heatmap Card → div premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger (60ms). "Terakhir Transaksi" Card+CardHeader/CardTitle → div premium-card rounded-2xl + header row (chip-icon chip-amber h-8 Clock + h3 + ChartInfo tooltip) + baris premium-list-item (avatar emoji squircle tint kategori) + anim-stagger 100ms. Import Card* dihapus.
+   115→- finance-transactions.tsx: toggle Semua/↑Pemasukan/↓Pengeluaran → .premium-segment + .premium-segment-item data-active + pill gradien aktif per-item (inline style gradient var(--primary)→teal + glow; aria-pressed + role=group) — menggantikan tx-chip merah/hijau generik; logika onFilterChange/txFilter.type tidak berubah. Empty state → div premium-card rounded-2xl + premium-empty + orb Wallet + CTA "Lihat bulan sebelumnya" (DB-MIGRATE-1) tetap. Baris transaksi → .premium-list-item (px-4! py-3! important beat unlayered padding) + avatar emoji squircle tint kategori + judul font-medium + meta kategori/source muted + nominal rata kanan tabular-nums emerald(+)/rose(−) + node timeline diharmonisasi (rose #f43f5e / emerald #10b981). estimateRowSize tx 122→72 (match tinggi baris baru; measureElement tetap aktif self-healing). Komentar stale `activeTypeIdx` dibersihkan. Virtualizer useWindowVirtualizer/measureElement/onClick behavior (multiSelect/expand/fallback edit) + stopPropagation checkbox TIDAK diubah.
+   116→- ESLint 5 file: 0 error/0 warning (satu kali parsing error karena `*/` di dalam komentar JSX "bg-*/ring-*" — komentar ditulis ulang).
+   117→- Verifikasi agent-browser (mobile 400x820 + desktop 1280x800, light + dark via class sementara lalu direvert ke system):
+   118→  - GOALS: stat card gradien chip + angka 0 terlihat intentional (VLM konfirmasi) ✓; goal card aktif (chip teal, badge Medium/active, progress gradien 50%, pill 1/2 milestone) ✓; expand milestone → checkbox bulat + divider ✓; toggle milestone OFF→ON → status jadi completed 100% + stat Selesai=1 + tombol edit disabled (BUG-M16 flow) ✓ lalu data dikembalikan via API (50% active); state completed terverifikasi visual (emerald wash + strikethrough + chip emerald — VLM) ✓; buka dialog "Tujuan Baru" + buat goal baru ✓; hapus goal via AlertDialog "Hapus Tujuan" ✓; empty state (orb + headline + CTA gradient) via delete-then-recreate (VLM) ✓; data final dikembalikan persis (Baca 12 buku tahun ini, active, 50%, 1/2 milestone) ✓.
+   119→  - FINANCE: hero premium-hero teal→emerald (TOTAL SALDO + CountUpRupiah + subteks arus kas + chip glass + strip Rata-rata/Proyeksi) ✓ VLM; heatmap premium-card ✓; toggle segment berfungsi (Semua=14 → Pengeluaran=11 → Pemasukan=3 baris) ✓; klik baris tanpa notes/tags → dialog "Edit Transaksi" (fallback behavior) ✓; dark mode kedua tab legible tanpa box putih (VLM) ✓; desktop 1280x800 aligned ✓; hover goal card → multi-layer shadow premium-card-hover aktif (dicek computed box-shadow 4-layer) ✓.
+   120→  - `agent-browser errors` kosong di semua langkah (setelah reload fresh; SW stale-while-revalidate menahan chunk lama — perlu reload ke-2, sama seperti catatan agent 2-a/2-b).
+   121→- Isu infra: sesi agent-browser shared (quick-add "Pengeluaran" di row atas finance sempat membuka dialog tambah transaksi saat mencari sub-tab — ditutup dengan Escape, bukan bug); tab list mobile = icon-only (label `hidden sm:inline`) jadi identifikasi sub-tab via [role=tab]; tema DOM dipaksa .dark untuk verifikasi lalu dihapus + localStorage 'system'.
+   122→- Isu visual yang ditemukan & difix: (1) Card+premium-class cascade (shadow flat) — fix dengan div polong; (2) nominal chip hero ter-truncate di mobile — fix dengan layout chip vertikal; (3) baris transaksi vs tx-total-footer sticky (pre-existing, di luar scope).
+   123→
+   124→Stage Summary:
+   125→- 5 file diubah (goals.tsx, goal-card.tsx, goals-skeleton.tsx, finance-overview.tsx, finance-transactions.tsx) — visual-only: nol perubahan query/mutation/props-API/state/a11y-semantics; seluruh CRUD dialog + milestone + filter + virtualisasi + tilt/shine hero tetap berfungsi (dicek interaktif).
+   126→- Desain final: stat goals = premium-card + chip-icon gradien (teal/emerald/amber) + premium-label/stat; goal card = premium-card hover/sheen + avatar chip status + state wash emerald/slate via overlay child + checkbox milestone bulat gradien; empty state = premium-empty-orb "Mulai Milestone Pertamamu"; hero finance = premium-hero teal→emerald + chip glass vertikal (nominal tidak terpotong) + tilt 3D dipertahankan; transaksi = premium-segment + premium-list-item + amount emerald/rose tabular.
+   127→- Keputusan desain: layout chip hero dibuat vertikal (ikon+label di baris atas) demi nominal panjang muat di 400px — trade-off tinggi +14px, konsisten di sm+; goal completed pakai wash emerald + opacity-90 (bukan -75) supaya tetap terbaca.
+   128→- Kedua tab dirender penuh tanpa console error pada reload fresh; lint bersih; data test dikembalikan ke kondisi awal.
+   129→
+   130→---
+   131→Task ID: 3
+   132→Agent: main-agent (Z.ai Code)
+   133→Task: Redesain UI keseluruhan supaya lebih cantik & premium (request user: "Redesain UI supaya lebih cantik dan premium") — kelanjutan dari redesain bottom-nav (Task 2 sebelumnya).
+   134→
+   135→Work Log:
+   136→- Analisis kondisi awal via agent-browser + VLM (dashboard/tracker/goals/finance): UI dinilai "B+ template-like" — kurang depth/texture, shadow flat, kartu sparse.
+   137→- Task 1 (fondasi, dikerjakan sendiri): globals.css — token premium (background warm-sage oklch(0.981 0.006 155), dark fintech oklch(0.164 0.006 165) + card 2 tingkat lebih terang, radius 0.75rem, border/muted lebih halus); section "PREMIUM UI SYSTEM v2" (~16 kelas: premium-card±hover/sheen, chip-icon 9 warna gradien, chip-soft 4, premium-hero+bubbles, premium-label, premium-stat, premium-quote, premium-segment, premium-list-item, premium-empty+orb, app-ambience, premium-divider, premium-fade-up, card-shadow-premium, premium-progress-fill, btn-primary-gradient) — semua varian .dark + reduced-motion guard.
+   138→- Komponen dasar: ui/card.tsx shadow-sm→card-shadow-premium; ui/progress.tsx fill→premium-progress-fill (gradien + transisi); ui/button.tsx primary→btn-primary-gradient.
+   139→- Task 2-a/2-b/2-c via 3 subagent paralel (2-c retry sekali karena timeout): dashboard (hero greeting "Selamat siang ☀️" + tanggal ID + stat hari ini, KPI premium-card+chip-icon, quote glass, header premium-label, leaderboard/insight polish); tracker (KPI putih + chip-soft, habit card premium-card + checkbox gradien + state overlay wash emerald/rose, ring stroke gradien SVG linearGradient+useId, date nav pill + dot "live", segment filter); goals+finance (summary card premium, empty orb "Mulai Milestone Pertamamu", goal card premium+overlay state, hero "Total Saldo" premium-hero + chip vertikal, toggle→premium-segment, transaksi→premium-list-item + avatar squircle + amount tabular emerald/rose).
+   140→- Task 3 (shell, sendiri): page.tsx sidebar glass (bg-card/95 blur) + logo gradien sprout + active pill btn-primary-gradient + anim-nav-icon-pop; header blur-xl; ParallaxBackground→app-ambience; splash +app-ambience; layout.tsx themeColor (#f5f7f5/#101513); sw.js v13→v14.
+   141→- Bug yang ditemukan & difix saat verifikasi: label KPI overflow (kata "PENYELESAIAN"/"PRODUKTIVITAS" meluber keluar kartu) → letter-spacing 0.12→0.08em + label dipersingkat (Tingkat Selesai/7 Hari/30 Hari/Skor/Rekor Streak/Hari Ini); kartu "Tantangan" menampilkan "%" tanpa angka → field challengeProgress TIDAK PERNAH dikirim API (fitur fantom) → kartu dihapus + import Swords dibersihkan.
+   142→- Verifikasi: tsc 0 error, eslint 0 error, agent-browser 400×820 + 1280×860 semua tab light+dark: tidak ada console error, checkbox habit toggle ✓, truncation 0 (mobile+desktop), tidak ada konten tertutup dock (klip VLM ternyata elemen ter-clip scrollable internal), klaim "avatar N" VLM = salah baca pill aktif dock.
+   143→- VLM final: dashboard 9/10 ("paid, professional productivity suite" vibe); before-after comparison 8.5/10 dengan saran yang sudah diatasi.
+   144→
+   145→Stage Summary:
+   146→- ±20 file diubah: globals.css (token + ~350 baris sistem premium), card/progress/button/page/layout/sw.js + 4 area tab (dashboard 4 file, tracker 7 file, goals/finance 5 file).
+   147→- Bahasa visual "Rutina Aurora": sage background + teal-emerald, kartu berlapis hairline, chip gradien, hero gradien, label editorial caps, angka tabular.
+   148→- Desain konsisten light+dark, a11y & reduced-motion terjaga, semua fungsi (query/DnD/dialog/quick-add/flip card) tak tersentuh logikanya.
+   149→- Known: VLM menilai kontras subteks hijau finance "barely passes" (minor, dilewat); konten finance sub-tab selain overview/transaksi belum di-redesign penuh (budget/recurring/rules/explorer pakai komponen bersama yang sudah dapat sentuhan via Card/Progress/Button dasar).
+   150→- Dev server habit-tracker tetap jalan di port 3000 (preview panel menampilkan redesign).
+   151→
+   152→---
+   153→Task ID: 4-foundation
+   154→Agent: main-agent (Z.ai Code)
+   155→Task: Fondasi navigasi 1-klik ("nyambung dengan 1 klik") — primitif deep-link global di app-store + FAB Transfer + konsumen di tracker/finance.
+   156→
+   157→Work Log:
+   158→- Audit 3 agen paralel menemukan: dashboard read-only island, calendar day tidak clickable, sub-tab finance reset saat pindah tab, transfer terkubur, explorer masih palet indigo, budgets/savings/recurring/rules belum premium.
+   159→- app-store.ts: QuickAddAction += 'transfer'; type FinanceSubTab + FinanceFocus; state baru: focusHabitId/openHabitFocus/clearHabitFocus, trackerViewMode/setTrackerViewMode/openTrackerDate(date), financeSubTab/setFinanceSubTab/openFinanceSubTab, financeFocus/openFinanceFocus/clearFinanceFocus.
+   160→- daily-tracker.tsx: viewMode diangkat ke store (survive tab switch); konsumen focusHabitId → buka TimeAnalysisDialog (pola consume-and-clear + latest-ref useCallback); empty state CTA "Buat Habit Pertama" (triggerQuickAdd('habit') + setActiveTab('settings')).
+   161→- finance.tsx: activeSubTab diangkat ke store (tidak reset ke overview); konsumen financeFocus → setTxFilter category (pola sama).
+   162→- page.tsx: FAB item baru "Transfer" (violet gradient, anim-fab-item-4, triggerQuickAdd('transfer') + openFinanceSubTab('overview')).
+   163→- source-balance.tsx: konsumen quickAddAction==='transfer' → setTransferOpen(true).
+   164→- globals.css: tambah .anim-fab-item-4 + reduced-motion guard.
+   165→- ESLint 5 file bersih (aturan react-hooks/refs & set-state-in-effect dipuaskan dengan stable-useCallback ref pattern). Dev server port 3000 OK.
+   166→
+   167→Stage Summary:
+   168→- API store baru untuk SEMUA agent 3-x (WAJIB pakai ini, jangan buat mekanisme nav sendiri):
+   169→  * openHabitFocus(habitId) — dari mana saja → tab tracker + TimeAnalysisDialog habit itu terbuka otomatis.
+   170→  * openTrackerDate('yyyy-MM-dd') — dari mana saja → tab tracker grid dengan tanggal terpilih.
+   171→  * openFinanceSubTab('overview'|'transactions'|'budgets'|'explorer'|'categories'|'recurring'|'rules'|'savings') — → tab finance + sub-tab target.
+   172→  * openFinanceFocus({ category: 'NamaKategori' }) — → tab finance sub-tab transactions dengan filter kategori terpasang.
+   173→  * setTrackerViewMode('today'|'history'), setFinanceSubTab(sub) — internal.
+   174→  * triggerQuickAdd('expense'|'income'|'habit'|'transfer') — quick-add action (expense/income → dialog tx; habit → settings HabitMaster; transfer → dialog transfer di overview).
+   175→- Konsumen sudah terpasang di: daily-tracker (focusHabitId), finance.tsx (financeFocus + financeSubTab), source-balance (transfer), settings/habit-master (habit, existing).
+   176→
+   177→---
+   178→Task ID: 4-c
+   179→Agent: calendar-focus-agent
+   180→Task: Calendar 1-click day cells (openTrackerDate) + premium calendar restyle + TimeAnalysisDialog auto-detect trackTime & premium polish.
+   181→
+   182→Work Log:
+   183→- Baca worklog 4-foundation → pakai primitif store `openTrackerDate(date)` (bukan mekanisme nav sendiri).
+   184→- calendar-view.tsx — 1-CLICK: setiap day cell jadi <button type="button"> (dulu div cursor-default) → `openTrackerDate(day.dayStr)`; dayStr 'yyyy-MM-dd' dari format() yang sama dengan semantik selectedDate store. aria-label Indonesia via buildDayAriaLabel(): "Sabtu 5 September 2026, 2 dari 2 habit selesai" / "..., belum ada data" (EEEE + d MMMM yyyy locale id). Affordance: cursor-pointer, active:scale-95, focus-visible:ring-2 ring-ring/60, hover:bg-accent/60 untuk sel kosong/0% (heat-colored cells pakai hover:brightness-105 + hairline ring supaya teks putih 75%+ tetap terbaca), highlight "Hari Ini" (ring-primary + anim-glow-breathe) dan progress bar tetap. Touch target mobile 44x72px terverifikasi.
+   185→- calendar-view.tsx — PREMIUM: wrapper Card → div.premium-card.premium-card-sheen.rounded-2xl (anti-pattern 2-c dihormati); heatmap legacy gray/orange/lime → skala Aurora: null→bg-muted/60, 0%→destructive/25 (status, bukan heat), <50→teal-200/70|dark teal-900/50, <75→teal-400/80|dark teal-700/60, ≥75→teal-600|dark teal-500 + teks putih (getDayNumTextColor/getHeatmapTextColor adaptif dark mode; track/fill bar → token foreground). Legend+Ringkasan → premium-card section; stat tiles flat bg-primary/10 / bg-gray-50 → pola KPI (chip-soft teal/violet/amber/rose + premium-label + premium-stat + Badge %). Loading: Skeleton 600px → grid skeleton 7-kolom (35 kotak rounded animate-pulse, max-h-[420px], stagger delay). Error: teks polos + outline button → premium-empty + orb CalendarDays + retry btn-primary-gradient anim-press (retryFetch useCallback invalidate 3 query key lama). Mood legend jadi jujur: emoji mood kecil dirender di sel hari yang punya data mood daily-log (MOOD_EMOJIS 1–5, sama dengan dashboard) — sebelumnya janji mati.
+   186→- time-analysis.tsx — AUTO-DETECT: query ['habit-meta', habitId] kini enabled setiap dialog open (dulu hanya mode yearly); setelah meta tiba, default periode di-set 'thisWeek' jika habit.trackTime else 'thisYear' (heatmap yearly jalan untuk semua habit) — perbaiki 400 "does not track time" yang muncul sebagai kartu error merah. Pola stable-callback + useRef(fn) (tanpa assignment ref saat render — react-hooks/refs menolak pola lama; useEffect session-key: reset filterLocked saat reopen/habit ganda; pilih dropdown → filterLocked=true, auto-detect tidak menimpa pilihan user). Query ['time-analysis'] kini juga gated `habitMeta?.trackTime === true` (query key & API route tidak diubah). Fallback: user pilih periode non-yearly untuk habit non-trackTime → premium-empty hint "Habit ini tidak mencatat waktu" (bukan error merah); metaPending skeleton menutup frame transisi. Dialog tetap standalone (hanya prop habitId, meta di-fetch sendiri) — kompatibel dengan openHabitFocus(id) dari mana saja.
+   187→- time-analysis.tsx — PREMIUM: 5 stat card Card+tinted circle → div.premium-card.premium-card-sheen + chip-soft (teal/amber/rose/violet, dinamis teal↔rose utk vsPrevious) + premium-label + premium-stat; chart card → premium-card + premium-label "Per Hari"; empty 📊 → premium-empty + orb BarChart3 + "Belum ada data untuk periode ini"; error card → premium-card + chip-soft-rose + AlertTriangle.
+   188→- Lint: `bunx eslint calendar-view.tsx time-analysis.tsx` BERSIH (react-hooks/refs & set-state-in-effect dipuaskan; catatan: pola render-phase ref assignment daily-tracker lolos hanya karena component-nya bailout analisis compiler — file baru jangan tiru itu, pakai useRef(fn) tanpa reassign). tsc --noEmit: 0 error di kedua file saya (sisa error finance.tsx milik agent lain).
+   189→- Verify agent-browser (desktop 1280x800 + mobile 400x820, session terisolasi karena shared browser diperebutkan agent lain): splash 2.6s → Track tab → Riwayat: kalender premium (VLM: "premium appearance, white bg, soft shadow", heatmap teal berjenjang, tanpa glitch); seed 3 log + 1 daily-log mood via API utk demo — sel 100% bg-teal-600 + 🙂 mood, 50% teal-400; klik "Sabtu 5" (desktop & mobile) → grid tracker terbuka, date pill "Sabtu 5 Sep 2026 · Hari 5/30" ✓; flip kartu Baca Buku (trackTime=false) → Analisis → dialog default "Tahun" (heatmap yearly, TANPA kartu error merah); Meditasi (trackTime=true) → default "Minggu Ini"; ganti dropdown → "Minggu Lalu" → 5 stat premium + chart render (14:09/14:05/14:12, recharts aktif), dropdown tetap bisa switch; empty state premium terverifikasi teks & orb (VLM); console: 0 error (hanya warning recharts width(0) pre-existing + DialogContent Description pre-existing). State dikembalikan ke "Hari Ini" sebelum session ditutup. Log demo dibiarkan (1 habit lain pun sudah ditanam agent 4a).
+   190→Stage Summary:
+   191→- 2 file diubah (calendar-view.tsx ~+150/-120, time-analysis.tsx rewrite ~+180/-90): calendar day cells = tombol 1-klik nyambung ke tracker grid via openTrackerDate (koneksi value tertinggi di app), kalender & dialog analisis sepenuhnya restyle Rutina Aurora (premium-card/chip-soft/premium-label/premium-stat/premium-empty, heatmap teal-emerald readable dark mode), auto-detect period + guard 400 untuk habit non-trackTime, mood legend kini dirender dari data asli.
+   192→- Semua interaksi: cursor-pointer/hover/active-scale/focus-ring, aria-label Indonesia, touch target ≥40px. Lint & tsc bersih untuk kedua file; API route/query key tidak berubah; tidak ada dep baru.
+   193→
+   194→---
+   195→Task ID: 4-a
+   196→Agent: dashboard-wiring-agent (laporan balik timeout — rekonstruksi oleh main-agent dari diff + verifikasi browser)
+   197→Task: Dashboard 1-click wiring + restyle premium satelit (last-done, time-tracked, weekly-review, hourly-consistency).
+   198→
+   199→Work Log (direkonstruksi dari git diff + verifikasi):
+   200→- dashboard.tsx: KPI cards jadi tombol dengan aria-label ("Buka tab tracker untuk melihat semua habit/mood/tidur") → setActiveTab; "Today's Focus" rows + per-habit performance rows → openTrackerDate/openHabitFocus; Insight Cepat → premium-card.
+   201→- dashboard-charts.tsx: bar mingguan onClick → openTrackerDate(date); bar kategori → openFinanceFocus({category}); area tren → finance.
+   202→- dashboard-finance-overview.tsx: kartu Keuangan Bulan Ini → openFinanceSubTab; tile Status Anggaran → budgets sub-tab ("Lihat detail keuangan").
+   203→- dashboard-last-done.tsx + dashboard-time-tracked-habits.tsx: rows clickable (openHabitFocus id) + restyle premium-card/chip-soft/premium-list-item, warna legacy dihapus.
+   204→- weekly-review.tsx: InsightCard premium-card + accent gradient bar + link "Lihat habit" (openHabitFocus) bila insight punya habitId; empty state premium-empty.
+   205→- api/ai-insights/route.ts + lib/dashboard/types.ts + chart-builders.ts: insight kini membawa habitId (best/worst habit); bestHabit/worstHabit bawa id.
+   206→- hourly-consistency.tsx: premium-card + premium-empty-orb + tile tinted lembut.
+   207→
+   208→Stage Summary:
+   209→- Verifikasi main-agent (browser, mobile 400x820): KPI → tracker ✓; insight link "Performa Terbaik" → tracker + dialog "🧘 Analisis Waktu — Meditasi Pagi" terbuka otomatis ✓; VLM dashboard 8/10 premium; 0 console error.
+   210→
+   211→---
+   212→Task ID: 4-b
+   213→Agent: finance-premium-agent (laporan balik timeout — rekonstruksi oleh main-agent dari diff + verifikasi browser)
+   214→Task: Finance premium restyle (budgets/savings/recurring/rules/explorer re-skin) + koneksi 1-klik + savings quick-chips + explorer row edit.
+   215→
+   216→Work Log (direkonstruksi dari git diff + verifikasi):
+   217→- finance.tsx: onEditTx={mutations.openEditTx} diteruskan ke FinanceExplorer + transaksi.
+   218→- finance-budgets.tsx: kartu budget premium-card + klik body → openFinanceFocus({category}) (tombol edit/hapus stopPropagation); riwayat premium-list-item.
+   219→- finance-savings-goals.tsx: quick-chips 1-tap (+Rp50rb/+Rp100rb/Sisa) di kartu goal — PUT delta endpoint existing + toast; kartu premium-card.
+   220→- finance-recurring.tsx + finance-rules.tsx: alert() → toast; rows premium-list-item; empty states premium-empty + CTA.
+   221→- finance-overview.tsx: hero saldo → affordance "Lihat semua transaksi bulan ini" (openFinanceSubTab('transactions')).
+   222→- finance-spending-heatmap.tsx: detail box hari → tombol "Lihat transaksi bulan ini".
+   223→- finance-explorer*.tsx + finance-explorer-transactions-view.tsx: rows → onEditTx; amount emerald/rose; avatar emoji squircle.
+   224→- category-explorer-detail-view.tsx: kategori → openFinanceFocus.
+   225→- daily-recap.tsx: baris transaksi hari ini → premium-list-item.
+   226→- globals.css: kelas fe-* di-re-skin indigo→Aurora (teal/sage, .dark variants) — grep indigo hex = 0 sisa.
+   227→
+   228→Stage Summary:
+   229→- Verifikasi main-agent (browser): budget card klik → Transaksi dengan filter kategori terpasang (2 dari 6 tx = hanya Makanan) ✓; savings chip +Rp50rb → saldo 250rb→300rb + toast ✓; explorer drill bulan→minggu→hari→baris tx → dialog "Edit Transaksi" terbuka ✓; VLM explorer 9/10 Aurora ✓; recurring 8/10 ✓; alert() = 0 tersisa ✓.
+   230→- Fix tambahan oleh main-agent: guard konsumen FAB transfer di source-balance.tsx (tunggu query sources; <2 sumber → toast pemandu, ≥2 → buka dialog; ganti var loading→sourcesLoading).
+   231→
+   232→---
+   233→Task ID: 4-d
+   234→Agent: habitmaster-settings-agent (laporan balik timeout — rekonstruksi oleh main-agent dari diff + verifikasi browser)
+   235→Task: Habit Master + habit table/mobile cards/filters/quick-add + settings premium-segment + label-manager premium + konfirmasi hapus.
+   236→
+   237→Work Log (direkonstruksi dari git diff + verifikasi):
+   238→- habit-master.tsx: skeleton premium (mimik list final), empty state premium-empty-orb + CTA (bug emoji ganda diperbaiki), dialog form polish (chip-soft header + emoji picker glass + tombol submit btn-primary-gradient).
+   239→- habit-table.tsx (desktop): wrapper premium-card, row click → openHabitFocus(id) (⋮ stopPropagation), avatar emoji, hover state.
+   240→- habit-mobile-cards.tsx: premium-card premium-card-hover + avatar + tap → openHabitFocus.
+   241→- habit-filters.tsx + habit-quick-add.tsx + habit-groups-section.tsx: restyle premium; delete grup kini pakai AlertDialog konfirmasi.
+   242→- settings.tsx: sub-tab switcher → premium-segment; stat tiles data-section → chip-soft + premium-label + premium-stat.
+   243→- settings-ui.tsx: SectionCard → div premium-card (anti-pattern Card+premium dihindari).
+   244→- label-manager.tsx: premium-card + tabs premium-segment + rows premium-list-item + AlertDialog konfirmasi hapus label.
+   245→
+   246→Stage Summary:
+   247→- Verifikasi main-agent (browser): settings segment premium ✓; baris Habit Master (mobile & desktop table, cursor:pointer) klik → tracker + dialog "🧘 Analisis Waktu — Meditasi Pagi" ✓; VLM desktop habit master 8/10; AlertDialog hadir di label-manager + groups ✓; habit tes "Verifikasi Wiring 4a" dihapus dari DB.
+   248→
+   249→---
+   250→Task ID: 5
+   251→Agent: main-agent (Z.ai Code)
+   252→Task: Verifikasi end-to-end seluruh koneksi 1-klik + perbaikan guard transfer + finalisasi.
+   253→
+   254→Work Log:
+   255→- tsc --noEmit: 0 error; bun run lint: 0 error (seluruh repo).
+   256→- Dev server sempat crash (thread exhaustion dari 4 daemon agent-browser paralel) → dibersihkan + restart, kembali 200 OK.
+   257→- Verifikasi browser (mobile 400x820 + desktop 1280x800): 8 alur 1-klik hijau (KPI→tab; insight→dialog analisis; FAB Transfer→toast pemandu saat sources<2 & dialog terbuka saat ≥2 — diuji dengan 2 sumber tes lalu dihapus; kalender→tracker tanggal; budget→tx terfilter kategori; savings chip 1-tap; explorer→edit dialog; habit master row→analisis). 0 console/page error.
+   258→- VLM: dashboard 8/10, explorer 9/10 Aurora (indigo hilang), recurring 8/10, habit master desktop 8/10, kalender premium teal (laporan 4-c).
+   259→- Guard baru source-balance.tsx: FAB transfer menunggu query sources; <2 sumber → toast pemandu; ≥2 → dialog. Fix var loading yang error runtime.
+   260→- Data tes dibersihkan (habit "Verifikasi Wiring 4a", 2 sumber dana tes, goal "Tes Tabungan Cepat" dihapus; saldo tabungan tes dikembalikan dengan menghapus goal).
+   261→
+   262→Stage Summary:
+   263→- 39 file berubah (+~2500/-~1200): fondasi navigasi 1-klik global (app-store), FAB Transfer, dashboard read-only→interaktif penuh, kalender klik-hari, sub-tab finance survive + deep-link, filter kategori via 1 klik, quick-chips tabungan, explorer bisa edit, seluruh area plain terakhir (budgets/savings/recurring/rules/explorer/habit-master/settings/label-manager) kini premium Aurora.
+   264→- Semua alur emas terverifikasi interaktif di browser tanpa error.
+   265→

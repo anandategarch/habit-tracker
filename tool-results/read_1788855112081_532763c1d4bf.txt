@@ -1,0 +1,562 @@
+    36→  const queryClient = useQueryClient();
+    37→  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+    38→  const [budgetInput, setBudgetInput] = useState('');
+    39→  // What-if slider state: 0-50% spending reduction for the rest of the month.
+    40→  // Local state (not persisted) — resets on page load. Computed client-side
+    41→  // from whatIfBase/daysElapsed/daysRemaining so there's no lag on drag.
+    42→  const [whatIfReduction, setWhatIfReduction] = useState(0);
+    43→  // Insight per kategori period tab: 'month' (current month) or 'alltime'.
+    44→  // Global state — all category rows show the same period. Default 'month'
+    45→  // because it's most relevant for daily context ("how am I doing this month?").
+    46→  // Local state (not persisted) — resets on page load.
+    47→  const [insightPeriod, setInsightPeriod] = useState<'month' | 'alltime'>('month');
+    48→
+    49→  const { data: recap, isLoading, isError, refetch } = useQuery<DailyRecapData>({
+    50→    queryKey: ['finance', 'daily-recap'],
+    51→    queryFn: async () => {
+    52→      const res = await fetch('/api/finance/daily-recap');
+    53→      if (!res.ok) throw new Error('Failed to fetch daily recap');
+    54→      return res.json();
+    55→    },
+    56→    staleTime: 30_000,
+    57→    retry: 1,
+    58→  });
+    59→
+    60→  // Lazy-load all-time per-category stats — ONLY fires when the user
+    61→  // switches to the "All-time" tab. This was moved out of the daily-recap
+    62→  // API for performance: the all-time query fetches ALL expense transactions
+    63→  // (potentially thousands), which was slowing down initial page load on
+    64→  // mobile/production. Now it loads on-demand.
+    65→  // The query is keyed by the category names (so it refetches if today's
+    66→  // categories change). staleTime 5min — all-time data doesn't change often.
+    67→  //
+    68→  // BUG-2 fix: capture isError + refetch so the UI can show an error state
+    69→  // with a retry button instead of getting stuck on "Memuat…" forever if
+    70→  // the POST fails (network error, 500, etc.).
+    71→  const allTimeCategories = recap?.today.categoryStats.map((c) => c.name) ?? [];
+    72→  const {
+    73→    data: allTimeStats,
+    74→    isError: allTimeIsError,
+    75→    refetch: refetchAllTime,
+    76→  } = useQuery<Record<string, { maxTransaction: number; avgTransaction: number; maxDaily: number; avgDaily: number }>>({
+    77→    queryKey: ['finance', 'category-alltime', allTimeCategories],
+    78→    queryFn: async () => {
+    79→      const res = await fetch('/api/finance/category-alltime', {
+    80→        method: 'POST',
+    81→        headers: { 'Content-Type': 'application/json' },
+    82→        body: JSON.stringify({ categories: allTimeCategories }),
+    83→      });
+    84→      if (!res.ok) throw new Error('Failed to load all-time stats');
+    85→      return res.json();
+    86→    },
+    87→    enabled: insightPeriod === 'alltime' && allTimeCategories.length > 0,
+    88→    staleTime: 5 * 60_000, // 5 min — all-time data is stable
+    89→    retry: 1,
+    90→  });
+    91→
+    92→  // Mutation: save daily budget target via PUT /api/settings
+    93→  const saveBudgetMutation = useMutation({
+    94→    mutationFn: async (target: number) => {
+    95→      const res = await fetch('/api/settings', {
+    96→        method: 'PUT',
+    97→        headers: { 'Content-Type': 'application/json' },
+    98→        body: JSON.stringify({ dailyBudgetTarget: target }),
+    99→      });
+   100→      if (!res.ok) throw new Error('Failed to save budget');
+   101→      return res.json();
+   102→    },
+   103→    onSuccess: () => {
+   104→      // Invalidate both daily-recap (re-fetch with new budget) and settings
+   105→      queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+   106→      queryClient.invalidateQueries({ queryKey: ['settings'] });
+   107→      toast.success('Budget harian disimpan');
+   108→      setBudgetDialogOpen(false);
+   109→    },
+   110→    onError: () => {
+   111→      toast.error('Gagal menyimpan budget');
+   112→    },
+   113→  });
+   114→
+   115→  // Mutation: save projection category selection via PUT /api/settings.
+   116→  // Sends the full array of selected category names (empty = all categories).
+   117→  // The API dedupes/sorts before storing, so we just send the raw selection.
+   118→  //
+   119→  // OPTIMISTIC UPDATE: the daily-recap query is heavy (30-day transaction
+   120→  // fetch + 15 metric computations). Without optimistic update, each dropdown
+   121→  // change caused a visible lag — the dropdown value wouldn't update until
+   122→  // the PUT + refetch round-trip completed (300-800ms). Now we immediately
+   123→  // patch the cached daily-recap's `projectionCategoryNames` so the dropdown
+   124→  // reflects the new selection instantly; the actual projection NUMBER
+   125→  // updates when the refetch completes (still server-side, still accurate).
+   126→  // On error, we roll back to the previous value.
+   127→  const saveProjectionCategoriesMutation = useMutation({
+   128→    mutationFn: async (categoryNames: string[]) => {
+   129→      const res = await fetch('/api/settings', {
+   130→        method: 'PUT',
+   131→        headers: { 'Content-Type': 'application/json' },
+   132→        body: JSON.stringify({ projectionCategoryIds: categoryNames }),
+   133→      });
+   134→      if (!res.ok) throw new Error('Failed to save projection categories');
+   135→      return res.json();
+   136→    },
+   137→    onMutate: async (categoryNames: string[]) => {
+   138→      // Cancel any outgoing refetches so they don't overwrite our optimistic
+   139→      // update.
+   140→      await queryClient.cancelQueries({ queryKey: ['finance', 'daily-recap'] });
+   141→      // Snapshot the previous value for rollback.
+   142→      const previousRecap = queryClient.getQueryData<DailyRecapData>(['finance', 'daily-recap']);
+   143→      // Optimistically patch the cached recap's projectionCategoryNames +
+   144→      // projectionIsFiltered so the dropdown updates instantly.
+   145→      //
+   146→      // BUG-3 fix: Also reset whatIfBase to 0. The what-if slider computes
+   147→      // its result from `whatIfBase` (month-to-date spend of the CURRENT
+   148→      // basis). Without resetting it, the slider would use the STALE
+   149→      // whatIfBase (from the old filter) for 300-800ms until the refetch
+   150→      // completes — producing wrong numbers. Setting whatIfBase to 0
+   151→      // hides the slider via its `whatIfBase > 0` guard, so the user sees
+   152→      // a clean "loading" state instead of wrong numbers. The slider
+   153→      // reappears with the correct whatIfBase once the refetch completes.
+   154→      if (previousRecap) {
+   155→        queryClient.setQueryData<DailyRecapData>(['finance', 'daily-recap'], {
+   156→          ...previousRecap,
+   157→          predictions: {
+   158→            ...previousRecap.predictions,
+   159→            projectionCategoryNames: categoryNames,
+   160→            projectionIsFiltered: categoryNames.length > 0,
+   161→            whatIfBase: 0,
+   162→          },
+   163→        });
+   164→      }
+   165→      return { previousRecap };
+   166→    },
+   167→    onSuccess: () => {
+   168→      queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+   169→      queryClient.invalidateQueries({ queryKey: ['settings'] });
+   170→    },
+   171→    onError: (_err, _vars, context) => {
+   172→      // Roll back to the previous cached value on error.
+   173→      if (context?.previousRecap) {
+   174→        queryClient.setQueryData(['finance', 'daily-recap'], context.previousRecap);
+   175→      }
+   176→      toast.error('Gagal menyimpan pilihan kategori');
+   177→    },
+   178→  });
+   179→
+   180→  /**
+   181→   * Set the projection basis to a SINGLE category (single-select dropdown).
+   182→   * - Empty string = use all categories (default, "Semua" option).
+   183→   * - Non-empty = project based on that one category only.
+   184→   *
+   185→   * Single-select per the user's request — multi-select chips caused lag
+   186→   * (each toggle = PUT + heavy refetch) and were overkill for the use case
+   187→   * ("what's my month-end projection if I only consider Food spending?").
+   188→   *
+   189→   * BUG-3 fix: Reset whatIfReduction to 0 so the slider starts fresh on
+   190→   * the new basis. Without this, the slider would show a stale reduction
+   191→   * percentage (e.g., 20%) applied to the new basis — confusing.
+   192→   */
+   193→  function setProjectionCategory(categoryName: string) {
+   194→    if (saveProjectionCategoriesMutation.isPending) return;
+   195→    const next = categoryName ? [categoryName] : [];
+   196→    setWhatIfReduction(0);
+   197→    saveProjectionCategoriesMutation.mutate(next);
+   198→  }
+   199→
+   200→  /** Open the budget dialog, pre-filling the input with the current target. */
+   201→  function openBudgetDialog(currentTarget: number | null) {
+   202→    // Format with thousand separators so the prefill matches what the
+   203→    // onChange handler would produce (was showing "100000" instead of "100.000").
+   204→    const formatted = currentTarget
+   205→      ? String(currentTarget).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+   206→      : '';
+   207→    setBudgetInput(formatted);
+   208→    setBudgetDialogOpen(true);
+   209→  }
+   210→
+   211→  /** Parse the formatted input ("100.000" → 100000) and save. */
+   212→  function handleSaveBudget() {
+   213→    // Guard against double-submit — Enter key + click, or rapid Enter presses,
+   214→    // could fire multiple concurrent mutations (race condition in PUT /api/settings).
+   215→    if (saveBudgetMutation.isPending) return;
+   216→    // Strip non-digits (handles "100.000", "100,000", " 100000 ")
+   217→    const digits = budgetInput.replace(/[^\d]/g, '');
+   218→    const target = digits ? parseInt(digits, 10) : 0;
+   219→    if (target > 100_000_000) {
+   220→      toast.error('Maksimal Rp 100.000.000');
+   221→      return;
+   222→    }
+   223→    saveBudgetMutation.mutate(target);
+   224→  }
+   225→
+   226→  /** Remove the daily budget (set to 0 → ring hidden). */
+   227→  function handleRemoveBudget() {
+   228→    saveBudgetMutation.mutate(0);
+   229→  }
+   230→
+   231→  // Error state — previously the skeleton rendered forever on API failure
+   232→  // because `isLoading` became false but `recap` stayed undefined.
+   233→  if (isError) {
+   234→    return (
+   235→      <Card className="overflow-hidden">
+   236→        <div className="p-4 flex items-center gap-3">
+   237→          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80 shrink-0">
+   238→            <AlertCircle className="h-4 w-4" />
+   239→          </div>
+   240→          <div className="flex-1 min-w-0">
+   241→            <p className="text-xs font-semibold">Gagal memuat rekap harian</p>
+   242→            <p className="text-[11px] text-muted-foreground">Coba lagi dalam sejenak</p>
+   243→          </div>
+   244→          <Button
+   245→            variant="outline"
+   246→            size="sm"
+   247→            onClick={() => refetch()}
+   248→            className="h-7 text-xs px-2 shrink-0"
+   249→          >
+   250→            <RefreshCw className="h-3 w-3" />
+   251→            Coba lagi
+   252→          </Button>
+   253→        </div>
+   254→      </Card>
+   255→    );
+   256→  }
+   257→
+   258→  if (isLoading || !recap) {
+   259→    return (
+   260→      <Card className="overflow-hidden">
+   261→        <div className="p-4 space-y-3">
+   262→          <Skeleton className="h-4 w-24" />
+   263→          <Skeleton className="h-10 w-40" />
+   264→          <div className="grid grid-cols-3 gap-2">
+   265→            <Skeleton className="h-12" />
+   266→            <Skeleton className="h-12" />
+   267→            <Skeleton className="h-12" />
+   268→          </div>
+   269→        </div>
+   270→      </Card>
+   271→    );
+   272→  }
+   273→
+   274→  const { today, comparison, streaks, predictions, alerts, patterns, gamification, sparkline, dailyBudget } = recap;
+   275→
+   276→  // Task 4-b B.6: emoji + color lookup untuk baris "Transaksi hari ini"
+   277→  // (dari today.categories — nol query/fetch baru; fallback 📦 muted).
+   278→  const todayCatMeta = new Map(
+   279→    today.categories.map((c) => [c.name, { emoji: c.emoji, color: c.color }] as const),
+   280→  );
+   281→
+   282→  // ── Empty state: no transactions today ─────────────────────────────
+   283→  // Note: budget ring/button is still shown here so the user can set/view
+   284→  // their daily budget even on a no-transaction day (was previously hidden,
+   285→  // making the budget feature inaccessible until a transaction was logged).
+   286→  const isEmpty = today.transactionCount === 0 && today.income === 0;
+   287→
+   288→  if (isEmpty) {
+   289→    return (
+   290→      <Card className="overflow-hidden anim-stagger contain-card">
+   291→        <div className="bg-gradient-to-br from-primary/[0.025] via-primary/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
+   292→          <div className="flex items-center justify-between gap-3">
+   293→            <div className="min-w-0 flex-1">
+   294→              <p className="text-xs text-muted-foreground font-medium mb-1">Hari Ini</p>
+   295→              <p className="text-xl sm:text-2xl font-bold tracking-tight text-success">
+   296→                Rp 0
+   297→              </p>
+   298→              <p className="text-xs text-muted-foreground mt-0.5">
+   299→                belum ada transaksi
+   300→              </p>
+   301→            </div>
+   302→            {/* Budget ring (or "Set budget" button) — same as non-empty state */}
+   303→            {dailyBudget && dailyBudget.target ? (
+   304→              <button
+   305→                type="button"
+   306→                onClick={() => openBudgetDialog(dailyBudget.target)}
+   307→                className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1 -m-1 hover:bg-muted/40 transition-colors"
+   308→                aria-label={`Budget harian ${dailyBudget.percentage}%, tap to edit`}
+   309→              >
+   310→                <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={48}>
+   311→                  <div className="text-center">
+   312→                    <p className="text-[11px] font-bold leading-none">{dailyBudget.percentage}%</p>
+   313→                  </div>
+   314→                </ProgressRing>
+   315→                <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground text-center leading-tight">
+   316→                  <span>dari {compactRupiahSafe(dailyBudget.target)}</span>
+   317→                  <Pencil className="h-2 w-2 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+   318→                </div>
+   319→              </button>
+   320→            ) : (
+   321→              <button
+   322→                type="button"
+   323→                onClick={() => openBudgetDialog(null)}
+   324→                className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1.5 -m-1 border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+   325→                aria-label="Atur budget harian"
+   326→              >
+   327→                <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
+   328→                  <Target className="h-4 w-4" />
+   329→                </div>
+   330→                <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
+   331→                  Set budget
+   332→                </span>
+   333→              </button>
+   334→            )}
+   335→          </div>
+   336→          <div className="text-center mt-3 pt-3 border-t border-border/40">
+   337→            <div className="text-2xl mb-1 anim-float-subtle">🌤️</div>
+   338→            <p className="text-xs font-medium">Belum ada aktivitas hari ini</p>
+   339→            <p className="text-[11px] text-muted-foreground mt-0.5">
+   340→              Catat transaksi pertama untuk mulai melacak insight harianmu
+   341→            </p>
+   342→            {patterns.personalityTag && (
+   343→              <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-background/60 backdrop-blur-sm border border-border/50">
+   344→                <span className="text-xs">{patterns.personalityTag.emoji}</span>
+   345→                <span className="text-[11px] font-medium">{patterns.personalityTag.tag}</span>
+   346→              </div>
+   347→            )}
+   348→          </div>
+   349→        </div>
+   350→
+   351→        {/* Budget dialog (same as non-empty state) */}
+   352→        <BudgetDialog
+   353→          open={budgetDialogOpen}
+   354→          onOpenChange={setBudgetDialogOpen}
+   355→          budgetInput={budgetInput}
+   356→          setBudgetInput={setBudgetInput}
+   357→          onSave={handleSaveBudget}
+   358→          onRemove={handleRemoveBudget}
+   359→          isPending={saveBudgetMutation.isPending}
+   360→          hasExistingBudget={!!dailyBudget?.target}
+   361→        />
+   362→      </Card>
+   363→    );
+   364→  }
+   365→
+   366→  return (
+   367→    <Card className="overflow-hidden anim-stagger contain-card">
+   368→      {/* ── HERO SECTION ─────────────────────────────────────────────── */}
+   369→      <div className="relative bg-gradient-to-br from-primary/[0.025] via-primary/[0.015] to-transparent px-4 py-4 sm:px-6 sm:py-5">
+   370→        {/* Top row: label + date + budget ring */}
+   371→        <div className="flex items-start justify-between gap-2 sm:gap-3">
+   372→          <div className="min-w-0 flex-1">
+   373→            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+   374→              <p className="text-xs text-muted-foreground font-medium">Hari Ini</p>
+   375→              {gamification.dailyBadge && (
+   376→                <Badge variant="secondary" className="text-[11px] py-0 px-1.5 gap-0.5">
+   377→                  <span>{gamification.dailyBadge.emoji}</span>
+   378→                  <span className="font-medium">{gamification.dailyBadge.name}</span>
+   379→                </Badge>
+   380→              )}
+   381→            </div>
+   382→            <p className={cn(
+   383→              'text-xl sm:text-3xl font-bold tracking-tight break-words',
+   384→              today.expense > 0 ? 'text-foreground' : 'text-success'
+   385→            )}>
+   386→              <CountUpRupiah amount={today.expense} />
+   387→            </p>
+   388→            <p className="text-xs text-muted-foreground mt-0.5">
+   389→              total pengeluaran · <CountUpNumber value={today.expenseCount} /> transaksi
+   390→            </p>
+   391→          </div>
+   392→
+   393→          {/* Budget ring — tap to edit (custom input dialog).
+   394→              If no budget set, show a "Set budget" button instead of the ring. */}
+   395→          {dailyBudget && dailyBudget.target ? (
+   396→            <button
+   397→              type="button"
+   398→              onClick={() => openBudgetDialog(dailyBudget.target)}
+   399→              className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1 -m-1 hover:bg-muted/40 transition-colors"
+   400→              aria-label={`Budget harian ${dailyBudget.percentage}%, tap to edit`}
+   401→            >
+   402→              <ProgressRing percentage={dailyBudget.percentage} status={dailyBudget.status} size={48}>
+   403→                <div className="text-center">
+   404→                  <p className="text-[11px] font-bold leading-none">{dailyBudget.percentage}%</p>
+   405→                </div>
+   406→              </ProgressRing>
+   407→              <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground text-center leading-tight">
+   408→                <span>dari {compactRupiahSafe(dailyBudget.target)}</span>
+   409→                <Pencil className="h-2 w-2 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+   410→              </div>
+   411→            </button>
+   412→          ) : (
+   413→            <button
+   414→              type="button"
+   415→              onClick={() => openBudgetDialog(null)}
+   416→              className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer rounded-lg p-1.5 -m-1 border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
+   417→              aria-label="Atur budget harian"
+   418→            >
+   419→              <div className="flex items-center justify-center w-12 h-12 rounded-full text-muted-foreground group-hover:text-primary transition-colors">
+   420→                <Target className="h-4 w-4" />
+   421→              </div>
+   422→              <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
+   423→                Atur budget
+   424→              </span>
+   425→            </button>
+   426→          )}
+   427→        </div>
+   428→
+   429→        {/* Comparison pills row */}
+   430→        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2">
+   431→          <ComparisonPill
+   432→            changePct={comparison.vsYesterday.changePct}
+   433→            direction={comparison.vsYesterday.direction}
+   434→            label="vs kemarin"
+   435→          />
+   436→          <ComparisonPill
+   437→            changePct={comparison.vs7DayAverage.changePct}
+   438→            direction={comparison.vs7DayAverage.direction}
+   439→            label="vs 7 hari"
+   440→          />
+   441→          {predictions.trendDirection.direction !== 'flat' && (
+   442→            <div className={cn(
+   443→              'flex items-center gap-1 text-xs font-medium min-w-0',
+   444→              predictions.trendDirection.direction === 'up' ? 'text-destructive' : 'text-success'
+   445→            )}>
+   446→              {predictions.trendDirection.direction === 'up' ? <TrendingUp className="h-3 w-3 shrink-0" /> : <TrendingDown className="h-3 w-3 shrink-0" />}
+   447→              <span className="truncate">Tren {predictions.trendDirection.direction === 'up' ? 'naik' : 'turun'}</span>
+   448→            </div>
+   449→          )}
+   450→        </div>
+   451→
+   452→        {/* Sparkline — premium line chart with blue→purple gradient.
+   453→            Date labels (DD-Www) are rendered inside the component, one per
+   454→            data point, so we don't duplicate them here. */}
+   455→        <div className="mt-4">
+   456→          <MiniSparkline data={sparkline.daily7d} />
+   457→        </div>
+   458→      </div>
+   459→
+   460→      {/* ── ALERTS (if any) ──────────────────────────────────────────── */}
+   461→      {alerts.length > 0 && (
+   462→        <>
+   463→          <div className="border-t border-border" />
+   464→          <div className="px-4 py-2.5 sm:px-6 flex flex-wrap gap-2">
+   465→            {alerts.map((alert, i) => (
+   466→              <AlertChip key={i} alert={alert} />
+   467→            ))}
+   468→          </div>
+   469→        </>
+   470→      )}
+   471→
+   472→      {/* ── 3 STAT TILES: income / expense / net ─────────────────────── */}
+   473→      <div className="border-t border-border" />
+   474→      <div className="grid grid-cols-3 divide-x divide-border">
+   475→        <div className="px-2 py-2.5 sm:px-3">
+   476→          <StatTile
+   477→            label="Masuk"
+   478→            value={<span className="tabular-nums">{compactRupiahSafe(today.income)}</span>}
+   479→            icon={ArrowUpRight}
+   480→            iconClass="bg-success/10 text-success dark:bg-success/15 dark:text-success/80"
+   481→            valueClass="text-success dark:text-success/80"
+   482→          />
+   483→        </div>
+   484→        <div className="px-2 py-2.5 sm:px-3">
+   485→          <StatTile
+   486→            label="Keluar"
+   487→            value={<span className="tabular-nums">{compactRupiahSafe(today.expense)}</span>}
+   488→            icon={ArrowDownRight}
+   489→            iconClass="bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-destructive/80"
+   490→            valueClass="text-destructive dark:text-destructive/80"
+   491→          />
+   492→        </div>
+   493→        <div className="px-2 py-2.5 sm:px-3">
+   494→          <StatTile
+   495→            label="Bersih"
+   496→            value={<span className="tabular-nums">{compactRupiahSafe(today.net)}</span>}
+   497→            icon={Activity}
+   498→            iconClass={cn(
+   499→              'bg-muted/50',
+   500→              today.net >= 0 ? 'text-success dark:text-success/80' : 'text-destructive dark:text-destructive/80'
+   501→            )}
+   502→            valueClass={today.net >= 0 ? 'text-success dark:text-success/80' : 'text-destructive dark:text-destructive/80'}
+   503→          />
+   504→        </div>
+   505→      </div>
+   506→
+   507→      {/* ── BUDGET PROGRESS BAR (if set, and not already shown as ring) ── */}
+   508→      {dailyBudget && dailyBudget.target && dailyBudget.status === 'over' && (
+   509→        <>
+   510→          <div className="border-t border-border" />
+   511→          <div className="px-4 py-2.5 sm:px-6 bg-destructive/10 dark:bg-destructive/15 anim-flash-red">
+   512→            <div className="flex items-center justify-between mb-1">
+   513→              <span className="text-xs font-medium text-destructive dark:text-destructive/80 flex items-center gap-1">
+   514→                <AlertTriangle className="h-3 w-3" />
+   515→                Over budget
+   516→              </span>
+   517→              <span className="text-xs font-bold text-destructive dark:text-destructive/80">
+   518→                +{formatRupiah(Math.abs(dailyBudget.remaining))}
+   519→              </span>
+   520→            </div>
+   521→            <Progress value={Math.min(dailyBudget.percentage, 100)} className="h-1.5 bg-destructive/10 dark:bg-destructive/15" />
+   522→          </div>
+   523→        </>
+   524→      )}
+   525→
+   526→      {/* ── INSIGHTS GRID ────────────────────────────────────────────── */}
+   527→      <div className="border-t border-border" />
+   528→      <div className="px-4 py-3 sm:px-6 space-y-3">
+   529→
+   530→        {/* Personality tag + streaks row */}
+   531→        <div className="flex flex-wrap items-center gap-2">
+   532→          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+   533→            <span className="text-sm">{patterns.personalityTag.emoji}</span>
+   534→            <span className="text-xs font-semibold text-primary">{patterns.personalityTag.tag}</span>
+   535→          </div>
+   536→          {streaks.noSpendStreak > 0 && (
+   537→            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 text-xs font-medium">
+   538→              <Sparkles className="h-3 w-3" />
+   539→              {streaks.noSpendStreak} hari no-spend
+   540→            </div>
+   541→          )}
+   542→          {streaks.smartSpenderStreak >= 2 && (
+   543→            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success dark:bg-success/15 dark:text-success/80 text-xs font-medium">
+   544→              <Flame className="h-3 w-3" />
+   545→              {streaks.smartSpenderStreak}× hemat
+   546→            </div>
+   547→          )}
+   548→          {streaks.budgetStreak >= 2 && (
+   549→            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+   550→              <Target className="h-3 w-3" />
+   551→              {streaks.budgetStreak}× on budget
+   552→            </div>
+   553→          )}
+   554→          {gamification.comboMultiplier > 1 && (
+   555→            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80 text-xs font-bold">
+   556→              🔥 {gamification.comboMultiplier}× Combo
+   557→            </div>
+   558→          )}
+   559→        </div>
+   560→
+   561→        {/* Personality description */}
+   562→        <p className="text-xs text-muted-foreground italic">
+   563→          {patterns.personalityTag.description}
+   564→        </p>
+   565→
+   566→        {/* ── PROYEKSI SECTION (enriched) ──────────────────────────────── */}
+   567→        {/* Mixed tone: data-driven (numbers) + actionable (recommendations)
+   568→            + gamified (compliance %) + playful (confidence emoji) */}
+   569→        <div className="rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10 p-3 space-y-3">
+   570→          {/* BUG-3 complete fix: when the user changes the category dropdown,
+   571→              an optimistic update patches `projectionCategoryNames` +
+   572→              `projectionIsFiltered` (so the dropdown updates instantly) and
+   573→              `whatIfBase: 0` (so the slider hides). But the OTHER projection
+   574→              fields (monthEndProjection, projectionBurnRate, projectionConfidence,
+   575→              projectionFullProjection, topProjectedCategory, lastMonthAccuracy)
+   576→              are STALE — they still reflect the old category basis until the
+   577→              background refetch completes (300-800ms). Showing stale numbers
+   578→              next to an updated dropdown is confusing ("I switched to Transport,
+   579→              why does it still show Makanan's number?").
+   580→
+   581→              Fix: while `saveProjectionCategoriesMutation.isPending`, render
+   582→              skeleton placeholders for the number + badges area. The dropdown
+   583→              stays visible (optimistic on categoryNames). When refetch
+   584→              completes, `isPending` flips to false and the real numbers
+   585→              appear — consistent with the dropdown's selected category. */}
+   586→          {/* Header: proyeksi + confidence */}
+   587→          <div className="flex items-center justify-between gap-2">
+   588→            <div className="min-w-0 flex-1">
+   589→              <div className="flex items-center gap-1.5 mb-0.5">
+   590→                <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
+   591→                <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">Proyeksi Akhir Bulan</span>
+   592→                <HelpInfoButton section="proyeksi" label="Proyeksi" />
+   593→              </div>
+   594→              {saveProjectionCategoriesMutation.isPending ? (
+   595→                <>
+
+[showing lines 36-595 of 1160; use offset=596 with limit to continue reading]
