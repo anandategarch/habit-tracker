@@ -13,7 +13,6 @@ import {
   startOfDay,
   subDays,
   differenceInCalendarDays,
-  format,
 } from '@/lib/date-utils';
 import { jakartaTimeMinutes } from '@/lib/timezone';
 import type { Period } from './types';
@@ -136,7 +135,14 @@ export function buildDailyCompletionMap(
   const map = new Map<string, Set<string>>();
   for (const log of allLogs) {
     if (!log.completed) continue;
-    const dateStr = format(log.date, 'yyyy-MM-dd');
+    // BUGHUNT-R3 (TZ): stored log.date is the UTC-midnight of its YMD (see
+    // dateFromYMD in lib/timezone). `format()` renders via the SERVER's
+    // local timezone — correct on UTC servers, but one day early on servers
+    // west of UTC, which desynced these keys from the chart-date keys and
+    // blanked the charts. toISOString().slice(0,10) returns exactly the
+    // stored YMD on every server (same convention 6-c applied to the
+    // time-analysis route).
+    const dateStr = log.date.toISOString().slice(0, 10);
     if (!map.has(dateStr)) map.set(dateStr, new Set());
     map.get(dateStr)!.add(log.habitId);
   }

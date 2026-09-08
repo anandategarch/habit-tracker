@@ -201,6 +201,7 @@ export default function FinanceTransactions({
         {txFilter.search && (
           <button
             onClick={() => onFilterChange({ ...txFilter, search: '' })}
+            aria-label="Hapus pencarian"
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />

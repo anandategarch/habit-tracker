@@ -170,6 +170,7 @@ export function GoalFormDialog({
                       size="icon"
                       className="h-9 w-9 text-destructive/80 hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15 flex-shrink-0"
                       onClick={() => onRemoveMilestone(idx)}
+                      aria-label={`Hapus milestone ${ms.text}`}
                     >
                       <X className="h-4 w-4" />
                     </Button>

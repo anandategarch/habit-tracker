@@ -37,6 +37,13 @@ export function useCountUp(
   decimals = 0,
   bounce = false
 ): number {
+  // BUGHUNT-ROUND3 COUNTUP-NAN-1: guard against NaN/±Infinity targets
+  // (e.g. an aggregation that came back undefined from the API). Previously
+  // a NaN target made delta NaN → the animation fed NaN into setDisplay on
+  // every frame and the UI rendered "Rp NaN" via formatRupiah. Non-finite
+  // values collapse to 0 — same end state as "no data".
+  const safeTarget = Number.isFinite(target) ? target : 0;
+
   // SSR-safe: returns false on server, correct value on client after hydration.
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
@@ -53,7 +60,7 @@ export function useCountUp(
     if (reducedMotion) return; // no animation, target returned directly
 
     const from = fromRef.current;
-    const delta = target - from;
+    const delta = safeTarget - from;
     if (delta === 0) return; // nothing to animate
 
     const start = performance.now();
@@ -94,9 +101,9 @@ export function useCountUp(
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
-        displayRef.current = target;
-        setDisplay(target); // ensure exact final value
-        fromRef.current = target;
+        displayRef.current = safeTarget;
+        setDisplay(safeTarget); // ensure exact final value
+        fromRef.current = safeTarget;
       }
     };
 
@@ -112,7 +119,7 @@ export function useCountUp(
     // NOTE: display is intentionally NOT in the dependency array.
     // It changes every animation frame; including it would cause an
     // infinite re-render loop. displayRef tracks it without triggering re-runs.
-  }, [target, duration, decimals, bounce, reducedMotion]);
+  }, [safeTarget, duration, decimals, bounce, reducedMotion]);
 
-  return reducedMotion ? target : display;
+  return reducedMotion ? safeTarget : display;
 }

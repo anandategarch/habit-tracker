@@ -41,7 +41,7 @@ import { format, differenceInCalendarDays, id as idLocale } from '@/lib/date-uti
 // script in worklog FIX-TIER3 entry.
 import { getBadgeClass } from '@/lib/label-colors';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { parseMilestones, STATUS_STYLES } from './goals-helpers';
+import { parseMilestones, STATUS_STYLES, STATUS_LABELS, PRIORITY_LABELS } from './goals-helpers';
 import type { Goal } from './goals-types';
 
 export interface GoalCardProps {
@@ -78,6 +78,19 @@ export const GoalCard = memo(function GoalCard({
   const milestones = parseMilestones(goal.milestones);
   const isCompleted = goal.status === 'completed';
   const isCancelled = goal.status === 'cancelled';
+  // BUGFIX 6-a (BUG-M3 follow-up): the deadline is a UTC-midnight ISO
+  // string. `new Date('yyyy-MM-dd')` ALSO parses as UTC midnight, so the
+  // old `format(new Date(goal.deadline.slice(0, 10)), …)` rendered it in
+  // the browser's LOCAL timezone — one day early for any browser west of
+  // UTC (the original BUG-M3 fix didn't actually take effect). Build a
+  // genuine LOCAL midnight Date from the YMD parts instead.
+  const deadlineYMD = goal.deadline ? goal.deadline.slice(0, 10) : null;
+  const deadlineDate = deadlineYMD
+    ? (() => {
+        const [y, m, d] = deadlineYMD.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      })()
+    : null;
   // BUGHUNT-OTHER-1 BUG-M4: `isPast(parseISO(deadline))` returns true the
   // moment "now" exceeds the UTC midnight of the deadline. For Jakarta
   // users, the deadline's UTC midnight = 07:00 WIB on the deadline day,
@@ -87,18 +100,16 @@ export const GoalCard = memo(function GoalCard({
   // date. The deadline is stored as UTC midnight, so its YMD portion is
   // the user-meaningful calendar date.
   const isOverdue = (() => {
-    if (!goal.deadline || isCompleted || isCancelled) return false;
-    const deadlineYmd = goal.deadline.slice(0, 10); // "2025-01-15"
-    const todayYmd = jakartaDateString();
-    return deadlineYmd < todayYmd;
+    if (!deadlineYMD || isCompleted || isCancelled) return false;
+    return deadlineYMD < jakartaDateString();
   })();
-  // Deadline within 7 days (not overdue yet) — subtle urgency pulse
-  const isUrgent = !isOverdue && goal.deadline && (() => {
-    const deadlineYmd = goal.deadline.slice(0, 10);
-    const todayYmd = jakartaDateString();
-    if (deadlineYmd <= todayYmd) return false;
-    const [y, m, d] = deadlineYmd.split('-').map(Number);
-    const days = differenceInCalendarDays(new Date(y, m - 1, d), new Date());
+  // Deadline within 7 days (not overdue yet) — subtle urgency pulse.
+  // BUGFIX 6-a: measured against the Jakarta "today" (same source as
+  // isOverdue) instead of the browser-local clock so the two checks can't
+  // disagree around midnight or on non-Jakarta browsers.
+  const isUrgent = !isOverdue && deadlineDate && (() => {
+    const [ty, tm, td] = jakartaDateString().split('-').map(Number);
+    const days = differenceInCalendarDays(deadlineDate, new Date(ty, tm - 1, td));
     return days >= 0 && days <= 7;
   })();
 
@@ -166,13 +177,13 @@ export const GoalCard = memo(function GoalCard({
                 variant="outline"
                 className={cn('text-xs px-1.5 py-0', getBadgeClass(priorityMap[goal.priority]?.color || 'gray'))}
               >
-                {goal.priority}
+                {PRIORITY_LABELS[goal.priority] ?? goal.priority}
               </Badge>
               <Badge
                 variant="secondary"
                 className={cn('text-xs px-1.5 py-0', STATUS_STYLES[goal.status] ?? '')}
               >
-                {goal.status}
+                {STATUS_LABELS[goal.status] ?? goal.status}
               </Badge>
               {isOverdue && (
                 <Badge variant="destructive" className="text-xs px-1.5 py-0">
@@ -196,6 +207,7 @@ export const GoalCard = memo(function GoalCard({
               className="h-8 w-8"
               onClick={() => onEdit(goal)}
               disabled={isCompleted || isCancelled}
+              aria-label={`Edit tujuan ${goal.title}`}
             >
               <Edit className="h-3.5 w-3.5" />
             </Button>
@@ -205,6 +217,7 @@ export const GoalCard = memo(function GoalCard({
                 size="icon"
                 className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/5"
                 onClick={() => onComplete(goal)}
+                aria-label={`Tandai tujuan ${goal.title} selesai`}
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
               </Button>
@@ -228,6 +241,7 @@ export const GoalCard = memo(function GoalCard({
               size="icon"
               className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15"
               onClick={() => onDelete(goal)}
+              aria-label={`Hapus tujuan ${goal.title}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -257,12 +271,10 @@ export const GoalCard = memo(function GoalCard({
               )}
             >
               <Calendar className="h-3.5 w-3.5" />
-              {/* BUGHUNT-OTHER-1 BUG-M3: build a local Date from the YMD
-                  portion of the ISO so the calendar day is preserved in
-                  any browser tz (was `parseISO(goal.deadline)` which reads
-                  UTC midnight → shifted to one day earlier on negative-tz
-                  browsers). */}
-              {format(new Date(goal.deadline.slice(0, 10)), 'd MMM yyyy', { locale: idLocale })}
+              {/* BUGHUNT-OTHER-1 BUG-M3 (+ BUGFIX 6-a): format the LOCAL
+                  midnight Date built from the YMD portion (see deadlineDate
+                  above) so the calendar day is preserved in any browser tz. */}
+              {deadlineDate && format(deadlineDate, 'd MMM yyyy', { locale: idLocale })}
             </span>
           ) : (
             <span />

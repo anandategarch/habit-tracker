@@ -83,11 +83,10 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   settings: SettingsTab,
 };
 
-// BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
-const VALID_TAB_IDS = new Set<string>([
-  'dashboard', 'tracker', 'goals',
-  'finance', 'settings',
-]);
+// BUGHUNT-ROUND3 SHELL-1: lookup set for validating the `?tab=` query param.
+// Derived from NAV_ITEMS (single source of truth) so a new tab can never be
+// added to the nav without also becoming deep-linkable (and vice versa).
+const VALID_TAB_IDS = new Set<string>(NAV_ITEMS.map((item) => item.id));
 
 export default function Home() {
   const activeTab = useAppStore(s => s.activeTab);
@@ -455,6 +454,15 @@ function PremiumBottomNav({
   const dockRef = useRef<HTMLDivElement>(null);
   const [dockW, setDockW] = useState(0);
   const [fabOpen, setFabOpen] = useState(false);
+  // BUGHUNT-ROUND3 FAB-A11Y-1: refs for keyboard focus management of the
+  // quick-add popup (role=menu). On open, focus moves to the first menuitem;
+  // on close (Escape / backdrop / item selection / tab switch), focus is
+  // returned to the FAB trigger — the behaviour a screen-reader / keyboard
+  // user expects from a menu. `wasOpenRef` guards the close branch so the
+  // FAB is NOT focused on initial mount (fabOpen starts false).
+  const fabButtonRef = useRef<HTMLButtonElement>(null);
+  const fabMenuRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(false);
   // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
   // deep nav component can fire it without prop-drilling from Home().
   const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
@@ -480,6 +488,19 @@ function PremiumBottomNav({
     return () => window.removeEventListener('keydown', onKey);
   }, [fabOpen]);
 
+  // FAB-A11Y-1: move focus into the popup when it opens and back to the FAB
+  // when it closes. No setState here (DOM focus only), so it is lint-safe.
+  useEffect(() => {
+    if (fabOpen) {
+      fabMenuRef.current
+        ?.querySelector<HTMLButtonElement>('[role="menuitem"]')
+        ?.focus();
+    } else if (wasOpenRef.current) {
+      fabButtonRef.current?.focus();
+    }
+    wasOpenRef.current = fabOpen;
+  }, [fabOpen]);
+
   // Liquid indicator geometry. GPU-friendly: fixed width per tab +
   // translateX transition with a spring (overshoot) easing curve.
   const tabW = (dockW * DOCK_SIDE) / 2;
@@ -493,7 +514,14 @@ function PremiumBottomNav({
     return (
       <button
         key={item.id}
-        onClick={() => onNavClick(item.id)}
+        // BUGHUNT-ROUND3 FAB-MENU-1: closing the quick-add popup on every dock
+        // tab click. The backdrop (z-30) sits BELOW the dock nav (z-40), so the
+        // tab buttons stay clickable while the menu is open — previously the
+        // menu stayed open over the newly-selected tab until Escape/backdrop.
+        onClick={() => {
+          if (fabOpen) setFabOpen(false);
+          onNavClick(item.id);
+        }}
         aria-label={item.label}
         aria-current={isActive ? 'page' : undefined}
         className={cn(
@@ -598,6 +626,7 @@ function PremiumBottomNav({
             (the nav already sits above the safe-area inset). */}
         {fabOpen && (
           <div
+            ref={fabMenuRef}
             role="menu"
             aria-label="Menu tambah cepat"
             className="absolute left-1/2 -translate-x-1/2 z-40 w-[212px] rounded-[22px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl backdrop-saturate-150 border border-slate-900/[0.07] dark:border-white/10 premium-pop-shadow p-2"
@@ -687,6 +716,7 @@ function PremiumBottomNav({
           style={{ top: -FAB_PROTRUDE }}
         >
           <button
+            ref={fabButtonRef}
             onClick={() => setFabOpen(!fabOpen)}
             aria-label={fabOpen ? 'Tutup menu tambah cepat' : 'Tambah cepat'}
             aria-haspopup="menu"

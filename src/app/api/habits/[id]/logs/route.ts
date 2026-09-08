@@ -22,6 +22,14 @@ export async function GET(
     if (year && !/^\d{4}$/.test(year)) {
       return NextResponse.json({ error: 'Invalid year format. Use YYYY' }, { status: 400 });
     }
+    // Reject well-formed but impossible months ("2026-13", "2026-00") —
+    // they silently roll over into another year's range.
+    if (month) {
+      const [y, m] = month.split('-').map(Number);
+      if (y < 1970 || y > 2200 || m < 1 || m > 12) {
+        return NextResponse.json({ error: 'Invalid month. Use YYYY-MM (01-12)' }, { status: 400 });
+      }
+    }
 
     let startDate: Date;
     let endDate: Date;

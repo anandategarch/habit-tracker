@@ -103,7 +103,17 @@ export function FinanceTxDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          // FIX (bug-hunt 6-b): reset the tag draft input whenever the dialog
+          // closes (Escape/overlay/Batal/Simpan). This component stays mounted
+          // (it's controlled by the parent), so a draft typed but never
+          // committed previously leaked into the next open of the dialog.
+          if (!o) setTagInput('');
+          onOpenChange(o);
+        }}
+      >
         <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader><DialogTitle>{editingTx ? 'Edit Transaksi' : 'Tambah Transaksi'}</DialogTitle></DialogHeader>
           <div className="space-y-4">

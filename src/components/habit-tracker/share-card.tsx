@@ -28,13 +28,14 @@
 // attempt to share via the Web Share API with files.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { Share2, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Habit } from './daily-tracker-types';
+import { jakartaDateString } from '@/lib/jakarta-date';
 
 interface ShareButtonProps {
   habit: Habit;
@@ -55,7 +56,9 @@ interface ShareButtonProps {
   className?: string;
 }
 
-const DOW_LABELS = ['S', 'S', 'R', 'K', 'J', 'S', 'M']; // Senin..Minggu (Indonesian single-letter)
+// Indonesian single-letter weekday initials indexed by Date#getDay()
+// (0=Sunday..6=Saturday): Minggu, Senin, Selasa, Rabu, Kamis, Jumat, Sabtu.
+const DOW_INITIALS = ['M', 'S', 'S', 'R', 'K', 'J', 'S'];
 
 export function ShareButton({
   habit,
@@ -68,6 +71,20 @@ export function ShareButton({
 }: ShareButtonProps) {
   const [busy, setBusy] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // BUGFIX 6-a: the mini calendar's weekday letters previously used a FIXED
+  // Monday-first array, but `last7Days` is CHRONOLOGICAL (oldest → newest,
+  // ending today) — so every shared image showed wrong weekday letters
+  // (e.g. the "today" cell was always labelled "M"/Minggu). Derive the
+  // initials from the actual dates (Jakarta today, matching the parent's
+  // todayStr that produced the data).
+  const dowLabels = useMemo(() => {
+    const [y, m, d] = jakartaDateString().split('-').map(Number);
+    return Array.from({ length: 7 }, (_, i) => {
+      const dt = new Date(y, m - 1, d - (6 - i));
+      return DOW_INITIALS[dt.getDay()] ?? '·';
+    });
+  }, []);
 
   const isAvoid = habit.habitType === 'avoid';
   // BUG-PHASE3 BUG-3: the share card previously always showed "Bersih" for
@@ -338,7 +355,7 @@ export function ShareButton({
                   }}
                 >
                   <span style={{ fontSize: '9px', opacity: 0.8, fontWeight: 500 }}>
-                    {DOW_LABELS[i]}
+                    {dowLabels[i]}
                   </span>
                   <span>{day.dateNum}</span>
                 </div>

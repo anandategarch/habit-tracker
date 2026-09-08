@@ -198,8 +198,14 @@ export default function FinanceSavingsGoals() {
       invalidateAll();
     } catch {
       toast.error('Gagal menyimpan tabungan');
+    } finally {
+      // FIX (bug-hunt 6-b): the early `return` on !res.ok above used to skip
+      // this reset, leaving `submitting` stuck at true — the dialog then
+      // became unclosable (onOpenChange is guarded by !submitting) and the
+      // submit button stayed "Menyimpan..." forever. finally guarantees the
+      // reset on every path.
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const handleDelete = async () => {
@@ -216,8 +222,11 @@ export default function FinanceSavingsGoals() {
       invalidateAll();
     } catch {
       toast.error('Gagal menghapus tabungan');
+    } finally {
+      // FIX (bug-hunt 6-b): finally (was a trailing statement skipped by the
+      // early return above) so the confirm dialog always closes.
+      setDeleteId(null);
     }
-    setDeleteId(null);
   };
 
   // ── Quick adjust (Tambah / Tarik) ─────────────────────────────────────
@@ -234,7 +243,17 @@ export default function FinanceSavingsGoals() {
   // UI: cache is patched via setQueryData immediately (clamped at >= 0,
   // mirroring the API), then invalidated to reconcile with the server. On
   // failure the refetch rolls the optimistic value back + an error toast.
+  //
+  // Double-tap guard (bug-hunt 6-b): a second tap on the same goal's chip
+  // while its PUT is still in flight is ignored — without the guard, a
+  // double-tap fired two `{ delta }` PUTs and the amount was added twice
+  // (the API is a delta endpoint, so both succeed).
+  const quickPendingRef = useRef<Set<string>>(new Set());
+  const [quickPendingIds, setQuickPendingIds] = useState<string[]>([]);
   const handleQuickAdd = async (g: SavingsGoal, delta: number) => {
+    if (quickPendingRef.current.has(g.id)) return;
+    quickPendingRef.current.add(g.id);
+    setQuickPendingIds(prev => [...prev, g.id]);
     // Optimistic patch — same query key the useQuery above subscribes to.
     queryClient.setQueryData<SavingsGoal[]>(['finance', 'savings-goals'], (old) =>
       old
@@ -269,6 +288,9 @@ export default function FinanceSavingsGoals() {
     } catch {
       toast.error('Gagal memperbarui tabungan');
       invalidateAll(); // rollback via refetch
+    } finally {
+      quickPendingRef.current.delete(g.id);
+      setQuickPendingIds(prev => prev.filter(id => id !== g.id));
     }
   };
 
@@ -315,8 +337,11 @@ export default function FinanceSavingsGoals() {
       invalidateAll();
     } catch {
       toast.error('Gagal memperbarui tabungan');
+    } finally {
+      // FIX (bug-hunt 6-b): finally — the !res.ok early return above used to
+      // skip the reset, leaving the dialog stuck on "Memproses...".
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -482,7 +507,8 @@ export default function FinanceSavingsGoals() {
                       <button
                         type="button"
                         onClick={() => handleQuickAdd(g, 50_000)}
-                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        disabled={quickPendingIds.includes(g.id)}
+                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Tambah Rp50.000 ke tabungan ${g.name}`}
                       >
                         +Rp50rb
@@ -490,7 +516,8 @@ export default function FinanceSavingsGoals() {
                       <button
                         type="button"
                         onClick={() => handleQuickAdd(g, 100_000)}
-                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        disabled={quickPendingIds.includes(g.id)}
+                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Tambah Rp100.000 ke tabungan ${g.name}`}
                       >
                         +Rp100rb
@@ -499,7 +526,8 @@ export default function FinanceSavingsGoals() {
                         <button
                           type="button"
                           onClick={() => handleQuickAdd(g, remaining)}
-                          className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                          disabled={quickPendingIds.includes(g.id)}
+                          className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
                           aria-label={`Tambah sisa ${formatRupiah(remaining)} ke tabungan ${g.name}`}
                           title={`Tambah sisa ${formatRupiah(remaining)}`}
                         >

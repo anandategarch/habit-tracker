@@ -332,17 +332,25 @@ export default function FinanceExplorer({
     const target = budgetData?.suggestedTarget;
     if (!target) return;
     try {
-      await Promise.all(
+      // FIX (bug-hunt 6-b): fetch only rejects on network errors — a 4xx/5xx
+      // still resolves. Check res.ok on every POST, else the success toast
+      // fired even when all four target writes failed server-side.
+      const results = await Promise.all(
         [1, 2, 3, 4].map((w) =>
           fetch('/api/finance/weekly-budget', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ month: selectedMonth, week: w, target, rollover: true }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`week ${w} failed`);
+            return res;
           })
         )
       );
-      toast.success(`Target ${formatRupiah(target)} diterapkan ke semua minggu`);
-      queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+      if (results.length === 4) {
+        toast.success(`Target ${formatRupiah(target)} diterapkan ke semua minggu`);
+        queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+      }
     } catch {
       toast.error('Gagal menerapkan target');
     }
@@ -353,17 +361,23 @@ export default function FinanceExplorer({
     if (!target) return;
     const perWeek = Math.round(target / 4);
     try {
-      await Promise.all(
+      // FIX (bug-hunt 6-b): same res.ok guard as handleAutoSuggest above.
+      const results = await Promise.all(
         [1, 2, 3, 4].map((w) =>
           fetch('/api/finance/weekly-budget', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ month: selectedMonth, week: w, target: perWeek, rollover: true }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`week ${w} failed`);
+            return res;
           })
         )
       );
-      toast.success(`${formatRupiah(perWeek)} per minggu`);
-      queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+      if (results.length === 4) {
+        toast.success(`${formatRupiah(perWeek)} per minggu`);
+        queryClient.invalidateQueries({ queryKey: ['finance', 'weekly-budget'] });
+      }
     } catch {
       toast.error('Gagal membagi target');
     }

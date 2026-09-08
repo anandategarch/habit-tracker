@@ -58,7 +58,7 @@ import {
   CURATED_THEME_PRESETS,
   type ThemePreset,
 } from '@/lib/theme-utils';
-import type { AppSettings, SettingsFormState, SettingsSection } from './settings-types';
+import type { AppSettings, SettingsFormState } from './settings-types';
 import { SectionCard, FormRow } from './settings-ui';
 import { LoadingSkeleton } from './settings-skeleton';
 import { AppLockSection } from './app-lock-settings';
@@ -81,7 +81,12 @@ function previewTheme(primary: string, secondary: string, theme: string) {
 export default function Settings() {
   const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('umum');
+  // BUGHUNT-ROUND3 SETTINGS-SECTION-1: activeSection lifted from local
+  // useState into the global store so the section SURVIVES switching to
+  // another main tab and back (parity with financeSubTab / trackerViewMode).
+  // The local useState was reset to 'umum' on every re-mount of this tab.
+  const activeSection = useAppStore(s => s.settingsSection);
+  const setActiveSection = useAppStore(s => s.setSettingsSection);
   // BUGHUNT-ROUND2 FAB-1: FAB "Habit Baru" navigates to this tab and sets
   // quickAddAction='habit'. Switch to the Habit Master section so the
   // HabitMaster component mounts (it consumes + clears the action and
@@ -92,7 +97,7 @@ export default function Settings() {
     if (quickAddAction === 'habit') {
       setActiveSection('habits');
     }
-  }, [quickAddAction]);
+  }, [quickAddAction, setActiveSection]);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);

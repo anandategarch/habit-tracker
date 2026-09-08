@@ -41,8 +41,11 @@ export function buildWeeklyChart(
     const done = dailyCompletionMap.get(key)?.size || 0;
     const rate = activeOnDay > 0 ? Math.round((done / activeOnDay) * 100) : 0;
     out.push({
-      day: format(d, 'EEE'),
-      date: format(d, 'MMM dd'),
+      // BUGHUNT-R3 (i18n): Indonesian chart labels — "Sen"/"8 Sep" instead
+      // of "Mon"/"Sep 08" (the whole UI is Indonesian; English day labels
+      // were a localization bug).
+      day: format(d, 'EEE', { locale: 'id' }),
+      date: format(d, 'MMM dd', { locale: 'id' }),
       // ONE-CLICK (4-a): yyyy-MM-dd twin of the `date` label (same `key`
       // computed above) — consumed by the dashboard chart's bar onClick
       // → openTrackerDate(dateKey). Additive; display untouched.
@@ -70,7 +73,8 @@ export function buildMonthlyChart(
     const done = dailyCompletionMap.get(key)?.size || 0;
     const rate = activeOnDay > 0 ? Math.round((done / activeOnDay) * 100) : 0;
     out.push({
-      day: format(d, 'MMM dd'),
+      // BUGHUNT-R3 (i18n): "8 Sep" instead of "Sep 08".
+      day: format(d, 'MMM dd', { locale: 'id' }),
       completed: done,
       total: activeOnDay,
       rate,
@@ -98,7 +102,8 @@ export function buildStackedBarChart(
     const missed = Math.max(0, activeOnDay - done);
     const rate = activeOnDay > 0 ? Math.round((done / activeOnDay) * 100) : 0;
     out.push({
-      day: period === '7d' ? format(d, 'EEE') : format(d, 'MMM dd'),
+      // BUGHUNT-R3 (i18n): Indonesian labels ("Sen" for 7d, "8 Sep" otherwise).
+      day: period === '7d' ? format(d, 'EEE', { locale: 'id' }) : format(d, 'MMM dd', { locale: 'id' }),
       completed: done,
       missed,
       total: activeOnDay,
@@ -123,20 +128,23 @@ export function buildWeeklyPatternChart(
   for (let i = 30; i >= 0; i--) {
     const d = subDays(today, i);
     const key = format(d, 'yyyy-MM-dd');
-    const dayName = format(d, 'EEEE');
+    const dayName = format(d, 'EEEE', { locale: 'id' });
     if (!dayOfWeekStats[dayName]) dayOfWeekStats[dayName] = { completed: 0, possible: 0 };
     const activeOnDay = habitsActiveOnDate(d, habitCreatedDates);
     const doneOnDay = dailyCompletionMap.get(key)?.size || 0;
     dayOfWeekStats[dayName].completed += doneOnDay;
     dayOfWeekStats[dayName].possible += activeOnDay;
   }
-  return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+  // BUGHUNT-R3 (i18n): Indonesian day list — must match the
+  // `format(d, 'EEEE', { locale: 'id' })` keys above. substring(0, 3)
+  // yields "Sen/Sel/Rab/Kam/Jum/Sab/Min" (Minggu → Min).
+  return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map(day => {
     const s = dayOfWeekStats[day] || { completed: 0, possible: 0 };
     // Count how many instances of this day in the last 31 days
     let instances = 0;
     for (let i = 30; i >= 0; i--) {
       const d = subDays(today, i);
-      if (format(d, 'EEEE') === day) instances++;
+      if (format(d, 'EEEE', { locale: 'id' }) === day) instances++;
     }
     return {
       day: day.substring(0, 3),

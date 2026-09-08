@@ -151,8 +151,7 @@ export default function TimeAnalysisDialog({
   //     never depend on the tracker's local state.
   const isYearlyView = filter === 'thisYear';
   const {
-    data: habitMeta,
-    isLoading: metaLoading,
+    data: rawHabitMeta,
     isError: metaIsError,
   } = useQuery<{
     id: string;
@@ -180,6 +179,14 @@ export default function TimeAnalysisDialog({
     enabled: open && !!habitId,
     staleTime: 60_000,
   });
+  // keepPreviousData is a GLOBAL QueryClient default (see query-provider),
+  // so right after switching habits `rawHabitMeta` still holds the PREVIOUS
+  // habit's meta until the new fetch resolves. Without this gate the
+  // placeholder defeats the metaPending skeleton — habit A's name/auto-
+  // detected filter would briefly render under habit B's dialog. Gate on
+  // the payload's own id (also covers habitId === null after close).
+  const habitMeta =
+    rawHabitMeta && rawHabitMeta.id === habitId ? rawHabitMeta : undefined;
 
   // Task 4-c (auto-detect): stable-callback + ref indirection (same intent
   // as daily-tracker.tsx ONE-CLICK-1, adapted for react-hooks/refs — the
@@ -211,7 +218,12 @@ export default function TimeAnalysisDialog({
     }
   }, [open, habitId, habitMeta, filterLocked]);
 
-  const { data: data, isLoading: loading, error: queryError, refetch } = useQuery<AnalysisData>({
+  const {
+    data: rawData,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery<AnalysisData>({
     queryKey: ['time-analysis', habitId, filter],
     queryFn: async () => {
       const res = await fetch(`/api/habits/${habitId}/time-analysis?filter=${filter}`);
@@ -228,6 +240,13 @@ export default function TimeAnalysisDialog({
     enabled: open && !!habitId && !isYearlyView && habitMeta?.trackTime === true,
     staleTime: 30_000,
   });
+  // Same keepPreviousData gate as habitMeta: after a habit switch the query
+  // briefly serves the PREVIOUS habit's analysis under the new key — showing
+  // A's stats/chart in B's dialog until the fetch lands. The response carries
+  // the habit id, so gate on it and let the (loading) skeleton frame render
+  // instead (query key includes habitId + filter).
+  const data =
+    rawData && rawData.habit.id === habitId ? rawData : undefined;
   const error = queryError instanceof Error ? queryError.message : null;
 
   // Meta fetch failed → surface it like a query error (the dialog would
@@ -309,11 +328,16 @@ export default function TimeAnalysisDialog({
             startDate={habitMeta.startDate}
           />
         )}
-        {isYearlyView && !habitMeta && (
+        {isYearlyView && !habitMeta && !effectiveError && (
           <Skeleton className="h-40 w-full rounded-lg" />
         )}
 
-        {!isYearlyView && effectiveError && (
+        {/* Error card — shown for BOTH views. Previously gated on
+            `!isYearlyView`, so a meta fetch failure while in the yearly view
+            left an infinite skeleton (the error card never rendered and the
+            heatmap branch requires habitMeta). effectiveError covers the
+            time-analysis query error (non-yearly) and the meta error. */}
+        {effectiveError && (
           <div className="premium-card rounded-2xl p-4 flex items-start gap-2.5">
             <span className="chip-soft chip-soft-rose h-8 w-8 shrink-0">
               <AlertTriangle className="h-4 w-4" />

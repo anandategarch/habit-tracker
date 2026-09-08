@@ -130,6 +130,12 @@ export interface HabitDetailStat {
 }
 
 export interface BestWorstHabit {
+  // ONE-CLICK (bugfix 6-a): optional habit id so the dashboard's
+  // "Performa Terbaik" / "Perlu Perhatian" tiles can deep-link to the
+  // habit's TimeAnalysisDialog via openHabitFocus(id). Absent on the
+  // zero-habit fallback (N/A). Additive — consumers that ignore it are
+  // unaffected.
+  id?: string;
   name: string;
   icon: string;
   rate: number;

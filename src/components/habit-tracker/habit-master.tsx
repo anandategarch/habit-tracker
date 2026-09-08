@@ -299,6 +299,14 @@ export default function HabitMaster() {
       if (!res.ok) throw new Error('Failed to delete habit');
       // Optimistic update
       queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => (prev).filter((h) => h.id !== deleteId));
+      // BUGHUNT-ROUND3 FOCUS-STALE-1: if a 1-click deep-link (openHabitFocus)
+      // for this habit is still pending in the store (set but not yet consumed
+      // by daily-tracker), clear it now so the tracker never mounts a
+      // TimeAnalysisDialog for a deleted habit (habit-meta query → 404 → red
+      // error card inside the dialog).
+      if (useAppStore.getState().focusHabitId === deleteId) {
+        useAppStore.getState().clearHabitFocus();
+      }
       toast.success('Habit berhasil dihapus');
       setDeleteId(null);
       triggerRefresh();

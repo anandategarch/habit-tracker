@@ -36,7 +36,18 @@ const mmmDdFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: '2-digit',
 });
+// BUGHUNT-R3 (i18n): Indonesian "d MMM" (day-first, e.g. "8 Sep") — the
+// natural date order in Indonesian. Only used when `locale: id` is passed;
+// existing en callers keep the month-first "Sep 08" output.
+const mmmDdIdFormatter = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'short',
+});
 const eeeFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+// BUGHUNT-R3 (i18n): Indonesian short weekday for chart labels — id-ID
+// produces "Sen/Sel/Rab/Kam/Jum/Sab/Min" (same 3-letter length class as
+// date-fns `id` locale, so axis labels don't overflow).
+const eeeIdFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'short' });
 const eeeeFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
 const eeeeIdFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long' });
 const mmmYyyyFormatter = new Intl.DateTimeFormat('en-US', {
@@ -145,8 +156,8 @@ function formatEnDayFirst(
 // Mimics date-fns `format(date, pattern, opts?)` for the patterns used
 // in this codebase. If `locale: id` is passed in opts, the id-ID
 // formatter is used for patterns where it makes a difference
-// (MMMM yyyy, MMM yyyy, d MMM). For other patterns (yyyy-MM-dd, EEE,
-// etc.) locale has no effect.
+// (MMMM yyyy, MMM yyyy, d MMM, EEE, MMM dd). For other patterns
+// (yyyy-MM-dd, etc.) locale has no effect.
 //
 // IMPORTANT: this is NOT a complete reimplementation of date-fns
 // format(). It only supports the patterns enumerated below. Any new
@@ -167,9 +178,9 @@ export function format(
     case 'yyyy-MM':
       return isoMonthFormatter.format(date);
     case 'MMM dd':
-      return mmmDdFormatter.format(date);
+      return useId ? mmmDdIdFormatter.format(date) : mmmDdFormatter.format(date);
     case 'EEE':
-      return eeeFormatter.format(date);
+      return useId ? eeeIdFormatter.format(date) : eeeFormatter.format(date);
     case 'EEEE':
       return useId ? eeeeIdFormatter.format(date) : eeeeFormatter.format(date);
     case 'MMM yyyy':

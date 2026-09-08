@@ -8,7 +8,7 @@
 // Contents:
 //  - Types:           RecurringTransaction, CategoryOption, SourceOption
 //  - Constant:        DAY_OF_WEEK_NAMES
-//  - Display helpers: frequencyLabel, computeNextDue, formatNextRun, toYMD
+//  - Display helpers: frequencyLabel, computeNextDue, formatNextRun
 //  - Form state:      RecurringFormState, emptyForm, formFromRecurring,
 //                     formToPayload
 //
@@ -16,7 +16,7 @@
 // component-specific (prop interface for the default export).
 // ---------------------------------------------------------------------------
 
-import { jakartaNowParts } from '@/lib/timezone';
+import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -141,12 +141,10 @@ export function formatNextRun(r: RecurringTransaction): string {
   return `${dateLabel} (${diffDays}h lagi)`;
 }
 
-export function toYMD(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+// NOTE: the old browser-local `toYMD` helper was removed in bug-hunt 6-b —
+// all date-key conversions now go through jakartaDateKey from
+// @/lib/timezone (toYMD was both unused and the source of off-by-one-day
+// edit-form bugs for browsers outside the Jakarta timezone).
 
 // ── Form state ────────────────────────────────────────────────────────────
 
@@ -166,7 +164,11 @@ export interface RecurringFormState {
 }
 
 export function emptyForm(): RecurringFormState {
-  const today = toYMD(new Date());
+  // FIX (bug-hunt 6-b): startDate default previously used `toYMD(new Date())`
+  // which reads the BROWSER's local timezone — for a browser ahead of
+  // Jakarta (e.g. Tokyo at 00:30 Jakarta) the dialog prefilled TOMORROW's
+  // date. dayOfMonth below already used Jakarta wall-clock; make the
+  // startDate consistent (the payload pins +07:00 on submit anyway).
   return {
     type: 'expense',
     amount: '',
@@ -177,13 +179,19 @@ export function emptyForm(): RecurringFormState {
     dayOfMonth: String(jakartaNowParts().day),
     dayOfWeek: '1',
     interval: '1',
-    startDate: today,
+    startDate: jakartaDateString(),
     endDate: '',
     isActive: true,
   };
 }
 
 export function formFromRecurring(r: RecurringTransaction): RecurringFormState {
+  // FIX (bug-hunt 6-b): startDate/endDate were read with toYMD(new Date(...))
+  // — browser-local conversion. Recurring dates are stored pinned to
+  // Jakarta midnight (+07:00), so a browser west of Jakarta (UTC) saw the
+  // previous day in the edit form, and re-saving shifted the schedule back
+  // by one day. jakartaDateKey reads the Jakarta wall-clock date instead
+  // (same helper every other finance view uses for display).
   return {
     type: r.type as 'income' | 'expense',
     amount: r.amount ? String(r.amount) : '',
@@ -194,8 +202,8 @@ export function formFromRecurring(r: RecurringTransaction): RecurringFormState {
     dayOfMonth: r.dayOfMonth != null ? String(r.dayOfMonth) : '',
     dayOfWeek: r.dayOfWeek != null ? String(r.dayOfWeek) : '',
     interval: String(r.interval || 1),
-    startDate: toYMD(new Date(r.startDate)),
-    endDate: r.endDate ? toYMD(new Date(r.endDate)) : '',
+    startDate: jakartaDateKey(new Date(r.startDate)),
+    endDate: r.endDate ? jakartaDateKey(new Date(r.endDate)) : '',
     isActive: r.isActive,
   };
 }

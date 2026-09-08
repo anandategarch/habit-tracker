@@ -17,4 +17,8 @@ export interface SettingsFormState {
   targetCompletion: number;
 }
 
-export type SettingsSection = 'umum' | 'habits' | 'data';
+// BUGHUNT-ROUND3 SETTINGS-SECTION-1: SettingsSection now lives in the global
+// app-store (lifted so the section survives main-tab switches). Re-exported
+// here so settings.tsx keeps pulling everything from one place — no
+// duplicate union to keep in sync.
+export type { SettingsSection } from '@/store/app-store';

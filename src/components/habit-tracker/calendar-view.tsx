@@ -187,7 +187,7 @@ function generateMonthOptions(): { value: string; label: string }[] {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     options.push({
       value: format(d, 'yyyy-MM'),
-      label: format(d, 'MMMM yyyy'),
+      label: format(d, 'MMMM yyyy', { locale: idLocale }),
     });
   }
   return options;
@@ -236,7 +236,7 @@ export default function CalendarView() {
   }, [selectedMonth]);
 
   const monthLabel = useMemo(
-    () => format(monthDate, 'MMMM yyyy'),
+    () => format(monthDate, 'MMMM yyyy', { locale: idLocale }),
     [monthDate]
   );
 

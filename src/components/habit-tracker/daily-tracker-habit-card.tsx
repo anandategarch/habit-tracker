@@ -23,7 +23,6 @@
 
 import { memo } from 'react';
 import { Check, Clock, RotateCw, Ban, BarChart3 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { FlipCard } from '@/components/habit-tracker/flip-card';
@@ -151,9 +150,16 @@ export const HabitCard = memo(function HabitCard({
       )}
       style={{ animationDelay: `${idx * 40}ms` }}
       front={
-        <Card
+        // Card→div conversion (worklog 2-c anti-pattern): shadcn Card's
+        // unlayered `.card-shadow-premium` (globals.css §14) is declared
+        // AFTER `.premium-card` (§1) and overrides its multi-layer box-shadow
+        // — the card rendered flat at rest (the shadow only appeared on
+        // hover via .premium-card-hover). Bare div + the same layout classes
+        // Card contributed (flex flex-col rounded-xl) keeps everything else
+        // pixel-identical.
+        <div
           className={cn(
-            'group cursor-pointer select-none p-5 gap-0 h-full',
+            'group cursor-pointer select-none p-5 gap-0 h-full flex flex-col rounded-xl',
             'premium-card premium-card-hover premium-card-sheen',
           )}
         >
@@ -359,12 +365,13 @@ export const HabitCard = memo(function HabitCard({
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       }
       back={
-        <Card
+        // Same Card→div conversion as the front face (see comment there).
+        <div
           className={cn(
-            'p-5 gap-0 h-full flex flex-col overflow-hidden',
+            'p-5 gap-0 h-full flex flex-col overflow-hidden rounded-xl',
             'premium-card premium-card-sheen',
           )}
         >
@@ -492,7 +499,7 @@ export const HabitCard = memo(function HabitCard({
               Ketuk untuk membalik
             </p>
           )}
-        </Card>
+        </div>
       }
     />
   );

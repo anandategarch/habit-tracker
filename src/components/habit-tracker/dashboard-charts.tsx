@@ -90,13 +90,14 @@ export default function DashboardCharts({
     const dateKey = data.payload?.dateKey;
     if (typeof dateKey === 'string' && dateKey) openTrackerDate(dateKey);
   };
-  // Clicking a category bar deep-links into the finance transactions list
-  // with that category filter pre-applied (openFinanceFocus).
-  const openFinanceFocus = useAppStore((s) => s.openFinanceFocus);
-  const handleCategoryBarClick = (data: BarRectangleItem) => {
-    const category = data.payload?.category;
-    if (typeof category === 'string' && category) openFinanceFocus({ category });
-  };
+  // BUGFIX 6-a: the category chart previously ALSO deep-linked via
+  // openFinanceFocus({ category }) — but `categoryPerformance` holds HABIT
+  // categories (e.g. "Health"), while the finance transactions filter only
+  // matches FINANCE categories (e.g. "Makanan & Minuman"). The click always
+  // landed on an empty, confusingly-filtered transaction list (verified:
+  // zero overlap between the two category sets in the demo data). The
+  // mis-wired handler + cursor-pointer affordance are removed — the weekly
+  // bar chart above keeps its working openTrackerDate deep-link.
 
   return (
     <>
@@ -192,14 +193,12 @@ export default function DashboardCharts({
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value) => [`${value}%`, 'Rate']}
+                    formatter={(value) => [`${value}%`, 'Penyelesaian']}
                   />
                   <Bar
                     dataKey="rate"
                     radius={[0, 6, 6, 0]}
                     maxBarSize={20}
-                    className="cursor-pointer"
-                    onClick={handleCategoryBarClick}
                   >
                     {categoryPerformance.map((_, index) => (
                       <Cell
@@ -305,7 +304,11 @@ export default function DashboardCharts({
                     }}
                   />
                   <Bar dataKey="completed" stackId="a" fill={primary} radius={[0, 0, 0, 0]} maxBarSize={24} name="Selesai" />
-                  <Bar dataKey="missed" stackId="a" fill="hsl(0, 0%, 88%)" radius={[4, 4, 0, 0]} maxBarSize={24} name="Tidak" />
+                  {/* BUGFIX 6-a (dark mode): the "missed" bar previously used a
+                      hardcoded hsl(0, 0%, 88%) (near-white) fill — on dark cards it
+                      glowed brighter than the teal "completed" bar and inverted the
+                      visual hierarchy. Token-based muted gray adapts to both modes. */}
+                  <Bar dataKey="missed" stackId="a" fill="var(--muted-foreground)" fillOpacity={0.35} radius={[4, 4, 0, 0]} maxBarSize={24} name="Terlewat" />
                 </BarChart>
               </ChartContainer>
         </div>

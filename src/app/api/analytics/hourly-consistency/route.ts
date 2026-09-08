@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { jakartaToday, jakartaTimeMinutes } from '@/lib/timezone';
+import { jakartaDateString, dateFromYMD, jakartaTimeMinutes } from '@/lib/timezone';
 import { subDays } from '@/lib/date-utils';
 // PERF-FIX: native date-utils instead of date-fns. See FIX-TIER3 worklog.
 
@@ -38,7 +38,15 @@ export async function GET(request: NextRequest) {
     const periodParam = searchParams.get('period') || '30';
     const periodDays = Math.min(Math.max(parseInt(periodParam, 10) || 30, 1), 365);
 
-    const today = jakartaToday();
+    // BUGHUNT-R3 (TZ): stored HabitLog.date is the UTC-midnight of its
+    // Jakarta YMD (see dateFromYMD). jakartaToday() returned a *server-local*
+    // midnight — identical on UTC servers, but on servers east of UTC it sat
+    // hours BEFORE today's stored midnight, silently excluding today's
+    // completions from `lte: today`. Anchor the range to the same
+    // UTC-midnight convention as storage so the comparison works on any
+    // server timezone. (periodStart/periodEnd labels below now also derive
+    // from UTC midnights → correct YMD on every server.)
+    const today = dateFromYMD(jakartaDateString());
     const startDate = subDays(today, periodDays - 1);
 
     // Fetch all completed logs with a completedAt timestamp in the window.

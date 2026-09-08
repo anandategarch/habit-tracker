@@ -156,7 +156,15 @@ export async function GET(
     while (current <= endDate) {
       const dateStr = format(current, 'yyyy-MM-dd');
       const dayLabel = format(current, 'EEE');
-      const log = logs.find((l) => format(l.date, 'yyyy-MM-dd') === dateStr);
+      // HabitLog.date is stored as the UTC-midnight of the Jakarta YMD
+      // (dateFromYMD). Formatting it with the local-TZ `format()` reads the
+      // SERVER's timezone — on any server west of UTC the UTC midnight falls
+      // on the previous local day, so the log never matches `dateStr` and
+      // every day renders time-less. Compare the stored YMD directly
+      // (toISOString on a UTC-midnight Date returns exactly that YMD).
+      const log = logs.find(
+        (l) => l.date.toISOString().slice(0, 10) === dateStr,
+      );
 
       if (log?.completedAt) {
         const mins = toMinutes(log.completedAt);

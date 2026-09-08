@@ -236,7 +236,7 @@ export function CategoryDetailView({
       cumulative += data?.total ?? 0;
       const dateStr = `${selectedMonth}-${String(d).padStart(2, '0')}`;
       const dateObj = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]) - 1, d);
-      const dayLabel = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+      const dayLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }); // BUGHUNT-R3 (i18n): "5 Sep" bukan "Sep 5"
       const axisLabel = d % 5 === 0 || d === 1 ? dayLabel : '';
       // 7-day moving average centered on current day (3 days before + current + 3 after)
       // Shows fluctuation trend instead of cumulative (which always goes up).

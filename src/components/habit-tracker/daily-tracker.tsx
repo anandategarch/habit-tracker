@@ -39,10 +39,6 @@ import {
   milestoneForStreak,
 } from '@/lib/confetti';
 import {
-  format,
-  subDays,
-  addDays,
-  parseISO,
   getDaysInMonth,
   getDate,
 } from '@/lib/date-utils';
@@ -57,6 +53,7 @@ import {
   toDateString,
   formatJakartaTime,
   computeStreak,
+  shiftYmdKey,
 } from './daily-tracker-helpers';
 import { DateNav } from './daily-tracker-date-nav';
 import { DailySummary } from './daily-tracker-daily-summary';
@@ -130,15 +127,17 @@ export default function DailyTracker() {
   // pattern as quickAddAction; latest-ref indirection like use-finance-mutations).
   const focusHabitId = useAppStore((s) => s.focusHabitId);
   const clearHabitFocus = useAppStore((s) => s.clearHabitFocus);
+  // ONE-CLICK-1: openAnalysis is a stable useCallback (empty deps), so the
+  // effect can depend on it directly — no render-phase ref write needed
+  // (react-hooks/refs compliant; migrated from the old latest-ref pattern
+  // per worklog note when this block was touched).
   const openAnalysis = useCallback((id: string) => setAnalysisHabitId(id), []);
-  const openAnalysisRef = useRef(openAnalysis);
-  openAnalysisRef.current = openAnalysis;
   useEffect(() => {
     if (focusHabitId) {
-      openAnalysisRef.current(focusHabitId);
+      openAnalysis(focusHabitId);
       clearHabitFocus();
     }
-  }, [focusHabitId, clearHabitFocus]);
+  }, [focusHabitId, clearHabitFocus, openAnalysis]);
 
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
@@ -186,7 +185,9 @@ export default function DailyTracker() {
   const [localHabitsOverride, setLocalHabitsOverride] = useState<Habit[] | null>(null);
   const habits = localHabitsOverride ?? queryHabits;
 
-  const { data: dailyLogData } = useQuery<{ notes: string | null } | null>({
+  const { data: dailyLogData } = useQuery<
+    { notes: string | null; date?: string } | null
+  >({
     queryKey: ['daily-logs', selectedDate],
     queryFn: async () => {
       const res = await fetch(`/api/daily-logs?date=${selectedDate}`);
@@ -196,12 +197,33 @@ export default function DailyTracker() {
     staleTime: 15_000,
   });
 
+  // keepPreviousData (global QueryClient default) means that right after a
+  // date switch `dailyLogData` still holds the PREVIOUS date's log until the
+  // new one arrives. Applying it unconditionally showed (and let the user
+  // edit + auto-save) day A's notes under day B's header. Gate on the
+  // response's own date and clear while the correct day is still loading.
   useEffect(() => {
-    setNotes(dailyLogData?.notes || '');
-  }, [dailyLogData]);
+    const dataDate = dailyLogData?.date?.slice(0, 10);
+    if (!dailyLogData || dataDate === selectedDate) {
+      setNotes(dailyLogData?.notes || '');
+    } else {
+      setNotes('');
+    }
+  }, [dailyLogData, selectedDate]);
 
   // ---- derived ----
-  const dateObj = useMemo(() => parseISO(selectedDate), [selectedDate]);
+  // STREAK-TZ-class fix: `parseISO(selectedDate)` produced a UTC-midnight
+  // Date, but every consumer below (format 'EEEE'/'d MMM yyyy' in DateNav,
+  // getDate, getDaysInMonth, subDays/addDays + format) reads the BROWSER's
+  // local timezone. On any browser west of UTC the UTC midnight falls on the
+  // PREVIOUS local day — the DateNav showed the wrong weekday/"Hari X/Y"
+  // and prev/next navigation skipped a day. Construct a LOCAL-midnight Date
+  // from the YMD parts instead (calendar-view already builds local dates,
+  // so this also keeps both views in sync).
+  const dateObj = useMemo(() => {
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }, [selectedDate]);
   const dayOfMonth = getDate(dateObj);
   const daysInMonth = getDaysInMonth(dateObj);
   // BUG-7 fix: use jakartaDateString() (TZ-explicit) instead of
@@ -566,7 +588,12 @@ export default function DailyTracker() {
           const entry = {
             id: '',
             habitId,
-            date: new Date(selectedDate + 'T12:00:00').toISOString(),
+            // STREAK-TZ-class fix: local noon ("T12:00:00") lands on the
+            // PREVIOUS Jakarta day on browsers west of UTC — the optimistic
+            // cache entry was then mis-keyed by toDateString() (jakartaDateKey)
+            // and the post-toggle streak/completion read one day off until a
+            // refetch. UTC noon always maps to the same Jakarta day.
+            date: new Date(selectedDate + 'T12:00:00Z').toISOString(),
             completed: next,
             value: 1,
             completedAt: next && completedAt ? completedAt : null,
@@ -666,6 +693,16 @@ export default function DailyTracker() {
 
   const handleHabitCheck = useCallback(
     (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
+      // FUTURE-DATE GUARD: the tracker grid is reachable for future dates
+      // (DateNav arrows + calendar day-cell 1-click via openTrackerDate).
+      // Checking a habit "tomorrow" writes a future HabitLog that silently
+      // inflates streaks/milestones and shows up as already-done when that
+      // day arrives. The manual time dialog already blocks future dates
+      // (max attr on the date input) — block the checkbox path too.
+      if (selectedDate > todayStr) {
+        toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
+        return;
+      }
       const next = !(completionMapRef.current[habit.id] ?? false);
       if (!next) {
         toggleHabit(habit, null);
@@ -700,7 +737,7 @@ export default function DailyTracker() {
         toggleHabit(habit, null);
       }
     },
-    [toggleHabit, selectedDate],
+    [toggleHabit, selectedDate, todayStr],
   );
 
   const handleTimeDialogSubmit = useCallback(
@@ -748,13 +785,16 @@ export default function DailyTracker() {
   }, []);
 
   // ---- date navigation ----
+  // UTC-safe YMD arithmetic (shiftYmdKey) — ms-based subDays/addDays on a
+  // local-midnight Date would read the local TZ again when formatted (see
+  // the STREAK-TZ-class note above). String arithmetic is TZ-independent.
   const goToPrevDay = useCallback(
-    () => setSelectedDate(format(subDays(dateObj, 1), 'yyyy-MM-dd')),
-    [dateObj, setSelectedDate],
+    () => setSelectedDate(shiftYmdKey(selectedDate, -1)),
+    [selectedDate, setSelectedDate],
   );
   const goToNextDay = useCallback(
-    () => setSelectedDate(format(addDays(dateObj, 1), 'yyyy-MM-dd')),
-    [dateObj, setSelectedDate],
+    () => setSelectedDate(shiftYmdKey(selectedDate, 1)),
+    [selectedDate, setSelectedDate],
   );
   const goToToday = useCallback(
     () => setSelectedDate(todayStr),
@@ -1152,7 +1192,7 @@ export default function DailyTracker() {
               </div>
               <Button
                 onClick={() => handleTimeDialogSubmit(false)}
-                disabled={timeSubmitting || !manualTime}
+                disabled={timeSubmitting || !manualTime || !manualDate}
                 className="w-full"
               >
                 {timeSubmitting ? 'Menyimpan...' : 'Simpan Waktu'}

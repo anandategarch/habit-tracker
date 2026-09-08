@@ -71,9 +71,22 @@ function isValidPayload(body: unknown): body is ImportPayload {
 }
 
 export async function POST(request: NextRequest) {
+  // BUGHUNT-ROUND3 IMPORT-JSON-1: a malformed JSON body (non-JSON request /
+  // truncated file) previously fell through to the outer catch → 500 with a
+  // generic "Failed to import data". The UI pre-parses the file client-side,
+  // but direct API callers got a 500 for what is a client error — return 400
+  // so it's distinguishable from a real server-side import failure.
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Body harus JSON valid (backup .json hasil export).' },
+      { status: 400 }
+    );
+  }
 
+  try {
     if (!isValidPayload(body)) {
       return NextResponse.json(
         { error: 'Invalid payload. Expected a JSON object with array values.' },

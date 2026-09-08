@@ -25,7 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, parseISO, subDays, addDays } from '@/lib/date-utils';
+import { format, subDays, addDays } from '@/lib/date-utils';
 import { jakartaDateKey } from '@/lib/timezone';
 import type { HabitLog } from './daily-tracker-types';
 
@@ -139,7 +139,7 @@ export function YearlyHeatmap({ habitId, habitType, startDate }: YearlyHeatmapPr
   // Show the current year by default. Could add year navigation later.
   const year = new Date().getFullYear();
 
-  const { data: logs, isLoading } = useQuery<HabitLog[]>({
+  const { data: rawLogs, isLoading } = useQuery<HabitLog[]>({
     queryKey: ['habit-year-logs', habitId, year.toString()],
     queryFn: async () => {
       const res = await fetch(`/api/habits/${habitId}/logs?year=${year}`);
@@ -148,6 +148,15 @@ export function YearlyHeatmap({ habitId, habitType, startDate }: YearlyHeatmapPr
     },
     staleTime: 5 * 60 * 1000,
   });
+  // keepPreviousData is a GLOBAL QueryClient default — after a habit switch
+  // (dialog stays mounted, habitId prop changes) the query briefly serves
+  // the PREVIOUS habit's logs under the new key, painting habit A's heatmap
+  // pattern for habit B. Each log carries habitId, so gate on it: a payload
+  // containing another habit's logs is treated as "not loaded yet" (the
+  // isLoading skeleton then covers the fetch window). An empty array is
+  // date-key ambiguous but harmless (empty renders the same either way).
+  const logs =
+    rawLogs && rawLogs.some((l) => l.habitId !== habitId) ? undefined : rawLogs;
 
   const isAvoid = habitType === 'avoid';
   // For avoid habits, completed=true = relapse. For normal/amount,
@@ -299,7 +308,11 @@ export function YearlyHeatmap({ habitId, habitType, startDate }: YearlyHeatmapPr
             )}
             <span className="inline-flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-[2px] bg-transparent border border-border/40 inline-block" />
-              {todayStr > format(parseISO(startDate), 'yyyy-MM-dd') ? 'Akan datang' : 'Sebelum mulai'}
+              {/* Same YMD-slice convention as buildYearGrid's startDateYMD —
+                  parseISO+format would re-read the browser's local TZ and
+                  could flip this label one day early/late on non-Jakarta
+                  browsers. */}
+              {todayStr > startDate.slice(0, 10) ? 'Akan datang' : 'Sebelum mulai'}
             </span>
           </div>
         </div>

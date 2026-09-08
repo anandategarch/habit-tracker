@@ -94,7 +94,10 @@ export async function GET() {
       stat.total++;
       if (log.completed) stat.done++;
     }
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    // BUGFIX 6-a: user-facing strings were English ("Your average mood…",
+    // "Monday…", "Sleep Alert", "Monthly Forecast", …) in an otherwise
+    // Indonesian UI. Translated titles, descriptions, and day names below.
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     let bestDay: string | null = null;
     let worstDay: string | null = null;
     let bestDayRate = 0;
@@ -158,8 +161,8 @@ export async function GET() {
       insights.push({
         type: 'mood-analysis',
         icon: '😊',
-        title: 'Mood Insight',
-        description: `Your average mood is ${moodAvg.toFixed(1)}/5. ${avgHighMoodCompletion > avgLowMoodCompletion ? 'Higher mood correlates with better habit completion.' : 'Mood doesn\'t seem to affect your completion rate much.'}`,
+        title: 'Wawasan Mood',
+        description: `Rata-rata mood kamu ${moodAvg.toFixed(1)}/5. ${avgHighMoodCompletion > avgLowMoodCompletion ? 'Mood yang lebih baik cenderung seiring dengan penyelesaian habit yang lebih tinggi.' : 'Mood sepertinya tidak terlalu memengaruhi tingkat penyelesaianmu.'}`,
         severity: avgHighMoodCompletion > avgLowMoodCompletion ? 'positive' : 'neutral',
       });
     }
@@ -197,7 +200,7 @@ export async function GET() {
         type: 'recommendation',
         icon: '💡',
         title: 'Tips Sederhana',
-        description: 'You\'re tracking many habits. Consider focusing on your top 5-7 habits for better consistency.',
+        description: 'Kamu melacak banyak habit sekaligus. Coba fokus pada 5-7 habit teratas agar lebih konsisten.',
         severity: 'neutral',
       });
     }
@@ -208,8 +211,8 @@ export async function GET() {
         insights.push({
           type: 'sleep-warning',
           icon: '😴',
-          title: 'Sleep Alert',
-          description: `Your average sleep is ${avgSleep.toFixed(1)} hours. Better sleep may improve your habit completion.`,
+          title: 'Peringatan Tidur',
+          description: `Rata-rata tidur kamu ${avgSleep.toFixed(1)} jam per malam. Tidur yang lebih cukup dapat meningkatkan penyelesaian habitmu.`,
           severity: 'negative',
         });
       }
@@ -231,8 +234,8 @@ export async function GET() {
       insights.push({
         type: 'prediction',
         icon: '🔮',
-        title: 'Monthly Forecast',
-        description: `Based on your recent performance, you\'re on track for ${Math.round(avg * 100)}% completion this month.`,
+        title: 'Proyeksi Bulanan',
+        description: `Berdasarkan performa terkini, kamu berpotensi mencapai ${Math.round(avg * 100)}% penyelesaian bulan ini.`,
         severity: avg >= 0.7 ? 'positive' : avg >= 0.4 ? 'neutral' : 'negative',
       });
     }

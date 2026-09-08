@@ -23,8 +23,8 @@ export interface DashboardData {
   successToday: number;
   weeklyCompletion: number;
   monthlyCompletion: number;
-  bestHabit: { name: string; icon: string; rate: number };
-  worstHabit: { name: string; icon: string; rate: number };
+  bestHabit: { id?: string; name: string; icon: string; rate: number };
+  worstHabit: { id?: string; name: string; icon: string; rate: number };
   totalXP: number;
   currentLevel: number;
   nextLevelXP: number;

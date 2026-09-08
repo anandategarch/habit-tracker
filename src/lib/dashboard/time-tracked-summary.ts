@@ -88,9 +88,9 @@ export function computeTimeTrackedSummary(
       const log = weekLogsByDate.get(key);
       if (log?.completedAt) {
         const mins = toMinutesFromISO(log.completedAt);
-        weekTimes.push({ day: format(d, 'EEE'), time: minutesToHHmm(mins), minutes: mins });
+        weekTimes.push({ day: format(d, 'EEE', { locale: 'id' }), time: minutesToHHmm(mins), minutes: mins });
       } else {
-        weekTimes.push({ day: format(d, 'EEE'), time: null, minutes: null });
+        weekTimes.push({ day: format(d, 'EEE', { locale: 'id' }), time: null, minutes: null });
       }
     }
 

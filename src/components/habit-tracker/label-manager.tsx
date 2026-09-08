@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +43,7 @@ interface EditState {
 
 export default function LabelManager() {
   const { categories, priorities, difficulties, loading, refetch } = useHabitOptions();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<OptionType>('category');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
@@ -124,12 +125,17 @@ export default function LabelManager() {
       setEditingId(null);
       setEditState(null);
       refetch();
+      // BUGHUNT-ROUND3 LABEL-RENAME-1: the API cascades a label rename onto
+      // the habits' category/priority/difficulty strings. Invalidate the
+      // shared ['habits'] cache so habit rows, badges, and filters pick up
+      // the new name immediately (not just after the next refetch window).
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Gagal memperbarui');
     } finally {
       setSaving(false);
     }
-  }, [editState, activeTab, refetch]);
+  }, [editState, activeTab, refetch, queryClient]);
 
   const handleDelete = useCallback(async (item: HabitOption) => {
     setSaving(true);

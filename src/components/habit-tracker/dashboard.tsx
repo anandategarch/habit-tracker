@@ -277,6 +277,12 @@ export default function Dashboard() {
   }
 
   const displayData = data || DEFAULT_DATA;
+  // ONE-CLICK (bugfix 6-a): habit ids for the "Peringkat Habit" tiles —
+  // carried additively by /api/dashboard's bestHabit/worstHabit. Undefined
+  // on the zero-habit "N/A" fallback, in which case the tiles render as
+  // static divs (no dead buttons).
+  const bestHabitId = displayData.bestHabit.id;
+  const worstHabitId = displayData.worstHabit.id;
   // Jakarta "today" — destination of the Today's Focus row jump (so the user
   // lands on the tracker grid ready to complete the habit).
   const todayStr = jakartaDateString();
@@ -284,6 +290,14 @@ export default function Dashboard() {
     ...d,
     label: d.day.slice(0, 3),
   }));
+  // PHASE3-HABIT period mapping for the hourly-consistency heatmap.
+  // BUGFIX 6-a: used as the React `key` too — remounting on period change
+  // resets the selected-hour detail box so it can't show stale counts from
+  // the previously selected period (same instance kept its old selection).
+  const hourlyPeriodDays =
+    period === '7d' ? 7 :
+    period === '1m' ? 30 :
+    period === '3m' ? 90 : 365;
 
   const priorityVariant = (p?: string) => {
     // Guard against null/undefined — previously crashed on .toLowerCase()
@@ -483,13 +497,7 @@ export default function Dashboard() {
           habits, across ALL habits (not per-habit). Period matches the
           dashboard's selected period (7d/1m/3m → 7/30/90 days; all → 365). */}
       <ScrollReveal delay={150}>
-        <HourlyConsistency
-          periodDays={
-            period === '7d' ? 7 :
-            period === '1m' ? 30 :
-            period === '3m' ? 90 : 365
-          }
-        />
+        <HourlyConsistency key={hourlyPeriodDays} periodDays={hourlyPeriodDays} />
       </ScrollReveal>
 
       {/* ── Time-Tracked Habits (Waktu Habit Minggu Ini) ────────────── */}
@@ -506,26 +514,68 @@ export default function Dashboard() {
             <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
           </h3>
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 p-4 text-center dark:border-primary/20 dark:bg-primary/10">
-              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-primary">
-                <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                Performa Terbaik
+            {/* ONE-CLICK (bugfix 6-a): the tiles previously showed an
+                ArrowUpRight affordance but were static divs. Now they are
+                real buttons that deep-link to the habit's TimeAnalysisDialog
+                via openHabitFocus(id) — the id is carried by
+                /api/dashboard's bestHabit/worstHabit (additive field).
+                Falls back to a static div when no id (zero-habit "N/A"). */}
+            {bestHabitId ? (
+              <button
+                type="button"
+                onClick={() => openHabitFocus(bestHabitId)}
+                aria-label={`Lihat analisis waktu habit ${displayData.bestHabit.name} (performa terbaik)`}
+                className="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 p-4 text-center transition-colors hover:border-primary/30 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:border-primary/20 dark:bg-primary/10"
+              >
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-primary">
+                  <ArrowUpRight className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                  Performa Terbaik
+                </div>
+                <span className="chip-soft chip-soft-teal h-11 w-11 text-xl" aria-hidden="true">{displayData.bestHabit.icon}</span>
+                <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
+                <span className="premium-stat text-xl text-primary">{displayData.bestHabit.rate}%</span>
+                <Crown className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              </button>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 p-4 text-center dark:border-primary/20 dark:bg-primary/10">
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-primary">
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                  Performa Terbaik
+                </div>
+                <span className="chip-soft chip-soft-teal h-11 w-11 text-xl" aria-hidden="true">{displayData.bestHabit.icon}</span>
+                <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
+                <span className="premium-stat text-xl text-primary">{displayData.bestHabit.rate}%</span>
+                <Crown className="h-4 w-4 text-amber-500" aria-hidden="true" />
               </div>
-              <span className="chip-soft chip-soft-teal h-11 w-11 text-xl" aria-hidden="true">{displayData.bestHabit.icon}</span>
-              <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
-              <span className="premium-stat text-xl text-primary">{displayData.bestHabit.rate}%</span>
-              <Crown className="h-4 w-4 text-amber-500" aria-hidden="true" />
-            </div>
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center dark:border-orange-400/20 dark:bg-orange-400/10">
-              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-600 dark:text-orange-400">
-                <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
-                Perlu Perhatian
+            )}
+            {worstHabitId ? (
+              <button
+                type="button"
+                onClick={() => openHabitFocus(worstHabitId)}
+                aria-label={`Lihat analisis waktu habit ${displayData.worstHabit.name} (perlu perhatian)`}
+                className="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center transition-colors hover:border-orange-500/40 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:border-orange-400/20 dark:bg-orange-400/10"
+              >
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-600 dark:text-orange-400">
+                  <ArrowDownRight className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                  Perlu Perhatian
+                </div>
+                <span className="chip-soft chip-soft-amber h-11 w-11 text-xl" aria-hidden="true">{displayData.worstHabit.icon}</span>
+                <span className="text-sm font-semibold leading-tight">{displayData.worstHabit.name}</span>
+                <span className="premium-stat text-xl text-orange-600 dark:text-orange-400">{displayData.worstHabit.rate}%</span>
+                <AlertTriangle className="h-4 w-4 text-orange-500" aria-hidden="true" />
+              </button>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center dark:border-orange-400/20 dark:bg-orange-400/10">
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-600 dark:text-orange-400">
+                  <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
+                  Perlu Perhatian
+                </div>
+                <span className="chip-soft chip-soft-amber h-11 w-11 text-xl" aria-hidden="true">{displayData.worstHabit.icon}</span>
+                <span className="text-sm font-semibold leading-tight">{displayData.worstHabit.name}</span>
+                <span className="premium-stat text-xl text-orange-600 dark:text-orange-400">{displayData.worstHabit.rate}%</span>
+                <AlertTriangle className="h-4 w-4 text-orange-500" aria-hidden="true" />
               </div>
-              <span className="chip-soft chip-soft-amber h-11 w-11 text-xl" aria-hidden="true">{displayData.worstHabit.icon}</span>
-              <span className="text-sm font-semibold leading-tight">{displayData.worstHabit.name}</span>
-              <span className="premium-stat text-xl text-orange-600 dark:text-orange-400">{displayData.worstHabit.rate}%</span>
-              <AlertTriangle className="h-4 w-4 text-orange-500" aria-hidden="true" />
-            </div>
+            )}
           </div>
         </div>
 

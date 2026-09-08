@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Target, CheckCircle2, Flame } from 'lucide-react';
+import { Plus, Target, CheckCircle2, Flame, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
@@ -54,7 +54,12 @@ export default function GoalsTab() {
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
-  const { data: goals = null, isLoading: loading } = useQuery<Goal[]>({
+  // BUGFIX 6-a: the query previously had NO error branch — on fetch failure
+  // `isLoading` goes false while `data` stays undefined, so the
+  // `loading || goals === null` check below rendered the skeleton forever
+  // (no error message, no retry). Surface a premium error state with a
+  // retry button instead.
+  const { data: goals = null, isLoading: loading, isError, refetch } = useQuery<Goal[]>({
     queryKey: ['goals'],
     queryFn: async () => {
       const res = await fetch('/api/goals');
@@ -62,6 +67,7 @@ export default function GoalsTab() {
       return res.json();
     },
     staleTime: 30_000,
+    retry: 1,
   });
 
   const invalidateGoals = useCallback(() => {
@@ -289,7 +295,42 @@ export default function GoalsTab() {
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
 
-  if (loading || goals === null) {
+  if (loading) {
+    return <GoalsSkeleton />;
+  }
+
+  // ── Error state (BUGFIX 6-a — see query comment above) ──────────────
+  // Previously this branch didn't exist: on fetch failure `loading` flips
+  // to false while `goals` stays null, and the check below rendered the
+  // skeleton forever.
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Tujuan"
+          description="Pantau progress menuju target kamu"
+        />
+        <div className="premium-card premium-card-sheen rounded-2xl">
+          <div className="premium-empty">
+            <div className="premium-empty-orb">
+              <AlertTriangle className="h-8 w-8 text-destructive" aria-hidden="true" />
+            </div>
+            <p className="text-sm font-medium">Gagal memuat tujuan</p>
+            <p className="max-w-sm text-center text-xs text-muted-foreground">
+              Periksa koneksi kamu, lalu coba lagi.
+            </p>
+            <Button variant="outline" onClick={() => refetch()} className="mt-3">
+              <RefreshCw className="h-4 w-4" />
+              Coba Lagi
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (goals === null) {
     return <GoalsSkeleton />;
   }
 

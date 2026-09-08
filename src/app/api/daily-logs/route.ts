@@ -20,6 +20,15 @@ export async function GET(request: NextRequest) {
       }
       // Use explicit UTC midnight for consistent date lookup
       const dateObj = new Date(`${date}T00:00:00Z`);
+      // Semantic validation: JS rolls impossible dates over silently
+      // ("2026-02-31" becomes Mar 3), which would read/write the WRONG day.
+      // NaN-guard + YMD round-trip rejects them with a clean 400.
+      if (
+        isNaN(dateObj.getTime()) ||
+        dateObj.toISOString().slice(0, 10) !== date
+      ) {
+        return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
+      }
       const log = await db.dailyLog.findUnique({
         where: { date: dateObj },
       });
@@ -31,7 +40,13 @@ export async function GET(request: NextRequest) {
 
     // Use Jakarta time for date boundaries
     if (month) {
+      // Reject well-formed but impossible months ("2026-13",
+      // "2026-00") — they silently roll over into the next/previous
+      // year's range and return wrong data.
       const [y, m] = month.split('-').map(Number);
+      if (y < 1970 || y > 2200 || m < 1 || m > 12) {
+        return NextResponse.json({ error: 'Invalid month. Use YYYY-MM (01-12)' }, { status: 400 });
+      }
       startDate = new Date(Date.UTC(y, m - 1, 1));
       const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
       endDate = new Date(Date.UTC(y, m - 1, daysInMonth, 23, 59, 59, 999));

@@ -12,7 +12,6 @@
 
 'use client';
 
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export function KpiCard({
@@ -42,9 +41,15 @@ export function KpiCard({
     amber: 'chip-soft chip-soft-violet',
   };
   return (
-    <Card
+    // Card→div conversion (worklog 2-c anti-pattern): shadcn Card brings the
+    // unlayered `.card-shadow-premium` (globals.css §14) which is declared
+    // AFTER `.premium-card` (§1) and therefore overrides its multi-layer
+    // box-shadow — the card rendered flat. A bare div keeps ONLY the premium
+    // treatment; the flex/gap/rounded classes mirror what Card contributed
+    // so the layout is pixel-identical.
+    <div
       className={cn(
-        'group anim-stagger premium-card premium-card-sheen p-4',
+        'group anim-stagger premium-card premium-card-sheen flex flex-col gap-6 rounded-xl p-4',
       )}
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
     >
@@ -56,6 +61,6 @@ export function KpiCard({
       </div>
       <p className="premium-stat text-2xl mt-3 text-foreground">{value}</p>
       <p className="text-[11px] mt-1 text-muted-foreground">{sub}</p>
-    </Card>
+    </div>
   );
 }

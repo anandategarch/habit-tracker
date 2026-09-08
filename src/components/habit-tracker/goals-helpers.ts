@@ -18,6 +18,25 @@ export const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
 };
 
+// BUGFIX 6-a: goal-card previously rendered the RAW enum values
+// ("active" / "completed" / "cancelled", "High" / "Medium" / "Low") in the
+// status & priority badges — English DB values leaking into an Indonesian
+// UI. Map the known values; unknown values fall back to the raw string.
+export const STATUS_LABELS: Record<string, string> = {
+  active: 'Aktif',
+  completed: 'Selesai',
+  cancelled: 'Dibatalkan',
+};
+
+export const PRIORITY_LABELS: Record<string, string> = {
+  high: 'Tinggi',
+  High: 'Tinggi',
+  medium: 'Sedang',
+  Medium: 'Sedang',
+  low: 'Rendah',
+  Low: 'Rendah',
+};
+
 export const EMPTY_FORM: GoalFormData = {
   title: '',
   description: '',

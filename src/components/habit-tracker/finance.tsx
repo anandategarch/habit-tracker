@@ -568,7 +568,7 @@ export default function Finance() {
               initial value (from app-store.ts) and avoids TZ-boundary off-by-
               one-month bugs for users behind Jakarta TZ. */}
           {selectedMonth !== jakartaMonthString() && (
-            <Button variant="ghost" size="sm" className="text-xs h-7 shrink-0" onClick={goToThisMonth}>Hari ini</Button>
+            <Button variant="ghost" size="sm" className="text-xs h-7 shrink-0" onClick={goToThisMonth}>Bulan ini</Button>
           )}
           <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
         </div>
@@ -582,14 +582,37 @@ export default function Finance() {
       </div>
 
       {/* Sub Tabs — icon-only on mobile, icon+label on desktop */}
-      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as FinanceSubTab)}>
+      {/* FIX (bug-hunt 6-b): reset the transactions filter when the user
+          switches AWAY from the Transactions sub-tab. Without this, a
+          category filter applied via 1-click (budget card →
+          openFinanceFocus) or a manual filter/search "leaked" into the
+          Overview tab: the SpendingHeatmap receives the FILTERED
+          transactions array (its month+type filter does not reset the
+          category facet), so the heatmap showed only one category's
+          intensity while labeled as the month's overall spending. Resetting
+          here restores the documented invariant ("txFilter is at default
+          when the user is on the overview tab") in an event handler — no
+          effect, no lint issue. */}
+      <Tabs
+        value={activeSubTab}
+        onValueChange={(v) => {
+          setActiveSubTab(v as FinanceSubTab);
+          if (
+            v !== 'transactions' &&
+            (txFilter.type !== 'all' || txFilter.category !== 'all' ||
+              txFilter.source !== 'all' || txFilter.search !== '')
+          ) {
+            setTxFilter({ type: 'all', category: 'all', source: 'all', search: '' });
+          }
+        }}
+      >
         <TabsList className="flex w-full overflow-x-auto scrollbar-hide">
           <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
           <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
           <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
           <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Explorer</span></TabsTrigger>
           <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PieChart className="h-3.5 w-3.5" /><span className="hidden sm:inline">Kategori</span></TabsTrigger>
-          <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ricurring</span></TabsTrigger>
+          <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Recurring</span></TabsTrigger>
           <TabsTrigger value="rules" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wand2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Aturan</span></TabsTrigger>
           <TabsTrigger value="savings" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PiggyBank className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tabungan</span></TabsTrigger>
         </TabsList>

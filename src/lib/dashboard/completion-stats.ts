@@ -198,11 +198,13 @@ export function computeCompletionStats(
   let bestHabit: BestWorstHabit = { name: 'N/A', icon: '🏆', rate: 0 };
   let worstHabit: BestWorstHabit = { name: 'N/A', icon: '📉', rate: 100 };
 
-  for (const [, stat] of habitStatsMap) {
+  for (const [statId, stat] of habitStatsMap) {
     if (stat.total > 0) {
       const rate = Math.round((stat.done / stat.total) * 100);
-      if (rate > bestHabit.rate) bestHabit = { name: stat.name, icon: stat.icon, rate };
-      if (rate < worstHabit.rate) worstHabit = { name: stat.name, icon: stat.icon, rate };
+      // ONE-CLICK (bugfix 6-a): carry the habit id so the dashboard tiles
+      // can deep-link via openHabitFocus(id). Fallbacks (N/A) stay id-less.
+      if (rate > bestHabit.rate) bestHabit = { id: statId, name: stat.name, icon: stat.icon, rate };
+      if (rate < worstHabit.rate) worstHabit = { id: statId, name: stat.name, icon: stat.icon, rate };
     }
   }
 

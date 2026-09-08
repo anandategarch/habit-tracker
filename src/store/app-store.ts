@@ -33,6 +33,17 @@ export type FinanceSubTab =
   | 'rules'
   | 'savings';
 
+// BUGHUNT-ROUND3 SETTINGS-SECTION-1: sub-section of the Settings tab
+// ("Umum" / "Habit Master" / "Data"), lifted from settings.tsx local useState
+// into the global store — same rationale as financeSubTab (ONE-CLICK-3):
+// (a) the section now SURVIVES switching to another main tab and back
+//     (previously it always reset to 'umum', inconsistent with the finance
+//     sub-tab + trackerViewMode which were both lifted for exactly this),
+// and (b) deep-links (FAB "Habit Baru" → quickAddAction 'habit') can target
+//     the 'habits' section directly. Defined here (not in settings-types.ts)
+// so the store stays the single source of truth; settings-types re-exports it.
+export type SettingsSection = 'umum' | 'habits' | 'data';
+
 // ONE-CLICK-4: focus payload for 1-click jumps into the finance
 // transactions list (e.g. a budget card → "see this category's expenses").
 // `category` is the category NAME (matches txFilter.category semantics).
@@ -92,6 +103,9 @@ interface AppState {
   financeFocus: FinanceFocus | null;
   openFinanceFocus: (focus: FinanceFocus, sub?: FinanceSubTab) => void;
   clearFinanceFocus: () => void;
+  // ── SETTINGS SUB-SECTION (see SettingsSection above) ──────────────
+  settingsSection: SettingsSection;
+  setSettingsSection: (section: SettingsSection) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -137,4 +151,7 @@ export const useAppStore = create<AppState>((set) => ({
   openFinanceFocus: (focus, sub = 'transactions') =>
     set({ financeFocus: focus, financeSubTab: sub, activeTab: 'finance' }),
   clearFinanceFocus: () => set({ financeFocus: null }),
+
+  settingsSection: 'umum',
+  setSettingsSection: (section) => set({ settingsSection: section }),
 }));

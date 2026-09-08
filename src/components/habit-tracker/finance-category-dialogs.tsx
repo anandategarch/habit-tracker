@@ -8,8 +8,19 @@
 //  - CategoryFormDialog: add/edit a single category — emoji + name +
 //    auto-derived color + trackLastDone checkbox.
 
+import { useState } from 'react';
 import { Edit3, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +66,13 @@ export function FinanceCategoryDialogs({
   submitting,
   onSubmit,
 }: FinanceCategoryDialogsProps) {
+  // FIX (bug-hunt 6-b): deleting a category used to fire immediately on the
+  // trash-icon tap — no confirmation. The API silently removes the
+  // category's budget rows along with it (transactions are protected by a
+  // 400, budgets are not), so an accidental tap destroyed budget data with
+  // no undo. Add an AlertDialog confirmation, matching the app-wide pattern
+  // (label-manager, groups, savings, sources, transactions all confirm).
+  const [confirmDeleteCat, setConfirmDeleteCat] = useState<FinanceCategory | null>(null);
   return (
     <>
       {/* ─── CATEGORY MANAGEMENT DIALOG ─── */}
@@ -74,8 +92,8 @@ export function FinanceCategoryDialogs({
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
                     {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80">Track</span>}
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Edit kategori ${cat.name}`} onClick={() => onEdit(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" aria-label={`Hapus kategori ${cat.name}`} onClick={() => setConfirmDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -93,8 +111,8 @@ export function FinanceCategoryDialogs({
                     <span className="flex-1 text-sm font-medium truncate">{cat.name}</span>
                     {cat.trackLastDone && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning dark:bg-warning/15 dark:text-warning/80">Track</span>}
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Edit kategori ${cat.name}`} onClick={() => onEdit(cat)}><Edit3 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" aria-label={`Hapus kategori ${cat.name}`} onClick={() => setConfirmDeleteCat(cat)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -147,6 +165,35 @@ export function FinanceCategoryDialogs({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ─── DELETE CATEGORY CONFIRMATION (bug-hunt 6-b) ─── */}
+      <AlertDialog
+        open={!!confirmDeleteCat}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteCat(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Kategori?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus <strong>{confirmDeleteCat?.emoji} {confirmDeleteCat?.name}</strong>?
+              Budget untuk kategori ini juga akan dihapus. Kategori yang masih
+              dipakai transaksi akan ditolak oleh server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive text-white"
+              onClick={() => {
+                if (confirmDeleteCat) onDelete(confirmDeleteCat);
+                setConfirmDeleteCat(null);
+              }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -26,7 +26,8 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BarChart3, RefreshCw, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
 
 interface HourBucket {
   hour: number;
@@ -85,7 +86,7 @@ interface HourlyConsistencyProps {
 export function HourlyConsistency({ periodDays = 30, compact = false }: HourlyConsistencyProps) {
   const [selected, setSelected] = useState<HourBucket | null>(null);
 
-  const { data, isLoading } = useQuery<HourlyConsistencyData>({
+  const { data, isLoading, isError, refetch } = useQuery<HourlyConsistencyData>({
     queryKey: ['hourly-consistency', periodDays],
     queryFn: async () => {
       const res = await fetch(`/api/analytics/hourly-consistency?period=${periodDays}`);
@@ -93,6 +94,7 @@ export function HourlyConsistency({ periodDays = 30, compact = false }: HourlyCo
       return res.json();
     },
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   // Compute per-band totals.
@@ -120,6 +122,29 @@ export function HourlyConsistency({ periodDays = 30, compact = false }: HourlyCo
       <div className="premium-card premium-card-sheen rounded-2xl p-4">
         <div className="premium-label mb-3">Kapan Paling Konsisten?</div>
         <Skeleton className="h-24 w-full rounded-md" />
+      </div>
+    );
+  }
+
+  // BUGFIX 6-a: no error branch existed — a failed fetch fell through to
+  // the `!data` empty state below and showed the misleading "Belum ada
+  // data waktu" message. Distinguish the two states explicitly.
+  if (isError) {
+    return (
+      <div className="premium-card premium-card-sheen rounded-2xl p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="premium-label">Kapan Paling Konsisten?</div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            aria-label="Muat ulang data konsistensi jam"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Coba Lagi
+          </Button>
+        </div>
+        <p className="text-sm text-destructive">Gagal memuat data konsistensi jam.</p>
       </div>
     );
   }
