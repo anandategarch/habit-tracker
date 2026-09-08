@@ -1,0 +1,655 @@
+     1→'use client';
+     2→
+     3→import { useMemo, useCallback } from 'react';
+     4→import { useQuery, useQueryClient } from '@tanstack/react-query';
+     5→import {
+     6→  startOfMonth,
+     7→  endOfMonth,
+     8→  eachDayOfInterval,
+     9→  format,
+    10→  isToday,
+    11→  isSameMonth,
+    12→  addMonths,
+    13→  subMonths,
+    14→  startOfWeek,
+    15→  endOfWeek,
+    16→  isBefore,
+    17→  startOfDay,
+    18→  id as idLocale,
+    19→} from '@/lib/date-utils';
+    20→// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+    21→// utility module. Output is identical for all patterns and helpers used
+    22→// here (yyyy-MM, MMMM yyyy, yyyy-MM-dd, MMM d + startOfMonth/endOfMonth/
+    23→// startOfWeek/endOfWeek/eachDayOfInterval/isToday/isSameMonth/isBefore/
+    24→// startOfDay/addMonths/subMonths) — verified via test script in worklog
+    25→// FIX-TIER3 entry.
+    26→import { PageHeader } from '@/components/ui/page-header';
+    27→import { Badge } from '@/components/ui/badge';
+    28→import {
+    29→  Select,
+    30→  SelectContent,
+    31→  SelectItem,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from '@/components/ui/select';
+    35→import { Button } from '@/components/ui/button';
+    36→import { Skeleton } from '@/components/ui/skeleton';
+    37→import {
+    38→  ChevronLeft,
+    39→  ChevronRight,
+    40→  Flame,
+    41→  Droplets,
+    42→  RefreshCw,
+    43→  CalendarDays,
+    44→  CalendarCheck,
+    45→  TrendingUp,
+    46→} from 'lucide-react';
+    47→import { useAppStore } from '@/store/app-store';
+    48→
+    49→// ── Settings type ──────────────────────────────────────────────────────────
+    50→// Minimal shape of AppSettings — only the fields we consume. We re-use the
+    51→// shared ['settings'] query cache so we stay in sync with the Settings page.
+    52→interface AppSettings {
+    53→  weekStart?: 'monday' | 'sunday' | 'saturday' | string | null;
+    54→}
+    55→
+    56→// ── Types ──────────────────────────────────────────────────────────────────
+    57→interface Habit {
+    58→  id: string;
+    59→  name: string;
+    60→  icon: string;
+    61→  color: string;
+    62→  status?: string;
+    63→  // BUG-9 fix: include startDate/endDate so we can count habits that were
+    64→  // actually active on a given historical day (instead of dividing by the
+    65→  // CURRENT total habit count, which distorts past days).
+    66→  startDate?: string;
+    67→  endDate?: string | null;
+    68→}
+    69→
+    70→interface HabitLog {
+    71→  id: string;
+    72→  habitId: string;
+    73→  date: string;
+    74→  completed: boolean;
+    75→  value: number;
+    76→}
+    77→
+    78→interface DailyLog {
+    79→  id: string;
+    80→  date: string;
+    81→  mood: number;
+    82→  energy: number;
+    83→  sleep: number;
+    84→  notes?: string;
+    85→}
+    86→
+    87→interface DayData {
+    88→  date: Date;
+    89→  dayStr: string; // yyyy-MM-dd
+    90→  dayNum: number;
+    91→  isCurrentMonth: boolean;
+    92→  isToday: boolean;
+    93→  completionRate: number | null; // null = no data
+    94→  mood: number | null;
+    95→  totalHabits: number;
+    96→  completedHabits: number;
+    97→}
+    98→
+    99→// ── Helpers ────────────────────────────────────────────────────────────────
+   100→// Default weekday order is Sun..Sat. When the user has chosen Monday or
+   101→// Saturday as their week start, we rotate the header array to match.
+   102→// (BUGHUNT-OTHER-1 BUG-H3: previously hardcoded `weekStartsOn: 0` (Sunday)
+   103→//  and ignored the user's `weekStart` setting entirely.)
+   104→const WEEKDAYS_BASE = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+   105→
+   106→function weekStartsOnNum(weekStart?: string | null): 0 | 1 | 6 {
+   107→  if (weekStart === 'saturday') return 6;
+   108→  if (weekStart === 'sunday') return 0;
+   109→  // Default to Monday (matches the Settings UI default).
+   110→  return 1;
+   111→}
+   112→
+   113→function rotateWeekdays(weekStartsOn: 0 | 1 | 6): string[] {
+   114→  const idx = weekStartsOn === 6 ? 6 : weekStartsOn; // 0 or 1 or 6
+   115→  return [...WEEKDAYS_BASE.slice(idx), ...WEEKDAYS_BASE.slice(0, idx)];
+   116→}
+   117→
+   118→// PREMIUM REDESIGN (Rutina Aurora / Task 4-c): legacy gray/orange/lime
+   119→// heatmap → Aurora teal-emerald scale. 0% keeps a soft destructive tint —
+   120→// a tracked-but-missed day is a *status*, not a heat level. High cells
+   121→// (bg-teal-600/500) need white text for AA contrast; see the text helpers.
+   122→function getHeatmapColor(rate: number | null): string {
+   123→  if (rate === null) return 'bg-muted/60';
+   124→  if (rate === 0) return 'bg-destructive/25 dark:bg-destructive/15';
+   125→  if (rate < 50) return 'bg-teal-200/70 dark:bg-teal-900/50';
+   126→  if (rate < 75) return 'bg-teal-400/80 dark:bg-teal-700/60';
+   127→  return 'bg-teal-600 dark:bg-teal-500';
+   128→}
+   129→
+   130→function getHeatmapTextColor(rate: number | null): string {
+   131→  if (rate === null) return 'text-muted-foreground';
+   132→  if (rate === 0) return 'text-destructive dark:text-destructive/80';
+   133→  if (rate >= 75) return 'text-white';
+   134→  return 'text-foreground';
+   135→}
+   136→
+   137→// Day-number color follows the same rules (white on high-heat cells so it
+   138→// stays readable on teal-600; today keeps its primary-bold affordance).
+   139→function getDayNumTextColor(day: DayData): string {
+   140→  if (day.completionRate !== null && day.completionRate >= 75) return 'text-white font-bold';
+   141→  if (day.isToday) return 'text-primary font-bold';
+   142→  if (!day.isCurrentMonth) return 'text-muted-foreground';
+   143→  return 'text-foreground';
+   144→}
+   145→
+   146→// Task 4-c hover affordance: neutral/destructive cells tint with accent on
+   147→// hover (spec: `hover:bg-accent/60`); heat-colored cells keep their fill —
+   148→// the accent tint would wash out the white % text — so they brighten + get
+   149→// a hairline ring instead. Both paths get active:scale-95 press feedback.
+   150→function getHeatmapHover(rate: number | null): string {
+   151→  if (rate === null || rate === 0) return 'hover:bg-accent/60';
+   152→  return 'hover:brightness-105 hover:ring-1 hover:ring-ring/60';
+   153→}
+   154→
+   155→// Mood emoji for days whose daily-log has mood data (1–5 scale, same map
+   156→// as the dashboard's MoodEmoji). Renders inside the day cell so the legend
+   157→// row "😊 Mood tercatat" is no longer a dead promise.
+   158→const MOOD_EMOJIS: Record<number, string> = {
+   159→  1: '😢',
+   160→  2: '😔',
+   161→  3: '😐',
+   162→  4: '🙂',
+   163→  5: '😊',
+   164→};
+   165→
+   166→// Task 4-c: Indonesian aria-label for the day buttons, e.g.
+   167→// "Rabu 15 Januari 2025, 3 dari 5 habit selesai".
+   168→function buildDayAriaLabel(day: DayData): string {
+   169→  const dateLabel = `${format(day.date, 'EEEE', {
+   170→    locale: idLocale,
+   171→  })} ${format(day.date, 'd MMMM yyyy', { locale: idLocale })}`;
+   172→  if (!day.isCurrentMonth) return dateLabel;
+   173→  if (day.completionRate === null) return `${dateLabel}, belum ada data`;
+   174→  if (day.totalHabits > 0) {
+   175→    return `${dateLabel}, ${day.completedHabits} dari ${day.totalHabits} habit selesai`;
+   176→  }
+   177→  // Edge case: logs exist but no habit was considered active that day
+   178→  // (completionRate is 100 by convention — see BUG-9 note above).
+   179→  return `${dateLabel}, semua catatan selesai`;
+   180→}
+   181→
+   182→function generateMonthOptions(): { value: string; label: string }[] {
+   183→  const now = new Date();
+   184→  const options: { value: string; label: string }[] = [];
+   185→  // Show last 12 months and next 3 months
+   186→  for (let i = -12; i <= 3; i++) {
+   187→    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+   188→    options.push({
+   189→      value: format(d, 'yyyy-MM'),
+   190→      label: format(d, 'MMMM yyyy'),
+   191→    });
+   192→  }
+   193→  return options;
+   194→}
+   195→
+   196→// ── Component ──────────────────────────────────────────────────────────────
+   197→export default function CalendarView() {
+   198→  const selectedMonth = useAppStore(s => s.selectedMonth);
+   199→  const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
+   200→  const queryClient = useQueryClient();
+   201→
+   202→  // ── Fetch AppSettings to read `weekStart` (BUG-H3 fix) ────────────────
+   203→  // Shares the ['settings'] cache with the Settings page so changes apply
+   204→  // immediately after a save + invalidation.
+   205→  const { data: settings = null } = useQuery<AppSettings | null>({
+   206→    queryKey: ['settings'],
+   207→    queryFn: async () => {
+   208→      const res = await fetch('/api/settings');
+   209→      if (!res.ok) return null;
+   210→      return res.json();
+   211→    },
+   212→    staleTime: 60_000,
+   213→  });
+   214→  const weekStartsOn = weekStartsOnNum(settings?.weekStart);
+   215→  const WEEKDAYS = useMemo(() => rotateWeekdays(weekStartsOn), [weekStartsOn]);
+   216→
+   217→  const monthOptions = useMemo(() => generateMonthOptions(), []);
+   218→
+   219→  // ── Parse current month ────────────────────────────────────────────────
+   220→  const monthDate = useMemo(() => {
+   221→    const [y, m] = selectedMonth.split('-').map(Number);
+   222→    return new Date(y, m - 1, 1);
+   223→  }, [selectedMonth]);
+   224→
+   225→  const monthLabel = useMemo(
+   226→    () => format(monthDate, 'MMMM yyyy'),
+   227→    [monthDate]
+   228→  );
+   229→
+   230→  // ── Fetch data (TanStack Query) ───────────────────────────────────────
+   231→  const { data: habits = [], isLoading: habitsLoading } = useQuery<Habit[]>({
+   232→    queryKey: ['habits'],
+   233→    queryFn: async () => {
+   234→      const res = await fetch('/api/habits');
+   235→      if (!res.ok) return [];
+   236→      return res.json();
+   237→    },
+   238→    staleTime: 30_000,
+   239→  });
+   240→
+   241→  const { data: dailyLogs = [] } = useQuery<DailyLog[]>({
+   242→    queryKey: ['daily-logs-month', selectedMonth],
+   243→    queryFn: async () => {
+   244→      const res = await fetch(`/api/daily-logs?month=${selectedMonth}`);
+   245→      if (!res.ok) return [];
+   246→      return res.json();
+   247→    },
+   248→    staleTime: 30_000,
+   249→  });
+   250→
+   251→  const habitIds = habits.map(h => h.id).join(',');
+   252→  const { data: habitLogs = [], isError: fetchError } = useQuery<HabitLog[]>({
+   253→    queryKey: ['habit-logs-batch', selectedMonth, habitIds],
+   254→    queryFn: async () => {
+   255→      if (!habitIds) return [];
+   256→      const res = await fetch(`/api/habits/batch-logs?month=${selectedMonth}&habitIds=${habitIds}`);
+   257→      if (!res.ok) return [];
+   258→      const groupedLogs: Record<string, HabitLog[]> = await res.json();
+   259→      return Object.values(groupedLogs).flat();
+   260→    },
+   261→    enabled: habits.length > 0,
+   262→    staleTime: 30_000,
+   263→  });
+   264→
+   265→  const loading = habitsLoading;
+   266→
+   267→  // ── Build daily log lookup ─────────────────────────────────────────────
+   268→  const dailyLogMap = useMemo(() => {
+   269→    const map: Record<string, DailyLog> = {};
+   270→    dailyLogs.forEach((d) => {
+   271→      const key = d.date?.slice(0, 10);
+   272→      if (key) map[key] = d;
+   273→    });
+   274→    return map;
+   275→  }, [dailyLogs]);
+   276→
+   277→  // ── Build habit log lookup: dateStr -> { completed: number, total: number }
+   278→  const habitLogMap = useMemo(() => {
+   279→    const map: Record<
+   280→      string,
+   281→      { completed: number; total: number; habits: HabitLog[] }
+   282→    > = {};
+   283→    habitLogs.forEach((log) => {
+   284→      const key = log.date?.slice(0, 10);
+   285→      if (!key) return;
+   286→      if (!map[key]) map[key] = { completed: 0, total: 0, habits: [] };
+   287→      map[key].habits.push(log);
+   288→      map[key].total++;
+   289→      if (log.completed) map[key].completed++;
+   290→    });
+   291→    return map;
+   292→  }, [habitLogs]);
+   293→
+   294→  // ── Build calendar days ────────────────────────────────────────────────
+   295→  const calendarDays = useMemo<DayData[]>(() => {
+   296→    const monthStart = startOfMonth(monthDate);
+   297→    const monthEnd = endOfMonth(monthDate);
+   298→    // BUGHUNT-OTHER-1 BUG-H3: respect user's `weekStart` setting instead
+   299→    // of hardcoding Sunday.
+   300→    const calStart = startOfWeek(monthStart, { weekStartsOn });
+   301→    const calEnd = endOfWeek(monthEnd, { weekStartsOn });
+   302→    const days = eachDayOfInterval({ start: calStart, end: calEnd });
+   303→
+   304→    const today = new Date();
+   305→    // BUG-9 fix: count habits active on a SPECIFIC day (startDate <= day AND
+   306→    // (endDate is null OR endDate >= day) AND status !== 'archived') instead
+   307→    // of using the CURRENT total. Previously a user with 10 current habits
+   308→    // looking at a day last month when they only had 3 habits would see
+   309→    // completion rates divided by 10, drastically understating past days.
+   310→    const activeHabitCountOnDay = (day: Date): number => {
+   311→      const dayStart = startOfDay(day);
+   312→      const ts = dayStart.getTime();
+   313→      return habits.filter((h) => {
+   314→        if (h.status === 'archived') return false;
+   315→        // Parse startDate/endDate as local-midnight Date objects. They arrive
+   316→        // as ISO strings from the API; Date-only strings ("yyyy-MM-dd") parse
+   317→        // as UTC midnight, so we slice to 10 chars and use new Date(y,m,d) to
+   318→        // avoid TZ-induced off-by-one.
+   319→        if (h.startDate) {
+   320→          const sd = h.startDate.slice(0, 10);
+   321→          const [sy, sm, sd2] = sd.split('-').map(Number);
+   322→          if (new Date(sy, sm - 1, sd2).getTime() > ts) return false;
+   323→        }
+   324→        if (h.endDate) {
+   325→          const ed = h.endDate.slice(0, 10);
+   326→          const [ey, em, ed2] = ed.split('-').map(Number);
+   327→          if (new Date(ey, em - 1, ed2).getTime() < ts) return false;
+   328→        }
+   329→        return true;
+   330→      }).length;
+   331→    };
+   332→
+   333→    return days.map((d) => {
+   334→      const dayStr = format(d, 'yyyy-MM-dd');
+   335→      const hLogs = habitLogMap[dayStr];
+   336→      const dLog = dailyLogMap[dayStr];
+   337→      const inMonth = isSameMonth(d, monthDate);
+   338→      const isFuture = isBefore(today, startOfDay(d)) && !isToday(d);
+   339→
+   340→      // BUG-9 + BUG-26 fix:
+   341→      //  - Use per-day active habit count (not current total) → past days
+   342→      //    aren't divided by an anachronistic habit count.
+   343→      //  - No logs for the day → neutral (null), not 0% red. Showing 0% red
+   344→      //    for a day before the user started tracking was misleading.
+   345→      const totalHabitsOnDay = inMonth && !isFuture ? activeHabitCountOnDay(d) : 0;
+   346→
+   347→      let completionRate: number | null = null;
+   348→      if (!inMonth) {
+   349→        completionRate = null;
+   350→      } else if (isFuture) {
+   351→        completionRate = null;
+   352→      } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay > 0) {
+   353→        // Has logs + habits were active that day: compute real rate.
+   354→        completionRate = Math.round((hLogs.completed / totalHabitsOnDay) * 100);
+   355→      } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay === 0) {
+   356→        // Edge case: logs exist but no habits are considered active that day
+   357→        // (e.g. all habits were archived). Treat as 100% — the user did log
+   358→        // something. Neutral (null) would also be defensible; 100% matches
+   359→        // the spirit of "completed everything that was expected".
+   360→        completionRate = 100;
+   361→      } else {
+   362→        // No logs at all → neutral, not 0% red (BUG-26).
+   363→        completionRate = null;
+   364→      }
+   365→
+   366→      return {
+   367→        date: d,
+   368→        dayStr,
+   369→        dayNum: d.getDate(),
+   370→        isCurrentMonth: inMonth,
+   371→        isToday: isToday(d),
+   372→        completionRate,
+   373→        mood: dLog?.mood ?? null,
+   374→        totalHabits: totalHabitsOnDay,
+   375→        completedHabits: hLogs?.completed ?? 0,
+   376→      };
+   377→    });
+   378→  }, [monthDate, habits, habitLogMap, dailyLogMap, weekStartsOn]);
+   379→
+   380→  // ── Month summary ──────────────────────────────────────────────────────
+   381→  const monthSummary = useMemo(() => {
+   382→    const activeDays = calendarDays.filter(
+   383→      (d) =>
+   384→        d.isCurrentMonth &&
+   385→        d.completionRate !== null
+   386→    );
+   387→    if (activeDays.length === 0)
+   388→      return { avg: 0, best: null, worst: null, entries: 0 };
+   389→
+   390→    const rates = activeDays.map((d) => (d.completionRate as number) || 0);
+   391→    const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
+   392→    const bestIdx = rates.indexOf(Math.max(...rates));
+   393→    const worstIdx = rates.indexOf(Math.min(...rates));
+   394→
+   395→    return {
+   396→      avg,
+   397→      best: activeDays[bestIdx],
+   398→      worst: activeDays[worstIdx],
+   399→      entries: activeDays.length,
+   400→    };
+   401→  }, [calendarDays]);
+   402→
+   403→  // ── Navigation handlers ────────────────────────────────────────────────
+   404→  const goToPrevMonth = useCallback(() => {
+   405→    const prev = subMonths(monthDate, 1);
+   406→    setSelectedMonth(format(prev, 'yyyy-MM'));
+   407→  }, [monthDate, setSelectedMonth]);
+   408→
+   409→  const goToNextMonth = useCallback(() => {
+   410→    const next = addMonths(monthDate, 1);
+   411→    setSelectedMonth(format(next, 'yyyy-MM'));
+   412→  }, [monthDate, setSelectedMonth]);
+   413→
+   414→  // ── Render ─────────────────────────────────────────────────────────────
+   415→  return (
+   416→    <div className="space-y-6">
+   417→      {/* ── Header with month navigation ──────────────────────────────── */}
+   418→      <PageHeader
+   419→        title="Kalender"
+   420→        description="Visualisasikan penyelesaian habit kamu dalam heatmap bulanan."
+   421→        action={
+   422→          <div className="flex items-center gap-2">
+   423→            <Button variant="outline" size="icon" onClick={goToPrevMonth}>
+   424→              <ChevronLeft className="h-4 w-4" />
+   425→            </Button>
+   426→
+   427→            <Select
+   428→              value={selectedMonth}
+   429→              onValueChange={setSelectedMonth}
+   430→            >
+   431→              <SelectTrigger className="w-[180px]">
+   432→                <SelectValue />
+   433→              </SelectTrigger>
+   434→              <SelectContent>
+   435→                {monthOptions.map((opt) => (
+   436→                  <SelectItem key={opt.value} value={opt.value}>
+   437→                    {opt.label}
+   438→                  </SelectItem>
+   439→                ))}
+   440→              </SelectContent>
+   441→            </Select>
+   442→
+   443→            <Button variant="outline" size="icon" onClick={goToNextMonth}>
+   444→              <ChevronRight className="h-4 w-4" />
+   445→            </Button>
+   446→          </div>
+   447→        }
+   448→      />
+   449→
+   450→      {fetchError && (
+   451→        <div className="flex flex-col items-center justify-center py-16 gap-3">
+   452→          <p className="text-sm text-muted-foreground">Gagal memuat data kalender</p>
+   453→          <Button variant="outline" size="sm" onClick={() => { queryClient.invalidateQueries({ queryKey: ['habits'] }); queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] }); queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] }); }}>
+   454→            <RefreshCw className="h-4 w-4" />
+   455→            Coba Lagi
+   456→          </Button>
+   457→        </div>
+   458→      )}
+   459→
+   460→      {!fetchError && (loading ? (
+   461→        <Skeleton className="h-[600px] w-full rounded-xl" />
+   462→      ) : (
+   463→        <>
+   464→          {/* ── Calendar Card ──────────────────────────────────────────── */}
+   465→          <Card>
+   466→            <CardContent className="p-4 md:p-6">
+   467→              {/* Weekday headers */}
+   468→              <div className="grid grid-cols-7 gap-1 mb-2">
+   469→                {WEEKDAYS.map((d) => (
+   470→                  <div
+   471→                    key={d}
+   472→                    className="text-center text-xs font-semibold text-muted-foreground py-2"
+   473→                  >
+   474→                    {d}
+   475→                  </div>
+   476→                ))}
+   477→              </div>
+   478→
+   479→              {/* Day cells */}
+   480→              <div className="grid grid-cols-7 gap-1">
+   481→                {calendarDays.map((day, idx) => (
+   482→                  <div
+   483→                    key={idx}
+   484→                    className={`
+   485→                      relative min-h-[72px] sm:min-h-[88px] md:min-h-[100px] rounded-lg p-1.5 sm:p-2
+   486→                      transition-all duration-150
+   487→                      ${getHeatmapColor(day.completionRate)}
+   488→                      ${!day.isCurrentMonth ? 'opacity-35' : ''}
+   489→                      ${day.isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background anim-glow-breathe' : ''}
+   490→                      hover:ring-1 hover:ring-primary/50 cursor-default
+   491→                    `}
+   492→                  >
+   493→                    <div className="flex items-center justify-between">
+   494→                      <span
+   495→                        className={`text-xs sm:text-sm font-medium ${
+   496→                          day.isToday
+   497→                            ? 'text-primary font-bold'
+   498→                            : !day.isCurrentMonth
+   499→                            ? 'text-muted-foreground'
+   500→                            : 'text-foreground'
+   501→                        }`}
+   502→                      >
+   503→                        {day.dayNum}
+   504→                      </span>
+   505→                    </div>
+   506→
+   507→                    {day.isCurrentMonth && day.completionRate !== null && (
+   508→                      <div className="mt-1 flex flex-col items-center gap-0.5">
+   509→                        <span
+   510→                          className={`text-xs sm:text-xs font-bold ${getHeatmapTextColor(
+   511→                            day.completionRate
+   512→                          )}`}
+   513→                        >
+   514→                          {day.completionRate}%
+   515→                        </span>
+   516→                        <div className="w-full bg-black/10 rounded-full h-1 overflow-hidden">
+   517→                          <div
+   518→                            className="h-full rounded-full bg-primary transition-all duration-300"
+   519→                            style={{
+   520→                              width: `${Math.max(day.completionRate, 0)}%`,
+   521→                            }}
+   522→                          />
+   523→                        </div>
+   524→                      </div>
+   525→                    )}
+   526→
+   527→                    {day.isCurrentMonth && day.completionRate === null && !isBefore(new Date(), startOfDay(day.date)) && (
+   528→                      <div className="mt-1 text-center">
+   529→                        <span className="text-xs text-muted-foreground">—</span>
+   530→                      </div>
+   531→                    )}
+   532→                  </div>
+   533→                ))}
+   534→              </div>
+   535→            </CardContent>
+   536→          </Card>
+   537→
+   538→          {/* ── Heatmap Legend + Month Summary ─────────────────────────── */}
+   539→          <div className="grid gap-6 md:grid-cols-2">
+   540→            {/* Heatmap Legend */}
+   541→            <Card>
+   542→              <CardHeader className="pb-3">
+   543→                <CardTitle className="text-base">Legenda Heatmap</CardTitle>
+   544→              </CardHeader>
+   545→              <CardContent>
+   546→                <div className="flex flex-wrap items-center gap-3">
+   547→                  {[
+   548→                    { label: 'Tidak ada data', color: 'bg-gray-100 dark:bg-gray-800/50' },
+   549→                    { label: '0%', color: 'bg-destructive/30 dark:bg-destructive/15' },
+   550→                    { label: '25%', color: 'bg-orange-200 dark:bg-orange-900/40' },
+   551→                    { label: '50%', color: 'bg-warning/30 dark:bg-warning/15' },
+   552→                    { label: '75%', color: 'bg-lime-200 dark:bg-lime-900/40' },
+   553→                    { label: '100%', color: 'bg-success/30 dark:bg-success/15' },
+   554→                  ].map((item) => (
+   555→                    <div key={item.label} className="flex items-center gap-2">
+   556→                      <div
+   557→                        className={`h-6 w-6 rounded ${item.color} border border-border/50`}
+   558→                      />
+   559→                      <span className="text-xs text-muted-foreground">
+   560→                        {item.label}
+   561→                      </span>
+   562→                    </div>
+   563→                  ))}
+   564→                </div>
+   565→
+   566→                <div className="mt-4 flex flex-wrap gap-3">
+   567→                  <div className="flex items-center gap-2">
+   568→                    <div className="h-6 w-6 rounded ring-2 ring-primary ring-offset-1 bg-primary/10" />
+   569→                    <span className="text-xs text-muted-foreground">Hari Ini</span>
+   570→                  </div>
+   571→                  <div className="flex items-center gap-2">
+   572→                    <span className="text-sm">😊</span>
+   573→                    <span className="text-xs text-muted-foreground">Mood tercatat</span>
+   574→                  </div>
+   575→                </div>
+   576→              </CardContent>
+   577→            </Card>
+   578→
+   579→            {/* Month Summary */}
+   580→            <Card>
+   581→              <CardHeader className="pb-3">
+   582→                <CardTitle className="text-base flex items-center gap-2">
+   583→                  <Flame className="h-4 w-4 text-orange-500" />
+   584→                  {monthLabel} Ringkasan
+   585→                </CardTitle>
+   586→              </CardHeader>
+   587→              <CardContent>
+   588→                <div className="grid grid-cols-2 gap-4">
+   589→                  <div className="space-y-1 p-3 rounded-lg bg-primary/10">
+   590→                    <p className="text-xs text-muted-foreground">
+   591→                      Rata-rata Penyelesaian
+   592→                    </p>
+   593→                    <p className="text-2xl font-bold text-primary">
+   594→                      {monthSummary.avg.toFixed(1)}%
+   595→                    </p>
+   596→                  </div>
+   597→
+   598→                  <div className="space-y-1 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+   599→                    <p className="text-xs text-muted-foreground">
+   600→                      Hari Dilacak
+   601→                    </p>
+   602→                    <p className="text-2xl font-bold">
+   603→                      {monthSummary.entries}
+   604→                    </p>
+   605→                  </div>
+   606→
+   607→                  {monthSummary.best && (
+   608→                    <div className="space-y-1 p-3 rounded-lg bg-primary/10">
+   609→                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+   610→                        <Flame className="h-3 w-3 text-primary" /> Hari Terbaik
+   611→                      </p>
+   612→                      <p className="text-lg font-bold text-primary">
+   613→                        {format(monthSummary.best.date, 'd MMM', { locale: idLocale })}
+   614→                      </p>
+   615→                      <Badge
+   616→                        variant="secondary"
+   617→                        className="bg-primary/10 text-primary hover:bg-primary/10 text-xs"
+   618→                      >
+   619→                        {monthSummary.best.completionRate}%
+   620→                      </Badge>
+   621→                    </div>
+   622→                  )}
+   623→
+   624→                  {monthSummary.worst && (
+   625→                    <div className="space-y-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
+   626→                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+   627→                        <Droplets className="h-3 w-3 text-orange-500" /> Hari
+   628→                        Terburuk
+   629→                      </p>
+   630→                      <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
+   631→                        {format(monthSummary.worst.date, 'd MMM', { locale: idLocale })}
+   632→                      </p>
+   633→                      <Badge
+   634→                        variant="secondary"
+   635→                        className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs"
+   636→                      >
+   637→                        {monthSummary.worst.completionRate}%
+   638→                      </Badge>
+   639→                    </div>
+   640→                  )}
+   641→                </div>
+   642→
+   643→                {monthSummary.entries === 0 && (
+   644→                  <div className="mt-4 text-center text-sm text-muted-foreground py-4">
+   645→                    Belum ada hari yang dilacak bulan ini. Mulai selesaikan habit!
+   646→                  </div>
+   647→                )}
+   648→              </CardContent>
+   649→            </Card>
+   650→          </div>
+   651→        </>
+   652→      ))}
+   653→    </div>
+   654→  );
+   655→}

@@ -1,0 +1,609 @@
+     1→'use client';
+     2→
+     3→import { useState, useMemo } from 'react';
+     4→import { useQuery, useQueryClient } from '@tanstack/react-query';
+     5→import { useAppStore } from '@/store/app-store';
+     6→import { Card, CardContent } from '@/components/ui/card';
+     7→import { Skeleton } from '@/components/ui/skeleton';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { Progress } from '@/components/ui/progress';
+    10→import { Button } from '@/components/ui/button';
+    11→import { cn } from '@/lib/utils';
+    12→import dynamic from 'next/dynamic';
+    13→import { CountUpNumber } from '@/components/habit-tracker/count-up';
+    14→import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
+    15→import { WeeklyReview } from '@/components/habit-tracker/weekly-review';
+    16→import { useThemeColor } from '@/hooks/use-theme-color';
+    17→import { jakartaDateString } from '@/lib/jakarta-date';
+    18→import { jakartaNowParts } from '@/lib/timezone';
+    19→import {
+    20→  Target,
+    21→  CheckCircle,
+    22→  Flame,
+    23→  Trophy,
+    24→  Zap,
+    25→  CalendarDays,
+    26→  TrendingUp,
+    27→  Star,
+    28→  Award,
+    29→  Smile,
+    30→  Moon,
+    31→  Brain,
+    32→  Flag,
+    33→  ArrowUpRight,
+    34→  ArrowDownRight,
+    35→  Crown,
+    36→  AlertTriangle,
+    37→  Sparkles,
+    38→  Quote,
+    39→  RefreshCw,
+    40→  Calendar,
+    41→} from 'lucide-react';
+    42→import { type Period, PERIOD_OPTIONS, type MotivationalQuote, type DashboardData } from './dashboard-types';
+    43→import { DEFAULT_DATA } from './dashboard-default-data';
+    44→import { ChartInfo, ProgressRing, MoodEmoji, getMoodLabel, PeriodFilter, QuoteDisplay } from './dashboard-helpers';
+    45→import { TimeTrackedHabits } from './dashboard-time-tracked-habits';
+    46→import { LastDoneSummaryCard } from './dashboard-last-done';
+    47→import { FinanceOverviewCard } from './dashboard-finance-overview';
+    48→
+    49→const DashboardCharts = dynamic(() => import('./dashboard-charts'), {
+    50→  ssr: false,
+    51→  loading: () => (
+    52→    <div className="space-y-4">
+    53→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    54→        <Skeleton className="h-80 rounded-2xl" />
+    55→        <Skeleton className="h-80 rounded-2xl" />
+    56→      </div>
+    57→      <Skeleton className="h-72 rounded-2xl" />
+    58→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    59→        <Skeleton className="h-64 rounded-2xl" />
+    60→        <Skeleton className="h-64 rounded-2xl" />
+    61→      </div>
+    62→    </div>
+    63→  ),
+    64→});
+    65→
+    66→// PHASE3-HABIT — Hourly consistency heatmap ("Kapan paling konsisten?").
+    67→// Lazy-loaded since it's below the fold and only relevant once the user
+    68→// scrolls past the dashboard charts.
+    69→const HourlyConsistency = dynamic(() => import('./hourly-consistency'), {
+    70→  ssr: false,
+    71→  loading: () => <Skeleton className="h-44 rounded-2xl" />,
+    72→});
+    73→
+    74→/* ── PREMIUM UI v2 ("Rutina Aurora") — Hero greeting ─────────────────────
+    75→ * Signature teal→emerald gradient panel at the very top of the dashboard.
+    76→ * The greeting follows the Jakarta wall-clock hour; the date label is
+    77→ * formatted in Indonesian from the Jakarta date string (local-midnight
+    78→ * Date so the label is stable in any browser timezone). Client-only by
+    79→ * design — Dashboard is dynamically imported with ssr:false — but window
+    80→ * is still guarded for safety.
+    81→ */
+    82→function GreetingHero({ successToday }: { successToday: number }) {
+    83→  const { greeting, dateLabel } = useMemo(() => {
+    84→    if (typeof window === 'undefined') {
+    85→      return { greeting: 'Selamat datang 👋', dateLabel: '' };
+    86→    }
+    87→    const { hours } = jakartaNowParts();
+    88→    const greeting =
+    89→      hours >= 4 && hours < 11
+    90→        ? 'Selamat pagi 🌤'
+    91→        : hours >= 11 && hours < 15
+    92→          ? 'Selamat siang ☀️'
+    93→          : hours >= 15 && hours < 19
+    94→            ? 'Selamat sore 🌇'
+    95→            : 'Selamat malam 🌙';
+    96→    const [y, m, d] = jakartaDateString().split('-').map(Number);
+    97→    const dateLabel = new Intl.DateTimeFormat('id-ID', {
+    98→      weekday: 'long',
+    99→      day: 'numeric',
+   100→      month: 'long',
+   101→      year: 'numeric',
+   102→    }).format(new Date(y, m - 1, d));
+   103→    return { greeting, dateLabel };
+   104→  }, []);
+   105→
+   106→  return (
+   107→    <div className="premium-hero">
+   108→      <div className="premium-hero-bubbles" aria-hidden="true" />
+   109→      <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 px-5 py-5 sm:px-6">
+   110→        <div className="premium-fade-up min-w-0">
+   111→          <h2 className="text-lg font-bold tracking-tight sm:text-xl">{greeting}</h2>
+   112→          {dateLabel && <p className="mt-1 text-[13px] font-medium opacity-90">{dateLabel}</p>}
+   113→        </div>
+   114→        <div
+   115→          className="premium-fade-up flex shrink-0 items-center gap-3 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5"
+   116→          style={{ animationDelay: '120ms' }}
+   117→        >
+   118→          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/25 bg-white/10">
+   119→            <Zap className="h-4.5 w-4.5" aria-hidden="true" />
+   120→          </span>
+   121→          <span className="block leading-none">
+   122→            <span className="premium-stat block text-xl sm:text-2xl">{Math.round(successToday)}%</span>
+   123→            <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
+   124→              Hari ini
+   125→            </span>
+   126→          </span>
+   127→        </div>
+   128→      </div>
+   129→    </div>
+   130→  );
+   131→}
+   132→
+   133→export default function Dashboard() {
+   134→  const refreshKey = useAppStore(s => s.refreshKey);
+   135→  const queryClient = useQueryClient();
+   136→  const primaryColor = useThemeColor('primary');
+   137→  const [period, setPeriod] = useState<Period>('all');
+   138→  const [retryCount, setRetryCount] = useState(0);
+   139→
+   140→  // ── Dashboard data (TanStack Query) ────────────────────────────────────
+   141→  // Replaces manual useEffect + useState + fetch pattern.
+   142→  // Benefits: automatic dedup, background refetch, cache sharing, race-free.
+   143→  const { data: data, isFetching: fetching, isError: fetchError } = useQuery({
+   144→    queryKey: ['dashboard', period, refreshKey, retryCount],
+   145→    queryFn: async () => {
+   146→      const res = await fetch(`/api/dashboard?period=${period}`);
+   147→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   148→      const json = await res.json();
+   149→      if (json.error) throw new Error(json.error);
+   150→      return json as DashboardData;
+   151→    },
+   152→    retry: 1,
+   153→  });
+   154→
+   155→  // ── Motivational quote (TanStack Query) ────────────────────────────────
+   156→  const { data: quoteData, isLoading: quoteLoading } = useQuery<{
+   157→    quote?: string;
+   158→    translation?: string;
+   159→    author?: string;
+   160→  }>({
+   161→    queryKey: ['motivational-quote'],
+   162→    queryFn: async () => {
+   163→      const r = await fetch('/api/motivational-quote');
+   164→      return r.json();
+   165→    },
+   166→    staleTime: Infinity, // quote doesn't change unless user manually refreshes
+   167→  });
+   168→
+   169→  const quote: MotivationalQuote | null = quoteData?.quote
+   170→    ? { quote: quoteData.quote, translation: quoteData.translation || '', author: quoteData.author || '' }
+   171→    : null;
+   172→
+   173→  const loading = data === undefined && !fetchError;
+   174→
+   175→  const handlePeriodChange = (newPeriod: Period) => {
+   176→    setPeriod(newPeriod);
+   177→  };
+   178→
+   179→  const handleRefreshQuote = () => {
+   180→    // Force refetch with a fresh request (bypass cache)
+   181→    queryClient.invalidateQueries({ queryKey: ['motivational-quote'] });
+   182→  };
+   183→
+   184→  const insights = useMemo(() => {
+   185→    if (!data) return [];
+   186→    const items: { icon: React.ReactNode; text: string; type: 'success' | 'info' | 'warning' }[] = [];
+   187→
+   188→    if (data.currentStreak >= 7) {
+   189→      items.push({
+   190→        icon: <span className="chip-soft chip-soft-amber h-8 w-8"><Flame className="h-4 w-4" /></span>,
+   191→        text: `Streak ${data.currentStreak} hari berjalan — terus pertahankan!`,
+   192→        type: 'success',
+   193→      });
+   194→    } else if (data.currentStreak >= 3) {
+   195→      items.push({
+   196→        icon: <span className="chip-soft chip-soft-amber h-8 w-8"><Flame className="h-4 w-4" /></span>,
+   197→        text: `Streak ${data.currentStreak} hari — momentum mulai terbentuk!`,
+   198→        type: 'info',
+   199→      });
+   200→    }
+   201→
+   202→    if (data.weeklyChartData.length > 0) {
+   203→      const bestDay = data.weeklyChartData.reduce((best, d) => (d.rate > best.rate ? d : best), data.weeklyChartData[0]);
+   204→      items.push({
+   205→        icon: <span className="chip-soft chip-soft-teal h-8 w-8"><Trophy className="h-4 w-4" /></span>,
+   206→        text: `Hari terbaik minggu ini: ${bestDay.day} (${bestDay.rate}%).`,
+   207→        type: 'info',
+   208→      });
+   209→    }
+   210→
+   211→    if (data.completionRate >= 80) {
+   212→      items.push({
+   213→        icon: <span className="chip-soft chip-soft-teal h-8 w-8"><Star className="h-4 w-4" /></span>,
+   214→        text: 'Luar biasa! Tingkat penyelesaianmu di atas 80%.',
+   215→        type: 'success',
+   216→      });
+   217→    } else if (data.completionRate < 50 && data.totalHabits > 0) {
+   218→      items.push({
+   219→        icon: <span className="chip-soft chip-soft-rose h-8 w-8"><AlertTriangle className="h-4 w-4" /></span>,
+   220→        text: 'Tingkat penyelesaikanmu di bawah 50%. Coba kurangi jumlah habit.',
+   221→        type: 'warning',
+   222→      });
+   223→    }
+   224→
+   225→    if (data.productivityScore >= 80) {
+   226→      items.push({
+   227→        icon: <span className="chip-soft chip-soft-violet h-8 w-8"><Brain className="h-4 w-4" /></span>,
+   228→        text: `Skor produktivitas tinggi: ${data.productivityScore}%!`,
+   229→        type: 'success',
+   230→      });
+   231→    }
+   232→
+   233→    return items.slice(0, 3);
+   234→  }, [data]);
+   235→
+   236→  // Chart label for the period
+   237→  const chartLabel = useMemo(() => {
+   238→    switch (period) {
+   239→      case '7d': return '7 Hari';
+   240→      case '1m': return '30 Hari';
+   241→      case '3m': return '90 Hari';
+   242→      case 'all': return 'Semua';
+   243→      default: return '30 Hari';
+   244→    }
+   245→  }, [period]);
+   246→
+   247→  if (loading) {
+   248→    return (
+   249→      <div className="space-y-6">
+   250→        <Skeleton className="h-[88px] w-full rounded-2xl" />
+   251→        <Skeleton className="h-24 w-full rounded-2xl" />
+   252→        <Skeleton className="h-10 w-64 rounded-full" />
+   253→        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+   254→          {Array.from({ length: 15 }).map((_, i) => (
+   255→            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+   256→          ))}
+   257→        </div>
+   258→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   259→          <Skeleton className="h-80 w-full rounded-2xl" />
+   260→          <Skeleton className="h-80 w-full rounded-2xl" />
+   261→          <Skeleton className="h-80 w-full rounded-2xl" />
+   262→        </div>
+   263→        <Skeleton className="h-72 w-full rounded-2xl" />
+   264→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   265→          <Skeleton className="h-64 w-full rounded-2xl" />
+   266→          <Skeleton className="h-64 w-full rounded-2xl" />
+   267→        </div>
+   268→      </div>
+   269→    );
+   270→  }
+   271→
+   272→  const displayData = data || DEFAULT_DATA;
+   273→  const weeklyBarData = displayData.weeklyChartData.map((d) => ({
+   274→    ...d,
+   275→    label: d.day.slice(0, 3),
+   276→  }));
+   277→
+   278→  const priorityVariant = (p?: string) => {
+   279→    // Guard against null/undefined — previously crashed on .toLowerCase()
+   280→    // if a habit had a missing priority field.
+   281→    switch ((p ?? 'medium').toLowerCase()) {
+   282→      case 'high':
+   283→        return 'destructive' as const;
+   284→      case 'medium':
+   285→        return 'default' as const;
+   286→      default:
+   287→        return 'secondary' as const;
+   288→    }
+   289→  };
+   290→
+   291→  return (
+   292→    <div className="app-ambience space-y-6">
+   293→      {/* ── Hero Greeting (Rutina Aurora) ───────────────────────── */}
+   294→      <GreetingHero successToday={displayData.successToday} />
+   295→
+   296→      {fetchError && !fetching && (
+   297→        <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">
+   298→          <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
+   299→          <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
+   300→            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+   301→            Coba Lagi
+   302→          </Button>
+   303→        </div>
+   304→      )}
+   305→
+   306→      {/* ── Motivational Quote Card (glass tinted) ──────────────── */}
+   307→      <div className="premium-quote">
+   308→        <div className="pointer-events-none absolute right-4 top-4 opacity-10" aria-hidden="true">
+   309→          <Quote className="h-14 w-14 text-primary" />
+   310→        </div>
+   311→        <div className="relative z-10 p-5">
+   312→          {quoteLoading ? (
+   313→            <div className="flex items-center gap-3 flex-wrap gap-y-2">
+   314→              <Skeleton className="h-8 w-8 rounded-xl" />
+   315→              <div className="flex-1 space-y-2">
+   316→                <Skeleton className="h-4 w-full" />
+   317→                <Skeleton className="h-4 w-3/4" />
+   318→              </div>
+   319→            </div>
+   320→          ) : quote ? (
+   321→            <QuoteDisplay quote={quote} onRefresh={handleRefreshQuote} />
+   322→          ) : null}
+   323→        </div>
+   324→      </div>
+   325→
+   326→      {/* ── Period Filter ──────────────────────────────────────── */}
+   327→      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+   328→        <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+   329→        <span className="premium-label">Periode</span>
+   330→        <PeriodFilter period={period} onPeriodChange={handlePeriodChange} />
+   331→        {period !== 'all' && (
+   332→          <Badge variant="secondary" className="text-xs">
+   333→            Data {PERIOD_OPTIONS.find(p => p.value === period)?.label}
+   334→          </Badge>
+   335→        )}
+   336→        {fetching && (
+   337→          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+   338→            <div className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+   339→            Memuat...
+   340→          </div>
+   341→        )}
+   342→      </div>
+   343→
+   344→      {/* ── KPI Cards Grid ──────────────────────────────────────── */}
+   345→      <section aria-label="Key metrics">
+   346→        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+   347→          {[
+   348→            { label: 'Total Habit', icon: Target, chip: 'chip-teal', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'habit aktif', key: 'habits' },
+   349→            { label: 'Tingkat Selesai', icon: CheckCircle, chip: 'chip-emerald', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
+   350→            { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
+   351→            { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
+   352→            { label: 'Hari Ini', icon: Zap, chip: 'chip-lime', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
+   353→            { label: '7 Hari', icon: CalendarDays, chip: 'chip-sky', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, key: 'weekly' },
+   354→            { label: '30 Hari', icon: TrendingUp, chip: 'chip-teal', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, key: 'monthly' },
+   355→            { label: 'Total XP', icon: Star, chip: 'chip-amber', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
+   356→            { label: 'Level', icon: Award, chip: 'chip-violet', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
+   357→            { label: 'Lencana', icon: Award, chip: 'chip-rose', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
+   358→            { label: 'Skor', icon: Brain, chip: 'chip-emerald', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
+   359→            { label: 'Target', icon: Flag, chip: 'chip-sky', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
+   360→            { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
+   361→            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'jam / malam', key: 'sleep' },
+   362→          ].map((card, i) => {
+   363→            const Icon = card.icon;
+   364→            // Hide non-essential KPI cards on mobile (< 640px) to reduce
+   365→            // cognitive overload. → 6 on mobile.
+   366→            // Hidden: longest, success, weekly, monthly, level, badges,
+   367→            // productivity, goals.
+   368→            // Visible: habits, completion, streak, xp, mood, sleep.
+   369→            // NOTE: kartu "Tantangan" (challengeProgress) dihapus — API tidak
+   370→            // pernah mengirim field itu (fitur belum ada di backend), jadi
+   371→            // kartunya selalu menampilkan "%" tanpa angka (tampak rusak).
+   372→            const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'goals']);
+   373→            const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
+   374→            return (
+   375→              <div
+   376→                key={card.key}
+   377→                className={cn('premium-card premium-card-sheen anim-stagger rounded-2xl p-4', isHiddenOnMobile && 'hidden sm:block')}
+   378→                style={{ animationDelay: `${i * 50}ms` }}
+   379→              >
+   380→                <div className="flex items-center gap-2.5">
+   381→                  <span className={cn('chip-icon h-9 w-9', card.chip)}>
+   382→                    <Icon className={cn('h-4.5 w-4.5', card.iconClass)} />
+   383→                  </span>
+   384→                  <span className="premium-label min-w-0 leading-tight">{card.label}</span>
+   385→                </div>
+   386→                <div className="premium-stat mt-3 text-xl sm:text-2xl">{card.value}</div>
+   387→                {card.progress !== undefined && (
+   388→                  <div className="mt-2 flex items-center gap-1">
+   389→                    <Progress value={card.progress} className="h-1.5 flex-1" />
+   390→                    {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
+   391→                  </div>
+   392→                )}
+   393→                {card.sub && <p className="mt-1.5 text-xs text-muted-foreground">{card.sub}</p>}
+   394→              </div>
+   395→            );
+   396→          })}
+   397→        </div>
+   398→      </section>
+   399→
+   400→      {/* ── Weekly Review + AI Insights ──────────────────────────── */}
+   401→      <ScrollReveal>
+   402→        <WeeklyReview />
+   403→      </ScrollReveal>
+   404→
+   405→      {/* ── Progress Rings Section ───────────────────────────────── */}
+   406→      <ScrollReveal>
+   407→      <section aria-label="Progress overview">
+   408→        <div className="premium-card premium-card-sheen rounded-2xl p-5">
+   409→          <h3 className="premium-label mb-5 flex items-center gap-2">
+   410→            Ringkasan Progres
+   411→            <ChartInfo text="Persentase hari yang berhasil menyelesaikan minimal 1 habit dari total hari dalam periode yang dipilih." />
+   412→          </h3>
+   413→          <div className="flex items-center justify-around flex-wrap gap-6">
+   414→            <div className="relative">
+   415→              <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Keseluruhan" />
+   416→            </div>
+   417→            <div className="relative">
+   418→              <ProgressRing value={displayData.weeklyCompletion} size={110} strokeWidth={10} color="stroke-primary" label="Minggu Ini" />
+   419→            </div>
+   420→            <div className="relative">
+   421→              <ProgressRing value={displayData.monthlyCompletion} size={110} strokeWidth={10} color="stroke-teal-500" label="Bulan Ini" />
+   422→            </div>
+   423→          </div>
+   424→        </div>
+   425→      </section>
+   426→      </ScrollReveal>
+   427→
+   428→      <ScrollReveal delay={100}>
+   429→      <DashboardCharts
+   430→        weeklyBarData={weeklyBarData}
+   431→        categoryPerformance={displayData.categoryPerformance}
+   432→        monthlyChartData={displayData.monthlyChartData}
+   433→        stackedBarData={displayData.stackedBarData}
+   434→        weeklyPattern={displayData.weeklyPattern}
+   435→        chartLabel={chartLabel}
+   436→      />
+   437→      </ScrollReveal>
+   438→
+   439→      {/* PHASE3-HABIT — Hourly consistency heatmap ("Kapan paling konsisten?").
+   440→          Shows which hours of the day the user most consistently completes
+   441→          habits, across ALL habits (not per-habit). Period matches the
+   442→          dashboard's selected period (7d/1m/3m → 7/30/90 days; all → 365). */}
+   443→      <ScrollReveal delay={150}>
+   444→        <HourlyConsistency
+   445→          periodDays={
+   446→            period === '7d' ? 7 :
+   447→            period === '1m' ? 30 :
+   448→            period === '3m' ? 90 : 365
+   449→          }
+   450→        />
+   451→      </ScrollReveal>
+   452→
+   453→      {/* ── Time-Tracked Habits (Waktu Habit Minggu Ini) ────────────── */}
+   454→      <TimeTrackedHabits data={displayData.timeTrackedSummary} primaryColor={primaryColor} />
+   455→
+   456→      {/* ── Last Done (Terakhir Dilakukan) ─────────────────────────── */}
+   457→      <LastDoneSummaryCard data={displayData.lastDoneSummary} />
+   458→
+   459→      {/* ── Bottom Row: Leaderboard + Today's Focus ─────────────── */}
+   460→      <section aria-label="Details" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   461→        <div className="premium-card premium-card-sheen rounded-2xl p-5">
+   462→          <h3 className="premium-label mb-4 flex items-center gap-2">
+   463→            Peringkat Habit
+   464→            <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
+   465→          </h3>
+   466→          <div className="grid grid-cols-2 gap-3">
+   467→            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 p-4 text-center dark:border-primary/20 dark:bg-primary/10">
+   468→              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-primary">
+   469→                <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+   470→                Performa Terbaik
+   471→              </div>
+   472→              <span className="chip-soft chip-soft-teal h-11 w-11 text-xl" aria-hidden="true">{displayData.bestHabit.icon}</span>
+   473→              <span className="text-sm font-semibold leading-tight">{displayData.bestHabit.name}</span>
+   474→              <span className="premium-stat text-xl text-primary">{displayData.bestHabit.rate}%</span>
+   475→              <Crown className="h-4 w-4 text-amber-500" aria-hidden="true" />
+   476→            </div>
+   477→            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center dark:border-orange-400/20 dark:bg-orange-400/10">
+   478→              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-600 dark:text-orange-400">
+   479→                <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
+   480→                Perlu Perhatian
+   481→              </div>
+   482→              <span className="chip-soft chip-soft-amber h-11 w-11 text-xl" aria-hidden="true">{displayData.worstHabit.icon}</span>
+   483→              <span className="text-sm font-semibold leading-tight">{displayData.worstHabit.name}</span>
+   484→              <span className="premium-stat text-xl text-orange-600 dark:text-orange-400">{displayData.worstHabit.rate}%</span>
+   485→              <AlertTriangle className="h-4 w-4 text-orange-500" aria-hidden="true" />
+   486→            </div>
+   487→          </div>
+   488→        </div>
+   489→
+   490→        <div className="premium-card premium-card-sheen rounded-2xl p-5">
+   491→          <div className="mb-4 flex items-center justify-between gap-3">
+   492→            <h3 className="premium-label flex items-center gap-2">
+   493→              Fokus Hari Ini
+   494→              <ChartInfo text="Menampilkan daftar habit yang belum diselesaikan hari ini. Urut berdasarkan prioritas." />
+   495→            </h3>
+   496→            <Badge variant="secondary" className="text-xs">
+   497→              {displayData.todayFocus.length} tersisa
+   498→            </Badge>
+   499→          </div>
+   500→          {displayData.todayFocus.length === 0 ? (
+   501→            <div className="premium-empty">
+   502→              <div className="premium-empty-orb">
+   503→                <CheckCircle className="h-8 w-8 text-primary" aria-hidden="true" />
+   504→              </div>
+   505→              <p className="text-sm font-medium">Semua selesai untuk hari ini! 🎉</p>
+   506→            </div>
+   507→          ) : (
+   508→            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+   509→              {displayData.todayFocus.map((habit) => (
+   510→                <div
+   511→                  key={habit.id}
+   512→                  className="flex items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-muted/50"
+   513→                >
+   514→                  <div className="flex items-center gap-2.5 min-w-0">
+   515→                    <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base" aria-hidden="true">{habit.icon}</span>
+   516→                    <span className="text-sm font-medium truncate">{habit.name}</span>
+   517→                  </div>
+   518→                  <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-xs">
+   519→                    {habit.priority}
+   520→                  </Badge>
+   521→                </div>
+   522→              ))}
+   523→            </div>
+   524→          )}
+   525→        </div>
+   526→      </section>
+   527→
+   528→      {/* ── Keuangan Bulan Ini ────────────────────────────────────────── */}
+   529→      <FinanceOverviewCard data={displayData.financeOverview} />
+   530→
+   531→      {/* ── Per-Habit Performance Table ───────────────────────────────── */}
+   532→      {displayData.habitDetailStats.length > 0 && (
+   533→        <section aria-label="Habit details">
+   534→          <div className="premium-card premium-card-sheen rounded-2xl p-5">
+   535→            <h3 className="premium-label mb-4 flex items-center gap-2">
+   536→              Performa Per Habit
+   537→              <ChartInfo text="Detail statistik per habit termasuk jumlah hari selesai, completion rate, dan streak terkini dalam periode yang dipilih." />
+   538→            </h3>
+   539→            <div className="max-h-80 overflow-y-auto pr-1">
+   540→              <div className="space-y-2">
+   541→                {displayData.habitDetailStats.map((habit) => (
+   542→                  <div
+   543→                    key={habit.id}
+   544→                    className="flex items-center gap-3 rounded-xl border border-border/70 p-3 transition-colors hover:bg-muted/30"
+   545→                  >
+   546→                    <span className="chip-soft chip-soft-teal h-10 w-10 shrink-0 text-lg" aria-hidden="true">{habit.icon}</span>
+   547→                    <div className="flex-1 min-w-0">
+   548→                      <div className="flex items-center justify-between mb-1">
+   549→                        <span className="text-sm font-medium truncate">{habit.name}</span>
+   550→                        <div className="flex items-center gap-2 shrink-0 ml-2">
+   551→                          {habit.streak > 0 && (
+   552→                            <span className="flex items-center gap-0.5 text-xs text-orange-500">
+   553→                              <Flame className="h-3 w-3" aria-hidden="true" />{habit.streak}
+   554→                            </span>
+   555→                          )}
+   556→                          <span className="text-xs font-bold">{habit.rate}%</span>
+   557→                        </div>
+   558→                      </div>
+   559→                      <div className="flex items-center gap-2">
+   560→                        <Progress value={habit.rate} className="h-1.5 flex-1" />
+   561→                        <span className="text-xs text-muted-foreground shrink-0">
+   562→                          {habit.completed}/{habit.total}
+   563→                        </span>
+   564→                      </div>
+   565→                    </div>
+   566→                  </div>
+   567→                ))}
+   568→              </div>
+   569→            </div>
+   570→          </div>
+   571→        </section>
+   572→      )}
+   573→
+   574→      {/* ── Quick Insights ──────────────────────────────────────── */}
+   575→      {insights.length > 0 && (
+   576→        <section aria-label="Quick insights">
+   577→          <div className="mb-3 flex items-center gap-2">
+   578→            <span className="chip-soft chip-soft-violet h-7 w-7" aria-hidden="true">
+   579→              <Sparkles className="h-3.5 w-3.5" />
+   580→            </span>
+   581→            <h3 className="premium-label flex items-center gap-2">
+   582→              Insight Cepat
+   583→              <ChartInfo text="Analisis otomatis berdasarkan data habit 30 hari terakhir. Dibandingkan dengan periode sebelumnya." />
+   584→            </h3>
+   585→          </div>
+   586→          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   587→            {insights.map((insight, i) => (
+   588→              <Card
+   589→                key={i}
+   590→                className={cn(
+   591→                  'rounded-xl p-4',
+   592→                  insight.type === 'success' && 'border-primary/20 bg-primary/5',
+   593→                  insight.type === 'warning' && 'border-orange-500/25 bg-orange-500/5 dark:border-orange-400/20 dark:bg-orange-400/10',
+   594→                  insight.type === 'info' && 'border-primary/15 bg-primary/[0.04]'
+   595→                )}
+   596→              >
+   597→                <CardContent className="p-0 flex items-start gap-3">
+   598→                  <div className="mt-0.5 shrink-0">{insight.icon}</div>
+   599→                  <p className="text-sm text-muted-foreground leading-relaxed">{insight.text}</p>
+   600→                </CardContent>
+   601→              </Card>
+   602→            ))}
+   603→          </div>
+   604→        </section>
+   605→      )}
+   606→    </div>
+   607→  );
+   608→}
+   609→

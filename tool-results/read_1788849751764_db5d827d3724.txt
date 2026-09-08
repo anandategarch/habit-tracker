@@ -1,0 +1,846 @@
+     1→'use client';
+     2→
+     3→import { useState, useCallback, useEffect, useRef } from 'react';
+     4→import { useQuery, useQueryClient } from '@tanstack/react-query';
+     5→import { PageHeader } from '@/components/ui/page-header';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import {
+    10→  Select,
+    11→  SelectContent,
+    12→  SelectItem,
+    13→  SelectTrigger,
+    14→  SelectValue,
+    15→} from '@/components/ui/select';
+    16→import { Separator } from '@/components/ui/separator';
+    17→import {
+    18→  AlertDialog,
+    19→  AlertDialogCancel,
+    20→  AlertDialogContent,
+    21→  AlertDialogDescription,
+    22→  AlertDialogFooter,
+    23→  AlertDialogHeader,
+    24→  AlertDialogTitle,
+    25→  AlertDialogTrigger,
+    26→} from '@/components/ui/alert-dialog';
+    27→import { cn } from '@/lib/utils';
+    28→import { toast } from 'sonner';
+    29→import { useAppStore } from '@/store/app-store';
+    30→import dynamic from 'next/dynamic';
+    31→import LabelManager from './label-manager';
+    32→
+    33→const HabitMaster = dynamic(() => import('./habit-master'), { ssr: false });
+    34→import {
+    35→  Settings as SettingsIcon,
+    36→  User,
+    37→  Palette,
+    38→  Globe,
+    39→  Save,
+    40→  Database,
+    41→  Trash2,
+    42→  AlertTriangle,
+    43→  Loader2,
+    44→  Upload,
+    45→  FileSpreadsheet,
+    46→  HardDriveDownload,
+    47→  Check,
+    48→  ListChecks,
+    49→  Pipette,
+    50→} from 'lucide-react';
+    51→import {
+    52→  applyThemeColors,
+    53→  applyThemeMode,
+    54→  resetThemeColors,
+    55→  THEME_PRESETS,
+    56→  CURATED_THEME_PRESETS,
+    57→  type ThemePreset,
+    58→} from '@/lib/theme-utils';
+    59→import type { AppSettings, SettingsFormState, SettingsSection } from './settings-types';
+    60→import { SectionCard, FormRow } from './settings-ui';
+    61→import { LoadingSkeleton } from './settings-skeleton';
+    62→import { AppLockSection } from './app-lock-settings';
+    63→
+    64→/** Live preview theme colors without saving to DB */
+    65→function previewTheme(primary: string, secondary: string, theme: string) {
+    66→  const isDark = theme === 'dark';
+    67→  applyThemeMode(isDark);
+    68→
+    69→  if (
+    70→    primary.toLowerCase() === '#22c55e' &&
+    71→    secondary.toLowerCase() === '#10b981'
+    72→  ) {
+    73→    resetThemeColors();
+    74→  } else {
+    75→    applyThemeColors(primary, secondary, isDark);
+    76→  }
+    77→}
+    78→
+    79→export default function Settings() {
+    80→  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+    81→  const queryClient = useQueryClient();
+    82→  const [activeSection, setActiveSection] = useState<SettingsSection>('umum');
+    83→  // BUGHUNT-ROUND2 FAB-1: FAB "Habit Baru" navigates to this tab and sets
+    84→  // quickAddAction='habit'. Switch to the Habit Master section so the
+    85→  // HabitMaster component mounts (it consumes + clears the action and
+    86→  // opens its add-habit dialog). Deliberately does NOT clear the action
+    87→  // here — HabitMaster owns the consumption.
+    88→  const quickAddAction = useAppStore(s => s.quickAddAction);
+    89→  useEffect(() => {
+    90→    if (quickAddAction === 'habit') {
+    91→      setActiveSection('habits');
+    92→    }
+    93→  }, [quickAddAction]);
+    94→  const [saving, setSaving] = useState(false);
+    95→  const [resetting, setResetting] = useState(false);
+    96→  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+    97→  const [exporting, setExporting] = useState(false);
+    98→  const [importing, setImporting] = useState(false);
+    99→  const [importDialogOpen, setImportDialogOpen] = useState(false);
+   100→  const fileInputRef = useRef<HTMLInputElement>(null);
+   101→
+   102→  // Local form state
+   103→  const [form, setForm] = useState<SettingsFormState>({
+   104→    userName: '',
+   105→    theme: 'light',
+   106→    primaryColor: '#22c55e',
+   107→    secondaryColor: '#10b981',
+   108→    weekStart: 'monday',
+   109→    language: 'en',
+   110→    targetCompletion: 80,
+   111→  });
+   112→
+   113→  const updateField = useCallback(<K extends keyof SettingsFormState>(key: K, value: SettingsFormState[K]) => {
+   114→    setForm((prev) => {
+   115→      const next = { ...prev, [key]: value };
+   116→      // Live preview for theme-related changes
+   117→      if (key === 'primaryColor' || key === 'secondaryColor' || key === 'theme') {
+   118→        previewTheme(next.primaryColor, next.secondaryColor, next.theme);
+   119→      }
+   120→      return next;
+   121→    });
+   122→  }, []);
+   123→
+   124→  /** Check if a preset matches current form colors */
+   125→  const isPresetActive = (preset: ThemePreset) =>
+   126→    form.primaryColor.toLowerCase() === preset.primaryColor.toLowerCase() &&
+   127→    form.secondaryColor.toLowerCase() === preset.secondaryColor.toLowerCase();
+   128→
+   129→  /** True when current colors don't match any curated/basic preset → "Kustom" mode */
+   130→  const isCustomActive =
+   131→    !CURATED_THEME_PRESETS.some(isPresetActive) &&
+   132→    !THEME_PRESETS.some(isPresetActive);
+   133→
+   134→  /** Apply a preset and live-preview it */
+   135→  const applyPreset = (preset: ThemePreset) => {
+   136→    setForm((prev) => {
+   137→      const next = { ...prev, primaryColor: preset.primaryColor, secondaryColor: preset.secondaryColor };
+   138→      previewTheme(next.primaryColor, next.secondaryColor, next.theme);
+   139→      return next;
+   140→    });
+   141→  };
+   142→
+   143→  // Scroll target for "Kustom" card click → focus the custom color picker section
+   144→  const customColorRef = useRef<HTMLDivElement>(null);
+   145→  const focusCustomPicker = useCallback(() => {
+   146→    customColorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+   147→    // Briefly flash the picker to draw attention
+   148→    customColorRef.current?.classList.add('ring-2', 'ring-primary');
+   149→    setTimeout(() => {
+   150→      customColorRef.current?.classList.remove('ring-2', 'ring-primary');
+   151→    }, 1200);
+   152→  }, []);
+   153→
+   154→  // ── Fetch settings (TanStack Query) ────────────────────────────────────
+   155→  const { data: settings = null, isLoading: loading } = useQuery<AppSettings>({
+   156→    queryKey: ['settings'],
+   157→    queryFn: async () => {
+   158→      const res = await fetch('/api/settings');
+   159→      if (!res.ok) throw new Error('Failed');
+   160→      return res.json();
+   161→    },
+   162→    staleTime: 60_000,
+   163→  });
+   164→
+   165→  // Sync settings → form state
+   166→  useEffect(() => {
+   167→    if (settings) {
+   168→      setForm({
+   169→        userName: settings.userName || '',
+   170→        theme: settings.theme || 'light',
+   171→        primaryColor: settings.primaryColor || '#22c55e',
+   172→        secondaryColor: settings.secondaryColor || '#10b981',
+   173→        weekStart: settings.weekStart || 'monday',
+   174→        language: settings.language || 'en',
+   175→        targetCompletion: settings.targetCompletion ?? 80,
+   176→      });
+   177→    }
+   178→  }, [settings]);
+   179→
+   180→  // ── Fetch DB stats (shares cache with other components) ──
+   181→  const { data: habitsData = [] } = useQuery<unknown[]>({
+   182→    queryKey: ['habits'],
+   183→    queryFn: async () => {
+   184→      const r = await fetch('/api/habits');
+   185→      if (!r.ok) return [];
+   186→      return r.json();
+   187→    },
+   188→    staleTime: 60_000,
+   189→  });
+   190→
+   191→  const { data: logsData = [] } = useQuery<unknown[]>({
+   192→    queryKey: ['daily-logs-all'],
+   193→    queryFn: async () => {
+   194→      // BUGHUNT-OTHER-1 BUG-H2: pass ?all=true so the API returns ALL
+   195→      // all-time logs instead of defaulting to the last 30 days. The
+   196→      // "Total Logs" / "Days Tracked" stats below otherwise undercount
+   197→      // for users with >30 days of history.
+   198→      const r = await fetch('/api/daily-logs?all=true');
+   199→      if (!r.ok) return [];
+   200→      return r.json();
+   201→    },
+   202→    staleTime: 60_000,
+   203→  });
+   204→
+   205→  const dbStats: { habits: number; logs: number; days: number } | null = settings ? {
+   206→    habits: Array.isArray(habitsData) ? habitsData.length : 0,
+   207→    logs: Array.isArray(logsData) ? logsData.length : 0,
+   208→    // "Days Tracked" = number of unique days with daily-log entries.
+   209→    // DailyLog has a unique constraint on date, so length = unique days.
+   210→    days: Array.isArray(logsData) ? logsData.length : 0,
+   211→  } : null;
+   212→
+   213→  const handleSave = useCallback(async () => {
+   214→    setSaving(true);
+   215→    try {
+   216→      const res = await fetch('/api/settings', {
+   217→        method: 'PUT',
+   218→        headers: { 'Content-Type': 'application/json' },
+   219→        body: JSON.stringify(form),
+   220→      });
+   221→      if (res.ok) {
+   222→        toast.success('Pengaturan berhasil disimpan');
+   223→        // Notify ThemeProvider to persist the current theme
+   224→        const savedSettings = await res.json();
+   225→        sessionStorage.setItem('rutina_settings', JSON.stringify(savedSettings));
+   226→        queryClient.invalidateQueries({ queryKey: ['settings'] });
+   227→        // Dispatch theme-change event so chart components (useThemeColor)
+   228→        // re-read CSS variables immediately without waiting for window focus.
+   229→        window.dispatchEvent(new CustomEvent('rutina:theme-change', { detail: savedSettings }));
+   230→      } else {
+   231→        toast.error('Gagal menyimpan pengaturan');
+   232→      }
+   233→    } catch {
+   234→      toast.error('Gagal menyimpan pengaturan');
+   235→    } finally {
+   236→      setSaving(false);
+   237→    }
+   238→  }, [form, queryClient]);
+   239→
+   240→  const handleExportJSON = useCallback(async () => {
+   241→    setExporting(true);
+   242→    try {
+   243→      const res = await fetch('/api/data/export');
+   244→      if (!res.ok) throw new Error();
+   245→      const blob = await res.blob();
+   246→      const url = URL.createObjectURL(blob);
+   247→      const a = document.createElement('a');
+   248→      a.href = url;
+   249→      a.download = `rutina-backup-${new Date().toISOString().slice(0, 10)}.json`;
+   250→      a.click();
+   251→      URL.revokeObjectURL(url);
+   252→      toast.success('Backup berhasil diunduh! 📦');
+   253→    } catch {
+   254→      toast.error('Gagal mengunduh backup');
+   255→    } finally {
+   256→      setExporting(false);
+   257→    }
+   258→  }, []);
+   259→
+   260→  const handleExportCSV = useCallback(async () => {
+   261→    setExporting(true);
+   262→    try {
+   263→      const res = await fetch('/api/data/export-csv');
+   264→      if (!res.ok) throw new Error();
+   265→      const blob = await res.blob();
+   266→      const url = URL.createObjectURL(blob);
+   267→      const a = document.createElement('a');
+   268→      a.href = url;
+   269→      a.download = `rutina-data-${new Date().toISOString().slice(0, 10)}.zip`;
+   270→      a.click();
+   271→      URL.revokeObjectURL(url);
+   272→      const total = res.headers.get('X-Total-Records');
+   273→      const files = res.headers.get('X-Files-Count');
+   274→      toast.success(`Data berhasil diunduh! ${total ?? '?'} record dari ${files ?? '11'} file CSV 📊`);
+   275→    } catch {
+   276→      toast.error('Gagal mengunduh CSV');
+   277→    } finally {
+   278→      setExporting(false);
+   279→    }
+   280→  }, []);
+   281→
+   282→  const handleImportJSON = useCallback(async (file: File) => {
+   283→    setImporting(true);
+   284→    try {
+   285→      const text = await file.text();
+   286→      const data = JSON.parse(text);
+   287→      const res = await fetch('/api/data/import', {
+   288→        method: 'POST',
+   289→        headers: { 'Content-Type': 'application/json' },
+   290→        body: JSON.stringify(data),
+   291→      });
+   292→      if (!res.ok) {
+   293→        const err = await res.json();
+   294→        throw new Error(err.error || 'Import gagal');
+   295→      }
+   296→      const result = await res.json();
+   297→      toast.success(`Data berhasil diimport! ${result.total ?? 0} record dipulihkan 🎉`);
+   298→      setImportDialogOpen(false);
+   299→      triggerRefresh();
+   300→      queryClient.invalidateQueries();
+   301→    } catch (e) {
+   302→      toast.error(e instanceof Error ? e.message : 'Gagal import data. Pastikan file backup valid.');
+   303→    } finally {
+   304→      setImporting(false);
+   305→      if (fileInputRef.current) fileInputRef.current.value = '';
+   306→    }
+   307→  }, [triggerRefresh, queryClient]);
+   308→
+   309→  const handleResetAll = useCallback(async () => {
+   310→    setResetting(true);
+   311→    try {
+   312→      const res = await fetch('/api/reset-all', { method: 'DELETE' });
+   313→      if (res.ok) {
+   314→        toast.success('Semua data berhasil dihapus! Mulai dari awal ya 🎉');
+   315→        setResetDialogOpen(false);
+   316→        triggerRefresh();
+   317→        queryClient.invalidateQueries();
+   318→      } else {
+   319→        toast.error('Gagal menghapus data. Coba lagi.');
+   320→      }
+   321→    } catch {
+   322→      toast.error('Gagal menghapus data. Coba lagi.');
+   323→    } finally {
+   324→      setResetting(false);
+   325→    }
+   326→  }, [triggerRefresh, queryClient]);
+   327→
+   328→  if (loading) return <LoadingSkeleton />;
+   329→
+   330→  const SECTION_TABS = [
+   331→    { id: 'umum' as const, label: 'Umum', icon: SettingsIcon },
+   332→    { id: 'habits' as const, label: 'Habit Master', icon: ListChecks },
+   333→    { id: 'data' as const, label: 'Data', icon: Database },
+   334→  ];
+   335→
+   336→  return (
+   337→    <div className="space-y-6 max-w-4xl">
+   338→      {/* Header */}
+   339→      <PageHeader
+   340→        title="Pengaturan"
+   341→        description="Kelola preferensi, habits, dan data"
+   342→      />
+   343→
+   344→      {/* Sub-tabs */}
+   345→      <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+   346→        {SECTION_TABS.map((tab) => {
+   347→          const Icon = tab.icon;
+   348→          const isActive = activeSection === tab.id;
+   349→          return (
+   350→            <button
+   351→              key={tab.id}
+   352→              onClick={() => setActiveSection(tab.id)}
+   353→              className={cn(
+   354→                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150',
+   355→                isActive
+   356→                  ? 'bg-background text-foreground shadow-sm'
+   357→                  : 'text-muted-foreground hover:text-foreground'
+   358→              )}
+   359→            >
+   360→              <Icon className="h-3.5 w-3.5" />
+   361→              <span>{tab.label}</span>
+   362→            </button>
+   363→          );
+   364→        })}
+   365→      </div>
+   366→
+   367→      <Separator />
+   368→
+   369→      {/* ── HABITS SECTION ── */}
+   370→      {activeSection === 'habits' && <HabitMaster />}
+   371→
+   372→      {/* ── GENERAL SECTION ── */}
+   373→      {activeSection === 'umum' && (
+   374→        <div className="space-y-6">
+   375→          {/* Profile Section */}
+   376→          <SectionCard icon={User} title="Profil">
+   377→            <FormRow label="Nama User" description="Nama tampilan untuk akun kamu">
+   378→              <Input
+   379→                value={form.userName}
+   380→                onChange={(e) => updateField('userName', e.target.value)}
+   381→                placeholder="Masukkan nama kamu"
+   382→                className="h-9"
+   383→              />
+   384→            </FormRow>
+   385→          </SectionCard>
+   386→
+   387→          {/* Appearance Section */}
+   388→          <SectionCard icon={Palette} title="Tampilan">
+   389→            <FormRow label="Tema" description="Pilih tema favorit kamu">
+   390→              <Select value={form.theme} onValueChange={(v) => updateField('theme', v)}>
+   391→                <SelectTrigger className="h-9">
+   392→                  <SelectValue />
+   393→                </SelectTrigger>
+   394→                <SelectContent>
+   395→                  {/* BUGHUNT-OTHER-1 BUG-L3: schema allows 'system' (z.enum
+   396→                      ['light','dark','system']) and ThemeProvider now resolves
+   397→                      it via prefers-color-scheme — expose it in the UI so the
+   398→                      setting matches the schema. */}
+   399→                  <SelectItem value="light">Terang</SelectItem>
+   400→                  <SelectItem value="dark">Gelap</SelectItem>
+   401→                  <SelectItem value="system">Sistem</SelectItem>
+   402→                </SelectContent>
+   403→              </Select>
+   404→            </FormRow>
+   405→
+   406→            <Separator className="my-3" />
+   407→
+   408→            {/* Curated Theme Cards — 5 Indonesian-named presets + 1 "Kustom" card */}
+   409→            <div className="space-y-2.5">
+   410→              <div>
+   411→                <Label className="text-sm font-medium">Tema Pilihan</Label>
+   412→                <p className="text-xs text-muted-foreground">Pilih tema siap-pakai atau atur sendiri</p>
+   413→              </div>
+   414→              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+   415→                {CURATED_THEME_PRESETS.map((preset) => {
+   416→                  const active = isPresetActive(preset);
+   417→                  return (
+   418→                    <button
+   419→                      key={preset.name}
+   420→                      onClick={() => applyPreset(preset)}
+   421→                      className={cn(
+   422→                        'group relative flex flex-col gap-1.5 p-2 rounded-lg border-2 transition-all duration-150',
+   423→                        active
+   424→                          ? 'border-primary bg-primary/5 shadow-sm'
+   425→                          : 'border-border bg-card hover:border-primary/40 hover:bg-muted/50'
+   426→                      )}
+   427→                      title={`${preset.name} — ${preset.description}`}
+   428→                    >
+   429→                      {/* Color swatches row */}
+   430→                      <div className="flex h-6 w-full overflow-hidden rounded-md">
+   431→                        <div className="flex-1" style={{ backgroundColor: preset.primaryColor }} />
+   432→                        <div className="flex-1" style={{ backgroundColor: preset.secondaryColor }} />
+   433→                      </div>
+   434→                      <div className="flex items-center gap-1 min-w-0">
+   435→                        <span className="text-sm leading-none flex-shrink-0">{preset.emoji}</span>
+   436→                        <span className="text-xs font-medium truncate">{preset.name}</span>
+   437→                      </div>
+   438→                      {active && (
+   439→                        <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-background">
+   440→                          <Check className="h-3 w-3" />
+   441→                        </span>
+   442→                      )}
+   443→                    </button>
+   444→                  );
+   445→                })}
+   446→                {/* Kustom card */}
+   447→                <button
+   448→                  onClick={focusCustomPicker}
+   449→                  className={cn(
+   450→                    'group relative flex flex-col gap-1.5 p-2 rounded-lg border-2 border-dashed transition-all duration-150',
+   451→                    isCustomActive
+   452→                      ? 'border-primary bg-primary/5 shadow-sm'
+   453→                      : 'border-border bg-card hover:border-primary/40 hover:bg-muted/50'
+   454→                  )}
+   455→                  title="Pilih warna sendiri"
+   456→                >
+   457→                  <div
+   458→                    className="flex h-6 w-full overflow-hidden rounded-md"
+   459→                    style={{
+   460→                      background:
+   461→                        'linear-gradient(90deg, #f43f5e 0%, #f59e0b 20%, #84cc16 40%, #14b8a6 60%, #a855f7 80%, #64748b 100%)',
+   462→                    }}
+   463→                  />
+   464→                  <div className="flex items-center gap-1 min-w-0">
+   465→                    <Pipette className="h-3.5 w-3.5 flex-shrink-0" />
+   466→                    <span className="text-xs font-medium truncate">Kustom</span>
+   467→                  </div>
+   468→                  {isCustomActive && (
+   469→                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-background">
+   470→                      <Check className="h-3 w-3" />
+   471→                    </span>
+   472→                  )}
+   473→                </button>
+   474→              </div>
+   475→            </div>
+   476→
+   477→            <Separator className="my-3" />
+   478→
+   479→            {/* Quick presets — compact buttons (existing) */}
+   480→            <div className="space-y-2">
+   481→              <Label className="text-xs text-muted-foreground">Preset Cepat</Label>
+   482→              <div className="flex flex-wrap gap-1.5">
+   483→                {THEME_PRESETS.map((preset) => {
+   484→                  const active = isPresetActive(preset);
+   485→                  return (
+   486→                    <button
+   487→                      key={preset.name}
+   488→                      onClick={() => applyPreset(preset)}
+   489→                      className={cn(
+   490→                        'group relative flex items-center gap-1 px-2 py-1.5 rounded-md border transition-all duration-150',
+   491→                        active
+   492→                          ? 'border-primary bg-primary/5 shadow-sm'
+   493→                          : 'border-transparent bg-muted/50 hover:bg-muted hover:border-border'
+   494→                      )}
+   495→                      title={preset.name}
+   496→                    >
+   497→                      <span
+   498→                        className="h-3 w-3 rounded-full flex-shrink-0"
+   499→                        style={{ backgroundColor: preset.primaryColor }}
+   500→                      />
+   501→                      <span className="text-[11px] font-medium">{preset.name}</span>
+   502→                      {active && (
+   503→                        <Check className="h-3 w-3 text-primary" />
+   504→                      )}
+   505→                    </button>
+   506→                  );
+   507→                })}
+   508→              </div>
+   509→            </div>
+   510→
+   511→            <Separator className="my-3" />
+   512→
+   513→            {/* Custom color pickers — "Kustom" mode */}
+   514→            <div
+   515→              ref={customColorRef}
+   516→              className={cn(
+   517→                'space-y-3 rounded-lg p-3 transition-all duration-200',
+   518→                isCustomActive && 'bg-primary/5 border border-primary/30'
+   519→              )}
+   520→            >
+   521→              <div className="flex items-center gap-2">
+   522→                <Pipette className="h-4 w-4 text-primary" />
+   523→                <Label className="text-sm font-medium">Warna Kustom</Label>
+   524→              </div>
+   525→              <FormRow label="Warna Utama" description="Warna aksen utama">
+   526→                <div className="flex items-center gap-2">
+   527→                  <Input
+   528→                    type="color"
+   529→                    value={form.primaryColor}
+   530→                    onChange={(e) => updateField('primaryColor', e.target.value)}
+   531→                    className="h-9 w-12 p-1 cursor-pointer"
+   532→                  />
+   533→                  <Input
+   534→                    value={form.primaryColor}
+   535→                    onChange={(e) => {
+   536→                      const v = e.target.value;
+   537→                      if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateField('primaryColor', v);
+   538→                    }}
+   539→                    placeholder="#22c55e"
+   540→                    className="h-9 font-mono text-sm"
+   541→                  />
+   542→                </div>
+   543→              </FormRow>
+   544→
+   545→              <FormRow label="Warna Sekunder" description="Warna aksen pendamping">
+   546→                <div className="flex items-center gap-2">
+   547→                  <Input
+   548→                    type="color"
+   549→                    value={form.secondaryColor}
+   550→                    onChange={(e) => updateField('secondaryColor', e.target.value)}
+   551→                    className="h-9 w-12 p-1 cursor-pointer"
+   552→                  />
+   553→                  <Input
+   554→                    value={form.secondaryColor}
+   555→                    onChange={(e) => {
+   556→                      const v = e.target.value;
+   557→                      if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateField('secondaryColor', v);
+   558→                    }}
+   559→                    placeholder="#10b981"
+   560→                    className="h-9 font-mono text-sm"
+   561→                  />
+   562→                </div>
+   563→              </FormRow>
+   564→            </div>
+   565→
+   566→            {/* Live preview bar */}
+   567→            <div className="rounded-lg border border-border p-3 space-y-2">
+   568→              <p className="text-xs font-medium text-muted-foreground">Pratinjau</p>
+   569→              <div className="flex gap-2">
+   570→                <div className="flex-1 h-8 rounded-md flex items-center justify-center text-xs font-medium" style={{ backgroundColor: form.primaryColor, color: '#fff' }}>
+   571→                  Utama
+   572→                </div>
+   573→                <div className="flex-1 h-8 rounded-md flex items-center justify-center text-xs font-medium border border-border" style={{ backgroundColor: form.secondaryColor + '22', color: form.secondaryColor }}>
+   574→                  Sekunder
+   575→                </div>
+   576→              </div>
+   577→            </div>
+   578→          </SectionCard>
+   579→
+   580→          {/* Preferences Section */}
+   581→          <SectionCard icon={Globe} title="Preferensi">
+   582→            <FormRow label="Awal Minggu" description="Hari pertama dalam minggu">
+   583→              <Select value={form.weekStart} onValueChange={(v) => updateField('weekStart', v)}>
+   584→                <SelectTrigger className="h-9">
+   585→                  <SelectValue />
+   586→                </SelectTrigger>
+   587→                <SelectContent>
+   588→                  {/* L4 fix: schema also allows 'saturday' — expose it so the
+   589→                      setting matches what the API + calendar-view support. */}
+   590→                  <SelectItem value="monday">Senin</SelectItem>
+   591→                  <SelectItem value="sunday">Minggu</SelectItem>
+   592→                  <SelectItem value="saturday">Sabtu</SelectItem>
+   593→                </SelectContent>
+   594→              </Select>
+   595→            </FormRow>
+   596→
+   597→            <Separator className="my-2" />
+   598→
+   599→            {/* TODO(BUGHUNT-OTHER-1 BUG-H3): `language` is stored in AppSettings
+   600→                but no i18n implementation exists yet. The UI is hardcoded to a
+   601→                mix of English + Indonesian. Implement next-intl or remove this
+   602→                dropdown to avoid confusing users. Leaving as-is for now since
+   603→                changing it has no effect. */}
+   604→            <FormRow label="Bahasa" description="Bahasa antarmuka (belum diimplementasikan)">
+   605→              <Select value={form.language} onValueChange={(v) => updateField('language', v)}>
+   606→                <SelectTrigger className="h-9">
+   607→                  <SelectValue />
+   608→                </SelectTrigger>
+   609→                <SelectContent>
+   610→                  <SelectItem value="en">English</SelectItem>
+   611→                  <SelectItem value="id">Bahasa Indonesia</SelectItem>
+   612→                </SelectContent>
+   613→              </Select>
+   614→            </FormRow>
+   615→
+   616→            <Separator className="my-2" />
+   617→
+   618→            {/* TODO(BUGHUNT-OTHER-1 BUG-H3): `targetCompletion` is stored in
+   619→                AppSettings but no component reads it for any "completion target"
+   620→                logic yet. The value is display-only. Either implement a visual
+   621→                indicator (e.g., highlight habits below target) or remove. */}
+   622→            <FormRow label="Target Penyelesaian" description="Persentase target penyelesaian harian (hanya tampilan)">
+   623→              <div className="flex items-center gap-2">
+   624→                <Input
+   625→                  type="number"
+   626→                  min={0}
+   627→                  max={100}
+   628→                  value={form.targetCompletion}
+   629→                  onChange={(e) => updateField('targetCompletion', Math.min(100, Math.max(0, Number(e.target.value))))}
+   630→                  className="h-9 w-20 text-center"
+   631→                />
+   632→                <span className="text-sm text-muted-foreground font-medium">%</span>
+   633→              </div>
+   634→            </FormRow>
+   635→          </SectionCard>
+   636→
+   637→          {/* Habit Labels Section */}
+   638→          <LabelManager />
+   639→
+   640→          {/* App Lock Section */}
+   641→          <AppLockSection />
+   642→
+   643→          {/* Save Button */}
+   644→          <div className="flex justify-end pt-2">
+   645→            <Button
+   646→              onClick={handleSave}
+   647→              disabled={saving}
+   648→              className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[120px]"
+   649→            >
+   650→              <Save className="h-4 w-4" />
+   651→              {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+   652→            </Button>
+   653→          </div>
+   654→
+   655→          {/* Last updated */}
+   656→          {settings?.updatedAt && (
+   657→            <p className="text-xs text-center text-muted-foreground">
+   658→              Terakhir diperbarui: {new Date(settings.updatedAt).toLocaleString('id-ID')}
+   659→            </p>
+   660→          )}
+   661→        </div>
+   662→      )}
+   663→
+   664→      {/* ── DATA SECTION ── */}
+   665→      {activeSection === 'data' && (
+   666→        <SectionCard icon={Database} title="Data">
+   667→          <div className="space-y-3">
+   668→            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+   669→              <div className="rounded-lg border border-border p-3 text-center">
+   670→                <p className="text-2xl font-bold text-foreground">{dbStats?.habits ?? '-'}</p>
+   671→                <p className="text-xs text-muted-foreground mt-0.5">Total Habits</p>
+   672→              </div>
+   673→              <div className="rounded-lg border border-border p-3 text-center">
+   674→                <p className="text-2xl font-bold text-foreground">{dbStats?.logs ?? '-'}</p>
+   675→                <p className="text-xs text-muted-foreground mt-0.5">Total Log</p>
+   676→              </div>
+   677→              <div className="rounded-lg border border-border p-3 text-center">
+   678→                <p className="text-2xl font-bold text-foreground">{dbStats?.days ?? '-'}</p>
+   679→                <p className="text-xs text-muted-foreground mt-0.5">Hari Dilacak</p>
+   680→              </div>
+   681→            </div>
+   682→
+   683→            <Separator className="my-2" />
+   684→
+   685→            {/* Export / Import */}
+   686→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+   687→              <Button
+   688→                variant="outline"
+   689→                size="sm"
+   690→                className="justify-start h-9"
+   691→                onClick={handleExportJSON}
+   692→                disabled={exporting}
+   693→              >
+   694→                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardDriveDownload className="h-4 w-4 text-primary" />}
+   695→                {exporting ? 'Mengunduh...' : 'Backup JSON'}
+   696→              </Button>
+   697→              <Button
+   698→                variant="outline"
+   699→                size="sm"
+   700→                className="justify-start h-9"
+   701→                onClick={handleExportCSV}
+   702→                disabled={exporting}
+   703→              >
+   704→                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 text-primary" />}
+   705→                {exporting ? 'Mengunduh...' : 'Export Semua CSV'}
+   706→              </Button>
+   707→              <Button
+   708→                variant="outline"
+   709→                size="sm"
+   710→                className="justify-start h-9"
+   711→                onClick={() => setImportDialogOpen(true)}
+   712→                disabled={importing}
+   713→              >
+   714→                <Upload className="h-4 w-4" />
+   715→                Import JSON
+   716→              </Button>
+   717→            </div>
+   718→            <p className="text-xs text-muted-foreground">Backup JSON untuk restore penuh. Export CSV berisi 11 file (habits, log, transaksi, dll) dalam format ZIP.</p>
+   719→
+   720→            {/* Hidden file input for import */}
+   721→            <input
+   722→              ref={fileInputRef}
+   723→              type="file"
+   724→              accept=".json"
+   725→              className="hidden"
+   726→              onChange={(e) => {
+   727→                const file = e.target.files?.[0];
+   728→                if (file) handleImportJSON(file);
+   729→              }}
+   730→            />
+   731→
+   732→            {/* Import Dialog */}
+   733→            <AlertDialog open={importDialogOpen} onOpenChange={(open) => { setImportDialogOpen(open); if (!open && fileInputRef.current) fileInputRef.current.value = ''; }}>
+   734→              <AlertDialogContent>
+   735→                <AlertDialogHeader>
+   736→                  <AlertDialogTitle className="flex items-center gap-2">
+   737→                    <Upload className="h-5 w-5" />
+   738→                    Import Data dari Backup
+   739→                  </AlertDialogTitle>
+   740→                  <AlertDialogDescription asChild>
+   741→                    <div className="space-y-3">
+   742→                      <p>Pilih file backup <code className="text-xs bg-muted px-1 py-0.5 rounded">.json</code> yang sebelumnya sudah kamu download.</p>
+   743→                      <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center">
+   744→                        {importing ? (
+   745→                          <div className="flex items-center justify-center gap-2 text-primary">
+   746→                            <Loader2 className="h-5 w-5 animate-spin" />
+   747→                            <span className="text-sm font-medium">Memulihkan data...</span>
+   748→                          </div>
+   749→                        ) : (
+   750→                          <>
+   751→                            <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+   752→                            <Button
+   753→                              variant="outline"
+   754→                              size="sm"
+   755→                              onClick={() => fileInputRef.current?.click()}
+   756→                            >
+   757→                              Pilih File Backup
+   758→                            </Button>
+   759→                            <p className="text-xs text-muted-foreground mt-2">File akan divalidasi sebelum diimport</p>
+   760→                          </>
+   761→                        )}
+   762→                      </div>
+   763→                      <p className="text-warning dark:text-warning/80 text-xs font-medium">
+   764→                        Data yang ada saat ini akan <strong>ditimpa</strong> oleh data dari backup.
+   765→                      </p>
+   766→                    </div>
+   767→                  </AlertDialogDescription>
+   768→                </AlertDialogHeader>
+   769→                <AlertDialogFooter>
+   770→                  <AlertDialogCancel disabled={importing}>Batal</AlertDialogCancel>
+   771→                </AlertDialogFooter>
+   772→              </AlertDialogContent>
+   773→            </AlertDialog>
+   774→
+   775→            <Separator className="my-2" />
+   776→
+   777→            <div className="flex items-center justify-between">
+   778→              <div className="space-y-0.5">
+   779→                <Label className="text-sm font-medium text-destructive dark:text-destructive/80">Hapus Semua Data</Label>
+   780→                <p className="text-xs text-muted-foreground">Hapus semua habits, log, transaksi, budget, dan data lainnya</p>
+   781→              </div>
+   782→              <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+   783→                <AlertDialogTrigger asChild>
+   784→                  <Button
+   785→                    variant="outline"
+   786→                    size="sm"
+   787→                    className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive dark:border-destructive/30 dark:hover:bg-destructive/15 dark:text-destructive/80 dark:hover:text-destructive/80"
+   788→                  >
+   789→                    <Trash2 className="h-4 w-4" />
+   790→                    Hapus Semua
+   791→                  </Button>
+   792→                </AlertDialogTrigger>
+   793→                <AlertDialogContent>
+   794→                  <AlertDialogHeader>
+   795→                    <AlertDialogTitle className="flex items-center gap-2">
+   796→                      <AlertTriangle className="h-5 w-5 text-destructive" />
+   797→                      Hapus Semua Data?
+   798→                    </AlertDialogTitle>
+   799→                    <AlertDialogDescription asChild>
+   800→                      <div className="space-y-2">
+   801→                        <p>
+   802→                          Tindakan ini akan <span className="font-semibold text-destructive dark:text-destructive/80">menghapus secara permanen</span> semua data kamu, termasuk:
+   803→                        </p>
+   804→                        <ul className="list-disc list-inside text-sm space-y-0.5 text-muted-foreground">
+   805→                          <li>Semua Habit dan log tracking</li>
+   806→                          <li>Daily log (mood, energi, tidur)</li>
+   807→                          <li>Entri jurnal</li>
+   808→                          <li>Tujuan & milestone</li>
+   809→                          <li>Semua transaksi keuangan & budget</li>
+   810→                          <li>Kategori keuangan</li>
+   811→                        </ul>
+   812→                        <p className="text-destructive dark:text-destructive/80 font-medium">
+   813→                          Data yang sudah dihapus tidak bisa dikembalikan!
+   814→                        </p>
+   815→                      </div>
+   816→                    </AlertDialogDescription>
+   817→                  </AlertDialogHeader>
+   818→                  <AlertDialogFooter>
+   819→                    <AlertDialogCancel disabled={resetting}>Batal</AlertDialogCancel>
+   820→                    <Button
+   821→                      variant="destructive"
+   822→                      onClick={handleResetAll}
+   823→                      disabled={resetting}
+   824→                    >
+   825→                      {resetting ? (
+   826→                        <>
+   827→                          <Loader2 className="h-4 w-4 animate-spin" />
+   828→                          Menghapus...
+   829→                        </>
+   830→                      ) : (
+   831→                        <>
+   832→                          <Trash2 className="h-4 w-4" />
+   833→                          Ya, Hapus Semua
+   834→                        </>
+   835→                      )}
+   836→                    </Button>
+   837→                  </AlertDialogFooter>
+   838→                </AlertDialogContent>
+   839→              </AlertDialog>
+   840→            </div>
+   841→          </div>
+   842→        </SectionCard>
+   843→      )}
+   844→    </div>
+   845→  );
+   846→}
