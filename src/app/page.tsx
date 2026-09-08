@@ -450,14 +450,19 @@ function FlutterBottomNav({
   const nR = FLUTTER_NOTCH_R;
   const nB = FLUTTER_NOTCH_BASE_W;
   const nX = W / 2; // FIXED center
-  const baseDepth = nR * 0.6;
   const bumpHeight = nR;
 
+  // BUGFIX FLUTTER-2 #2,#5,#6: Rewrite Bezier control points untuk smooth
+  // dome tanpa 90° corners + tanpa dip into nav body.
+  // C1 of left curve = (nX-nR+8, -bumpHeight*0.4) — co-linear dengan incoming
+  //   L direction (rightward + slightly up) → no 90° corner, no dip.
+  // C2 of left curve = (nX-12, -bumpHeight) — horizontal through peak → C1 continuity.
+  // Right curve = mirror.
   const path = [
     `M ${cR} 0`,
     `L ${nX - nR} 0`,
-    `C ${nX - nR} ${baseDepth} ${nX - nR - nB} ${-bumpHeight * 0.3} ${nX} ${-bumpHeight}`,
-    `C ${nX + nR + nB} ${-bumpHeight * 0.3} ${nX + nR} ${baseDepth} ${nX + nR} 0`,
+    `C ${nX - nR + 8} ${-bumpHeight * 0.4} ${nX - 12} ${-bumpHeight} ${nX} ${-bumpHeight}`,
+    `C ${nX + 12} ${-bumpHeight} ${nX + nR - 8} ${-bumpHeight * 0.4} ${nX + nR} 0`,
     `L ${W - cR} 0`,
     `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
     `L ${W} ${H}`,
@@ -526,11 +531,17 @@ function FlutterBottomNav({
         'shadow-[0_-2px_8px_rgba(0,0,0,0.04),0_-1px_0_rgba(0,0,0,0.06)]'
       )}
     >
-      {/* Solid background — clipped to notched shape */}
+      {/* Solid background — clipped to notched shape.
+          BUGFIX FLUTTER-2 #3: Extend div ke top:-bumpHeight supaya bump area
+          (y=-34..0) juga terisi. Sebelumnya inset-0 (76px) tidak cover bump. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0"
+        className="absolute"
         style={{
+          top: `${-bumpHeight}px`,
+          left: 0,
+          right: 0,
+          bottom: 0,
           clipPath: clipPathValue,
           WebkitClipPath: clipPathValue,
           background: 'rgb(255, 255, 255)',
@@ -538,8 +549,12 @@ function FlutterBottomNav({
       />
       <div
         aria-hidden="true"
-        className="absolute inset-0 hidden dark:block"
+        className="absolute hidden dark:block"
         style={{
+          top: `${-bumpHeight}px`,
+          left: 0,
+          right: 0,
+          bottom: 0,
           clipPath: clipPathValue,
           WebkitClipPath: clipPathValue,
           background: 'rgb(15, 23, 42)',
@@ -549,7 +564,10 @@ function FlutterBottomNav({
       <svg
         width={W}
         height={H}
-        viewBox={`${-2} ${-bumpHeight - 2} ${W + 4} ${H + bumpHeight + 4}`}
+        // BUGFIX FLUTTER-2 #1: Drop viewBox expansion (caused 66.7% scale + 24px
+        // offset). Keep viewBox=0 0 W H + overflow-visible supaya bump border
+        // render di atas y=0 tanpa scaling.
+        viewBox={`0 0 ${W} ${H}`}
         className="absolute inset-0 pointer-events-none overflow-visible"
         fill="none"
       >
@@ -570,7 +588,7 @@ function FlutterBottomNav({
       {fabOpen && (
         <div
           className="absolute left-1/2 -translate-x-1/2 z-40"
-          style={{ bottom: '70px' }}
+          style={{ bottom: '96px' }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col gap-1 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 min-w-[160px] anim-tab-enter">
@@ -640,11 +658,10 @@ function FlutterBottomNav({
             fabOpen && 'rotate-45'
           )}
         >
-          {fabOpen ? (
-            <X className="h-6 w-6 text-white" strokeWidth={2.5} />
-          ) : (
-            <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
-          )}
+          {/* BUGFIX FLUTTER-1 #1: Hapus icon swap — keep Plus only + rotate 45°.
+              Sebelumnya: swap Plus→X AND rotate 45° = X rotated 45° looks like +
+              = no visual change. Now: Plus rotated 45° = looks like X. Clean. */}
+          <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
         </button>
       </div>
     </nav>
