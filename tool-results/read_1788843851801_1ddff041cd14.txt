@@ -1,0 +1,1816 @@
+     1→@import "tailwindcss";
+     2→@import "tw-animate-css";
+     3→
+     4→@custom-variant dark (&:is(.dark *));
+     5→
+     6→@theme inline {
+     7→  --color-background: var(--background);
+     8→  --color-foreground: var(--foreground);
+     9→  --font-sans: var(--font-geist-sans);
+    10→  --font-mono: var(--font-geist-mono);
+    11→  --color-sidebar-ring: var(--sidebar-ring);
+    12→  --color-sidebar-border: var(--sidebar-border);
+    13→  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    14→  --color-sidebar-accent: var(--sidebar-accent);
+    15→  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    16→  --color-sidebar-primary: var(--sidebar-primary);
+    17→  --color-sidebar-foreground: var(--sidebar-foreground);
+    18→  --color-sidebar: var(--sidebar);
+    19→  --color-chart-5: var(--chart-5);
+    20→  --color-chart-4: var(--chart-4);
+    21→  --color-chart-3: var(--chart-3);
+    22→  --color-chart-2: var(--chart-2);
+    23→  --color-chart-1: var(--chart-1);
+    24→  --color-ring: var(--ring);
+    25→  --color-input: var(--input);
+    26→  --color-border: var(--border);
+    27→  --color-destructive: var(--destructive);
+    28→  --color-warning-foreground: var(--warning-foreground);
+    29→  --color-warning: var(--warning);
+    30→  --color-success-foreground: var(--success-foreground);
+    31→  --color-success: var(--success);
+    32→  --color-info-foreground: var(--info-foreground);
+    33→  --color-info: var(--info);
+    34→  --color-accent-foreground: var(--accent-foreground);
+    35→  --color-accent: var(--accent);
+    36→  --color-muted-foreground: var(--muted-foreground);
+    37→  --color-muted: var(--muted);
+    38→  --color-secondary-foreground: var(--secondary-foreground);
+    39→  --color-secondary: var(--secondary);
+    40→  --color-primary-foreground: var(--primary-foreground);
+    41→  --color-primary: var(--primary);
+    42→  --color-popover-foreground: var(--popover-foreground);
+    43→  --color-popover: var(--popover);
+    44→  --color-card-foreground: var(--card-foreground);
+    45→  --color-card: var(--card);
+    46→  --radius-sm: calc(var(--radius) - 4px);
+    47→  --radius-md: calc(var(--radius) - 2px);
+    48→  --radius-lg: var(--radius);
+    49→  --radius-xl: calc(var(--radius) + 4px);
+    50→}
+    51→
+    52→:root {
+    53→  --radius: 0.625rem;
+    54→  --background: oklch(0.985 0.002 120);
+    55→  --foreground: oklch(0.145 0 0);
+    56→  --card: oklch(1 0 0);
+    57→  --card-foreground: oklch(0.145 0 0);
+    58→  --popover: oklch(1 0 0);
+    59→  --popover-foreground: oklch(0.145 0 0);
+    60→  --primary: oklch(0.522 0.154 142);
+    61→  --primary-foreground: oklch(0.985 0 0);
+    62→  --secondary: oklch(0.96 0.01 140);
+    63→  --secondary-foreground: oklch(0.205 0 0);
+    64→  --muted: oklch(0.96 0.005 120);
+    65→  --muted-foreground: oklch(0.50 0 0);
+    66→  --accent: oklch(0.96 0.01 140);
+    67→  --accent-foreground: oklch(0.205 0 0);
+    68→  --destructive: oklch(0.577 0.245 27.325);
+    69→  --border: oklch(0.91 0.005 120);
+    70→  --input: oklch(0.91 0.005 120);
+    71→  --ring: oklch(0.522 0.154 142);
+    72→  /* ── Semantic status tokens (COLOR-BUG-5 fix) ─────────────────────────
+    73→     Warning (amber-500) — budget alerts, warnings
+    74→     Success (green-600) — income, positive
+    75→     Info    (sky-500)   — informational
+    76→     Foreground values are very light so they read well on tinted
+    77→     backgrounds (e.g. `bg-warning/10 text-warning-foreground`). */
+    78→  --warning: oklch(0.769 0.188 70.08);
+    79→  --warning-foreground: oklch(0.985 0 0);
+    80→  --success: oklch(0.627 0.194 149.214);
+    81→  --success-foreground: oklch(0.985 0 0);
+    82→  --info: oklch(0.685 0.169 237.323);
+    83→  --info-foreground: oklch(0.985 0 0);
+    84→  --chart-1: oklch(0.522 0.154 142);
+    85→  --chart-2: oklch(0.6 0.118 184.704);
+    86→  --chart-3: oklch(0.769 0.188 70.08);
+    87→  --chart-4: oklch(0.828 0.189 84.429);
+    88→  --chart-5: oklch(0.645 0.246 16.439);
+    89→  --sidebar: oklch(1 0 0);
+    90→  --sidebar-foreground: oklch(0.145 0 0);
+    91→  --sidebar-primary: oklch(0.522 0.154 142);
+    92→  --sidebar-primary-foreground: oklch(0.985 0 0);
+    93→  --sidebar-accent: oklch(0.96 0.01 140);
+    94→  --sidebar-accent-foreground: oklch(0.205 0 0);
+    95→  --sidebar-border: oklch(0.91 0.005 120);
+    96→  --sidebar-ring: oklch(0.522 0.154 142);
+    97→}
+    98→
+    99→.dark {
+   100→  --background: oklch(0.145 0 0);
+   101→  --foreground: oklch(0.985 0 0);
+   102→  --card: oklch(0.205 0 0);
+   103→  --card-foreground: oklch(0.985 0 0);
+   104→  --popover: oklch(0.205 0 0);
+   105→  --popover-foreground: oklch(0.985 0 0);
+   106→  --primary: oklch(0.622 0.174 142);
+   107→  --primary-foreground: oklch(0.145 0 0);
+   108→  --secondary: oklch(0.269 0 0);
+   109→  --secondary-foreground: oklch(0.985 0 0);
+   110→  --muted: oklch(0.269 0 0);
+   111→  --muted-foreground: oklch(0.708 0 0);
+   112→  --accent: oklch(0.269 0.01 120);
+   113→  --accent-foreground: oklch(0.985 0 0);
+   114→  --destructive: oklch(0.704 0.191 22.216);
+   115→  --border: oklch(1 0 0 / 10%);
+   116→  --input: oklch(1 0 0 / 15%);
+   117→  --ring: oklch(0.622 0.174 142);
+   118→  /* ── Semantic status tokens — dark mode ──────────────────────────────
+   119→     Brighter hues for visibility on dark bg; foreground stays very light
+   120→     so `bg-warning/10 text-warning-foreground` reads correctly. */
+   121→  --warning: oklch(0.828 0.189 84.429);
+   122→  --warning-foreground: oklch(0.985 0 0);
+   123→  --success: oklch(0.723 0.191 149.579);
+   124→  --success-foreground: oklch(0.985 0 0);
+   125→  --info: oklch(0.746 0.16 232.661);
+   126→  --info-foreground: oklch(0.985 0 0);
+   127→  --chart-1: oklch(0.622 0.174 142);
+   128→  --chart-2: oklch(0.696 0.17 162.48);
+   129→  --chart-3: oklch(0.769 0.188 70.08);
+   130→  --chart-4: oklch(0.627 0.265 303.9);
+   131→  --chart-5: oklch(0.645 0.246 16.439);
+   132→  --sidebar: oklch(0.17 0.005 120);
+   133→  --sidebar-foreground: oklch(0.985 0 0);
+   134→  --sidebar-primary: oklch(0.622 0.174 142);
+   135→  --sidebar-primary-foreground: oklch(0.985 0 0);
+   136→  --sidebar-accent: oklch(0.269 0.01 120);
+   137→  --sidebar-accent-foreground: oklch(0.985 0 0);
+   138→  --sidebar-border: oklch(1 0 0 / 10%);
+   139→  --sidebar-ring: oklch(0.622 0.174 142);
+   140→}
+   141→
+   142→@layer base {
+   143→  * {
+   144→    @apply border-border outline-ring/50;
+   145→  }
+   146→  /* BUGFIX SCROLL-1: prevent scroll chaining at the document level so iOS
+   147→     rubber-band / Android glow don't propagate to the body when the user
+   148→     reaches the top/bottom of the page. This complements the PullToRefresh
+   149→     guard fix (window.scrollY check) by keeping overscroll contained. */
+   150→  html,
+   151→  body {
+   152→    overscroll-behavior-y: contain;
+   153→  }
+   154→  body {
+   155→    @apply bg-background text-foreground;
+   156→    /* Respect iOS notch / dynamic island when viewport-fit=cover is set */
+   157→    padding-top: env(safe-area-inset-top);
+   158→    padding-bottom: env(safe-area-inset-bottom);
+   159→    padding-left: env(safe-area-inset-left);
+   160→    padding-right: env(safe-area-inset-right);
+   161→  }
+   162→
+   163→  /* ── Touch target minimum: 44x44px (Apple HIG / WCAG 2.5.5) ─────────────
+   164→     Only applied on touch devices (pointer: coarse) to avoid bloating
+   165→     desktop layout. Targets shadcn's size="icon" (h-9 w-9 = 36px),
+   166→     size="sm" (h-8), and similar small interactive elements. */
+   167→  @media (pointer: coarse) {
+   168→    button[class*="size-icon"],
+   169→    button[class*="size-sm"],
+   170→    [role="button"][class*="size-icon"],
+   171→    [role="button"][class*="size-sm"] {
+   172→      min-height: 44px;
+   173→      min-width: 44px;
+   174→    }
+   175→  }
+   176→}
+   177→
+   178→/* Custom scrollbar */
+   179→.custom-scrollbar::-webkit-scrollbar {
+   180→  width: 6px;
+   181→}
+   182→.custom-scrollbar::-webkit-scrollbar-track {
+   183→  background: transparent;
+   184→}
+   185→.custom-scrollbar::-webkit-scrollbar-thumb {
+   186→  background: oklch(0.8 0 0);
+   187→  border-radius: 3px;
+   188→}
+   189→.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+   190→  background: oklch(0.65 0 0);
+   191→}
+   192→
+   193→/* Skeleton shimmer — premium gradient sweep (light + dark mode aware).
+   194→   Uses CSS variables (--muted, --primary) so it adapts to theme.
+   195→   will-change: background-position hints the browser to optimize the
+   196→   animation for compositing (smoother on low-end devices). */
+   197→@keyframes shimmer {
+   198→  0% { background-position: -200% 0; }
+   199→  100% { background-position: 200% 0; }
+   200→}
+   201→/* Aurora Skeleton Upgrade — gradient hijau emerald→teal flowing.
+   202→   Sweeps a soft green tint (--primary at low opacity) across a muted
+   203→   base, matching the app's sprout/nature theme. Adapts to light & dark
+   204→   via CSS variables. Slow 2s linear loop for calm premium feel. */
+   205→.shimmer {
+   206→  background: linear-gradient(
+   207→    110deg,
+   208→    hsl(var(--muted)) 25%,
+   209→    hsl(var(--primary) / 0.08) 40%,
+   210→    hsl(var(--primary) / 0.15) 50%,
+   211→    hsl(var(--primary) / 0.08) 60%,
+   212→    hsl(var(--muted)) 75%
+   213→  );
+   214→  background-size: 200% 100%;
+   215→  animation: shimmer 2s linear infinite;
+   216→  will-change: background-position;
+   217→}
+   218→
+   219→/* ── Hybrid Skeleton (Opsi 5): content-aware shapes + shimmer + stagger ──
+   220→   Premium skeleton system that matches actual content layout (CLS = 0).
+   221→   - .skel-hybrid: shimmer sweep over content-aware shapes
+   222→   - .skel-stagger: 60ms stagger entrance between sibling skeleton blocks
+   223→   - .skel-circle: circular placeholder (icons, avatars)
+   224→   - .skel-card: full card placeholder with proper aspect ratio */
+   225→.skel-hybrid {
+   226→  background: linear-gradient(
+   227→    90deg,
+   228→    hsl(var(--muted)) 25%,
+   229→    hsl(var(--accent) / 0.6) 50%,
+   230→    hsl(var(--muted)) 75%
+   231→  );
+   232→  background-size: 200% 100%;
+   233→  animation: shimmer 1.8s infinite linear;
+   234→  will-change: background-position;
+   235→  border-radius: 0.5rem;
+   236→}
+   237→.skel-stagger {
+   238→  animation: shimmer 1.8s infinite linear,
+   239→             skel-fade-in 0.4s ease-out backwards;
+   240→  will-change: background-position, opacity, transform;
+   241→}
+   242→@keyframes skel-fade-in {
+   243→  from { opacity: 0; transform: translateY(8px); }
+   244→  to   { opacity: 1; transform: translateY(0); }
+   245→}
+   246→.skel-circle { border-radius: 9999px; }
+   247→.skel-card   { border-radius: 0.75rem; }
+   248→
+   249→/* Respect reduced motion — disable shimmer + stagger animation.
+   250→   FIX-TRANSITION-1: was `background: var(--muted)` which sets the raw
+   251→   channel triplet (e.g. `210 40% 96%`) without the `hsl(...)` wrapper —
+   252→   an invalid CSS color, so the browser silently ignored it and the
+   253→   skeleton blocks appeared transparent instead of muted-gray. Wrapping
+   254→   in `hsl(var(--muted))` resolves the channels into a real color. */
+   255→@media (prefers-reduced-motion: reduce) {
+   256→  .shimmer,
+   257→  .skel-hybrid,
+   258→  .skel-stagger {
+   259→    animation: none;
+   260→    background: hsl(var(--muted));
+   261→  }
+   262→}
+   263→
+   264→/* Smooth bottom nav transition */
+   265→@media (pointer: coarse) {
+   266→  button:active {
+   267→    transform: scale(0.95);
+   268→    transition: transform 0.1s ease;
+   269→  }
+   270→}
+   271→
+   272→/* ══════════════════════════════════════════════════════════════════════
+   273→   PREMIUM TRANSACTION TIMELINE — Apple HIG inspired
+   274→   ══════════════════════════════════════════════════════════════════════ */
+   275→
+   276→/* Timeline container */
+   277→.tx-timeline {
+   278→  position: relative;
+   279→  padding-left: 2rem;
+   280→}
+   281→
+   282→/* Vertical timeline line */
+   283→.tx-timeline::before {
+   284→  content: '';
+   285→  position: absolute;
+   286→  left: 0.625rem;
+   287→  top: 0;
+   288→  bottom: 0;
+   289→  width: 2px;
+   290→  background: oklch(0.91 0.005 120);
+   291→}
+   292→.dark .tx-timeline::before {
+   293→  background: oklch(1 0 0 / 8%);
+   294→}
+   295→
+   296→/* Timeline node (small circle beside each card) */
+   297→.tx-node {
+   298→  position: absolute;
+   299→  left: 0;
+   300→  top: 1.25rem;
+   301→  width: 0.625rem;
+   302→  height: 0.625rem;
+   303→  border-radius: 50%;
+   304→  border: 2px solid oklch(1 0 0);
+   305→  z-index: 2;
+   306→  box-shadow: 0 0 0 2px oklch(0.91 0.005 120);
+   307→}
+   308→.dark .tx-node {
+   309→  border-color: oklch(0.205 0 0);
+   310→  box-shadow: 0 0 0 2px oklch(1 0 0 / 8%);
+   311→}
+   312→
+   313→/* Transaction card — premium soft shadow */
+   314→.tx-card {
+   315→  background: oklch(1 0 0);
+   316→  border-radius: 1rem;
+   317→  padding: 1rem 1.25rem;
+   318→  margin-bottom: 0.75rem;
+   319→  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+   320→  transition: transform 0.15s ease, box-shadow 0.15s ease;
+   321→  position: relative;
+   322→}
+   323→.dark .tx-card {
+   324→  background: oklch(0.205 0 0);
+   325→  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
+   326→}
+   327→.tx-card:active {
+   328→  transform: scale(0.98);
+   329→  box-shadow: 0 2px 8px oklch(0 0 0 / 0.1);
+   330→}
+   331→
+   332→/* Date pill — sticky rounded badge */
+   333→.tx-date-pill {
+   334→  position: sticky;
+   335→  top: 0;
+   336→  z-index: 5;
+   337→  display: inline-flex;
+   338→  align-items: center;
+   339→  gap: 0.375rem;
+   340→  padding: 0.25rem 0.75rem;
+   341→  border-radius: 9999px;
+   342→  background: oklch(0.96 0.005 120);
+   343→  font-size: 0.75rem;
+   344→  font-weight: 600;
+   345→  color: oklch(0.50 0 0);
+   346→  margin-bottom: 0.5rem;
+   347→  margin-top: 0.5rem;
+   348→  backdrop-filter: blur(8px);
+   349→}
+   350→.dark .tx-date-pill {
+   351→  background: oklch(0.269 0 0);
+   352→  color: oklch(0.708 0 0);
+   353→}
+   354→
+   355→/* Filter chips */
+   356→.tx-chip {
+   357→  display: inline-flex;
+   358→  align-items: center;
+   359→  justify-content: center;
+   360→  gap: 0.25rem;
+   361→  padding: 0.375rem 0.75rem;
+   362→  border-radius: 9999px;
+   363→  font-size: 0.75rem;
+   364→  font-weight: 500;
+   365→  white-space: nowrap;
+   366→  transition: all 0.15s ease;
+   367→  cursor: pointer;
+   368→  /* MOBILE-1 fix: min touch target 44px for thumb-friendly tapping */
+   369→  min-height: 44px;
+   370→}
+   371→.tx-chip-active {
+   372→  background: oklch(0.522 0.154 142);
+   373→  color: oklch(0.985 0 0);
+   374→}
+   375→.tx-chip-inactive {
+   376→  background: oklch(0.96 0.005 120);
+   377→  color: oklch(0.50 0 0);
+   378→}
+   379→.dark .tx-chip-inactive {
+   380→  background: oklch(0.269 0 0);
+   381→  color: oklch(0.708 0 0);
+   382→}
+   383→
+   384→/* Total expense footer — sits above mobile bottom nav (h-14 = 56px) */
+   385→.tx-total-footer {
+   386→  position: sticky;
+   387→  bottom: 3.5rem; /* clear bottom nav on mobile */
+   388→  z-index: 5;
+   389→  padding: 0.75rem 1rem;
+   390→  background: oklch(1 0 0);
+   391→  border-top: 1px solid oklch(0.91 0.005 120);
+   392→  backdrop-filter: blur(8px);
+   393→}
+   394→@media (min-width: 768px) {
+   395→  .tx-total-footer { bottom: 0; } /* no bottom nav on desktop */
+   396→}
+   397→.dark .tx-total-footer {
+   398→  background: oklch(0.205 0 0);
+   399→  border-top-color: oklch(1 0 0 / 8%);
+   400→}
+   401→
+   402→/* ══════════════════════════════════════════════════════════════════════
+   403→   PREMIUM HABIT CARD GRID — Linear / Apple Fitness / Habitify / Stripe
+   404→   ══════════════════════════════════════════════════════════════════════ */
+   405→
+   406→/* Keyframe: ring / check pop on completion */
+   407→@keyframes ringPop {
+   408→  0%   { transform: scale(0.6); opacity: 0.4; }
+   409→  60%  { transform: scale(1.18); opacity: 1; }
+   410→  100% { transform: scale(1); opacity: 1; }
+   411→}
+   412→
+   413→/* Habit grid — 1 col mobile · 2 col tablet · 3 col desktop */
+   414→.habit-grid {
+   415→  display: grid;
+   416→  grid-template-columns: 1fr;
+   417→  gap: 0.75rem;
+   418→}
+   419→@media (min-width: 640px) {
+   420→  .habit-grid {
+   421→    grid-template-columns: repeat(2, 1fr);
+   422→    gap: 1rem;
+   423→  }
+   424→}
+   425→@media (min-width: 1024px) {
+   426→  .habit-grid {
+   427→    grid-template-columns: repeat(3, 1fr);
+   428→    gap: 1.25rem;
+   429→  }
+   430→}
+   431→
+   432→/* Completed state — soft green glow ring + tint
+   433→   (was a modifier on .habit-card; .habit-card base removed in FIX-DESIGN-P7-8 —
+   434→   now applied to shadcn <Card> with equivalent Tailwind utilities). */
+   435→.habit-card-completed {
+   436→  border-color: oklch(0.522 0.154 142 / 0.22);
+   437→  box-shadow: 0 0 0 1px oklch(0.522 0.154 142 / 0.18),
+   438→              0 6px 16px oklch(0.522 0.154 142 / 0.08);
+   439→}
+   440→.dark .habit-card-completed {
+   441→  border-color: oklch(0.622 0.174 142 / 0.22);
+   442→  box-shadow: 0 0 0 1px oklch(0.622 0.174 142 / 0.20),
+   443→              0 6px 16px oklch(0.622 0.174 142 / 0.12);
+   444→}
+   445→.habit-card-completed:hover {
+   446→  box-shadow: 0 0 0 1px oklch(0.522 0.154 142 / 0.25),
+   447→              0 12px 28px oklch(0.522 0.154 142 / 0.12);
+   448→}
+   449→
+   450→/* PHASE3-HABIT — Avoid habit relapsed state. Mirrors .habit-card-completed
+   451→   but with red hues to signal "this is a relapse, not a success". Used by
+   452→   HabitCard when habitType === 'avoid' AND the checkbox is checked. */
+   453→.habit-card-relapsed {
+   454→  border-color: oklch(0.577 0.245 27.325 / 0.22);
+   455→  box-shadow: 0 0 0 1px oklch(0.577 0.245 27.325 / 0.18),
+   456→              0 6px 16px oklch(0.577 0.245 27.325 / 0.08);
+   457→}
+   458→.dark .habit-card-relapsed {
+   459→  border-color: oklch(0.677 0.245 27.325 / 0.22);
+   460→  box-shadow: 0 0 0 1px oklch(0.677 0.245 27.325 / 0.20),
+   461→              0 6px 16px oklch(0.677 0.245 27.325 / 0.12);
+   462→}
+   463→.habit-card-relapsed:hover {
+   464→  box-shadow: 0 0 0 1px oklch(0.577 0.245 27.325 / 0.25),
+   465→              0 12px 28px oklch(0.577 0.245 27.325 / 0.12);
+   466→}
+   467→
+   468→/* Pop animation right after completing */
+   469→.habit-card-pop {
+   470→  animation: habitPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+   471→}
+   472→@keyframes habitPop {
+   473→  0%   { transform: scale(1); }
+   474→  40%  { transform: scale(1.025); }
+   475→  100% { transform: scale(1); }
+   476→}
+   477→
+   478→/* ── Category pastel tints (icon container backgrounds) ── */
+   479→.cat-emerald    { background-color: oklch(0.522 0.154 142 / 0.12); }
+   480→.cat-orange     { background-color: oklch(0.65  0.18  35  / 0.12); }
+   481→.cat-teal       { background-color: oklch(0.52  0.12  180 / 0.12); }
+   482→.cat-rose       { background-color: oklch(0.6   0.2   350 / 0.12); }
+   483→.cat-fuchsia    { background-color: oklch(0.62  0.2   300 / 0.12); }
+   484→.cat-red        { background-color: oklch(0.6   0.2   25  / 0.12); }
+   485→.cat-slate      { background-color: oklch(0.6   0.01  250 / 0.12); }
+   486→
+   487→/* ── KPI cards — soft gradient surfaces
+   488→   (base .kpi-card removed in FIX-DESIGN-P7-8 — now applied to shadcn <Card>;
+   489→   these modifier classes provide only the accent gradient tints). */
+   490→.kpi-card-green  { background: linear-gradient(135deg, oklch(0.522 0.154 142 / 0.10), oklch(0.522 0.154 142 / 0.02)); }
+   491→.kpi-card-orange { background: linear-gradient(135deg, oklch(0.65  0.18  35  / 0.10), oklch(0.65  0.18  35  / 0.02)); }
+   492→.kpi-card-rose   { background: linear-gradient(135deg, oklch(0.6   0.2   350 / 0.10), oklch(0.6   0.2   350 / 0.02)); }
+   493→.kpi-card-amber  { background: linear-gradient(135deg, oklch(0.7   0.15  75  / 0.10), oklch(0.7   0.15  75  / 0.02)); }
+   494→
+   495→/* ── Daily notes card ── */
+   496→.daily-notes-card {
+   497→  border-radius: 1.25rem;
+   498→  padding: 1.25rem;
+   499→  background: oklch(1 0 0);
+   500→  border: 1px solid oklch(0.92 0.004 120);
+   501→  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
+   502→  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+   503→}
+   504→.dark .daily-notes-card {
+   505→  background: oklch(0.21 0.004 120);
+   506→  border-color: oklch(1 0 0 / 6%);
+   507→  box-shadow: 0 1px 2px oklch(0 0 0 / 0.14);
+   508→}
+   509→.daily-notes-card:focus-within {
+   510→  border-color: oklch(0.82 0.02 250);
+   511→  box-shadow: 0 0 0 3px oklch(0.6 0.15 250 / 0.10);
+   512→}
+   513→.dark .daily-notes-card:focus-within {
+   514→  border-color: oklch(0.7 0.05 250);
+   515→  box-shadow: 0 0 0 3px oklch(0.6 0.15 250 / 0.18);
+   516→}
+   517→
+   518→/* ══════════════════════════════════════════════════════════════════════
+   519→   PREMIUM ANIMATIONS — Count-up, Staggered entrance, Typewriter, Hover lift
+   520→   Combo: Linear / Stripe / Apple Finance inspired
+   521→   All respect prefers-reduced-motion (declared at bottom).
+   522→   ══════════════════════════════════════════════════════════════════════ */
+   523→
+   524→/* ── Staggered card entrance: slide-up + fade-in ── */
+   525→@keyframes anim-stagger-in {
+   526→  from {
+   527→    opacity: 0;
+   528→    transform: translateY(12px);
+   529→  }
+   530→  to {
+   531→    opacity: 1;
+   532→    transform: translateY(0);
+   533→  }
+   534→}
+   535→.anim-stagger {
+   536→  opacity: 1; /* resting state — matches the 'to' keyframe so there's no flicker when other animations are added/removed */
+   537→  animation: anim-stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+   538→  will-change: transform, opacity;
+   539→}
+   540→
+   541→/* ── Progress ring draw: stroke-dashoffset animates from full to target ── */
+   542→@keyframes anim-ring-draw {
+   543→  from { stroke-dashoffset: var(--ring-circumference, 283); }
+   544→  to   { stroke-dashoffset: var(--ring-offset, 0); }
+   545→}
+   546→.anim-ring {
+   547→  animation: anim-ring-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+   548→  will-change: stroke-dashoffset;
+   549→}
+   550→
+   551→/* ── Hover lift: subtle translateY + colored shadow ── */
+   552→.anim-lift {
+   553→  transition: transform 0.2s ease, box-shadow 0.2s ease;
+   554→  will-change: transform;
+   555→}
+   556→.anim-lift:hover {
+   557→  transform: translateY(-2px);
+   558→}
+   559→
+   560→/* ── Typewriter cursor blink ── */
+   561→@keyframes anim-cursor-blink {
+   562→  0%, 50% { opacity: 1; }
+   563→  51%, 100% { opacity: 0; }
+   564→}
+   565→.anim-cursor {
+   566→  animation: anim-cursor-blink 1s steps(1) infinite;
+   567→}
+   568→
+   569→/* ── Reduced motion: disable all animations ── */
+   570→@media (prefers-reduced-motion: reduce) {
+   571→  .anim-stagger,
+   572→  .anim-ring,
+   573→  .anim-lift,
+   574→  .anim-cursor,
+   575→  .anim-flame-pulse,
+   576→  .anim-flame-pulse-slow,
+   577→  .anim-flame-pulse-fast,
+   578→  .anim-flame-pulse-blaze,
+   579→  .anim-flame-embers,
+   580→  .anim-flame-embers::before,
+   581→  .anim-flame-embers::after,
+   582→  .anim-flame-epic,
+   583→  .anim-celebration-overlay,
+   584→  .anim-flash-green,
+   585→  .anim-crossfade {
+   586→    animation: none !important;
+   587→    transition: none !important;
+   588→    opacity: 1 !important;
+   589→    transform: none !important;
+   590→  }
+   591→}
+   592→
+   593→/* ══════════════════════════════════════════════════════════════════════
+   594→   GAMIFICATION ANIMATIONS — Flame pulse, Number flash, Quote crossfade
+   595→   Combo: playful reward feedback for streaks, completions, and refreshes
+   596→   ══════════════════════════════════════════════════════════════════════ */
+   597→
+   598→/* ── Streak flame pulse: scale 1→1.12→1 every 1.5s when streak ≥ 7 ── */
+   599→@keyframes anim-flame-pulse {
+   600→  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(249, 115, 22, 0)); }
+   601→  50% { transform: scale(1.12); filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.5)); }
+   602→}
+   603→.anim-flame-pulse {
+   604→  animation: anim-flame-pulse 1.5s ease-in-out infinite;
+   605→  display: inline-block;
+   606→}
+   607→
+   608→/* ── Streak flame tiers — dynamic intensity by streak count ──
+   609→   spark (1-3):    subtle slow pulse, amber
+   610→   flame (4-6):    normal pulse, orange
+   611→   blaze (7-29):   fast pulse + glow shadow, red
+   612→   fire (30-99):   fast pulse + ember particles rising, deep red
+   613→   epic (100+):    rainbow hue-rotate shimmer, deep red + rainbow
+   614→   ───────────────────────────────────────────────────────────── */
+   615→@keyframes anim-flame-pulse-slow {
+   616→  0%, 100% { transform: scale(1); }
+   617→  50% { transform: scale(1.08); }
+   618→}
+   619→.anim-flame-pulse-slow {
+   620→  animation: anim-flame-pulse-slow 2.2s ease-in-out infinite;
+   621→  display: inline-block;
+   622→}
+   623→
+   624→@keyframes anim-flame-pulse-fast {
+   625→  0%, 100% {
+   626→    transform: scale(1);
+   627→    filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
+   628→  }
+   629→  50% {
+   630→    transform: scale(1.15);
+   631→    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.7));
+   632→  }
+   633→}
+   634→.anim-flame-pulse-fast {
+   635→  animation: anim-flame-pulse-fast 1.1s ease-in-out infinite;
+   636→  display: inline-block;
+   637→}
+   638→
+   639→@keyframes anim-flame-pulse-blaze {
+   640→  0%, 100% {
+   641→    transform: scale(1) rotate(-2deg);
+   642→    filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
+   643→  }
+   644→  50% {
+   645→    transform: scale(1.18) rotate(2deg);
+   646→    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8));
+   647→  }
+   648→}
+   649→.anim-flame-pulse-blaze {
+   650→  animation: anim-flame-pulse-blaze 0.8s ease-in-out infinite;
+   651→  display: inline-block;
+   652→}
+   653→
+   654→/* Ember particles rising from the flame — used for fire tier (30-99).
+   655→   Pure CSS pseudo-elements so no extra DOM is needed per render. */
+   656→@keyframes anim-flame-rise {
+   657→  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+   658→  50% { opacity: 1; }
+   659→  100% { transform: translateY(-40px) scale(1.2); opacity: 0; }
+   660→}
+   661→.anim-flame-embers {
+   662→  position: relative;
+   663→  display: inline-block;
+   664→}
+   665→.anim-flame-embers::before,
+   666→.anim-flame-embers::after {
+   667→  content: '';
+   668→  position: absolute;
+   669→  top: 0;
+   670→  left: 50%;
+   671→  width: 4px;
+   672→  height: 4px;
+   673→  border-radius: 9999px;
+   674→  background: radial-gradient(circle, #fbbf24 0%, #ef4444 60%, transparent 100%);
+   675→  pointer-events: none;
+   676→  animation: anim-flame-rise 1.4s ease-out infinite;
+   677→}
+   678→.anim-flame-embers::before {
+   679→  margin-left: -6px;
+   680→  animation-delay: 0s;
+   681→}
+   682→.anim-flame-embers::after {
+   683→  margin-left: 2px;
+   684→  animation-delay: 0.7s;
+   685→}
+   686→
+   687→/* Epic tier (100+): rainbow hue-rotate shimmer over a deep red base. */
+   688→@keyframes anim-rainbow-shimmer {
+   689→  0% { filter: hue-rotate(0deg) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
+   690→  100% { filter: hue-rotate(360deg) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
+   691→}
+   692→.anim-flame-epic {
+   693→  animation: anim-rainbow-shimmer 3s linear infinite;
+   694→  display: inline-block;
+   695→}
+   696→
+   697→/* ── Celebration overlay: full-screen radial primary glow for milestones ──
+   698→   Spawned imperatively by showCelebrationOverlay() in src/lib/confetti.ts.
+   699→   Auto-removed after the animation completes; pointer-events:none so it
+   700→   never blocks taps. */
+   701→@keyframes anim-celebration-glow {
+   702→  0%, 100% { opacity: 0; }
+   703→  50% { opacity: 0.3; }
+   704→}
+   705→.anim-celebration-overlay {
+   706→  position: fixed;
+   707→  inset: 0;
+   708→  pointer-events: none;
+   709→  z-index: 100;
+   710→  background: radial-gradient(circle, hsl(var(--primary) / 0.2), transparent 70%);
+   711→  animation: anim-celebration-glow 1.5s ease-out;
+   712→}
+   713→
+   714→/* ── Number flash: green pulse when a value increases (habit completed, XP gained) ── */
+   715→@keyframes anim-flash-green {
+   716→  0% { color: inherit; transform: scale(1); }
+   717→  30% { color: oklch(0.622 0.174 142); transform: scale(1.12); }
+   718→  100% { color: inherit; transform: scale(1); }
+   719→}
+   720→.anim-flash-green {
+   721→  animation: anim-flash-green 0.8s ease-out;
+   722→}
+   723→
+   724→/* ── Quote crossfade: fade out + slide up, new quote fades in from below ── */
+   725→@keyframes anim-crossfade-in {
+   726→  from { opacity: 0; transform: translateY(8px); }
+   727→  to { opacity: 1; transform: translateY(0); }
+   728→}
+   729→.anim-crossfade {
+   730→  animation: anim-crossfade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+   731→  will-change: opacity;
+   732→}
+   733→
+   734→/* ══════════════════════════════════════════════════════════════════════
+   735→   ANIM-2 / Feature 3 — Finance Counter Roll-Up
+   736→   Money-particles + number flash (green up / red down) + chart draw-in
+   737→   ══════════════════════════════════════════════════════════════════════ */
+   738→
+   739→/* ── Money particle rise: floating 💰 emoji rises + fades ──
+   740→   Apply to a span/element with class .anim-money-particle.
+   741→   The parent should be position:relative; this element absolute. */
+   742→@keyframes anim-money-rise {
+   743→  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+   744→  20%  { transform: translateY(-20px) scale(1); opacity: 1; }
+   745→  100% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+   746→}
+   747→.anim-money-particle {
+   748→  opacity: 0; /* base — invisible until animation runs (so reduced-motion keeps it hidden) */
+   749→  animation: anim-money-rise 2s ease-out forwards;
+   750→  will-change: transform, opacity;
+   751→  pointer-events: none;
+   752→}
+   753→
+   754→/* ── Number flash green (income / value-up feedback) ── */
+   755→@keyframes anim-number-flash-green {
+   756→  0%, 100% { color: inherit; transform: scale(1); }
+   757→  50%      { color: hsl(var(--success)); transform: scale(1.05); }
+   758→}
+   759→.anim-flash-up {
+   760→  animation: anim-number-flash-green 0.6s ease-out;
+   761→  display: inline-block;
+   762→  will-change: transform, color;
+   763→}
+   764→
+   765→/* ── Number flash red (expense / value-down feedback) ── */
+   766→@keyframes anim-number-flash-red {
+   767→  0%, 100% { color: inherit; transform: scale(1); }
+   768→  50%      { color: hsl(var(--destructive)); transform: scale(0.95); }
+   769→}
+   770→.anim-flash-down {
+   771→  animation: anim-number-flash-red 0.6s ease-out;
+   772→  display: inline-block;
+   773→  will-change: transform, color;
+   774→}
+   775→
+   776→/* ══════════════════════════════════════════════════════════════════════
+   777→   TRANSITION ANIMATIONS — Tab switch, Expand/collapse, Nav slide,
+   778→   Modal scale, Scroll reveal, Drawer slide-up
+   779→   ══════════════════════════════════════════════════════════════════════ */
+   780→
+   781→/* ── #1 Tab switch: fade + slide-in from right ── */
+   782→@keyframes anim-tab-enter {
+   783→  from { opacity: 0; transform: translateX(16px); }
+   784→  to   { opacity: 1; transform: translateX(0); }
+   785→}
+   786→.anim-tab-enter {
+   787→  animation: anim-tab-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+   788→  will-change: transform, opacity;
+   789→}
+   790→
+   791→/* ── Tab fade-up: subtle fade + slide-up for main tab content switches ── */
+   792→@keyframes anim-tab-fade-up {
+   793→  from { opacity: 0; transform: translateY(8px); }
+   794→  to   { opacity: 1; transform: translateY(0); }
+   795→}
+   796→.anim-tab-fade-up {
+   797→  animation: anim-tab-fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+   798→  will-change: transform, opacity;
+   799→}
+   800→
+   801→
+   802→/* ── #3b Bottom nav morph bump: Material You spring emerge ──
+   803→   Active tab's gradient circle emerges with a spring overshoot,
+   804→   giving a playful 3D bump-up effect. The cubic-bezier has a
+   805→   slight overshoot (values > 1) for the bounce.
+   806→   CSS-AUDIT-1: `background-color: var(--primary)` is a SOLID-COLOR
+   807→   FALLBACK for browsers that don't support the `linear-gradient(... in oklab, ...)`
+   808→   interpolation syntax (Chrome < 111, ~May 2023). On those browsers
+   809→   the `bg-gradient-to-br` Tailwind class generates an INVALID gradient
+   810→   declaration (because of the `in oklab` interpolation hint) → the
+   811→   `background-image` is discarded → `background-color` shows through.
+   812→   On modern browsers the gradient covers the solid color (no visual
+   813→   change). This rule is also a defense in depth even when the JSX
+   814→   already includes `bg-primary`, in case Tailwind class order changes. */
+   815→.anim-nav-bump {
+   816→  background-color: var(--primary);
+   817→  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+   818→              opacity 0.25s ease;
+   819→}
+   820→
+   821→/* PERF-FIX: removed infinite pulse animation — caused GPU lag on mobile
+   822→   with 19+ flame animations + 3D flip cards + framer-motion running
+   823→   concurrently. Static shadow is sufficient for visual depth. */
+   824→.anim-nav-bump:not([class*="opacity-0"]) {
+   825→  box-shadow: 0 4px 12px -2px color-mix(in oklab, var(--primary) 30%, transparent);
+   826→}
+   827→@media (prefers-reduced-motion: reduce) {
+   828→  .anim-nav-bump {
+   829→    transition: opacity 0.2s ease;
+   830→    animation: none !important;
+   831→  }
+   832→}
+   833→
+   834→/* ══════════════════════════════════════════════════════════════════════
+   835→   PREMIUM BOTTOM DOCK — floating glass nav treatments & animations
+   836→   (redesign of the old Flutter notched bar). Liquid sliding indicator,
+   837→   active-icon pop, FAB menu stagger, dock entrance, layered depth
+   838→   shadows. All respect prefers-reduced-motion (block at the bottom).
+   839→   ══════════════════════════════════════════════════════════════════════ */
+   840→
+   841→/* ── Layered depth shadows: frosted dock / popup card / FAB ── */
+   842→.premium-dock-shadow {
+   843→  box-shadow:
+   844→    0 1px 2px rgba(15, 23, 42, 0.05),
+   845→    0 8px 24px -6px rgba(13, 148, 136, 0.22),
+   846→    0 24px 48px -12px rgba(15, 23, 42, 0.18),
+   847→    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+   848→}
+   849→.dark .premium-dock-shadow {
+   850→  box-shadow:
+   851→    0 1px 2px rgba(0, 0, 0, 0.45),
+   852→    0 10px 28px -6px rgba(13, 148, 136, 0.3),
+   853→    0 28px 56px -12px rgba(0, 0, 0, 0.55),
+   854→    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+   855→}
+   856→.premium-pop-shadow {
+   857→  box-shadow:
+   858→    0 2px 6px rgba(15, 23, 42, 0.06),
+   859→    0 28px 56px -12px rgba(15, 23, 42, 0.3);
+   860→}
+   861→.dark .premium-pop-shadow {
+   862→  box-shadow:
+   863→    0 2px 6px rgba(0, 0, 0, 0.5),
+   864→    0 32px 64px -12px rgba(0, 0, 0, 0.6);
+   865→}
+   866→.premium-fab-shadow {
+   867→  box-shadow:
+   868→    0 2px 4px rgba(13, 148, 136, 0.35),
+   869→    0 12px 28px -4px rgba(13, 148, 136, 0.55);
+   870→}
+   871→.dark .premium-fab-shadow {
+   872→  box-shadow:
+   873→    0 2px 4px rgba(0, 0, 0, 0.45),
+   874→    0 14px 32px -4px rgba(13, 148, 136, 0.5);
+   875→}
+   876→
+   877→/* ── Liquid gradient indicator: GPU translateX + spring overshoot ──
+   878→   All dock tabs share the same width, so the pill only needs to move:
+   879→   transform-only transition = no layout thrash on low-end phones. */
+   880→.nav-liquid-indicator {
+   881→  background: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 45%, #10b981 100%);
+   882→  box-shadow:
+   883→    0 4px 14px -2px rgba(13, 148, 136, 0.5),
+   884→    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+   885→  transition: transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1), opacity 0.25s ease;
+   886→  will-change: transform;
+   887→}
+   888→.dark .nav-liquid-indicator {
+   889→  box-shadow:
+   890→    0 4px 18px -2px rgba(13, 148, 136, 0.65),
+   891→    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+   892→}
+   893→
+   894→/* ── Dock tab labels: fixed 10px, gracefully smaller on narrow screens
+   895→   so "Pengaturan" always fits inside the liquid pill (pill width =
+   896→   18.75% of dock − 2×3px inset, which shrinks with the viewport while
+   897→   the text width stays constant at a given font-size). ── */
+   898→.premium-dock-label {
+   899→  font-size: 10px;
+   900→  line-height: 1;
+   901→  letter-spacing: -0.01em;
+   902→}
+   903→@media (max-width: 389.98px) {
+   904→  .premium-dock-label { font-size: 9.5px; }
+   905→}
+   906→@media (max-width: 349.98px) {
+   907→  .premium-dock-label { font-size: 9px; }
+   908→}
+   909→
+   910→/* ── Active tab icon pop: bouncy scale-in when the class is applied ── */
+   911→@keyframes nav-icon-pop {
+   912→  0%   { transform: scale(0.72); }
+   913→  55%  { transform: scale(1.16); }
+   914→  100% { transform: scale(1); }
+   915→}
+   916→.anim-nav-icon-pop {
+   917→  animation: nav-icon-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+   918→}
+   919→
+   920→/* ── FAB quick-add menu: staggered spring entrance (backwards fill
+   921→   hides each item until its delayed animation starts) ── */
+   922→@keyframes fab-item-pop {
+   923→  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+   924→  to   { opacity: 1; transform: translateY(0) scale(1); }
+   925→}
+   926→.anim-fab-item {
+   927→  opacity: 1; /* resting state matches 'to' — no flicker when re-added */
+   928→  animation: fab-item-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+   929→}
+   930→.anim-fab-item-1 { animation-delay: 0.05s; }
+   931→.anim-fab-item-2 { animation-delay: 0.1s; }
+   932→.anim-fab-item-3 { animation-delay: 0.15s; }
+   933→
+   934→/* ── Dock entrance: slide-up + fade on first mount ── */
+   935→@keyframes nav-dock-enter {
+   936→  from { opacity: 0; transform: translateY(26px); }
+   937→  to   { opacity: 1; transform: translateY(0); }
+   938→}
+   939→.anim-nav-dock-enter {
+   940→  animation: nav-dock-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s backwards;
+   941→}
+   942→
+   943→/* ── FAB backdrop fade-in ── */
+   944→@keyframes fab-backdrop-in {
+   945→  from { opacity: 0; }
+   946→  to   { opacity: 1; }
+   947→}
+   948→.anim-fab-backdrop {
+   949→  animation: fab-backdrop-in 0.22s ease-out;
+   950→}
+   951→
+   952→/* ── Reduced motion: dock animations off, indicator snaps instantly ── */
+   953→@media (prefers-reduced-motion: reduce) {
+   954→  .anim-nav-icon-pop,
+   955→  .anim-fab-item,
+   956→  .anim-fab-item-1,
+   957→  .anim-fab-item-2,
+   958→  .anim-fab-item-3,
+   959→  .anim-nav-dock-enter,
+   960→  .anim-fab-backdrop {
+   961→    animation: none !important;
+   962→    opacity: 1 !important;
+   963→    transform: none !important;
+   964→  }
+   965→  .nav-liquid-indicator {
+   966→    transition: opacity 0.15s ease !important;
+   967→  }
+   968→}
+   969→
+   970→/* ── #6 Habit card check: enhanced pop with checkmark scale-in ── */
+   971→@keyframes anim-check-pop {
+   972→  0%   { transform: scale(1); }
+   973→  30%  { transform: scale(1.03); }
+   974→  60%  { transform: scale(0.99); }
+   975→  100% { transform: scale(1); }
+   976→}
+   977→.anim-check-pop {
+   978→  animation: anim-check-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+   979→}
+   980→
+   981→/* ── #7 Scroll reveal: fade-up when element enters viewport ── */
+   982→@keyframes anim-scroll-reveal {
+   983→  from { opacity: 0; transform: translateY(24px); }
+   984→  to   { opacity: 1; transform: translateY(0); }
+   985→}
+   986→.anim-scroll-reveal {
+   987→  animation: anim-scroll-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+   988→  will-change: transform, opacity;
+   989→}
+   990→
+   991→/* ── #4/#8 Enhance shadcn Dialog/Drawer/Sheet with premium easing ── */
+   992→/* These override the default tw-animate-css durations with smoother curves */
+   993→[data-state="open"].animate-in {
+   994→  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+   995→}
+   996→[data-state="closed"].animate-out {
+   997→  animation-timing-function: ease-in !important;
+   998→}
+   999→/* Dialog content: add subtle translateY to the zoom for a "lift" feel */
+  1000→[data-state="open"][role="dialog"] {
+  1001→  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+  1002→}
+  1003→
+  1004→/* ── Reduced motion: disable all transition animations ── */
+  1005→@media (prefers-reduced-motion: reduce) {
+  1006→  .anim-tab-enter,
+  1007→  .anim-tab-fade-up,
+  1008→  .anim-check-pop,
+  1009→  .anim-scroll-reveal,
+  1010→  .anim-money-particle,
+  1011→  .anim-flash-up,
+  1012→  .anim-flash-down {
+  1013→    animation: none !important;
+  1014→    transition: none !important;
+  1015→    opacity: 1 !important;
+  1016→    transform: none !important;
+  1017→    grid-template-rows: 1fr !important;
+  1018→    stroke-dashoffset: 0 !important;
+  1019→  }
+  1020→}
+  1021→
+  1022→/* ══════════════════════════════════════════════════════════════════════
+  1023→   DELIGHT ANIMATIONS — Bounce, fill-bar, gradient-shift, shake, pulse-ring, sparkle
+  1024→   Added: premium micro-interactions for hero cards, forms, and milestones
+  1025→   ══════════════════════════════════════════════════════════════════════ */
+  1026→
+  1027→
+  1028→/* ── Progress bar fill: animates width from 0 to target on mount ── */
+  1029→@keyframes anim-fill-bar {
+  1030→  from { width: 0%; }
+  1031→}
+  1032→.anim-fill-bar {
+  1033→  animation: anim-fill-bar 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  1034→}
+  1035→
+  1036→/* ── Animated gradient shift: moving gradient for hero cards ── */
+  1037→@keyframes anim-gradient-shift {
+  1038→  0% { background-position: 0% 50%; }
+  1039→  50% { background-position: 100% 50%; }
+  1040→  100% { background-position: 0% 50%; }
+  1041→}
+  1042→.anim-gradient-shift {
+  1043→  background-size: 200% 200%;
+  1044→  animation: anim-gradient-shift 8s ease-in-out infinite;
+  1045→}
+  1046→
+  1047→/* ── Pulse ring: expanding ring for primary action buttons ── */
+  1048→@keyframes anim-pulse-ring {
+  1049→  0% { transform: scale(0.95); opacity: 0.6; }
+  1050→  70% { transform: scale(1.3); opacity: 0; }
+  1051→  100% { transform: scale(1.3); opacity: 0; }
+  1052→}
+  1053→.anim-pulse-ring::before {
+  1054→  content: '';
+  1055→  position: absolute;
+  1056→  inset: 0;
+  1057→  border-radius: inherit;
+  1058→  background: inherit;
+  1059→  animation: anim-pulse-ring 2s ease-out infinite;
+  1060→  z-index: -1;
+  1061→}
+  1062→.anim-pulse-ring {
+  1063→  position: relative;
+  1064→}
+  1065→
+  1066→/* ── Press scale: tactile feedback for all clickable elements ── */
+  1067→.anim-press {
+  1068→  transition: transform 0.1s ease;
+  1069→}
+  1070→.anim-press:active {
+  1071→  transform: scale(0.95);
+  1072→}
+  1073→
+  1074→/* ── Shake: used by PinPad on wrong PIN entry ──
+  1075→   Triggered by toggling the `anim-shake` class — the keyframe runs once
+  1076→   and the class is removed after 500ms by the component. */
+  1077→@keyframes anim-shake {
+  1078→  0%, 100% { transform: translateX(0); }
+  1079→  15%      { transform: translateX(-10px); }
+  1080→  30%      { transform: translateX(9px); }
+  1081→  45%      { transform: translateX(-7px); }
+  1082→  60%      { transform: translateX(5px); }
+  1083→  75%      { transform: translateX(-3px); }
+  1084→  90%      { transform: translateX(2px); }
+  1085→}
+  1086→.anim-shake {
+  1087→  animation: anim-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  1088→}
+  1089→
+  1090→/* ── Progress bar fill: animate shadcn Progress indicator from 0 on mount ── */
+  1091→@keyframes anim-progress-grow {
+  1092→  from { transform: translateX(-100%); }
+  1093→}
+  1094→.anim-progress-fill [data-slot="progress-indicator"] {
+  1095→  animation: anim-progress-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  1096→}
+  1097→
+  1098→/* ── Reduced motion: disable all delight animations ── */
+  1099→@media (prefers-reduced-motion: reduce) {
+  1100→  .anim-fill-bar,
+  1101→  .anim-gradient-shift,
+  1102→  .anim-pulse-ring,
+  1103→  .anim-pulse-ring::before,
+  1104→  .anim-press,
+  1105→  .anim-shake,
+  1106→  .anim-progress-fill [data-slot="progress-indicator"] {
+  1107→    animation: none !important;
+  1108→    transition: none !important;
+  1109→    transform: none !important;
+  1110→    background-size: 100% 100% !important;
+  1111→  }
+  1112→  .anim-press:active {
+  1113→    transform: none !important;
+  1114→  }
+  1115→}
+  1116→
+  1117→/* ══════════════════════════════════════════════════════════════════════
+  1118→   FINANCE EXPLORER — Drill-down analytics workspace
+  1119→   ══════════════════════════════════════════════════════════════════════ */
+  1120→
+  1121→.fe-card {
+  1122→  background: oklch(1 0 0);
+  1123→  border-radius: 1.5rem;
+  1124→  padding: 1.25rem;
+  1125→  border: 1px solid #EEF2FF;
+  1126→  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.06), 0 2px 8px rgba(99, 102, 241, 0.03);
+  1127→}
+  1128→.dark .fe-card {
+  1129→  background: oklch(0.21 0.004 120);
+  1130→  border-color: oklch(1 0 0 / 6%);
+  1131→  box-shadow: 0 8px 32px oklch(0 0 0 / 0.22);
+  1132→}
+  1133→.fe-card-title {
+  1134→  font-size: 0.9rem;
+  1135→  font-weight: 700;
+  1136→  letter-spacing: -0.01em;
+  1137→  color: #0F172A;
+  1138→}
+  1139→.dark .fe-card-title {
+  1140→  color: oklch(0.95 0.005 120);
+  1141→}
+  1142→
+  1143→/* Category row (clickable) */
+  1144→.fe-cat-row {
+  1145→  display: flex;
+  1146→  align-items: center;
+  1147→  gap: 0.5rem;
+  1148→  padding: 0.5rem;
+  1149→  border-radius: 0.625rem;
+  1150→  background: oklch(0.98 0.004 250);
+  1151→  transition: background 0.2s ease, transform 0.2s ease;
+  1152→}
+  1153→.fe-cat-row:hover {
+  1154→  background: #EEF2FF;
+  1155→  transform: translateX(2px);
+  1156→}
+  1157→.dark .fe-cat-row {
+  1158→  background: oklch(1 0 0 / 4%);
+  1159→}
+  1160→.dark .fe-cat-row:hover {
+  1161→  background: oklch(1 0 0 / 8%);
+  1162→}
+  1163→
+  1164→/* Transaction row */
+  1165→.fe-tx-row {
+  1166→  display: flex;
+  1167→  align-items: center;
+  1168→  gap: 0.6rem;
+  1169→  padding: 0.5rem 0.25rem;
+  1170→  border-radius: 0.625rem;
+  1171→  transition: background 0.2s ease;
+  1172→}
+  1173→.fe-tx-row:hover {
+  1174→  background: oklch(0.97 0.004 250);
+  1175→}
+  1176→.dark .fe-tx-row:hover {
+  1177→  background: oklch(1 0 0 / 4%);
+  1178→}
+  1179→.fe-tx-logo {
+  1180→  width: 2rem;
+  1181→  height: 2rem;
+  1182→  border-radius: 0.5rem;
+  1183→  background: oklch(0.96 0.004 250);
+  1184→  display: flex;
+  1185→  align-items: center;
+  1186→  justify-content: center;
+  1187→  font-size: 0.95rem;
+  1188→  flex-shrink: 0;
+  1189→}
+  1190→.dark .fe-tx-logo {
+  1191→  background: oklch(1 0 0 / 6%);
+  1192→}
+  1193→
+  1194→/* KPI cards */
+  1195→.fe-kpi {
+  1196→  display: flex;
+  1197→  align-items: center;
+  1198→  gap: 0.75rem;
+  1199→  padding: 0.75rem;
+  1200→  border-radius: 1rem;
+  1201→  background: linear-gradient(135deg, oklch(0.98 0.004 250), oklch(0.96 0.004 250));
+  1202→  border: 1px solid #EEF2FF;
+  1203→  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
+  1204→  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  1205→}
+  1206→.fe-kpi:hover {
+  1207→  transform: translateY(-2px);
+  1208→  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.08);
+  1209→}
+  1210→.dark .fe-kpi {
+  1211→  background: oklch(1 0 0 / 4%);
+  1212→  border-color: oklch(1 0 0 / 6%);
+  1213→}
+  1214→.fe-kpi-icon {
+  1215→  width: 2rem;
+  1216→  height: 2rem;
+  1217→  border-radius: 9999px;
+  1218→  display: flex;
+  1219→  align-items: center;
+  1220→  justify-content: center;
+  1221→  flex-shrink: 0;
+  1222→  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  1223→}
+  1224→.fe-kpi-label {
+  1225→  font-size: 0.65rem;
+  1226→  font-weight: 600;
+  1227→  text-transform: uppercase;
+  1228→  letter-spacing: 0.04em;
+  1229→  color: #64748B;
+  1230→}
+  1231→.fe-kpi-value {
+  1232→  font-size: 0.9rem;
+  1233→  font-weight: 700;
+  1234→  letter-spacing: -0.01em;
+  1235→  color: #0F172A;
+  1236→  font-variant-numeric: tabular-nums;
+  1237→  white-space: nowrap;
+  1238→  overflow: hidden;
+  1239→  text-overflow: ellipsis;
+  1240→}
+  1241→.dark .fe-kpi-value {
+  1242→  color: oklch(0.95 0.005 120);
+  1243→}
+  1244→
+  1245→/* ══════════════════════════════════════════════════════════════════════
+  1246→   PREMIUM FINTECH ANIMATIONS — v2
+  1247→   Subtle, smooth, liquid feel. All respect prefers-reduced-motion.
+  1248→   ══════════════════════════════════════════════════════════════════════ */
+  1249→
+  1250→/* ── Smooth color/stroke transition (budget ring, status pills) ── */
+  1251→/* Apply to elements whose color should smoothly transition when state
+  1252→   changes (e.g., budget ring green → amber → red). */
+  1253→.anim-color-smooth {
+  1254→  transition: stroke 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+  1255→              color 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+  1256→              fill 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  1257→}
+  1258→
+  1259→/* ── Staggered row entrance (category insights, transaction list) ── */
+  1260→/* Use with --stagger-index CSS variable set inline per item. */
+  1261→@keyframes anim-row-in {
+  1262→  from { opacity: 0; transform: translateY(8px); }
+  1263→  to   { opacity: 1; transform: translateY(0); }
+  1264→}
+  1265→.anim-row-stagger {
+  1266→  opacity: 0;
+  1267→  animation: anim-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  1268→  animation-delay: calc(var(--stagger-index, 0) * 60ms);
+  1269→  will-change: transform, opacity;
+  1270→}
+  1271→
+  1272→/* ── Slide-in from right (drill-down navigation: month → week → day) ── */
+  1273→@keyframes anim-slide-in-right {
+  1274→  from { opacity: 0; transform: translateX(24px); }
+  1275→  to   { opacity: 1; transform: translateX(0); }
+  1276→}
+  1277→.anim-slide-in-right {
+  1278→  animation: anim-slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  1279→  will-change: transform, opacity;
+  1280→}
+  1281→
+  1282→/* ── Single red flash for over-budget elements (bars, alerts) ── */
+  1283→@keyframes anim-flash-red {
+  1284→  0%, 100% { background-color: var(--bg, transparent); }
+  1285→  50% { background-color: oklch(0.65 0.2 25 / 0.15); }
+  1286→}
+  1287→.anim-flash-red {
+  1288→  animation: anim-flash-red 0.6s ease-out 1;
+  1289→}
+  1290→
+  1291→/* ── Subtle breathing glow (today cell, active elements) ── */
+  1292→@keyframes anim-glow-breathe {
+  1293→  0%, 100% { box-shadow: 0 0 0 0 oklch(0.62 0.19 264 / 0); }
+  1294→  50% { box-shadow: 0 0 0 4px oklch(0.62 0.19 264 / 0.12); }
+  1295→}
+  1296→.anim-glow-breathe {
+  1297→  animation: anim-glow-breathe 3s ease-in-out infinite;
+  1298→}
+  1299→
+  1300→/* ── Urgency pulse (deadline < 7 days, soft red glow) ── */
+  1301→@keyframes anim-urgency-pulse {
+  1302→  0%, 100% { box-shadow: 0 0 0 0 oklch(0.65 0.2 25 / 0); }
+  1303→  50% { box-shadow: 0 0 0 3px oklch(0.65 0.2 25 / 0.10); }
+  1304→}
+  1305→.anim-urgency-pulse {
+  1306→  animation: anim-urgency-pulse 2.5s ease-in-out infinite;
+  1307→}
+  1308→
+  1309→/* ── Subtle float (empty state illustrations, icons) ── */
+  1310→@keyframes anim-float-subtle {
+  1311→  0%, 100% { transform: translateY(0); }
+  1312→  50% { transform: translateY(-4px); }
+  1313→}
+  1314→.anim-float-subtle {
+  1315→  animation: anim-float-subtle 3s ease-in-out infinite;
+  1316→  will-change: transform;
+  1317→}
+  1318→
+  1319→/* ── Micro-pulse (single, subtle — for data-load moments) ── */
+  1320→@keyframes anim-micro-pulse {
+  1321→  0% { transform: scale(1); }
+  1322→  50% { transform: scale(1.06); }
+  1323→  100% { transform: scale(1); }
+  1324→}
+  1325→.anim-micro-pulse {
+  1326→  animation: anim-micro-pulse 0.5s ease-out 1;
+  1327→}
+  1328→
+  1329→/* ── Reduced motion: disable all new premium animations ── */
+  1330→@media (prefers-reduced-motion: reduce) {
+  1331→  .anim-color-smooth { transition: none; }
+  1332→  .anim-row-stagger,
+  1333→  .anim-slide-in-right,
+  1334→  .anim-flash-red,
+  1335→  .anim-glow-breathe,
+  1336→  .anim-urgency-pulse,
+  1337→  .anim-float-subtle,
+  1338→  .anim-micro-pulse {
+  1339→    animation: none !important;
+  1340→  }
+  1341→  .anim-row-stagger { opacity: 1; }
+  1342→}
+  1343→
+  1344→/* ══════════════════════════════════════════════════════════════════════
+  1345→   PERFORMANCE — smooth loading transitions
+  1346→   ══════════════════════════════════════════════════════════════════════ */
+  1347→
+  1348→/* Content-visibility: auto for long lists — browser skips rendering
+  1349→   offscreen items until scrolled into view. Massive perf win for
+  1350→   transaction lists, habit lists, etc. */
+  1351→.cv-auto {
+  1352→  content-visibility: auto;
+  1353→  contain-intrinsic-size: auto 50px;
+  1354→}
+  1355→
+  1356→/* ══════════════════════════════════════════════════════════════════════
+  1357→   PERFORMANCE — layout containment
+  1358→   ══════════════════════════════════════════════════════════════════════ */
+  1359→
+  1360→/* Contain layout/style/paint to prevent thrashing when sibling elements
+  1361→   update. Critical for cards that contain animating content (count-up,
+  1362→   charts) — without containment, a re-render in one card forces layout
+  1363→   recalculation in ALL siblings. */
+  1364→.contain-card {
+  1365→  contain: layout style paint;
+  1366→}
+  1367→
+  1368→/* ══════════════════════════════════════════════════════════════════════
+  1369→   TOUCH TARGET SAFETY — enforce minimum 44px on mobile
+  1370→   ══════════════════════════════════════════════════════════════════════ */
+  1371→
+  1372→/* On touch devices, ensure all buttons have minimum 44×44px touch target.
+  1373→   This catches any button that slipped through the manual fixes. */
+  1374→@media (pointer: coarse) {
+  1375→  button[class*="h-7"], button[class*="h-6"], button[class*="h-4"] {
+  1376→    min-height: 44px;
+  1377→    min-width: 44px;
+  1378→  }
+  1379→  /* Icon-only buttons should still have 44px hit area even if visual is smaller */
+  1380→  button[size="icon"], button[class*="size-icon"] {
+  1381→    min-height: 44px;
+  1382→    min-width: 44px;
+  1383→  }
+  1384→}
+  1385→
+  1386→/* MOBILE-15: scrollbar-hide utility for horizontal scroll areas */
+  1387→.scrollbar-hide::-webkit-scrollbar {
+  1388→  display: none;
+  1389→}
+  1390→.scrollbar-hide {
+  1391→  -ms-overflow-style: none;
+  1392→  scrollbar-width: none;
+  1393→}
+  1394→
+  1395→/* ══════════════════════════════════════════════════════════════════════
+  1396→   ANIM-3 — Pull-to-Refresh Sprout + Card Flip 3D
+  1397→   Mobile-only pull-to-refresh with growing 🌱 sprout, and 3D card flip
+  1398→   for habit cards. All respect prefers-reduced-motion.
+  1399→   ══════════════════════════════════════════════════════════════════════ */
+  1400→
+  1401→/* ── Pull-to-Refresh Sprout ──
+  1402→   The sprout icon grows + rotates as the user pulls down. When ready
+  1403→   (pull ≥ 80px), it gets a subtle "snap" wobble. While refreshing, it
+  1404→   switches to a continuous spin (handled via Loader2's animate-spin). */
+  1405→.anim-sprout {
+  1406→  /* Smooth spring-y transition when the pull distance changes — matches
+  1407→     the content's snap-back easing for a unified feel. */
+  1408→  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  1409→  will-change: transform;
+  1410→}
+  1411→/* "Ready" state — sprout is fully grown, give it a gentle pulse so the
+  1412→   user knows releasing will trigger a refresh. */
+  1413→.anim-sprout-ready {
+  1414→  animation: anim-sprout-ready-pulse 1.2s ease-in-out infinite;
+  1415→}
+  1416→@keyframes anim-sprout-ready-pulse {
+  1417→  0%, 100% { filter: drop-shadow(0 0 0 oklch(0.622 0.174 142 / 0)); }
+  1418→  50%      { filter: drop-shadow(0 0 6px oklch(0.622 0.174 142 / 0.45)); }
+  1419→}
+  1420→
+  1421→/* ── Card Flip 3D ──
+  1422→   .perspective-1000 goes on the PARENT of the rotating element so the
+  1423→     rotateY() produces a 3D depth effect (closer face = bigger).
+  1424→   .preserve-3d on the rotating element keeps its children in the same
+  1425→     3D space (so the back face, pre-rotated 180°, lines up correctly).
+  1426→   .backface-hidden hides the rear face of an element (so when the card
+  1427→     is flipped, only the front OR the back is visible, never both). */
+  1428→.perspective-1000 {
+  1429→  perspective: 1000px;
+  1430→}
+  1431→.preserve-3d {
+  1432→  transform-style: preserve-3d;
+  1433→}
+  1434→.backface-hidden {
+  1435→  backface-visibility: hidden;
+  1436→  -webkit-backface-visibility: hidden;
+  1437→}
+  1438→
+  1439→/* ── Reduced motion: disable ANIM-3 effects ──
+  1440→   Sprout stays static (no pulse, no spin), card flip is bypassed in the
+  1441→   component (front always shown), and transitions are flattened. */
+  1442→@media (prefers-reduced-motion: reduce) {
+  1443→  .anim-sprout,
+  1444→  .anim-sprout-ready {
+  1445→    animation: none !important;
+  1446→    transition: none !important;
+  1447→  }
+  1448→  /* Force preserve-3d off so the back face doesn't render in 3D space
+  1449→     (the component already skips the rotation, but this is a safety net
+  1450→     for any custom usage). */
+  1451→  .preserve-3d {
+  1452→    transform-style: flat;
+  1453→  }
+  1454→}
+  1455→
+  1456→/* ══════════════════════════════════════════════════════════════════════
+  1457→   FIX-TIER2 / Fix 4 — CSS-only loader + page-transition keyframes
+  1458→   (replaces framer-motion `m.*` usage in the loaders kit + page-transition
+  1459→   so the framer-motion core runtime is no longer in the First Load bundle).
+  1460→   All keyframes respect prefers-reduced-motion (animations set to none
+  1461→   in the global reduced-motion block at the end of this file).
+  1462→   ══════════════════════════════════════════════════════════════════════ */
+  1463→
+  1464→/* ── Tab transition: fade + 4px slide-x (0.1s) ──
+  1465→   Replaces PageTransition's framer-motion AnimatePresence. Loses exit
+  1466→   animation but the new tab fades in immediately on mount — snappy. */
+  1467→@keyframes css-tab-enter {
+  1468→  from { opacity: 0; transform: translateX(4px); }
+  1469→  to   { opacity: 1; transform: translateX(0); }
+  1470→}
+  1471→.css-tab-enter {
+  1472→  animation: css-tab-enter 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+  1473→  will-change: transform, opacity;
+  1474→}
+  1475→
+  1476→/* ── DotWave — 3 dots bounce in sequence ── */
+  1477→@keyframes css-dot-wave {
+  1478→  0%, 100% { transform: translateY(0); }
+  1479→  50%      { transform: translateY(var(--dot-lift, -8px)); }
+  1480→}
+  1481→.css-dot-wave-dot {
+  1482→  animation: css-dot-wave 1.2s ease-in-out infinite;
+  1483→  will-change: transform;
+  1484→}
+  1485→
+  1486→/* ── BreathingSeed — calm breathing pulse + ripples ── */
+  1487→@keyframes css-breathing-core {
+  1488→  0%, 100% { transform: scale(1); }
+  1489→  50%      { transform: scale(1.15); }
+  1490→}
+  1491→@keyframes css-breathing-ripple {
+  1492→  0%   { transform: scale(0.6); opacity: 0.4; }
+  1493→  100% { transform: scale(2);   opacity: 0; }
+  1494→}
+  1495→.css-breathing-core {
+  1496→  animation: css-breathing-core 4s ease-in-out infinite;
+  1497→  will-change: transform;
+  1498→}
+  1499→.css-breathing-ripple {
+  1500→  animation: css-breathing-ripple 4s ease-out infinite;
+  1501→  will-change: transform, opacity;
+  1502→}
+  1503→.css-breathing-sprout {
+  1504→  animation: css-breathing-core 4s ease-in-out infinite;
+  1505→  will-change: transform;
+  1506→}
+  1507→
+  1508→/* ── LiquidGlassSpinner — rotating highlight arc ── */
+  1509→@keyframes css-liquid-spin {
+  1510→  from { transform: rotate(0deg); }
+  1511→  to   { transform: rotate(360deg); }
+  1512→}
+  1513→.css-liquid-spin {
+  1514→  animation: css-liquid-spin 1.1s linear infinite;
+  1515→  will-change: transform;
+  1516→  transform-origin: 50% 50%;
+  1517→}
+  1518→
+  1519→/* ── SproutGrow — Opsi B: Sprout + Leaf Detail (match Rutina logo) ─────
+  1520→   Sprout muda dengan S-curved stem + 2 oval leaves + vein lines + bud.
+  1521→   Match logo: flat, minimal, bright green, rounded rectangle soil base.
+  1522→   Timeline (4s loop):
+  1523→   0.0s - 0.6s:  stem draws (S-curve grow, stroke-dashoffset 1 → 0)
+  1524→   0.5s - 1.0s:  left leaf blooms (scale 0 → 1.1 → 1, bounce)
+  1525→   0.7s - 1.2s:  right leaf blooms (stagger 0.2s)
+  1526→   1.0s - 1.4s:  vein lines draw di daun
+  1527→   1.2s - 1.6s:  bud pop at peak (scale 0 → 1.2 → 1)
+  1528→   1.6s - 4.0s:  gentle sway loop (±1.5deg, wind)
+  1529→   0.0s - ∞:     soil glow pulse */
+  1530→@keyframes css-sprout-draw-stem {
+  1531→  0%   { stroke-dashoffset: 1; }
+  1532→  15%  { stroke-dashoffset: 0; }
+  1533→  /* BUGFIX DESIGN-3: Add fade-out 85-95% supaya loop boundary tidak snap */
+  1534→  85%  { stroke-dashoffset: 0; }
+  1535→  95%  { stroke-dashoffset: 1; }
+  1536→  100% { stroke-dashoffset: 1; }
+  1537→}
+  1538→@keyframes css-sprout-leaf-bloom {
+  1539→  0%   { opacity: 0; transform: scale(0); }
+  1540→  12%  { opacity: 0; transform: scale(0); }
+  1541→  25%  { opacity: 1; transform: scale(1.1); }
+  1542→  30%  { opacity: 1; transform: scale(1); }
+  1543→  /* BUGFIX POST-2 #6: Add fade-out 90-100% supaya loop boundary tidak
+  1544→     snap (visible blink reset every 4s). Sebelumnya 90%→100% opacity 1→1
+  1545→     lalu 100%→0% opacity 1→0 snap. */
+  1546→  85%  { opacity: 1; transform: scale(1); }
+  1547→  95%  { opacity: 0; transform: scale(0.8); }
+  1548→  100% { opacity: 0; transform: scale(0); }
+  1549→}
+  1550→@keyframes css-sprout-draw-vein {
+  1551→  0%   { stroke-dashoffset: 1; }
+  1552→  25%  { stroke-dashoffset: 1; }
+  1553→  35%  { stroke-dashoffset: 0; }
+  1554→  90%  { stroke-dashoffset: 0; }
+  1555→  100% { stroke-dashoffset: 0; }
+  1556→}
+  1557→@keyframes css-sprout-bud-pop {
+  1558→  0%   { opacity: 0; transform: scale(0); }
+  1559→  30%  { opacity: 0; transform: scale(0); }
+  1560→  40%  { opacity: 1; transform: scale(1.2); }
+  1561→  45%  { opacity: 1; transform: scale(0.95); }
+  1562→  50%  { opacity: 1; transform: scale(1); }
+  1563→  /* BUGFIX DESIGN-4: Add fade-out 85-95% supaya loop boundary tidak snap */
+  1564→  85%  { opacity: 1; transform: scale(1); }
+  1565→  95%  { opacity: 0; transform: scale(0.8); }
+  1566→  100% { opacity: 0; transform: scale(0); }
+  1567→}
+  1568→@keyframes css-sprout-sway {
+  1569→  0%   { transform: rotate(0deg); }
+  1570→  40%  { transform: rotate(0deg); }
+  1571→  50%  { transform: rotate(1.5deg); }
+  1572→  65%  { transform: rotate(-1.5deg); }
+  1573→  80%  { transform: rotate(0deg); }
+  1574→  100% { transform: rotate(0deg); }
+  1575→}
+  1576→@keyframes css-sprout-glow {
+  1577→  0%, 100% { opacity: 0.15; }
+  1578→  50%      { opacity: 0.35; }
+  1579→}
+  1580→.css-sprout-stem {
+  1581→  stroke-dasharray: 1;
+  1582→  stroke-dashoffset: 1;
+  1583→  /* BUGFIX POST-2 #7: will-change untuk stroke-dashoffset animation */
+  1584→  will-change: stroke-dashoffset;
+  1585→  animation: css-sprout-draw-stem 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  1586→}
+  1587→/* Leaves — bloom sequential (left first, then right with 0.2s delay)
+  1588→   BUGFIX POST-1 #8: Hapus transform-box: fill-box — dengan fill-box,
+  1589→   transform-origin lengths di-resolve relative ke element's bounding box,
+  1590→   bukan user-space. 50px 48px places origin OUTSIDE the leaf → bloom
+  1591→   looks like slide-in, bukan centered pop. Default (view-box) uses
+  1592→   user-space coords where 50px 48px is correct. */
+  1593→.css-sprout-leaf-l {
+  1594→  transform-origin: 50px 48px;
+  1595→  will-change: opacity, transform;
+  1596→  animation: css-sprout-leaf-bloom 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  1597→}
+  1598→.css-sprout-leaf-r {
+  1599→  transform-origin: 50px 36px;
+  1600→  will-change: opacity, transform;
+  1601→  animation: css-sprout-leaf-bloom 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  1602→  animation-delay: 0.2s;
+  1603→}
+  1604→/* Vein lines — draw after leaf blooms */
+  1605→.css-sprout-vein-l {
+  1606→  stroke-dasharray: 1;
+  1607→  stroke-dashoffset: 1;
+  1608→  will-change: stroke-dashoffset;
+  1609→  animation: css-sprout-draw-vein 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  1610→}
+  1611→.css-sprout-vein-r {
+  1612→  stroke-dasharray: 1;
+  1613→  stroke-dashoffset: 1;
+  1614→  will-change: stroke-dashoffset;
+  1615→  animation: css-sprout-draw-vein 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  1616→  animation-delay: 0.2s;
+  1617→}
+  1618→/* Bud — pops last with bounce */
+  1619→.css-sprout-bud {
+  1620→  transform-origin: 50px 14px;
+  1621→  will-change: opacity, transform;
+  1622→  animation: css-sprout-bud-pop 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  1623→}
+  1624→/* Sway group — wraps stem + leaves + bud */
+  1625→.css-sprout-sway {
+  1626→  transform-origin: 50px 88px;
+  1627→  animation: css-sprout-sway 4s ease-in-out infinite;
+  1628→}
+  1629→.css-sprout-glow {
+  1630→  will-change: opacity;
+  1631→  animation: css-sprout-glow 2s ease-in-out infinite;
+  1632→}
+  1633→/* BUGFIX POST-2 #4: Hapus will-change: opacity dari .css-sprout-svg —
+  1634→   SVG root tidak animate opacity, hanya children do. Wasted compositor layer. */
+  1635→.css-sprout-svg {
+  1636→  /* no will-change needed — children handle their own */
+  1637→}
+  1638→@keyframes css-sprout-pulse {
+  1639→  0%, 100% { opacity: 0.55; }
+  1640→  50%      { opacity: 1; }
+  1641→}
+  1642→.css-sprout-static {
+  1643→  animation: css-sprout-pulse 2.4s ease-in-out infinite;
+  1644→}
+  1645→
+  1646→/* ── FEAT-SPLASH-REVEAL: Splash enter + exit + content reveal animations ─
+  1647→   Inspired by motion-splash repo. Smooth transition dari splash → app
+  1648→   instead of hard cut.
+  1649→   - anim-splash-enter: splash fades in on mount (opacity 0 → 1)
+  1650→   - anim-splash-exit: splash fades out + scales up + slides up (reveal)
+  1651→   - anim-content-reveal: content fades in + slides up (entrance)
+  1652→   Total transition: 600ms (synced dengan splashExiting delay di page.tsx) */
+  1653→@keyframes anim-splash-enter {
+  1654→  0%   { opacity: 0; transform: scale(0.95); }
+  1655→  100% { opacity: 1; transform: scale(1); }
+  1656→}
+  1657→@keyframes anim-splash-exit {
+  1658→  0%   { opacity: 1; transform: scale(1) translateY(0); }
+  1659→  100% { opacity: 0; transform: scale(1.05) translateY(-20px); }
+  1660→}
+  1661→@keyframes anim-content-reveal {
+  1662→  0%   { opacity: 0; transform: translateY(12px); }
+  1663→  100% { opacity: 1; transform: translateY(0); }
+  1664→}
+  1665→.anim-splash-enter {
+  1666→  animation: anim-splash-enter 0.4s ease-out forwards;
+  1667→}
+  1668→.anim-splash-exit {
+  1669→  animation: anim-splash-exit 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  1670→}
+  1671→.anim-content-reveal {
+  1672→  /* BUGFIX POST-2 #9: Add will-change untuk smoother first frame */
+  1673→  will-change: transform, opacity;
+  1674→  animation: anim-content-reveal 0.5s ease-out 0.1s both;
+  1675→}
+  1676→@media (prefers-reduced-motion: reduce) {
+  1677→  .anim-splash-enter,
+  1678→  .anim-splash-exit,
+  1679→  .anim-content-reveal {
+  1680→    animation: none !important;
+  1681→    opacity: 1 !important;
+  1682→    transform: none !important;
+  1683→  }
+  1684→}
+  1685→
+  1686→/* ── AuroraRing — circular progress ring + rotation ──
+  1687→   Combines stroke-dashoffset (pathLength equivalent) + CSS rotation.
+  1688→   The SVG `pathLength="1"` attribute normalizes the path length so
+  1689→   `stroke-dasharray: 0.25 1` + `stroke-dashoffset` animates the visible
+  1690→   arc length. */
+  1691→@keyframes css-aurora-arc {
+  1692→  0%, 100% { stroke-dashoffset: 0.75; }
+  1693→  50%      { stroke-dashoffset: 0.15; }
+  1694→}
+  1695→@keyframes css-aurora-rotate {
+  1696→  from { transform: rotate(0deg); }
+  1697→  to   { transform: rotate(360deg); }
+  1698→}
+  1699→@keyframes css-aurora-sprout {
+  1700→  0%, 100% { transform: scale(1); }
+  1701→  50%      { transform: scale(1.12); }
+  1702→}
+  1703→.css-aurora-arc {
+  1704→  stroke-dasharray: 1;
+  1705→  stroke-dashoffset: 0.75;
+  1706→  animation: css-aurora-arc 1.6s ease-in-out infinite;
+  1707→  /* Combine with rotation via transform on the SVG element (separate layer). */
+  1708→}
+  1709→.css-aurora-rotate {
+  1710→  animation: css-aurora-rotate 2.4s linear infinite;
+  1711→  transform-origin: 50% 50%;
+  1712→  will-change: transform;
+  1713→}
+  1714→.css-aurora-sprout {
+  1715→  animation: css-aurora-sprout 2.4s ease-in-out infinite;
+  1716→  will-change: transform;
+  1717→}
+  1718→
+  1719→/* ── FallingLeaves — fall + sway ──
+  1720→   Each leaf sets inline style with --fall-duration, --sway-amount,
+  1721→   animation-delay (negative for mid-loop start), and rotate direction. */
+  1722→@keyframes css-leaf-fall {
+  1723→  from { transform: translateY(-50px) rotate(0deg); }
+  1724→  to   { transform: translateY(110vh) rotate(var(--leaf-rotate, 360deg)); }
+  1725→}
+  1726→@keyframes css-leaf-sway {
+  1727→  0%, 100% { transform: translateX(0); }
+  1728→  25%      { transform: translateX(var(--sway-amount, 30px)); }
+  1729→  50%      { transform: translateX(0); }
+  1730→  75%      { transform: translateX(calc(-1 * var(--sway-amount, 30px))); }
+  1731→}
+  1732→.css-leaf-fall {
+  1733→  animation: css-leaf-fall var(--fall-duration, 8s) linear infinite;
+  1734→  will-change: transform;
+  1735→}
+  1736→.css-leaf-sway {
+  1737→  animation: css-leaf-sway calc(var(--fall-duration, 8s) / 2) ease-in-out infinite;
+  1738→  will-change: transform;
+  1739→}
+  1740→
+  1741→/* ── MorphingSprout — crossfade between 3 stacked paths ──
+  1742→   True SVG `d` morphing is impossible in pure CSS. Instead we stack 3
+  1743→   paths and crossfade opacity — visually similar (shape "blinks" through
+  1744→   sprout → circle → square → sprout). The wrapper rotates slowly.
+  1745→   Each path's opacity animates on a 3s loop with staggered windows. */
+  1746→@keyframes css-morph-rotate {
+  1747→  from { transform: rotate(0deg); }
+  1748→  to   { transform: rotate(360deg); }
+  1749→}
+  1750→@keyframes css-morph-path-1 {
+  1751→  0%, 33%      { opacity: 1; }
+  1752→  33.01%, 100% { opacity: 0; }
+  1753→}
+  1754→@keyframes css-morph-path-2 {
+  1755→  0%, 33%      { opacity: 0; }
+  1756→  33.01%, 66%  { opacity: 1; }
+  1757→  66.01%, 100% { opacity: 0; }
+  1758→}
+  1759→@keyframes css-morph-path-3 {
+  1760→  0%, 66%      { opacity: 0; }
+  1761→  66.01%, 100% { opacity: 1; }
+  1762→}
+  1763→.css-morph-rotate {
+  1764→  animation: css-morph-rotate 6s linear infinite;
+  1765→  transform-origin: 50% 50%;
+  1766→  will-change: transform;
+  1767→}
+  1768→.css-morph-path-1 { animation: css-morph-path-1 3s steps(1, end) infinite; }
+  1769→.css-morph-path-2 { animation: css-morph-path-2 3s steps(1, end) infinite; }
+  1770→.css-morph-path-3 { animation: css-morph-path-3 3s steps(1, end) infinite; }
+  1771→
+  1772→/* ── Reduced motion: disable all FIX-TIER2 CSS animations ── */
+  1773→@media (prefers-reduced-motion: reduce) {
+  1774→  .css-tab-enter,
+  1775→  .css-dot-wave-dot,
+  1776→  .css-breathing-core,
+  1777→  .css-breathing-ripple,
+  1778→  .css-breathing-sprout,
+  1779→  .css-liquid-spin,
+  1780→  .css-sprout-stem,
+  1781→  .css-sprout-leaf-l,
+  1782→  .css-sprout-leaf-r,
+  1783→  .css-sprout-vein-l,
+  1784→  .css-sprout-vein-r,
+  1785→  .css-sprout-bud,
+  1786→  .css-sprout-sway,
+  1787→  .css-sprout-glow,
+  1788→  .css-sprout-svg,
+  1789→  .css-sprout-static,
+  1790→  .css-aurora-arc,
+  1791→  .css-aurora-rotate,
+  1792→  .css-aurora-sprout,
+  1793→  .css-leaf-fall,
+  1794→  .css-leaf-sway,
+  1795→  .css-morph-rotate,
+  1796→  .css-morph-path-1,
+  1797→  .css-morph-path-2,
+  1798→  .css-morph-path-3 {
+  1799→    animation: none !important;
+  1800→  }
+  1801→  /* In reduced motion, force sprout paths to fully-drawn (dashoffset 0)
+  1802→     so the static sprout is visible. */
+  1803→  .css-sprout-stem,
+  1804→  .css-sprout-vein-l,
+  1805→  .css-sprout-vein-r {
+  1806→    stroke-dashoffset: 0 !important;
+  1807→  }
+  1808→  /* In reduced motion, show leaves + bud at full opacity + scale */
+  1809→  .css-sprout-leaf-l,
+  1810→  .css-sprout-leaf-r,
+  1811→  .css-sprout-bud {
+  1812→    opacity: 1 !important;
+  1813→    transform: scale(1) !important;
+  1814→  }
+  1815→}
+  1816→
