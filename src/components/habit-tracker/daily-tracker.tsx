@@ -31,7 +31,6 @@ import {
 import { Input } from '@/components/ui/input';
 import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { TimePicker } from '@/components/habit-tracker/time-picker';
-import { cn } from '@/lib/utils';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { jakartaDateString } from '@/lib/jakarta-date';
@@ -51,7 +50,7 @@ import {
 // utility module. Output is identical for the patterns and helpers used
 // here — verified via test script in worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
-import { Clock, GripVertical } from 'lucide-react';
+import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag } from 'lucide-react';
 
 import type { Habit, HabitLog } from './daily-tracker-types';
 import {
@@ -799,22 +798,27 @@ export default function DailyTracker() {
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       {/* ─────────────────── View Toggle (Hari Ini | Riwayat) ─── */}
-      <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 w-fit">
+      {/* PREMIUM REDESIGN (Rutina Aurora): premium segmented pill.
+          Plain buttons + aria-pressed (not role=tab) so keyboard users can
+          Tab between them natively without needing arrow-key handlers. */}
+      <div
+        className="premium-segment w-fit"
+        role="group"
+        aria-label="Mode tampilan tracker"
+      >
         <button
           onClick={() => setViewMode('today')}
-          className={cn(
-            'px-4 py-1.5 text-sm font-medium rounded-md transition-all',
-            viewMode === 'today' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-          )}
+          data-active={viewMode === 'today'}
+          aria-pressed={viewMode === 'today'}
+          className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
         >
           Hari Ini
         </button>
         <button
           onClick={() => setViewMode('history')}
-          className={cn(
-            'px-4 py-1.5 text-sm font-medium rounded-md transition-all',
-            viewMode === 'history' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-          )}
+          data-active={viewMode === 'history'}
+          aria-pressed={viewMode === 'history'}
+          className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
         >
           Riwayat
         </button>
@@ -848,7 +852,9 @@ export default function DailyTracker() {
       {/* ─────────────────── Daily Notes (full-width) ────────── */}
       <section className="daily-notes-card">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-base">📝</span>
+          <span className="chip-soft chip-soft-teal h-7 w-7">
+            <NotebookPen className="h-3.5 w-3.5" />
+          </span>
           <h3 className="text-sm font-semibold">Catatan Harian</h3>
           <span className="ml-auto text-[11px] text-muted-foreground/70">
             {notesCharCount > 0 ? `${notesCharCount} karakter` : 'Tersimpan otomatis'}
@@ -869,9 +875,7 @@ export default function DailyTracker() {
       {/* ─────────────────── Habit Grid ─────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Habits
-          </h3>
+          <h3 className="premium-label">Habits</h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">
               {completedCount}/{totalCount}
@@ -884,7 +888,7 @@ export default function DailyTracker() {
                 variant={dragMode ? 'default' : 'outline'}
                 size="sm"
                 onClick={toggleDragMode}
-                className="h-7 text-xs"
+                className="h-7 text-xs rounded-full px-3"
                 title={dragMode ? 'Selesai mengatur urutan' : 'Atur urutan habit'}
               >
                 <GripVertical className="h-3 w-3" />
@@ -892,7 +896,11 @@ export default function DailyTracker() {
               </Button>
             )}
             {!dragMode && (
-              <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
+              <div
+                className="premium-segment"
+                role="group"
+                aria-label="Filter habit"
+              >
                 {(
                   [
                     ['all', 'Semua'],
@@ -903,12 +911,9 @@ export default function DailyTracker() {
                   <button
                     key={key}
                     onClick={() => setViewFilter(key)}
-                    className={cn(
-                      'px-3 py-1.5 text-xs font-medium transition-colors',
-                      viewFilter === key
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                    )}
+                    data-active={viewFilter === key}
+                    aria-pressed={viewFilter === key}
+                    className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
                   >
                     {label}
                   </button>
@@ -922,26 +927,37 @@ export default function DailyTracker() {
             tapping the grip handle and dragging will reorder habits, and
             that normal tap-to-toggle is disabled while in drag mode. */}
         {dragMode && activeHabits.length > 0 && (
-          <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Mode Atur Urutan:</span>{' '}
-            Tahan tombol <GripVertical className="inline h-3 w-3" /> di sudut kartu untuk menggeser urutan. Perubahan tersimpan otomatis.
+          <div className="premium-card mb-3 rounded-2xl px-3 py-2 flex items-center gap-2.5 text-xs text-muted-foreground">
+            <span className="chip-soft chip-soft-teal h-6 w-6 shrink-0">
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+            <span>
+              <span className="font-semibold text-foreground">Mode Atur Urutan:</span>{' '}
+              Tahan tombol geser di sudut kartu untuk mengubah urutan. Perubahan tersimpan otomatis.
+            </span>
           </div>
         )}
 
         {activeHabits.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl border border-dashed border-border">
-            <div className="text-4xl mb-3">📋</div>
+          <div className="premium-card premium-empty rounded-2xl">
+            <div className="premium-empty-orb">
+              <ClipboardList className="h-8 w-8 text-primary" />
+            </div>
             <p className="text-sm font-medium text-muted-foreground">
               Belum ada habit aktif
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground/70 -mt-0.5">
               Buka Habit Master untuk membuatnya!
             </p>
           </div>
         ) : !dragMode && filteredHabits.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl border border-dashed border-border">
-            <div className="text-4xl mb-3">
-              {viewFilter === 'completed' ? '🏁' : '✅'}
+          <div className="premium-card premium-empty rounded-2xl">
+            <div className="premium-empty-orb">
+              {viewFilter === 'completed' ? (
+                <Flag className="h-8 w-8 text-primary" />
+              ) : (
+                <CheckCircle2 className="h-8 w-8 text-primary" />
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {viewFilter === 'completed'

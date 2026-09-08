@@ -1,6 +1,13 @@
 // ---------------------------------------------------------------------------
 // KpiCard — small KPI stat card used in the daily summary row.
 // Extracted from daily-tracker.tsx during SPLIT-PHASE3.
+//
+// PREMIUM REDESIGN (Rutina Aurora / Task 2-b): the full pastel card
+// backgrounds ("baby app" per VLM critique) are replaced with a clean white
+// `.premium-card` (gradient bg + hairline + multi-layer soft shadow) and the
+// accent color now lives ONLY in a small tinted `.chip-soft` icon chip.
+// Typography: `.premium-label` (editorial small-caps) + `.premium-stat`
+// (tabular-nums, tight tracking). Props/API unchanged.
 // ---------------------------------------------------------------------------
 
 'use client';
@@ -23,31 +30,32 @@ export function KpiCard({
   accent: 'green' | 'orange' | 'rose' | 'amber';
   staggerIndex?: number;
 }) {
+  // Accent → softly tinted icon chip. Map (per design spec):
+  //   green → teal    (completed)
+  //   orange → amber  (XP)
+  //   rose → rose     (streak flame hues)
+  //   amber → violet  (level / XP star)
   const accents: Record<string, string> = {
-    green: 'kpi-card-green',
-    orange: 'kpi-card-orange',
-    rose: 'kpi-card-rose',
-    amber: 'kpi-card-amber',
-  };
-  const iconColors: Record<string, string> = {
-    green: 'text-success',
-    orange: 'text-orange-500',
-    rose: 'text-rose-500',
-    amber: 'text-warning',
+    green: 'chip-soft chip-soft-teal',
+    orange: 'chip-soft chip-soft-amber',
+    rose: 'chip-soft chip-soft-rose',
+    amber: 'chip-soft chip-soft-violet',
   };
   return (
     <Card
-      className={cn('group anim-stagger p-4', accents[accent])}
+      className={cn(
+        'group anim-stagger premium-card premium-card-sheen p-4',
+      )}
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
     >
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Icon className={cn('h-3.5 w-3.5', iconColors[accent])} />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
+      <div className="flex items-center gap-2">
+        <span className={cn('h-8 w-8', accents[accent])}>
+          <Icon className="h-4 w-4" />
         </span>
+        <span className="premium-label truncate">{label}</span>
       </div>
-      <p className="text-xl font-bold tracking-tight tabular-nums">{value}</p>
-      <p className="text-[11px] mt-0.5 text-muted-foreground">{sub}</p>
+      <p className="premium-stat text-2xl mt-3 text-foreground">{value}</p>
+      <p className="text-[11px] mt-1 text-muted-foreground">{sub}</p>
     </Card>
   );
 }

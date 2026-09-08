@@ -54,8 +54,8 @@ export const viewport: Viewport = {
   // viewport-fit=cover enables safe-area-inset env() variables for iOS notch
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f7f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#101513" },
   ],
 };
 

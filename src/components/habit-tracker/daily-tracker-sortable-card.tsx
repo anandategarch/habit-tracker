@@ -69,7 +69,7 @@ export function SortableHabitCard({ dragMode, ...habitCardProps }: SortableHabit
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
-          className="absolute top-2 left-2 z-30 p-1 rounded-md bg-background/80 backdrop-blur-sm border border-border text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
+          className="absolute top-2 left-2 z-30 p-1.5 rounded-full bg-background/85 backdrop-blur-sm border border-border/70 shadow-sm text-muted-foreground hover:text-foreground hover:border-border cursor-grab active:cursor-grabbing active:scale-95 transition"
         >
           <GripVertical className="h-4 w-4" />
         </button>

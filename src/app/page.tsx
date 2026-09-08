@@ -229,7 +229,7 @@ export default function Home() {
       {showSplash && (
         <div
           className={cn(
-            'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-6',
+            'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background app-ambience gap-6',
             splashExiting ? 'anim-splash-exit' : 'anim-splash-enter'
           )}
           key="splash"
@@ -254,7 +254,7 @@ export default function Home() {
             gradient that drifts opposite to scroll direction. Fixed-positioned,
             behind all content (-z-10), pointer-events-none. Renders as a static
             layer when prefers-reduced-motion is set. */}
-        <ParallaxBackground className="bg-gradient-to-b from-primary/5 via-background to-background" />
+        <ParallaxBackground className="app-ambience" />
 
         {/* Mobile dark overlay */}
         {sidebarOpen && (
@@ -264,25 +264,30 @@ export default function Home() {
           />
         )}
 
-        {/* Sidebar - fixed position, slides in/out */}
+        {/* Sidebar - fixed position, slides in/out.
+            PREMIUM-UI: glass panel + gradient logo + active pill gradien. */}
         <aside
           className={cn(
-            'fixed top-0 left-0 z-50 h-dvh w-64 bg-card border-r border-border flex flex-col',
+            'fixed top-0 left-0 z-50 h-dvh w-64 flex flex-col',
+            'bg-card/95 backdrop-blur-xl border-r border-border',
             'transition-transform duration-300 ease-in-out',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
           {/* Logo */}
           <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
-              <Sprout className="h-5 w-5" />
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-500 text-white premium-fab-shadow">
+              <Sprout className="h-5 w-5" strokeWidth={2.2} />
             </div>
-            <span className="font-bold text-sm leading-tight tracking-tight">Rutina</span>
+            <div className="leading-tight">
+              <span className="font-bold text-sm tracking-tight">Rutina</span>
+              <p className="text-[10px] text-muted-foreground/70">Habit & Keuangan</p>
+            </div>
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="flex-1 py-2 custom-scrollbar">
-            <nav className="px-2 space-y-0.5">
+          <ScrollArea className="flex-1 py-3 custom-scrollbar">
+            <nav className="px-2.5 space-y-1">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -291,13 +296,14 @@ export default function Home() {
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                       isActive
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+                        ? 'btn-primary-gradient text-primary-foreground shadow-md'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/70 active:scale-[0.98]',
                     )}
                   >
-                    <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary-foreground')} />
+                    <Icon className={cn('h-4 w-4 shrink-0', isActive && 'anim-nav-icon-pop')} />
                     <span>{item.label}</span>
                   </button>
                 );
@@ -323,8 +329,8 @@ export default function Home() {
             sidebarOpen ? 'md:ml-64' : 'md:ml-0'
           )}
         >
-          {/* Top bar */}
-          <header className="sticky top-0 z-30 h-14 bg-background/80 backdrop-blur-md border-b border-border flex items-center px-4 md:px-6 gap-3">
+          {/* Top bar — PREMIUM-UI: kaca blur + hairline bawah fade */}
+          <header className="sticky top-0 z-30 h-14 bg-background/75 backdrop-blur-xl flex items-center px-4 md:px-6 gap-3 border-b border-border/70">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

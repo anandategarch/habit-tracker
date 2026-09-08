@@ -9,6 +9,14 @@
 //   - confettiElRef (for confetti origin)
 //   - setAnalysisHabitId (for time-analysis dialog)
 //   - monthLogsCacheRef (whose current-month array is passed as `monthLogs`)
+//
+// PREMIUM REDESIGN (Rutina Aurora / Task 2-b): cards use `.premium-card`
+// (+ sheen + hover lift). The completed/relapsed "pastel" states become a
+// soft gradient wash overlay with an inset colored hairline (keeps the
+// multi-layer premium shadow intact). The checkbox is now a larger rounded
+// circle with a gradient fill when checked, popping via `anim-nav-icon-pop`.
+// DnD note: the drag transform lives on the OUTER sortable wrapper, so the
+// inner hover transform/press feedback cannot break dragging.
 // ---------------------------------------------------------------------------
 
 'use client';
@@ -135,23 +143,34 @@ export const HabitCard = memo(function HabitCard({
     <FlipCard
       key={habit.id}
       className={cn(
+        // NOTE: no `anim-lift` here anymore — the hover lift is provided by
+        // `.premium-card-hover` on the inner Card (single source of motion;
+        // avoids stacking two translateY transforms).
         'anim-stagger',
-        !justCompleted && 'anim-lift',
         justCompleted && 'habit-card-pop anim-check-pop',
       )}
       style={{ animationDelay: `${idx * 40}ms` }}
       front={
         <Card
           className={cn(
-            'group cursor-pointer select-none p-5 gap-0 h-full transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
-            // PHASE3-HABIT: avoid habits show red when relapsed (checked),
-            // green when successful (unchecked). Normal/amount habits stay
-            // green when completed.
-            isRelapsed
-              ? 'habit-card-relapsed'
-              : isSuccess && 'habit-card-completed',
+            'group cursor-pointer select-none p-5 gap-0 h-full',
+            'premium-card premium-card-hover premium-card-sheen',
           )}
         >
+          {/* Rutina Aurora state wash: success = emerald, relapse = rose.
+              A gradient tint + inset colored hairline layered OVER the
+              premium surface (visual only — pointer-events disabled). */}
+          <div
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-300',
+              isRelapsed
+                ? 'bg-gradient-to-br from-rose-500/[0.07] via-transparent to-rose-500/[0.03] shadow-[inset_0_0_0_1px_rgba(244,63,94,0.28)]'
+                : isSuccess
+                  ? 'bg-gradient-to-br from-emerald-500/[0.07] via-transparent to-emerald-500/[0.03] shadow-[inset_0_0_0_1px_rgba(16,185,129,0.28)]'
+                  : 'opacity-0',
+            )}
+          />
           {/* Checkbox top-right (stopPropagation: clicking it
               toggles the habit without flipping the card). */}
           <div className="absolute top-4 right-4 z-10">
@@ -166,14 +185,18 @@ export const HabitCard = memo(function HabitCard({
                 onSetConfettiEl(e.currentTarget as HTMLElement);
               }}
               className={cn(
-                'h-5 w-5 rounded-md transition-all duration-200',
-                // For avoid habits, a checked checkbox is red (relapse).
-                // For normal/amount habits, a checked checkbox is primary.
-                isDone && !isAvoid &&
-                  'data-[state=checked]:bg-primary data-[state=checked]:border-primary',
-                isDone && isAvoid &&
-                  'data-[state=checked]:bg-destructive data-[state=checked]:border-destructive',
-                justCompleted && 'animate-[ringPop_0.4s_ease]',
+                'h-6 w-6 rounded-full border-2 transition-all duration-200',
+                'data-[state=unchecked]:border-muted-foreground/30 dark:data-[state=unchecked]:border-white/25',
+                'data-[state=checked]:border-transparent data-[state=checked]:text-white',
+                // Gradient fill when done — teal→emerald for normal/amount
+                // habits (success), rose→red for avoid habits (relapse).
+                isDone &&
+                  !isAvoid &&
+                  'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-teal-400 data-[state=checked]:to-emerald-600 data-[state=checked]:shadow-[0_4px_12px_-2px_rgba(16,185,129,0.6)]',
+                isDone &&
+                  isAvoid &&
+                  'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-rose-400 data-[state=checked]:to-red-600 data-[state=checked]:shadow-[0_4px_12px_-2px_rgba(244,63,94,0.6)]',
+                justCompleted && 'anim-nav-icon-pop',
               )}
             />
           </div>
@@ -184,11 +207,12 @@ export const HabitCard = memo(function HabitCard({
             <RotateCw className="h-3.5 w-3.5 text-muted-foreground/40" />
           </div>
 
-          {/* Icon + Category tint */}
+          {/* Icon + Category tint (soft pastel square + hairline ring) */}
           <div
             className={cn(
               'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-3 transition-transform duration-300 group-hover:scale-110',
               catStyle.tint,
+              'ring-1 ring-inset ring-black/[0.04] dark:ring-white/[0.06]',
             )}
           >
             {habit.icon}
@@ -239,7 +263,7 @@ export const HabitCard = memo(function HabitCard({
             )}
             <span
               className={cn(
-                'inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded-full',
+                'inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full',
                 getBadgeClass(categoryColor),
               )}
             >
@@ -341,12 +365,20 @@ export const HabitCard = memo(function HabitCard({
         <Card
           className={cn(
             'p-5 gap-0 h-full flex flex-col overflow-hidden',
-            // PHASE3-HABIT: avoid habits show red on the back when relapsed.
-            isRelapsed
-              ? 'habit-card-relapsed'
-              : isSuccess && 'habit-card-completed',
+            'premium-card premium-card-sheen',
           )}
         >
+          {/* Rutina Aurora state wash (mirrors the front face) */}
+          <div
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-0 rounded-[inherit]',
+              isRelapsed
+                ? 'bg-gradient-to-br from-rose-500/[0.06] via-transparent to-rose-500/[0.02]'
+                : isSuccess &&
+                  'bg-gradient-to-br from-emerald-500/[0.06] via-transparent to-emerald-500/[0.02]',
+            )}
+          />
           {/* Header: icon + name + flip hint */}
           <div className="flex items-center gap-2 mb-3 min-w-0">
             <span className="text-lg shrink-0">{habit.icon}</span>
@@ -358,9 +390,7 @@ export const HabitCard = memo(function HabitCard({
 
           {/* Last 7 days mini calendar */}
           <div className="mb-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
-              7 hari terakhir
-            </p>
+            <p className="premium-label mb-1.5">7 hari terakhir</p>
             <div className="flex items-center gap-1">
               {last7Days.map((day, i) => (
                 <div
@@ -370,8 +400,9 @@ export const HabitCard = memo(function HabitCard({
                     day.done
                       ? isAvoid
                         ? 'bg-success text-success-foreground'
-                        : 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground/60',
+                        : // premium-progress-fill = gradient fill + soft glow
+                          'premium-progress-fill text-primary-foreground'
+                        : 'bg-muted text-muted-foreground/60',
                   )}
                 >
                   {day.dateNum}
@@ -393,17 +424,13 @@ export const HabitCard = memo(function HabitCard({
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2 mt-auto">
             <div className="rounded-lg bg-muted/40 p-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Total log
-              </p>
+              <p className="premium-label">Total log</p>
               <p className="text-sm font-bold tabular-nums">
                 {totalLogs}
               </p>
             </div>
             <div className="rounded-lg bg-muted/40 p-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Streak
-              </p>
+              <p className="premium-label">Streak</p>
               <p className="text-sm font-bold tabular-nums flex items-center gap-1">
                 <StreakFlame streak={streak} size="sm" strength={strength} />
                 {streak}d
@@ -411,9 +438,7 @@ export const HabitCard = memo(function HabitCard({
             </div>
             {/* PHASE1-HABIT: strength score */}
             <div className="rounded-lg bg-muted/40 p-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Kekuatan
-              </p>
+              <p className="premium-label">Kekuatan</p>
               <p
                 className={cn(
                   'text-sm font-bold tabular-nums',
@@ -457,9 +482,7 @@ export const HabitCard = memo(function HabitCard({
           {/* Notes preview */}
           {habit.notes ? (
             <div className="mt-3 pt-3 border-t border-border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                Catatan
-              </p>
+              <p className="premium-label mb-1">Catatan</p>
               <p className="text-xs text-muted-foreground line-clamp-3">
                 {habit.notes}
               </p>

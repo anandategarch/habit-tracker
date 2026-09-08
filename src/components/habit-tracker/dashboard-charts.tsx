@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
 import {
   BarChart,
   Bar,
@@ -12,7 +11,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { Info } from 'lucide-react';
+import { BarChart3, CalendarDays, Info, Layers, Tags, TrendingUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
@@ -83,13 +82,13 @@ export default function DashboardCharts({
     <>
       {/* ── Middle Row: Weekly Chart + Category Performance ─────── */}
       <section aria-label="Charts" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-4">
-          <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Completion Mingguan
-              <ChartInfo text="Jumlah habit yang diselesaikan (hijau) vs tidak diselesaikan (merah) per hari dalam 7 hari terakhir. Total harian = jumlah habit aktif pada tanggal tersebut." />
-            </h3>
-            <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+          <h3 className="premium-label mb-4 flex items-center gap-2.5">
+            <span className="chip-soft chip-soft-teal h-8 w-8" aria-hidden="true"><BarChart3 className="h-4 w-4" /></span>
+            Completion Mingguan
+            <ChartInfo text="Jumlah habit yang diselesaikan (hijau) vs tidak diselesaikan (merah) per hari dalam 7 hari terakhir. Total harian = jumlah habit aktif pada tanggal tersebut." />
+          </h3>
+          <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
                 <BarChart data={weeklyBarData} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
@@ -127,16 +126,15 @@ export default function DashboardCharts({
                   </Bar>
                 </BarChart>
               </ChartContainer>
-          </CardContent>
-        </Card>
+        </div>
 
-        <Card className="p-4">
-          <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Performa Kategori
-              <ChartInfo text="Rasio penyelesaian per kategori: (jumlah log completed) / (jumlah habit × jumlah hari sejak habit pertama dibuat dalam kategori)." />
-            </h3>
-            <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+          <h3 className="premium-label mb-4 flex items-center gap-2.5">
+            <span className="chip-soft chip-soft-violet h-8 w-8" aria-hidden="true"><Tags className="h-4 w-4" /></span>
+            Performa Kategori
+            <ChartInfo text="Rasio penyelesaian per kategori: (jumlah log completed) / (jumlah habit × jumlah hari sejak habit pertama dibuat dalam kategori)." />
+          </h3>
+          <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
                 <BarChart
                   data={categoryPerformance}
                   layout="vertical"
@@ -181,19 +179,18 @@ export default function DashboardCharts({
                   </Bar>
                 </BarChart>
               </ChartContainer>
-          </CardContent>
-        </Card>
+        </div>
       </section>
 
       {/* ── Monthly/Period Trend Chart (Full Width) ────────────── */}
       <section aria-label="Period trend">
-        <Card className="p-4">
-          <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              Tren Completion {chartLabel}
-              <ChartInfo text="Tren persentase penyelesaian harian selama periode yang dipilih. Setiap titik menunjukkan rasio habit completed terhadap total habit aktif pada hari tersebut." />
-            </h3>
-            <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+          <h3 className="premium-label mb-4 flex items-center gap-2.5">
+            <span className="chip-soft chip-soft-teal h-8 w-8" aria-hidden="true"><TrendingUp className="h-4 w-4" /></span>
+            Tren Completion {chartLabel}
+            <ChartInfo text="Tren persentase penyelesaian harian selama periode yang dipilih. Setiap titik menunjukkan rasio habit completed terhadap total habit aktif pada hari tersebut." />
+          </h3>
+          <ChartContainer config={chartConfig} className="h-64 w-full aspect-auto">
                 <AreaChart data={monthlyChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
@@ -236,22 +233,21 @@ export default function DashboardCharts({
                   />
                 </AreaChart>
               </ChartContainer>
-          </CardContent>
-        </Card>
+        </div>
       </section>
 
       {/* ── Stacked Bar: Completed vs Missed + Weekly Pattern ────────────
           Hidden on mobile: redundant with "30 Hari Completion Trend" above.
           Shows same data in different format — not essential for mobile UX. */}
       <section aria-label="Habit completion detail" className="hidden md:grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-4">
-          <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-              Detail {chartLabel}
-              <ChartInfo text="Setiap bar menunjukkan jumlah habit completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit yang aktif pada tanggal tersebut, bukan jumlah log." />
-            </h3>
-            <p className="text-xs text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
-            <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+          <h3 className="premium-label mb-2 flex items-center gap-2.5">
+            <span className="chip-soft chip-soft-amber h-8 w-8" aria-hidden="true"><Layers className="h-4 w-4" /></span>
+            Detail {chartLabel}
+            <ChartInfo text="Setiap bar menunjukkan jumlah habit completed (hijau) vs missed (merah) per hari. Total harian = jumlah habit yang aktif pada tanggal tersebut, bukan jumlah log." />
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">Selesai vs Tidak selesai per hari</p>
+          <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
                 <BarChart data={stackedBarData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
@@ -280,18 +276,17 @@ export default function DashboardCharts({
                   <Bar dataKey="missed" stackId="a" fill="hsl(0, 0%, 88%)" radius={[4, 4, 0, 0]} maxBarSize={24} name="Tidak" />
                 </BarChart>
               </ChartContainer>
-          </CardContent>
-        </Card>
+        </div>
 
         {/* Weekly Pattern */}
-        <Card className="p-4">
-          <CardContent className="p-0">
-            <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-              Pola Mingguan
-              <ChartInfo text="Rata-rata tingkat penyelesaian per hari dalam seminggu selama 30 hari terakhir. Misal Senin = rata-rata completion rate semua hari Senin dalam 30 hari." />
-            </h3>
-            <p className="text-xs text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
-            <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+          <h3 className="premium-label mb-2 flex items-center gap-2.5">
+            <span className="chip-soft chip-soft-violet h-8 w-8" aria-hidden="true"><CalendarDays className="h-4 w-4" /></span>
+            Pola Mingguan
+            <ChartInfo text="Rata-rata tingkat penyelesaian per hari dalam seminggu selama 30 hari terakhir. Misal Senin = rata-rata completion rate semua hari Senin dalam 30 hari." />
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">Rata-rata completion rate per hari (30 hari terakhir)</p>
+          <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
                 <BarChart data={weeklyPattern} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis
@@ -337,8 +332,7 @@ export default function DashboardCharts({
                   </Bar>
                 </BarChart>
               </ChartContainer>
-          </CardContent>
-        </Card>
+        </div>
       </section>
     </>
   );

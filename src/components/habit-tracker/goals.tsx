@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Target } from 'lucide-react';
+import { Plus, Target, CheckCircle2, Flame } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
@@ -320,52 +319,80 @@ export default function GoalsTab() {
         }
       />
 
-      {/* Quick Stats */}
+      {/* Quick Stats — premium mini stat cards (chip-icon + premium-stat).
+          PREMIUM-UI: dipakai <div> polong (bukan komponen Card) — class default
+          Card `card-shadow-premium` (unlayered, urutan sumber lebih akhir di
+          globals.css) akan menimpa multi-layer shadow .premium-card (pola
+          agent 2-a/2-b). Angka 0 tetap terlihat intentional: chip gradien +
+          label editorial + premium-stat tabular. */}
       <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium">Total Tujuan</p>
-            <p className="text-2xl font-bold mt-1">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-primary font-medium">Selesai</p>
-            <p className="text-2xl font-bold mt-1 text-primary">
-              {stats.completed}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-primary font-medium">Sedang Berjalan</p>
-            <p className="text-2xl font-bold mt-1 text-primary">
-              {stats.inProgress}
-            </p>
-          </CardContent>
-        </Card>
+        <div
+          className="premium-card premium-card-sheen rounded-2xl p-3 sm:p-4 premium-fade-up flex flex-col gap-2.5"
+          style={{ animationDelay: '40ms' }}
+        >
+          <span className="chip-icon chip-teal h-9 w-9" aria-hidden="true">
+            <Target className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="premium-label min-h-7">Total Tujuan</p>
+            <p className="premium-stat text-2xl mt-0.5">{stats.total}</p>
+          </div>
+        </div>
+        <div
+          className="premium-card premium-card-sheen rounded-2xl p-3 sm:p-4 premium-fade-up flex flex-col gap-2.5"
+          style={{ animationDelay: '90ms' }}
+        >
+          <span className="chip-icon chip-emerald h-9 w-9" aria-hidden="true">
+            <CheckCircle2 className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="premium-label min-h-7">Selesai</p>
+            <p className="premium-stat text-2xl mt-0.5 text-success">{stats.completed}</p>
+          </div>
+        </div>
+        <div
+          className="premium-card premium-card-sheen rounded-2xl p-3 sm:p-4 premium-fade-up flex flex-col gap-2.5"
+          style={{ animationDelay: '140ms' }}
+        >
+          <span className="chip-icon chip-amber h-9 w-9" aria-hidden="true">
+            <Flame className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="premium-label min-h-7">Sedang Berjalan</p>
+            <p className="premium-stat text-2xl mt-0.5 text-warning">{stats.inProgress}</p>
+          </div>
+        </div>
       </div>
 
       {/* Goals list */}
       {goals.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-primary/10 mb-4">
-              <Target className="h-7 w-7 text-primary" />
+        <div
+          className="premium-card premium-card-sheen rounded-2xl premium-fade-up"
+          style={{ animationDelay: '190ms' }}
+        >
+          {/* PREMIUM-UI: empty state dengan orb ilustrasi + headline inspiratif.
+              min-h menjaga konten tetap center vertikal di area kosong.
+              CTA "Tujuan Baru" (openNewForm) tetap berfungsi. */}
+          <div className="premium-empty min-h-[22rem] sm:min-h-[24rem]">
+            <div className="premium-empty-orb" aria-hidden="true">
+              <Target className="h-9 w-9 text-primary" />
             </div>
-            <h3 className="font-medium text-sm mb-1">Belum ada tujuan</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Buat tujuan pertama kamu dan pecah jadi milestone untuk melacak progress.
+            <h3 className="text-lg font-semibold tracking-tight mt-2">
+              Mulai Milestone Pertamamu
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+              Buat tujuan pertama kamu dan pecah jadi milestone kecil —
+              progress akan tercatat otomatis di sini.
             </p>
             <Button
               onClick={openNewForm}
-              className="mt-4"
+              className="mt-3"
             >
               <Plus className="h-4 w-4" />
               Tujuan Baru
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
         <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-1 custom-scrollbar">
           {goals.map((goal) => (

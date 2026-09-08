@@ -25,14 +25,13 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
+  Target,
   Trash2,
   X,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format, differenceInCalendarDays, id as idLocale } from '@/lib/date-utils';
@@ -42,7 +41,7 @@ import { format, differenceInCalendarDays, id as idLocale } from '@/lib/date-uti
 // script in worklog FIX-TIER3 entry.
 import { getBadgeClass } from '@/lib/label-colors';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { parseMilestones, STATUS_STYLES, getProgressColor } from './goals-helpers';
+import { parseMilestones, STATUS_STYLES } from './goals-helpers';
 import type { Goal } from './goals-types';
 
 export interface GoalCardProps {
@@ -104,17 +103,55 @@ export const GoalCard = memo(function GoalCard({
   })();
 
   return (
-    <Card
-      key={goal.id}
+    <div
       className={cn(
-        'group transition-all hover:shadow-md',
-        isCompleted && 'opacity-75',
-        isCancelled && 'opacity-50'
+        // PREMIUM-UI ("Rutina Aurora"): layered card + hover lift + top sheen.
+        // Dipakai <div> polong (bukan komponen Card) karena class default Card
+        // `card-shadow-premium` (unlayered, urutan sumber di globals.css lebih
+        // akhir dari .premium-card) akan menimpa multi-layer shadow premium.
+        'premium-card premium-card-hover premium-card-sheen group relative rounded-2xl',
+        isCompleted && 'opacity-90',
+        isCancelled && 'opacity-55'
       )}
     >
-      <CardContent className="p-4 sm:p-5">
-        {/* Title row */}
-        <div className="flex items-start justify-between gap-3">
+      {/* PREMIUM-UI: state wash overlay — dipasang sebagai CHILD div, bukan
+          utility tint di elemen premium-card sendiri (class unlayered premium
+          menang cascade atas utility Tailwind, jadi tint di elemen yang sama
+          akan kalah — pola yang sama dipakai agent 2-b utk habit selesai/
+          kambuh). pointer-events-none + aria-hidden: dekoratif murni. */}
+      {isCompleted && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent ring-1 ring-inset ring-emerald-500/25"
+        />
+      )}
+      {isCancelled && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-slate-500/10 via-slate-500/5 to-transparent ring-1 ring-inset ring-slate-400/20"
+        />
+      )}
+      {/* Content wrapper: relative agar berada DI ATAS state overlay. */}
+      <div className="relative p-4 sm:p-5">
+        {/* Title row — chip-icon status avatar + content + actions */}
+        <div className="flex items-start gap-3">
+          {/* Status avatar chip: teal (aktif) / emerald (selesai) / slate (batal) */}
+          <span
+            className={cn(
+              'chip-icon h-10 w-10',
+              isCompleted ? 'chip-emerald' : isCancelled ? 'chip-slate' : 'chip-teal'
+            )}
+            aria-hidden="true"
+          >
+            {isCompleted ? (
+              <CheckCircle2 className="h-5 w-5" />
+            ) : isCancelled ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Target className="h-5 w-5" />
+            )}
+          </span>
+
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3
@@ -197,32 +234,29 @@ export const GoalCard = memo(function GoalCard({
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="mt-3 space-y-1.5">
+        {/* Progress bar — fill gradien otomatis dari base Progress */}
+        <div className="mt-3.5 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium tabular-nums">{goal.progress}%</span>
+            <span className="premium-label">Progress</span>
+            <span className="font-semibold tabular-nums">{goal.progress}%</span>
           </div>
-          <Progress
-            value={goal.progress}
-            className={cn('h-2', getProgressColor(goal.progress))}
-          />
+          <Progress value={goal.progress} className="h-2" />
         </div>
 
-        {/* Footer row: deadline + milestone toggle */}
-        <div className="flex items-center justify-between mt-3">
+        {/* Footer row: deadline chip (amber saat dekat / rose saat lewat) + milestone pill */}
+        <div className="flex items-center justify-between mt-3 gap-2">
           {goal.deadline ? (
             <span
               className={cn(
-                'flex items-center gap-1 text-xs rounded px-1 py-0.5',
+                'inline-flex items-center gap-1.5 text-xs font-medium rounded-lg px-2 py-1',
                 isOverdue
-                  ? 'text-destructive font-medium'
+                  ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-400/15 dark:text-rose-300'
                   : isUrgent
-                  ? 'text-warning dark:text-warning/80 font-medium anim-urgency-pulse'
-                  : 'text-muted-foreground'
+                  ? 'bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300 anim-urgency-pulse'
+                  : 'bg-muted/70 text-muted-foreground'
               )}
             >
-              <Calendar className="h-3 w-3" />
+              <Calendar className="h-3.5 w-3.5" />
               {/* BUGHUNT-OTHER-1 BUG-M3: build a local Date from the YMD
                   portion of the ISO so the calendar day is preserved in
                   any browser tz (was `parseISO(goal.deadline)` which reads
@@ -237,9 +271,13 @@ export const GoalCard = memo(function GoalCard({
           {milestones.length > 0 && (
             <button
               onClick={() => onToggleExpand(goal.id)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs rounded-full border border-border/70 bg-muted/50 hover:bg-muted/80 px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              aria-expanded={isExpanded}
             >
-              {milestones.filter((m) => m.done).length}/{milestones.length} milestone
+              <span className="font-semibold tabular-nums">
+                {milestones.filter((m) => m.done).length}/{milestones.length}
+              </span>
+              <span className="text-muted-foreground">milestone</span>
               {isExpanded ? (
                 <ChevronUp className="h-3 w-3" />
               ) : (
@@ -252,18 +290,26 @@ export const GoalCard = memo(function GoalCard({
         {/* Milestones section */}
         {isExpanded && milestones.length > 0 && (
           <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <Separator className="mb-3" />
-            <div className="space-y-2">
+            <div className="premium-divider mb-3" />
+            <div className="space-y-1">
               {milestones.map((ms, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-2.5 group/milestone"
+                  className="flex items-center gap-2.5 rounded-lg px-1.5 py-1 -mx-1.5 group/milestone hover:bg-muted/50 transition-colors"
                 >
                   <Checkbox
                     checked={ms.done}
                     disabled={isCompleted || isCancelled}
                     onCheckedChange={() => onToggleMilestone(goal, idx)}
-                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    className={cn(
+                      // PREMIUM-UI: checkbox milestone dicekokkan ke pola
+                      // checkbox habit agent 2-b — bulat + gradient teal→
+                      // emerald + glow (hanya visual; state/API tak berubah).
+                      'h-5 w-5 rounded-full border-2 transition-all duration-200',
+                      'data-[state=unchecked]:border-muted-foreground/30 dark:data-[state=unchecked]:border-white/25',
+                      'data-[state=checked]:border-transparent data-[state=checked]:text-white',
+                      'data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-teal-400 data-[state=checked]:to-emerald-600 data-[state=checked]:shadow-[0_3px_8px_-2px_rgba(16,185,129,0.55)]'
+                    )}
                   />
                   <span
                     className={cn(
@@ -280,7 +326,7 @@ export const GoalCard = memo(function GoalCard({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 });

@@ -5,7 +5,7 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Edit3, Search, X, ChevronDown } from 'lucide-react';
+import { Trash2, Edit3, Search, X, ChevronDown, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString, jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
 import { toast } from 'sonner';
@@ -85,6 +85,15 @@ type FlatRow =
   | { kind: 'header'; group: GroupedTransaction }
   | { kind: 'tx'; tx: Transaction; txIdx: number };
 
+// PREMIUM-UI ("Rutina Aurora"): opsi filter tipe transaksi untuk segmented
+// control premium (menggantikan tombol chip merah/hijau generik). Label &
+// value dipetakan 1:1 ke txFilter.type — logika onFilterChange tidak berubah.
+const TYPE_OPTIONS = [
+  { value: 'all', label: 'Semua' },
+  { value: 'income', label: '↑ Pemasukan' },
+  { value: 'expense', label: '↓ Pengeluaran' },
+] as const;
+
 // PERF-FIX: estimateSize callbacks must be stable (not re-created each
 // render) — the virtualizer uses referential equality to decide whether
 // to re-measure. Hoisting to module scope also avoids a fresh closure
@@ -92,12 +101,11 @@ type FlatRow =
 // measurements on every render of this component.
 function estimateRowSize(row: FlatRow | undefined): number {
   if (!row) return 80;
-  // Header rows are short (single-line pill). Transaction rows are taller
-  // (icon + 2-line content + amount + action buttons).
-  // FIX: updated from 92 → 122 to match actual card height after spacing fix
-  // (16px padding × 2 + 78px content + 12px margin-bottom = 122px).
-  // Also enabled measureElement below for self-healing dynamic measurement.
-  return row.kind === 'header' ? 36 : 122;
+  // Header rows are short (single-line pill). Transaction rows are compact
+  // list rows (avatar 40px + 2-line content, ~64px + 6px margin-bottom
+  // ≈ 70px after the PREMIUM-UI restyle). measureElement below self-heals
+  // any drift (e.g. rows with the tap-to-expand panel open).
+  return row.kind === 'header' ? 36 : 72;
 }
 
 export default function FinanceTransactions({
@@ -219,35 +227,44 @@ export default function FinanceTransactions({
         </div>
       )}
 
-      {/* ── Filter Chips ─────────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-0.5 px-0.5" style={{ scrollbarWidth: 'none' }}>
-        <button
-          className={cn(
-            'tx-chip',
-            txFilter.type === 'all' ? 'tx-chip-active' : 'tx-chip-inactive'
-          )}
-          onClick={() => onFilterChange({ ...txFilter, type: 'all' })}
+      {/* ── Filter: segmented control tipe + chips util ──────────── */}
+      {/* PREMIUM-UI: toggle Semua/Pemasukan/Pengeluaran kini memakai
+          .premium-segment (pill gradien aktif per item, data-active attr).
+          Logika onFilterChange/txFilter.type TIDAK berubah. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="premium-segment w-full sm:w-auto"
+          role="group"
+          aria-label="Filter tipe transaksi"
         >
-          Semua
-        </button>
-        <button
-          className={cn(
-            'tx-chip',
-            txFilter.type === 'income' ? 'tx-chip-active' : 'tx-chip-inactive'
-          )}
-          onClick={() => onFilterChange({ ...txFilter, type: 'income' })}
-        >
-          ↑ Pemasukan
-        </button>
-        <button
-          className={cn(
-            'tx-chip',
-            txFilter.type === 'expense' ? 'tx-chip-active' : 'tx-chip-inactive'
-          )}
-          onClick={() => onFilterChange({ ...txFilter, type: 'expense' })}
-        >
-          ↓ Pengeluaran
-        </button>
+          {TYPE_OPTIONS.map((opt) => {
+            const isActive = txFilter.type === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                className="premium-segment-item relative h-9 flex-1 whitespace-nowrap cursor-pointer"
+                data-active={isActive ? 'true' : 'false'}
+                aria-pressed={isActive}
+                onClick={() => onFilterChange({ ...txFilter, type: opt.value })}
+              >
+                {isActive && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-10 rounded-full animate-in fade-in zoom-in-95 duration-200"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, var(--primary), color-mix(in oklch, var(--primary) 55%, #2dd4bf))',
+                      boxShadow:
+                        '0 2px 8px -2px color-mix(in oklch, var(--primary) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.28)',
+                    }}
+                  />
+                )}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
         <button
           className="tx-chip tx-chip-inactive flex items-center gap-1"
           onClick={() => setShowFilters(!showFilters)}
@@ -343,33 +360,39 @@ export default function FinanceTransactions({
 
       {/* ── Transaction Timeline ──────────────────────────────── */}
       {filteredTransactions.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <div className="text-4xl mb-2">💸</div>
-          <p className="text-sm font-medium">Belum ada transaksi</p>
-          {/* DB-MIGRATE-1: when viewing the current month and it's empty,
-              the user may genuinely have no transactions this month (e.g.
-              just started a new month, or hasn't logged anything yet) —
-              but they may also be panicking that their data was lost
-              (this happened during the DB migration). Offer a one-tap
-              shortcut to view the previous month so they can quickly
-              confirm their old data is still there. Only show this CTA
-              when we're on the current month AND a prev-month handler
-              was wired up by the parent. */}
-          {isCurrentMonth && onGoToPrevMonth ? (
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <p className="text-xs">Belum ada transaksi bulan ini.</p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={onGoToPrevMonth}
-              >
-                Lihat bulan sebelumnya
-              </Button>
-            </div>
-          ) : (
-            <p className="text-xs mt-1">Coba ubah filter atau tambah transaksi baru</p>
-          )}
+        <div className="premium-card rounded-2xl">
+          {/* PREMIUM-UI: empty state dengan orb ilustrasi halus. CTA
+              "Lihat bulan sebelumnya" (DB-MIGRATE-1) dipertahankan. */}
+          <div className="premium-empty min-h-[15rem]">
+              <div className="premium-empty-orb" aria-hidden="true">
+                <Wallet className="h-8 w-8 text-primary" />
+              </div>
+              <p className="text-sm font-semibold mt-2">Belum ada transaksi</p>
+              {/* DB-MIGRATE-1: when viewing the current month and it's empty,
+                  the user may genuinely have no transactions this month (e.g.
+                  just started a new month, or hasn't logged anything yet) —
+                  but they may also be panicking that their data was lost
+                  (this happened during the DB migration). Offer a one-tap
+                  shortcut to view the previous month so they can quickly
+                  confirm their old data is still there. Only show this CTA
+                  when we're on the current month AND a prev-month handler
+                  was wired up by the parent. */}
+              {isCurrentMonth && onGoToPrevMonth ? (
+                <div className="mt-2 flex flex-col items-center gap-2">
+                  <p className="text-xs text-muted-foreground">Belum ada transaksi bulan ini.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={onGoToPrevMonth}
+                  >
+                    Lihat bulan sebelumnya
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Coba ubah filter atau tambah transaksi baru</p>
+              )}
+          </div>
         </div>
       ) : (
         <div className="tx-timeline space-y-1">
@@ -416,10 +439,10 @@ export default function FinanceTransactions({
                     <div className="tx-date-pill">
                       {row.group.dateLabel}, {capitalize(row.group.dayName)}
                       {row.group.totalExpense > 0 && (
-                        <span className="text-destructive ml-1">-{formatRupiah(row.group.totalExpense)}</span>
+                        <span className="text-rose-600 dark:text-rose-400 ml-1">−{formatRupiah(row.group.totalExpense)}</span>
                       )}
                       {row.group.totalIncome > 0 && (
-                        <span className="text-primary ml-1">+{formatRupiah(row.group.totalIncome)}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 ml-1">+{formatRupiah(row.group.totalIncome)}</span>
                       )}
                     </div>
                   ) : (
@@ -455,15 +478,15 @@ export default function FinanceTransactions({
               "Rp 0" was misleading. */}
           {isCurrentMonth ? (
             <div>
-              <p className="text-xs text-muted-foreground">Total Pengeluaran Hari Ini</p>
-              <p className="text-lg font-bold text-destructive">{formatRupiah(todayExpense)}</p>
+              <p className="premium-label">Total Pengeluaran Hari Ini</p>
+              <p className="text-lg font-bold text-destructive premium-stat">{formatRupiah(todayExpense)}</p>
             </div>
           ) : (
             <div />
           )}
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">Total Transaksi</p>
-            <p className="text-lg font-bold">{filteredTransactions.length}</p>
+            <p className="premium-label">Total Transaksi</p>
+            <p className="text-lg font-bold premium-stat">{filteredTransactions.length}</p>
           </div>
         </div>
       )}
@@ -518,38 +541,28 @@ function TransactionRow({
   const hasExpandContent = !!(tx.notes || tags.length > 0);
   return (
     <div className="relative anim-stagger" style={{ animationDelay: `${Math.min(txIdx, 8) * 30}ms` }}>
-      {/* Timeline node */}
+      {/* Timeline node — warna diharmonisasi dengan amount (rose / emerald) */}
       <div
         className="tx-node"
         style={{
-          backgroundColor: isExpense ? '#ef4444' : '#22c55e',
+          backgroundColor: isExpense ? '#f43f5e' : '#10b981',
         }}
       />
 
-      {/* Transaction card.
-          SHADCN-PHASE-2: added hover lift + tap-expand.
-          - transition-all duration-200: smooth border/box-shadow/transform.
-          - border border-transparent: reserves 1px so hover:border-primary/30
-            doesn't cause layout shift (the existing .tx-card CSS uses
-            box-shadow for its visual edge, not border, so without this the
-            card would grow by 1px on hover).
-          - motion-safe:hover:-translate-y-0.5 + motion-safe:hover:shadow-md:
-            the lift effect. Wrapped in motion-safe: so prefers-reduced-motion
-            users get NO lift (the constraint). Border-color change is NOT
-            motion, so it stays for everyone.
-          - active:scale-[0.98]: press feedback (also exists in .tx-card:active
-            CSS — redundant but harmless; explicit here for clarity).
-          onClick behavior:
-          - multiSelect mode: toggle selection (preserved from before).
+      {/* Transaction row — PREMIUM-UI ("Rutina Aurora").
+          .premium-list-item: baris kaya dengan hover tint halus; avatar
+          emoji squircle (tint warna kategori), judul font-medium, label
+          kategori kecil muted, nominal rata kanan tabular-nums
+          (emerald + / rose −). Padding dinaikkan via important utility
+          (unlayered .premium-list-item hanya set 10px/12px).
+          onClick behavior (dipertahankan persis):
+          - multiSelect mode: toggle selection.
           - single-select + hasExpandContent: toggle expand.
-          - single-select + no expand content: no-op (use the edit button). */}
+          - single-select + no expand content: fallback ke edit dialog. */}
       <div
         className={cn(
-          'tx-card group',
-          'transition-all duration-200',
-          'border border-transparent hover:border-primary/30',
-          'motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md',
-          'active:scale-[0.98]'
+          'premium-list-item group relative mb-1.5 px-4! py-3!',
+          'cursor-pointer active:scale-[0.99]'
         )}
         onClick={() => {
           if (multiSelect) {
@@ -584,110 +597,98 @@ function TransactionRow({
           </div>
         )}
 
-        <div className="flex items-start gap-4">
-          {/* Category icon with colored circle background.
-              SHADCN-PHASE-2: switched from type-based red/green tint to the
-              category's own brand color (meta.color) at 12.5% opacity (hex
-              alpha "20" = 32/255). More meaningful — each category gets a
-              subtle tinted circle that matches its emoji color, instead of
-              every expense being red and every income being green.
-              meta.color is always a 6-digit hex from getCategoryMeta (falls
-              back to '#78716c' stone-gray), so `${meta.color}20` produces a
-              valid 8-digit hex (RRGGBBAA) — same pattern the previous
-              type-based tint used ('#ef444415'). */}
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
-            style={{ backgroundColor: `${meta.color}20` }}
-          >
-            {meta.emoji}
-          </div>
+        {/* Avatar emoji squircle — tint warna kategori (meta.color hex +
+            alpha 12.5% = RRGGBBAA; getCategoryMeta selalu mengembalikan
+            6-digit hex, fallback '#78716c'). Ring hairline memberi definisi
+            di atas background sage. */}
+        <span
+          className="h-10 w-10 rounded-xl grid place-items-center text-base shrink-0 ring-1 ring-black/5 dark:ring-white/10"
+          style={{ backgroundColor: `${meta.color}20` }}
+          aria-hidden="true"
+        >
+          {meta.emoji}
+        </span>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {/* Top row: title + time */}
-            <div className="flex items-start justify-between gap-3">
-              <span className="text-sm font-semibold truncate flex items-center gap-1.5">
-                {tx.category}
-                {tx.groupId && (
-                  <span className="text-[9px] px-1 py-0 rounded-full bg-success/10 text-success dark:bg-success/15 dark:text-success/80 font-medium shrink-0">
-                    Split
-                  </span>
-                )}
-              </span>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {formatTime(tx.date)}
-              </span>
-            </div>
-
-            {/* Bottom row: description + source + amount */}
-            <div className="flex items-end justify-between gap-3 mt-1.5">
-              <div className="min-w-0 flex-1">
-                {tx.description && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {tx.description}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  <span>{getSourceEmoji(tx.source || 'Kas')}</span>
-                  <span className="truncate">{tx.source || 'Kas'}</span>
-                </p>
-                {/* SHADCN-PHASE-2: tag badges moved into the tap-to-expand
-                    panel below (previously rendered inline here). Showing
-                    them only on expand declutters the default card view —
-                    the category emoji circle + amount + source are enough
-                    at-a-glance info; notes + tags are detail-level. */}
-              </div>
-
-              {/* Amount */}
-              <div className="shrink-0 text-right">
-                <span
-                  className={cn(
-                    'text-sm font-bold',
-                    isExpense ? 'text-destructive' : 'text-primary'
-                  )}
-                >
-                  {isExpense ? '-' : '+'}{formatRupiah(tx.amount)}
+        {/* Content: judul (description → fallback kategori) + waktu */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2.5">
+            <span className="text-sm font-medium truncate flex items-center gap-1.5 min-w-0">
+              {tx.description?.trim() || tx.category}
+              {tx.groupId && (
+                <span className="text-[9px] px-1 py-0 rounded-full bg-success/10 text-success dark:bg-success/15 dark:text-success/80 font-medium shrink-0">
+                  Split
                 </span>
-              </div>
-            </div>
+              )}
+            </span>
+            <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+              {formatTime(tx.date)}
+            </span>
           </div>
 
-          {/* Action buttons (visible on hover, always visible on mobile) */}
-          {!multiSelect && (
-            <div className="flex flex-col gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ml-1">
-              {/* Disable edit + delete for transfer transactions —
-                  they're linked pairs that can't be modified
-                  independently without corrupting balances.
-                  BUGHUNT-ROUND2 TRANSFER-DEL: delete now WORKS for
-                  transfers (the API atomically removes the sibling pair +
-                  reverts both balances), but edit stays disabled. */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                onClick={(e) => { e.stopPropagation(); onEditTx(tx); }}
-                disabled={tx.category === 'Transfer Antar Sumber'}
-                title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa diedit' : 'Edit'}
-              >
-                <Edit3 className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-destructive hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // BUGHUNT-ROUND2 TRANSFER-DEL: transfers CAN be deleted now —
-                  // the API deletes the linked pair atomically.
-                  onDeleteTx(tx.id);
-                }}
-                title={tx.category === 'Transfer Antar Sumber' ? 'Hapus transfer (kedua sisi otomatis)' : 'Hapus'}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
+          {/* Meta line: kategori (label kecil muted) + sumber dana.
+              Kategori hanya tampil bila judul memakai description —
+              hindari duplikasi saat kategori sudah menjadi judul.
+              SHADCN-PHASE-2: tag badges tetap di panel tap-to-expand
+              di bawah (declutter tampilan default). */}
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 min-w-0">
+            {tx.description?.trim() && (
+              <>
+                <span className="truncate">{tx.category}</span>
+                <span aria-hidden="true" className="shrink-0">·</span>
+              </>
+            )}
+            <span className="shrink-0" aria-hidden="true">{getSourceEmoji(tx.source || 'Kas')}</span>
+            <span className="truncate">{tx.source || 'Kas'}</span>
+          </p>
         </div>
+
+        {/* Amount — rata kanan, tabular-nums, emerald (+) / rose (−) */}
+        <div className="shrink-0 text-right self-center">
+          <span
+            className={cn(
+              'text-sm font-semibold tabular-nums',
+              isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+            )}
+          >
+            {isExpense ? '−' : '+'}{formatRupiah(tx.amount)}
+          </span>
+        </div>
+
+        {/* Action buttons (visible on hover, always visible on mobile) */}
+        {!multiSelect && (
+          <div className="flex flex-col gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ml-1">
+            {/* Disable edit + delete for transfer transactions —
+                they're linked pairs that can't be modified
+                independently without corrupting balances.
+                BUGHUNT-ROUND2 TRANSFER-DEL: delete now WORKS for
+                transfers (the API atomically removes the sibling pair +
+                reverts both balances), but edit stays disabled. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={(e) => { e.stopPropagation(); onEditTx(tx); }}
+              disabled={tx.category === 'Transfer Antar Sumber'}
+              title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa diedit' : 'Edit'}
+            >
+              <Edit3 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                // BUGHUNT-ROUND2 TRANSFER-DEL: transfers CAN be deleted now —
+                // the API deletes the linked pair atomically.
+                onDeleteTx(tx.id);
+              }}
+              title={tx.category === 'Transfer Antar Sumber' ? 'Hapus transfer (kedua sisi otomatis)' : 'Hapus'}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
 
         {/* SHADCN-PHASE-2: tap-to-expand panel (notes + tags).
             Renders only when this card is expanded AND has content.

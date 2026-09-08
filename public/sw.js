@@ -1,7 +1,9 @@
-const CACHE_NAME = 'habit-tracker-v13';
+const CACHE_NAME = 'habit-tracker-v14';
 
 // Bump cache version (v1 → v2 → ... → v10) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
+// v14: Premium UI redesign seluruh app ("Rutina Aurora") — design tokens,
+// hero/kartu premium, chip gradien, dsb. Purge v13 chunks agar user lihat UI baru.
 // v13: Premium bottom-nav redesign (floating glass dock + liquid indicator +
 // FAB popup) — purge v12 JS chunks that still contain the old Flutter
 // notched-bar nav. Users on the cached v12 shell would otherwise never

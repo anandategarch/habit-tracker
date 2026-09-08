@@ -72,9 +72,9 @@ export function ProgressRing({
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center" style={{ width: size, height: size }}>
-        <span className="text-lg font-bold"><CountUpNumber value={value} suffix="%" /></span>
+        <span className="premium-stat text-lg"><CountUpNumber value={value} suffix="%" /></span>
       </div>
-      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+      <span className="premium-label">{label}</span>
     </div>
   );
 }
@@ -111,6 +111,7 @@ export function getMoodLabel(mood: string) {
   return mood.charAt(0).toUpperCase() + mood.slice(1);
 }
 
+// PREMIUM UI v2 — segmented control treatment ("Rutina Aurora").
 export function PeriodFilter({
   period,
   onPeriodChange,
@@ -119,21 +120,22 @@ export function PeriodFilter({
   onPeriodChange: (p: Period) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5 p-1 bg-muted rounded-lg w-fit">
-      {PERIOD_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onPeriodChange(opt.value)}
-          className={cn(
-            'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150',
-            period === opt.value
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div className="premium-segment" role="group" aria-label="Pilih periode">
+      {PERIOD_OPTIONS.map((opt) => {
+        const active = period === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onPeriodChange(opt.value)}
+            aria-pressed={active}
+            data-active={active}
+            className={cn('premium-segment-item', active && 'bg-primary shadow-sm')}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -144,9 +146,9 @@ export function QuoteDisplay({ quote, onRefresh }: { quote: MotivationalQuote; o
   const crossfadeKey = quote.quote;
   return (
     <div className="flex items-start gap-3 anim-crossfade" key={crossfadeKey}>
-      <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-        <Sparkles className="h-4 w-4 text-primary" />
-      </div>
+      <span className="chip-soft chip-soft-teal mt-0.5 h-9 w-9 shrink-0">
+        <Sparkles className="h-4.5 w-4.5" />
+      </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm md:text-base font-medium text-foreground leading-relaxed italic">
           &ldquo;{typed}

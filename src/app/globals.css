@@ -50,24 +50,26 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.985 0.002 120);
-  --foreground: oklch(0.145 0 0);
+  /* PREMIUM-UI: radius lebih lembut & organik (rounded-xl ≈ 16px) */
+  --radius: 0.75rem;
+  /* PREMIUM-UI: background warm-sage — terasa "designed", bukan flat putih */
+  --background: oklch(0.981 0.006 155);
+  --foreground: oklch(0.155 0.01 160);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.155 0.01 160);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.155 0.01 160);
   --primary: oklch(0.522 0.154 142);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.96 0.01 140);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.96 0.005 120);
-  --muted-foreground: oklch(0.50 0 0);
+  --muted: oklch(0.955 0.006 150);
+  --muted-foreground: oklch(0.51 0.02 160);
   --accent: oklch(0.96 0.01 140);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.005 120);
-  --input: oklch(0.91 0.005 120);
+  --border: oklch(0.912 0.008 150);
+  --input: oklch(0.912 0.008 150);
   --ring: oklch(0.522 0.154 142);
   /* ── Semantic status tokens (COLOR-BUG-5 fix) ─────────────────────────
      Warning (amber-500) — budget alerts, warnings
@@ -97,20 +99,22 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  /* PREMIUM-UI: dark "fintech" — deep neutral dengan hint hijau,
+     bukan abu flat. Card naik 2 tingkat lightness dari background. */
+  --background: oklch(0.164 0.006 165);
+  --foreground: oklch(0.97 0.005 155);
+  --card: oklch(0.213 0.008 165);
+  --card-foreground: oklch(0.97 0.005 155);
+  --popover: oklch(0.218 0.008 165);
+  --popover-foreground: oklch(0.97 0.005 155);
   --primary: oklch(0.622 0.174 142);
   --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0.01 120);
-  --accent-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.268 0.008 165);
+  --secondary-foreground: oklch(0.97 0.005 155);
+  --muted: oklch(0.268 0.008 165);
+  --muted-foreground: oklch(0.72 0.015 160);
+  --accent: oklch(0.272 0.012 160);
+  --accent-foreground: oklch(0.97 0.005 155);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
@@ -129,8 +133,8 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.17 0.005 120);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar: oklch(0.185 0.007 165);
+  --sidebar-foreground: oklch(0.97 0.005 155);
   --sidebar-primary: oklch(0.622 0.174 142);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0.01 120);
@@ -1812,4 +1816,375 @@
     opacity: 1 !important;
     transform: scale(1) !important;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PREMIUM UI SYSTEM v2 — "Rutina Aurora"
+   Fondasi visual untuk redesign seluruh app: kartu berlapis (multi-layer
+   shadow + hairline), chip ikon gradien, hero gradien, label kecil
+   tracking lebar, dan ambient background. Semua class memakai token
+   (--primary dsb) sehingga mengikuti custom color picker user, dan punya
+   varian .dark. Dipakai oleh dashboard / tracker / goals / finance.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Premium card: soft multi-layer shadow + hairline + subtle top light ── */
+.premium-card {
+  position: relative;
+  background: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.995 0.003 150) 100%);
+  border: 1px solid oklch(0.9 0.01 155 / 0.9);
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 4px 8px -2px rgba(16, 24, 40, 0.04),
+    0 16px 32px -8px rgba(16, 24, 40, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dark .premium-card {
+  background: linear-gradient(180deg, oklch(0.223 0.009 165) 0%, oklch(0.208 0.008 165) 100%);
+  border: 1px solid oklch(1 0 0 / 0.09);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 20px -6px rgba(0, 0, 0, 0.45),
+    0 24px 48px -16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Hover-lift untuk kartu interaktif (pakai bersama .premium-card) */
+.premium-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px rgba(16, 24, 40, 0.05),
+    0 12px 24px -6px rgba(16, 24, 40, 0.08),
+    0 28px 56px -12px rgba(16, 24, 40, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.dark .premium-card-hover:hover {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.45),
+    0 14px 32px -8px rgba(0, 0, 0, 0.5),
+    0 32px 64px -16px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.premium-card-hover:active {
+  transform: translateY(0) scale(0.995);
+}
+
+/* Hairline kilau di tepi atas kartu (refraksi cahaya) */
+.premium-card-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0 12% auto 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  pointer-events: none;
+}
+.dark .premium-card-sheen::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+}
+
+/* ── 2. Icon chip gradien — kapsul ikon dengan glow warna ──
+   Pemakaian: <span class="chip-icon chip-teal"><Icon/></span>
+   Ukuran diatur via Tailwind (h-9 w-9, h-10 w-10, dst). */
+.chip-icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 0.75rem;
+  color: #fff;
+  flex-shrink: 0;
+  position: relative;
+  isolation: isolate;
+}
+.chip-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 55%);
+  z-index: 1;
+  pointer-events: none;
+}
+.chip-icon > svg { position: relative; z-index: 2; }
+
+.chip-teal { background: linear-gradient(145deg, #2dd4bf, #0d9488); box-shadow: 0 4px 12px -2px rgba(13, 148, 136, 0.45); }
+.chip-emerald { background: linear-gradient(145deg, #34d399, #059669); box-shadow: 0 4px 12px -2px rgba(5, 150, 105, 0.45); }
+.chip-amber { background: linear-gradient(145deg, #fbbf24, #d97706); box-shadow: 0 4px 12px -2px rgba(217, 119, 6, 0.45); }
+.chip-orange { background: linear-gradient(145deg, #fb923c, #ea580c); box-shadow: 0 4px 12px -2px rgba(234, 88, 12, 0.45); }
+.chip-rose { background: linear-gradient(145deg, #fb7185, #e11d48); box-shadow: 0 4px 12px -2px rgba(225, 29, 72, 0.45); }
+.chip-violet { background: linear-gradient(145deg, #a78bfa, #7c3aed); box-shadow: 0 4px 12px -2px rgba(124, 58, 237, 0.45); }
+.chip-sky { background: linear-gradient(145deg, #38bdf8, #0284c7); box-shadow: 0 4px 12px -2px rgba(2, 132, 199, 0.45); }
+.chip-lime { background: linear-gradient(145deg, #a3e635, #65a30d); box-shadow: 0 4px 12px -2px rgba(101, 163, 13, 0.45); }
+.chip-slate { background: linear-gradient(145deg, #94a3b8, #475569); box-shadow: 0 4px 12px -2px rgba(71, 85, 105, 0.45); }
+.dark .chip-teal { box-shadow: 0 4px 14px -2px rgba(13, 148, 136, 0.55); }
+.dark .chip-emerald { box-shadow: 0 4px 14px -2px rgba(5, 150, 105, 0.55); }
+.dark .chip-amber { box-shadow: 0 4px 14px -2px rgba(217, 119, 6, 0.55); }
+.dark .chip-orange { box-shadow: 0 4px 14px -2px rgba(234, 88, 12, 0.55); }
+.dark .chip-rose { box-shadow: 0 4px 14px -2px rgba(225, 29, 72, 0.55); }
+.dark .chip-violet { box-shadow: 0 4px 14px -2px rgba(124, 58, 237, 0.55); }
+.dark .chip-sky { box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.55); }
+.dark .chip-lime { box-shadow: 0 4px 14px -2px rgba(101, 163, 13, 0.55); }
+
+/* Soft tinted icon chip (varian "light" — bukan gradien penuh, lebih halus) */
+.chip-soft {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+.chip-soft-teal { background: rgba(13, 148, 136, 0.12); color: oklch(0.55 0.13 170); }
+.dark .chip-soft-teal { background: rgba(45, 212, 191, 0.15); color: oklch(0.78 0.12 170); }
+.chip-soft-amber { background: rgba(217, 119, 6, 0.12); color: oklch(0.63 0.15 65); }
+.dark .chip-soft-amber { background: rgba(251, 191, 36, 0.15); color: oklch(0.8 0.15 80); }
+.chip-soft-rose { background: rgba(225, 29, 72, 0.1); color: oklch(0.58 0.2 15); }
+.dark .chip-soft-rose { background: rgba(251, 113, 133, 0.15); color: oklch(0.75 0.16 15); }
+.chip-soft-violet { background: rgba(124, 58, 237, 0.1); color: oklch(0.55 0.2 295); }
+.dark .chip-soft-violet { background: rgba(167, 139, 250, 0.15); color: oklch(0.75 0.14 295); }
+
+/* ── 3. Hero card — panel gradien signature untuk section atas tiap tab ── */
+.premium-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--radius) + 8px);
+  background:
+    radial-gradient(140% 180% at 85% -20%, rgba(255, 255, 255, 0.25), transparent 50%),
+    radial-gradient(120% 140% at 10% 110%, rgba(6, 95, 70, 0.35), transparent 55%),
+    linear-gradient(135deg, #0f766e 0%, #0d9488 45%, #10b981 100%);
+  color: #f0fdfa;
+  box-shadow:
+    0 2px 6px rgba(13, 148, 136, 0.18),
+    0 20px 40px -12px rgba(13, 148, 136, 0.5);
+}
+.dark .premium-hero {
+  background:
+    radial-gradient(140% 180% at 85% -20%, rgba(255, 255, 255, 0.14), transparent 50%),
+    radial-gradient(120% 140% at 10% 110%, rgba(2, 44, 34, 0.6), transparent 55%),
+    linear-gradient(135deg, #0b4f4a 0%, #0f766e 50%, #059669 100%);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 24px 48px -12px rgba(13, 148, 136, 0.45);
+}
+/* Ornamen bubble di hero (dekoratif, aria-hidden) */
+.premium-hero-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.12) 0, transparent 42px),
+    radial-gradient(circle at 78% 82%, rgba(255, 255, 255, 0.1) 0, transparent 56px),
+    radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.07) 0, transparent 36px);
+}
+
+/* ── 4. Label kecil bergaya editorial: uppercase + tracking lebar ── */
+.premium-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  line-height: 1.2;
+}
+
+/* ── 5. Ambient background app — wash gradien lembut di balik konten ── */
+.app-ambience {
+  background-image:
+    radial-gradient(900px 480px at 88% -12%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 60%),
+    radial-gradient(700px 420px at -18% 26%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 55%),
+    radial-gradient(1000px 520px at 45% 118%, color-mix(in oklch, var(--primary) 6%, transparent), transparent 62%);
+}
+
+/* ── 6. Progress bar gradien (fill) — dipakai Progress via wrapper ── */
+.premium-progress [data-slot="progress-indicator"] {
+  background: linear-gradient(90deg, var(--primary), color-mix(in oklch, var(--primary) 55%, #2dd4bf));
+  box-shadow: 0 1px 3px color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+/* ── 7. Segmented control premium — pill switch animasi ── */
+.premium-segment {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted) 88%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+.dark .premium-segment {
+  background: oklch(0.24 0.008 165);
+  border-color: oklch(1 0 0 / 0.1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.premium-segment-item {
+  position: relative;
+  z-index: 1;
+  border-radius: 999px;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  transition: color 0.25s ease;
+}
+.premium-segment-item[data-active="true"] {
+  color: var(--primary-foreground);
+}
+
+/* ── 8. List item transaksi/habit kaya — avatar + konten + nilai ── */
+.premium-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: calc(var(--radius) + 4px);
+  padding: 0.625rem 0.75rem;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.premium-list-item:hover {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  border-color: var(--border);
+}
+
+/* ── 9. Empty state premium — ilustrasi halus + CTP ringan ── */
+.premium-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  gap: 0.5rem;
+}
+.premium-empty-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 120% at 30% 25%, rgba(255, 255, 255, 0.9), transparent 45%),
+    linear-gradient(145deg, color-mix(in oklch, var(--primary) 22%, white), color-mix(in oklch, var(--primary) 10%, white));
+  box-shadow:
+    0 8px 24px -8px color-mix(in oklch, var(--primary) 40%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.dark .premium-empty-orb {
+  background:
+    radial-gradient(120% 120% at 30% 25%, rgba(255, 255, 255, 0.12), transparent 45%),
+    linear-gradient(145deg, color-mix(in oklch, var(--primary) 32%, #0f172a), color-mix(in oklch, var(--primary) 18%, #0f172a));
+  box-shadow:
+    0 10px 28px -10px color-mix(in oklch, var(--primary) 45%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── 10. Divisor halus: gradient fade kiri-kanan ── */
+.premium-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 20%, var(--border) 80%, transparent);
+  border: none;
+}
+
+/* ── 11. Kartu quote glass ── */
+.premium-quote {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--radius) + 8px);
+  background:
+    radial-gradient(160% 140% at 100% 0%, color-mix(in oklch, var(--primary) 16%, white), transparent 55%),
+    linear-gradient(160deg, color-mix(in oklch, var(--primary) 7%, white), color-mix(in oklch, var(--primary) 3%, white));
+  border: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 12px 28px -10px color-mix(in oklch, var(--primary) 25%, transparent);
+}
+.dark .premium-quote {
+  background:
+    radial-gradient(160% 140% at 100% 0%, color-mix(in oklch, var(--primary) 20%, #12211d), transparent 55%),
+    linear-gradient(160deg, color-mix(in oklch, var(--primary) 10%, #101916), color-mix(in oklch, var(--primary) 5%, #101916));
+  border-color: color-mix(in oklch, var(--primary) 26%, transparent);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 14px 32px -10px rgba(0, 0, 0, 0.45);
+}
+
+/* ── 12. Font angka besar: tabular + tracking rapat ── */
+.premium-stat {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+/* ── 13. Keyframe: entrance lembut untuk elemen hero ── */
+@keyframes premium-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.premium-fade-up {
+  animation: premium-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-card,
+  .premium-card-hover,
+  .premium-segment-item,
+  .premium-list-item {
+    transition: none !important;
+  }
+  .premium-fade-up {
+    animation: none !important;
+  }
+}
+
+/* ── 14. Shadow default Card dasar (hanya box-shadow — aman dikombinasikan
+   dengan bg-gradient custom karena tidak menyentuh background/border) ── */
+.card-shadow-premium {
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 8px 20px -6px rgba(16, 24, 40, 0.05);
+}
+.dark .card-shadow-premium {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 24px -8px rgba(0, 0, 0, 0.45);
+}
+
+/* ── 15. Fill progress bar default — gradien lembut primary → teal.
+   Mengikuti custom primary color user (color-mix), plus kilau atas. ── */
+.premium-progress-fill {
+  background: linear-gradient(90deg,
+    color-mix(in oklch, var(--primary) 82%, black),
+    var(--primary) 55%,
+    color-mix(in oklch, var(--primary) 60%, #2dd4bf));
+  box-shadow:
+    0 1px 2px color-mix(in oklch, var(--primary) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.dark .premium-progress-fill {
+  background: linear-gradient(90deg,
+    color-mix(in oklch, var(--primary) 90%, black),
+    var(--primary) 50%,
+    color-mix(in oklch, var(--primary) 55%, #2dd4bf));
+}
+
+/* ── 16. Tombol primary default — gradien vertikal halus + glow bawah.
+   Mengikuti primary color user. Shadow-xs tetap dari Tailwind (overlay). ── */
+.btn-primary-gradient {
+  background-image: linear-gradient(180deg,
+    color-mix(in oklch, var(--primary) 88%, white),
+    var(--primary) 60%,
+    color-mix(in oklch, var(--primary) 92%, black));
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.12),
+    0 4px 12px -4px color-mix(in oklch, var(--primary) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.dark .btn-primary-gradient {
+  background-image: linear-gradient(180deg,
+    color-mix(in oklch, var(--primary) 95%, white),
+    var(--primary) 65%,
+    color-mix(in oklch, var(--primary) 88%, black));
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 6px 16px -6px color-mix(in oklch, var(--primary) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
