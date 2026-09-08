@@ -422,7 +422,8 @@ export default function Home() {
 
 const NAV_HEIGHT = 76; // was 70 — sedikit lebih besar untuk proporsi lebih baik
 const CORNER_R = 22; // top corners — proporsional dengan nav height 76
-const NOTCH_R = 34; // notch radius — wider cradle around button (was 27, gap was only 2px). Button is 50px = 25r, so gap = 34-25 = 9px per side (visible cradle)
+const NOTCH_R = 34; // notch top radius (button is 50px = 25r, gap = 9px per side at top)
+const NOTCH_BASE_W = 30; // how far the cradle flares out at base (each side) — organic cradle shape
 
 function NotchedBottomNav({
   items,
@@ -471,11 +472,30 @@ function NotchedBottomNav({
   const nR = NOTCH_R;
   const nX = notchX;
 
+  // BUGFIX NOTCH-SHAPE: Ganti semicircular arc (A) dengan cubic Bezier (C)
+  // untuk organic cradle shape. Sebelumnya: perfect circle = "pinched" look.
+  // Sekarang: curve flare out di base (NOTCH_BASE_W), narrow di top (NOTCH_R).
+  // Shape seperti "flower petal" / cradle — match referensi premium:
+  // react-native-curved-bottom-bar, Kyle Shevlin, Flutter BottomAppBar, Material M2.
+  //
+  // Path untuk notch (2 cubic Bezier, left + right):
+  //   Left: dari (nX-nR, 0) → control (nX-nR, baseDepth) → control (nX-nR-baseW, baseDepth) → end (nX, -notchHeight)
+  //   Right: mirror of left
+  // baseDepth = how deep the flare goes (positive Y = down into nav)
+  // notchHeight = how high the bump goes (negative Y = above nav top)
+  const nB = NOTCH_BASE_W;
+  const baseDepth = nR * 0.6; // flare depth into nav (subtle)
+  const bumpHeight = nR; // bump height above nav top (matches button protrusion)
+
   const path = [
     `M ${cR} 0`,
     `L ${nX - nR} 0`,
-    // Semicircular arc going UP (sweep=0 in SVG Y-down = counter-clockwise = upward bump)
-    `A ${nR} ${nR} 0 0 0 ${nX + nR} 0`,
+    // Left cubic Bezier: flare out at base, curve up to peak
+    // Start: (nX-nR, 0), Control1: (nX-nR, baseDepth), Control2: (nX-nR-nB, baseDepth), End: (nX, -bumpHeight)
+    `C ${nX - nR} ${baseDepth} ${nX - nR - nB} ${baseDepth} ${nX} ${-bumpHeight}`,
+    // Right cubic Bezier: mirror, curve down from peak to flat bar
+    // Start: (nX, -bumpHeight), Control1: (nX+nR+nB, baseDepth), Control2: (nX+nR, baseDepth), End: (nX+nR, 0)
+    `C ${nX + nR + nB} ${baseDepth} ${nX + nR} ${baseDepth} ${nX + nR} 0`,
     `L ${W - cR} 0`,
     // Top-right corner (clockwise = outward)
     `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
