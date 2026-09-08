@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Loader2, Plus, Pencil, Trash2, Check, X, Tags } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -43,6 +54,29 @@ export default function LabelManager() {
     xp: 10,
   });
   const [saving, setSaving] = useState(false);
+
+  // Usage count per label — reuses the shared ['habits'] query cache
+  // (read-only, deduped by TanStack; no new endpoint, no mutation). Only used
+  // for display ("dipakai N habit") and the delete-confirm description.
+  const { data: habits = [] } = useQuery<{ category: string; priority: string; difficulty: string }[]>({
+    queryKey: ['habits'],
+    queryFn: async () => {
+      const res = await fetch('/api/habits');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const getUsageCount = useCallback((name: string) => {
+    return habits.filter((h) =>
+      activeTab === 'category'
+        ? h.category === name
+        : activeTab === 'priority'
+          ? h.priority === name
+          : h.difficulty === name
+    ).length;
+  }, [habits, activeTab]);
 
   const getItems = useCallback((): HabitOption[] => {
     switch (activeTab) {
@@ -164,31 +198,33 @@ export default function LabelManager() {
   const currentTabInfo = TABS.find(t => t.type === activeTab)!;
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Tags className="h-4 w-4 text-primary" />
-          Label Habit
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Tabs */}
-        <div className="flex gap-1 rounded-lg bg-muted p-1">
+    <div className="premium-card premium-card-sheen rounded-2xl">
+      <div className="flex items-center gap-3 px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
+        <span className="chip-soft chip-soft-violet h-9 w-9" aria-hidden="true">
+          <Tags className="h-4 w-4" />
+        </span>
+        <h3 className="text-base font-semibold">Label Habit</h3>
+      </div>
+      <div className="space-y-4 px-5 pb-5 sm:px-6 sm:pb-6">
+        {/* Tabs — premium segmented control */}
+        <div
+          className="premium-segment w-full"
+          role="group"
+          aria-label="Jenis label"
+        >
           {TABS.map(tab => (
             <button
               key={tab.type}
+              type="button"
               onClick={() => {
                 setActiveTab(tab.type);
                 setEditingId(null);
                 setEditState(null);
                 setIsAdding(false);
               }}
-              className={cn(
-                'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                activeTab === tab.type
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+              data-active={activeTab === tab.type}
+              aria-pressed={activeTab === tab.type}
+              className="premium-segment-item flex-1 data-[active=true]:bg-primary data-[active=true]:shadow-sm"
             >
               {tab.label}
             </button>
@@ -214,18 +250,20 @@ export default function LabelManager() {
             ))}
           </div>
         ) : (
-          <div className="max-h-80 overflow-y-auto space-y-0.5 rounded-md border">
+          <div className="max-h-80 overflow-y-auto rounded-xl border border-border/70 p-1">
             {items.length === 0 && !isAdding && (
               <div className="py-6 text-center text-xs text-muted-foreground">
                 Belum ada {currentTabInfo.type}. Tambahkan di bawah.
               </div>
             )}
 
-            {items.map(item => (
+            {items.map(item => {
+              const usage = getUsageCount(item.name);
+              return (
               <div key={item.id}>
                 {editingId === item.id && editState ? (
                   /* Editing row */
-                  <div className="px-3 py-2 space-y-2 border-b last:border-b-0">
+                  <div className="px-3 py-2.5 space-y-2 border-b border-border/60 last:border-b-0">
                     <ColorPicker
                       selected={editState.color}
                       onSelect={(color) => setEditState(prev => prev ? { ...prev, color } : prev)}
@@ -235,7 +273,7 @@ export default function LabelManager() {
                         value={editState.name}
                         onChange={(e) => setEditState(prev => prev ? { ...prev, name: e.target.value } : prev)}
                         placeholder="Nama"
-                        className="h-7 text-xs flex-1"
+                        className="h-8 text-xs flex-1 rounded-lg"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleSaveEdit();
@@ -250,7 +288,7 @@ export default function LabelManager() {
                             min={0}
                             value={editState.xp}
                             onChange={(e) => setEditState(prev => prev ? { ...prev, xp: parseInt(e.target.value) || 0 } : prev)}
-                            className="h-7 text-xs w-16"
+                            className="h-8 text-xs w-16 rounded-lg"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSaveEdit();
                               if (e.key === 'Escape') handleCancelEdit();
@@ -261,64 +299,102 @@ export default function LabelManager() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
+                        className="h-8 w-8"
                         onClick={handleSaveEdit}
                         disabled={saving}
+                        aria-label="Simpan perubahan"
                       >
                         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
+                        className="h-8 w-8"
                         onClick={handleCancelEdit}
                         disabled={saving}
+                        aria-label="Batal edit"
                       >
                         <X className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  /* Display row */
-                  <div className="flex items-center justify-between px-3 py-2 border-b last:border-b-0 group hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="h-3 w-3 rounded-full shrink-0"
-                        style={{ backgroundColor: LABEL_COLORS[item.color]?.hex || LABEL_COLORS.gray.hex }}
-                      />
-                      <span className="text-sm truncate">{item.name}</span>
-                      {activeTab === 'difficulty' && (
-                        <span className="text-xs text-muted-foreground ml-1">{item.xp} XP</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  /* Display row — premium list item */
+                  <div className="premium-list-item group">
+                    <span
+                      className="h-3 w-3 rounded-full shrink-0 ring-1 ring-black/10 dark:ring-white/10"
+                      style={{ backgroundColor: LABEL_COLORS[item.color]?.hex || LABEL_COLORS.gray.hex }}
+                    />
+                    <span className="text-sm font-medium truncate flex-1 min-w-0">{item.name}</span>
+                    {activeTab === 'difficulty' && (
+                      <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{item.xp} XP</span>
+                    )}
+                    <span
+                      className="text-[11px] text-muted-foreground/80 tabular-nums whitespace-nowrap hidden sm:inline"
+                      title={`Dipakai ${usage} habit`}
+                    >
+                      {usage} dipakai
+                    </span>
+                    <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
+                        className="h-8 w-8"
                         onClick={() => handleStartEdit(item)}
                         disabled={saving}
+                        aria-label={`Edit ${item.name}`}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(item)}
-                        disabled={saving}
-                      >
-                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                      </Button>
+                      {/* Delete confirmation — previously one click destroyed the
+                          label instantly. Wrapped in AlertDialog (same pattern
+                          as habit/goal delete confirms); handler unchanged. */}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring/60"
+                            disabled={saving}
+                            aria-label={`Hapus ${item.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Hapus label?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Yakin ingin menghapus {currentTabInfo.label.toLowerCase()}{' '}
+                              &ldquo;{item.name}&rdquo;?
+                              {usage > 0
+                                ? ` Label ini masih dipakai ${usage} habit — habit tersebut tidak ikut terhapus.`
+                                : ' Label ini tidak sedang dipakai habit mana pun.'}
+                              {' '}Tindakan ini tidak bisa dibatalkan.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(item)}
+                              disabled={saving}
+                              className="bg-destructive hover:bg-destructive text-white focus:ring-destructive"
+                            >
+                              {saving ? 'Menghapus...' : 'Hapus'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {/* Add new form */}
             {isAdding && (
-              <div className="px-3 py-2 space-y-2 bg-muted/30">
+              <div className="px-3 py-2.5 space-y-2 bg-muted/30 rounded-lg mt-1">
                 <ColorPicker
                   selected={addState.color}
                   onSelect={(color) => setAddState(prev => ({ ...prev, color }))}
@@ -328,7 +404,7 @@ export default function LabelManager() {
                     value={addState.name}
                     onChange={(e) => setAddState(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Nama baru..."
-                    className="h-7 text-xs flex-1"
+                    className="h-8 text-xs flex-1 rounded-lg"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSaveAdd();
@@ -343,7 +419,7 @@ export default function LabelManager() {
                         min={0}
                         value={addState.xp}
                         onChange={(e) => setAddState(prev => ({ ...prev, xp: parseInt(e.target.value) || 0 }))}
-                        className="h-7 text-xs w-16"
+                        className="h-8 text-xs w-16 rounded-lg"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleSaveAdd();
                           if (e.key === 'Escape') handleCancelAdd();
@@ -354,18 +430,20 @@ export default function LabelManager() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7"
+                    className="h-8 w-8"
                     onClick={handleSaveAdd}
                     disabled={saving}
+                    aria-label="Simpan label baru"
                   >
                     {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
                   </Button>
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7"
+                    className="h-8 w-8"
                     onClick={handleCancelAdd}
                     disabled={saving}
+                    aria-label="Batal tambah"
                   >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
@@ -380,16 +458,16 @@ export default function LabelManager() {
           <Button
             variant="outline"
             size="sm"
-            className="w-full h-8 text-xs gap-1.5"
+            className="w-full h-9 text-xs gap-1.5 rounded-xl border-dashed hover:bg-accent/50"
             onClick={handleStartAdd}
             disabled={loading}
           >
             <Plus className="h-3.5 w-3.5" />
-            Add {currentTabInfo.type === 'category' ? 'category' : currentTabInfo.type === 'priority' ? 'priority' : 'difficulty'}
+            Tambah {currentTabInfo.label}
           </Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -420,6 +498,7 @@ function ColorPicker({
             )}
             style={{ backgroundColor: hex }}
             title={key}
+            aria-label={`Warna ${key}`}
           />
         );
       })}

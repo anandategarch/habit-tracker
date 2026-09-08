@@ -934,6 +934,7 @@
 .anim-fab-item-1 { animation-delay: 0.05s; }
 .anim-fab-item-2 { animation-delay: 0.1s; }
 .anim-fab-item-3 { animation-delay: 0.15s; }
+.anim-fab-item-4 { animation-delay: 0.2s; }
 
 /* ── Dock entrance: slide-up + fade on first mount ── */
 @keyframes nav-dock-enter {
@@ -960,6 +961,7 @@
   .anim-fab-item-1,
   .anim-fab-item-2,
   .anim-fab-item-3,
+  .anim-fab-item-4,
   .anim-nav-dock-enter,
   .anim-fab-backdrop {
     animation: none !important;
@@ -1120,28 +1122,41 @@
 
 /* ══════════════════════════════════════════════════════════════════════
    FINANCE EXPLORER — Drill-down analytics workspace
+   AURORA RE-SKIN (Task 4-b B.5): palet indigo/slate lama diganti bahasa
+   visual sage/teal "Rutina Aurora" — permukaan memakai treatment yang
+   sama dgn .premium-card (light + dark), border teal halus, shadow berlapis
+   dgn tint teal (kedalaman disalin dari .premium-card tapi lebih kecil),
+   dan teks memakai token var(--foreground)/var(--muted-foreground) sehingga
+   dark mode legible otomatis. Nama kelas & metrik layout TIDAK berubah
+   (swap murni palet/permukaan) supaya komponen explorer tetap aman.
    ══════════════════════════════════════════════════════════════════════ */
 
 .fe-card {
-  background: oklch(1 0 0);
+  background: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.995 0.003 150) 100%);
   border-radius: 1.5rem;
   padding: 1.25rem;
-  border: 1px solid #EEF2FF;
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.06), 0 2px 8px rgba(99, 102, 241, 0.03);
+  border: 1px solid rgba(13, 148, 136, 0.14);
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 4px 10px -2px rgba(16, 24, 40, 0.04),
+    0 12px 28px -10px rgba(13, 148, 136, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .dark .fe-card {
-  background: oklch(0.21 0.004 120);
-  border-color: oklch(1 0 0 / 6%);
-  box-shadow: 0 8px 32px oklch(0 0 0 / 0.22);
+  background: linear-gradient(180deg, oklch(0.223 0.009 165) 0%, oklch(0.208 0.008 165) 100%);
+  border-color: rgba(45, 212, 191, 0.12);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 20px -8px rgba(0, 0, 0, 0.45),
+    0 20px 40px -16px rgba(13, 148, 136, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .fe-card-title {
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #0F172A;
-}
-.dark .fe-card-title {
-  color: oklch(0.95 0.005 120);
+  /* var token — otomatis terang di .dark, tidak perlu override */
+  color: var(--foreground);
 }
 
 /* Category row (clickable) */
@@ -1151,18 +1166,18 @@
   gap: 0.5rem;
   padding: 0.5rem;
   border-radius: 0.625rem;
-  background: oklch(0.98 0.004 250);
+  background: oklch(0.982 0.004 155);
   transition: background 0.2s ease, transform 0.2s ease;
 }
 .fe-cat-row:hover {
-  background: #EEF2FF;
+  background: rgba(13, 148, 136, 0.08);
   transform: translateX(2px);
 }
 .dark .fe-cat-row {
   background: oklch(1 0 0 / 4%);
 }
 .dark .fe-cat-row:hover {
-  background: oklch(1 0 0 / 8%);
+  background: rgba(45, 212, 191, 0.1);
 }
 
 /* Transaction row */
@@ -1175,16 +1190,16 @@
   transition: background 0.2s ease;
 }
 .fe-tx-row:hover {
-  background: oklch(0.97 0.004 250);
+  background: rgba(13, 148, 136, 0.07);
 }
 .dark .fe-tx-row:hover {
-  background: oklch(1 0 0 / 4%);
+  background: rgba(45, 212, 191, 0.09);
 }
 .fe-tx-logo {
   width: 2rem;
   height: 2rem;
   border-radius: 0.5rem;
-  background: oklch(0.96 0.004 250);
+  background: oklch(0.965 0.006 160);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1202,18 +1217,27 @@
   gap: 0.75rem;
   padding: 0.75rem;
   border-radius: 1rem;
-  background: linear-gradient(135deg, oklch(0.98 0.004 250), oklch(0.96 0.004 250));
-  border: 1px solid #EEF2FF;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
+  background: linear-gradient(135deg, oklch(0.985 0.004 155), oklch(0.965 0.006 160));
+  border: 1px solid rgba(13, 148, 136, 0.14);
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 6px 16px -6px rgba(13, 148, 136, 0.1);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .fe-kpi:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.08);
+  box-shadow:
+    0 2px 4px rgba(16, 24, 40, 0.05),
+    0 10px 24px -8px rgba(13, 148, 136, 0.16);
 }
 .dark .fe-kpi {
-  background: oklch(1 0 0 / 4%);
-  border-color: oklch(1 0 0 / 6%);
+  background: linear-gradient(135deg, oklch(0.24 0.01 165), oklch(0.215 0.009 165));
+  border-color: rgba(45, 212, 191, 0.12);
+}
+.dark .fe-kpi:hover {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.45),
+    0 12px 28px -10px rgba(13, 148, 136, 0.2);
 }
 .fe-kpi-icon {
   width: 2rem;
@@ -1230,20 +1254,18 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748B;
+  color: var(--muted-foreground);
 }
 .fe-kpi-value {
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #0F172A;
+  /* var token — otomatis terang di .dark, tidak perlu override */
+  color: var(--foreground);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.dark .fe-kpi-value {
-  color: oklch(0.95 0.005 120);
 }
 
 /* ══════════════════════════════════════════════════════════════════════

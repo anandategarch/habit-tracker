@@ -21,6 +21,7 @@ import {
   Plus,
   ArrowDownRight,
   ArrowUpRight,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
@@ -457,6 +458,8 @@ function PremiumBottomNav({
   // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
   // deep nav component can fire it without prop-drilling from Home().
   const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
+  // ONE-CLICK-2: sub-tab deep-link for the Transfer quick action.
+  const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
 
   useLayoutEffect(() => {
     if (!dockRef.current) return;
@@ -644,6 +647,24 @@ function PremiumBottomNav({
             <button
               role="menuitem"
               className="anim-fab-item anim-fab-item-3 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+              // ONE-CLICK-2: Transfer quick-add. Opens the transfer dialog on
+              // the finance overview sub-tab (SourceBalance consumes the
+              // 'transfer' action). Previously the transfer feature was
+              // buried: Finance → Ringkasan → scroll to bottom → "Transfer".
+              onClick={() => { triggerQuickAdd('transfer'); openFinanceSubTab('overview'); setFabOpen(false); }}
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-400 to-purple-600 shadow-[0_4px_10px_-2px_rgba(139,92,246,0.5)]">
+                <ArrowLeftRight className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Transfer</span>
+                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Pindahkan antar dompet</span>
+              </span>
+            </button>
+
+            <button
+              role="menuitem"
+              className="anim-fab-item anim-fab-item-4 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
               // "Habit Baru" — the add-habit form lives in Settings →
               // Habit Master. Navigate there and let HabitMaster open its
               // dialog via the same quick-add trigger.

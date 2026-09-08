@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowUpRight, ArrowDownRight, Pencil, ArrowLeftRight } from 'lucide-react';
 import { formatRupiah, formatNominalInput, parseNominalInput, type FundSource, type Transaction } from './finance-types';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 import { jakartaDateString } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { FlashRupiah } from '@/components/habit-tracker/flash-number';
@@ -74,7 +75,24 @@ export default function SourceBalanceSection() {
   const [transferDesc, setTransferDesc] = useState('');
   const [transferring, setTransferring] = useState(false);
 
-  const { data: sources = [], isLoading: loading } = useQuery<FundSource[]>({
+  // ONE-CLICK-2: consume the FAB "Transfer" quick-add action. The FAB sets
+  // quickAddAction='transfer' AND deep-links the finance tab to the overview
+  // sub-tab (where this section is mounted), so the effect opens the
+  // transfer dialog, then clears the action (consume-and-clear, same
+  // pattern as the expense/income consumer in use-finance-mutations).
+  // GUARD: waits for the sources query (loading) — transfer needs ≥2 fund
+  // sources to pick from/to. With fewer, the dialog would show empty
+  // selects (confusing dead-end), so we clear the action + guide the user
+  // to create sources first instead. Note: this component early-returns
+  // null when sources is empty, but hooks still run, so the consumption
+  // is guaranteed even while the section itself is hidden.
+  const quickAddAction = useAppStore((s) => s.quickAddAction);
+  const clearQuickAdd = useAppStore((s) => s.clearQuickAdd);
+  // Stable latest-ref: openTransfer has empty deps (never changes identity),
+  // so the ref is initialized once and never reassigned during render.
+  const openTransfer = useCallback(() => setTransferOpen(true), []);
+  const openTransferRef = useRef(openTransfer);
+  const { data: sources = [], isLoading: sourcesLoading } = useQuery<FundSource[]>({
     queryKey: ['finance', 'sources'],
     queryFn: async () => {
       const res = await fetch('/api/finance/sources');
@@ -83,6 +101,18 @@ export default function SourceBalanceSection() {
     },
     staleTime: 15_000,
   });
+  useEffect(() => {
+    if (quickAddAction !== 'transfer') return;
+    // Sources still loading → wait for this effect to re-run with data.
+    if (sourcesLoading) return;
+    if (sources.length < 2) {
+      toast.info('Transfer butuh minimal 2 sumber dana. Tambahkan lewat tombol "Sumber Dana" di atas.', { duration: 5000 });
+      clearQuickAdd();
+      return;
+    }
+    openTransferRef.current();
+    clearQuickAdd();
+  }, [quickAddAction, sourcesLoading, sources, clearQuickAdd]);
 
   // Inline balance edit — same logic as finance.tsx SourcesTab.
   // PATCH /api/finance/sources/[id]/balance creates an adjustment
@@ -207,7 +237,7 @@ export default function SourceBalanceSection() {
     staleTime: 30_000,
   });
 
-  if (loading) {
+  if (sourcesLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 rounded-3xl" />

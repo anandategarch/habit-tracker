@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import {
@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -37,6 +36,7 @@ import {
   Clock,
   Trophy,
   AlertTriangle,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // PHASE3-HABIT — yearly heatmap (per-habit 365-day grid).
@@ -96,6 +96,7 @@ const FILTER_LABELS: Record<FilterType, string> = {
 };
 
 // ── Custom Tooltip ──────────────────────────────────────────────────────────
+
 function ChartTooltip({
   active,
   payload,
@@ -129,18 +130,31 @@ export default function TimeAnalysisDialog({
   onOpenChange,
 }: TimeAnalysisDialogProps) {
   const [filter, setFilter] = useState<FilterType>('thisWeek');
+  // Task 4-c (auto-detect): set to true once the user picks a period from
+  // the dropdown THIS dialog session — after that the auto-detected default
+  // never overrides their explicit choice.
+  const [filterLocked, setFilterLocked] = useState(false);
   // FIX-COLOR-P3: added destructiveColor so "late" bar fill follows the user's
   // theme (was hardcoded #ef4444).
   const primaryColor = useThemeColor('primary');
   const destructiveColor = useThemeColor('destructive');
 
-  // PHASE3-HABIT — when filter === 'thisYear', we bypass the time-analysis
-  // API (which is trackTime-only) and instead fetch the habit's metadata
-  // (for habitType + startDate) so we can render the YearlyHeatmap component.
-  // The YearlyHeatmap itself fetches its own logs via
-  // /api/habits/[id]/logs?year=YYYY.
+  // PHASE3-HABIT + Task 4-c (auto-detect): fetch the habit metadata on EVERY
+  // dialog open (previously only in yearly mode). Two reasons:
+  //  1) auto-detect the default period — 'thisWeek' for trackTime habits,
+  //     'thisYear' for the rest (the time-analysis API 400-errors with
+  //     "This habit does not track time" for non-trackTime habits, while the
+  //     yearly heatmap works for ALL habits);
+  //  2) show the habit icon/name in the title before the analysis data
+  //     arrives. The dialog is openable from ANYWHERE via
+  //     openHabitFocus(habitId) (store primitive, 4-foundation), so it must
+  //     never depend on the tracker's local state.
   const isYearlyView = filter === 'thisYear';
-  const { data: habitMeta } = useQuery<{
+  const {
+    data: habitMeta,
+    isLoading: metaLoading,
+    isError: metaIsError,
+  } = useQuery<{
     id: string;
     name: string;
     icon: string;
@@ -163,9 +177,39 @@ export default function TimeAnalysisDialog({
         trackTime: !!json.trackTime,
       };
     },
-    enabled: open && !!habitId && isYearlyView,
+    enabled: open && !!habitId,
     staleTime: 60_000,
   });
+
+  // Task 4-c (auto-detect): stable-callback + ref indirection (same intent
+  // as daily-tracker.tsx ONE-CLICK-1, adapted for react-hooks/refs — the
+  // callbacks below have empty dep arrays, so a single useRef(fn) at mount
+  // is enough; NO render-phase ref writes):
+  //  - applyAutoFilter: swap in the habit-appropriate default period once
+  //    the meta arrives (unless the user already picked one).
+  //  - resetFilterSession: unlock the auto-detect when a NEW dialog session
+  //    starts (dialog reopened, or a different habit focused).
+  const applyAutoFilter = useCallback((trackTime: boolean) => {
+    setFilter(trackTime ? 'thisWeek' : 'thisYear');
+  }, []);
+  const applyAutoFilterRef = useRef(applyAutoFilter);
+
+  const resetFilterSession = useCallback(() => {
+    setFilterLocked(false);
+  }, []);
+  const resetFilterSessionRef = useRef(resetFilterSession);
+
+  const lastSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sessionKey = open && habitId ? habitId : null;
+    if (sessionKey !== lastSessionRef.current) {
+      lastSessionRef.current = sessionKey;
+      resetFilterSessionRef.current();
+    }
+    if (sessionKey && habitMeta && !filterLocked) {
+      applyAutoFilterRef.current(habitMeta.trackTime);
+    }
+  }, [open, habitId, habitMeta, filterLocked]);
 
   const { data: data, isLoading: loading, error: queryError, refetch } = useQuery<AnalysisData>({
     queryKey: ['time-analysis', habitId, filter],
@@ -177,14 +221,23 @@ export default function TimeAnalysisDialog({
       }
       return res.json();
     },
-    // PHASE3-HABIT — skip the time-analysis query when in yearly view, and
-    // also when the habit doesn't track time (the API returns 400 in that
-    // case; we'd rather not show a misleading error). The yearly heatmap
-    // works for non-trackTime habits.
-    enabled: open && !!habitId && !isYearlyView,
+    // PHASE3-HABIT + Task 4-c: skip the time-analysis query when in yearly
+    // view, AND until we KNOW the habit tracks time (habitMeta.trackTime ===
+    // true). The API 400-errors for non-trackTime habits; gating on the meta
+    // means the red error card can never flash before the auto-detect lands.
+    enabled: open && !!habitId && !isYearlyView && habitMeta?.trackTime === true,
     staleTime: 30_000,
   });
   const error = queryError instanceof Error ? queryError.message : null;
+
+  // Meta fetch failed → surface it like a query error (the dialog would
+  // otherwise sit silently with nothing to show).
+  const effectiveError =
+    error ?? (metaIsError ? 'Gagal memuat data habit' : null);
+
+  // While the meta is still resolving we don't know which view applies yet —
+  // show the loading skeleton instead of a possibly-wrong default view.
+  const metaPending = open && !!habitId && habitMeta === undefined && !metaIsError;
 
   // Prepare chart data — only days with time data
   const chartData = (data?.data || [])
@@ -214,9 +267,16 @@ export default function TimeAnalysisDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Filter */}
+        {/* Filter — Task 4-c: picking a period locks it (auto-detect stops
+            overriding the user's choice for this session). */}
         <div className="flex items-center gap-2">
-          <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+          <Select
+            value={filter}
+            onValueChange={(v) => {
+              setFilterLocked(true);
+              setFilter(v as FilterType);
+            }}
+          >
             <SelectTrigger className="w-[180px] h-8 text-sm">
               <SelectValue />
             </SelectTrigger>
@@ -242,7 +302,7 @@ export default function TimeAnalysisDialog({
         </div>
 
         {/* PHASE3-HABIT — Yearly heatmap view (works for ALL habits). */}
-        {isYearlyView && habitId && habitMeta && (
+        {isYearlyView && !effectiveError && habitId && habitMeta && (
           <YearlyHeatmap
             habitId={habitId}
             habitType={habitMeta.habitType}
@@ -253,15 +313,18 @@ export default function TimeAnalysisDialog({
           <Skeleton className="h-40 w-full rounded-lg" />
         )}
 
-        {!isYearlyView && error && (
-          <Card className="border-destructive/30 dark:border-destructive/30">
-            <CardContent className="py-4">
-              <p className="text-sm text-destructive dark:text-destructive/80">{error}</p>
-            </CardContent>
-          </Card>
+        {!isYearlyView && effectiveError && (
+          <div className="premium-card rounded-2xl p-4 flex items-start gap-2.5">
+            <span className="chip-soft chip-soft-rose h-8 w-8 shrink-0">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <p className="text-sm text-destructive dark:text-destructive/80 pt-1.5">
+              {effectiveError}
+            </p>
+          </div>
         )}
 
-        {!isYearlyView && loading && !data && (
+        {!isYearlyView && !effectiveError && (loading || metaPending) && !data && (
           <div className="space-y-4">
             <Skeleton className="h-32 w-full rounded-lg" />
             <div className="grid grid-cols-2 gap-3">
@@ -271,145 +334,133 @@ export default function TimeAnalysisDialog({
           </div>
         )}
 
-        {!isYearlyView && data && !error && (
+        {!isYearlyView && data && !effectiveError && (
           <div className="space-y-4">
-            {/* Stats Grid */}
+            {/* Stats Grid — PREMIUM REDESIGN (Task 4-c): bare div +
+                premium-card (NOT shadcn Card, see worklog 2-c), chip-soft
+                icon chip + premium-label + premium-stat, following the
+                daily-tracker KPI card pattern. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {/* Average */}
-              <Card className="py-3">
-                <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 shrink-0">
-                    <Clock className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-bold tabular-nums text-foreground">
-                      {data.stats.average || '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Rata-rata</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="premium-card premium-card-sheen rounded-xl p-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="chip-soft chip-soft-teal h-8 w-8 shrink-0">
+                    <Clock className="h-4 w-4" />
+                  </span>
+                  <span className="premium-label truncate">Rata-rata</span>
+                </div>
+                <p className="premium-stat text-xl mt-3 tabular-nums text-foreground">
+                  {data.stats.average || '—'}
+                </p>
+              </div>
 
               {/* Best */}
-              <Card className="py-3">
-                <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-success/10 dark:bg-success/15 shrink-0">
-                    <Trophy className="h-4 w-4 text-success dark:text-success/80" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-bold tabular-nums text-success dark:text-success/80">
-                      {data.stats.best || '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Terbaik</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="premium-card premium-card-sheen rounded-xl p-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="chip-soft chip-soft-amber h-8 w-8 shrink-0">
+                    <Trophy className="h-4 w-4" />
+                  </span>
+                  <span className="premium-label truncate">Terbaik</span>
+                </div>
+                <p className="premium-stat text-xl mt-3 tabular-nums text-foreground">
+                  {data.stats.best || '—'}
+                </p>
+              </div>
 
               {/* Worst */}
-              <Card className="py-3">
-                <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-destructive/10 dark:bg-destructive/15 shrink-0">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-bold tabular-nums text-destructive">
-                      {data.stats.worst || '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Terlambat</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="premium-card premium-card-sheen rounded-xl p-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="chip-soft chip-soft-rose h-8 w-8 shrink-0">
+                    <AlertTriangle className="h-4 w-4" />
+                  </span>
+                  <span className="premium-label truncate">Terlambat</span>
+                </div>
+                <p className="premium-stat text-xl mt-3 tabular-nums text-foreground">
+                  {data.stats.worst || '—'}
+                </p>
+              </div>
             </div>
 
             {/* Target score + comparison */}
             <div className="grid grid-cols-2 gap-3">
-              <Card className="py-3">
-                <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-warning/10 dark:bg-warning/15 shrink-0">
-                    <Target className="h-4 w-4 text-warning dark:text-warning/80" />
-                  </div>
-                  <div className="min-w-0">
-                    {targetMinutes !== null ? (
-                      <>
-                        <p className="text-lg font-bold tabular-nums">
-                          {data.stats.onTargetCount ?? 0}/{data.stats.totalCount}
-                          <span className="text-sm font-normal text-muted-foreground ml-1">
-                            ({data.stats.onTargetRate ?? 0}%)
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Tepat target ({data.habit.targetTime})
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-lg font-bold tabular-nums">
-                          {data.stats.totalCount}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Total tercatat
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="premium-card premium-card-sheen rounded-xl p-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="chip-soft chip-soft-violet h-8 w-8 shrink-0">
+                    <Target className="h-4 w-4" />
+                  </span>
+                  <span className="premium-label truncate">
+                    {targetMinutes !== null ? 'Tepat Target' : 'Total Tercatat'}
+                  </span>
+                </div>
+                {targetMinutes !== null ? (
+                  <>
+                    <p className="premium-stat text-xl mt-3 tabular-nums text-foreground">
+                      {data.stats.onTargetCount ?? 0}/{data.stats.totalCount}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">
+                        ({data.stats.onTargetRate ?? 0}%)
+                      </span>
+                    </p>
+                    <p className="text-[11px] mt-1 text-muted-foreground">
+                      Target {data.habit.targetTime}
+                    </p>
+                  </>
+                ) : (
+                  <p className="premium-stat text-xl mt-3 tabular-nums text-foreground">
+                    {data.stats.totalCount}
+                  </p>
+                )}
+              </div>
 
-              <Card className="py-3">
-                <CardContent className="flex items-center gap-2.5 py-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
-                    style={{
-                      backgroundColor: (data.stats.vsPrevious ?? 0) <= 0
-                        ? 'var(--color-emerald-100, #dcfce7)'
-                        : 'var(--color-red-100, #fee2e2)',
-                    }}
+              <div className="premium-card premium-card-sheen rounded-xl p-3.5">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      'h-8 w-8 shrink-0',
+                      (data.stats.vsPrevious ?? 0) <= 0
+                        ? 'chip-soft chip-soft-teal'
+                        : 'chip-soft chip-soft-rose'
+                    )}
                   >
                     {(data.stats.vsPrevious ?? 0) <= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-success dark:text-success/80" />
+                      <TrendingUp className="h-4 w-4" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-destructive" />
+                      <TrendingDown className="h-4 w-4" />
                     )}
-                  </div>
-                  <div className="min-w-0">
-                    {data.stats.vsPrevious !== null ? (
-                      <>
-                        <p
-                          className={cn(
-                            'text-lg font-bold tabular-nums',
-                            data.stats.vsPrevious <= 0
-                              ? 'text-success dark:text-success/80'
-                              : 'text-destructive',
-                          )}
-                        >
-                          {data.stats.vsPrevious > 0 ? '+' : ''}
-                          {data.stats.vsPrevious} menit
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          vs periode sebelumnya
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-lg font-bold tabular-nums text-muted-foreground">—</p>
-                        <p className="text-xs text-muted-foreground">
-                          Belum ada perbandingan
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  </span>
+                  <span className="premium-label truncate">vs Sebelumnya</span>
+                </div>
+                {data.stats.vsPrevious !== null ? (
+                  <>
+                    <p
+                      className={cn(
+                        'premium-stat text-xl mt-3 tabular-nums',
+                        data.stats.vsPrevious <= 0
+                          ? 'text-success dark:text-success/80'
+                          : 'text-destructive'
+                      )}
+                    >
+                      {data.stats.vsPrevious > 0 ? '+' : ''}
+                      {data.stats.vsPrevious} menit
+                    </p>
+                    <p className="text-[11px] mt-1 text-muted-foreground">
+                      Periode sebelumnya
+                    </p>
+                  </>
+                ) : (
+                  <p className="premium-stat text-xl mt-3 tabular-nums text-muted-foreground">
+                    —
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Bar Chart */}
             {chartData.length > 0 ? (
-              <Card className="py-3">
-                <CardHeader className="pb-2 pt-0 px-4">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Per Hari
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-2">
+              <div className="premium-card premium-card-sheen rounded-2xl py-3">
+                <div className="px-4 pb-2">
+                  <p className="premium-label">Per Hari</p>
+                </div>
+                <div className="px-2">
                   <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -503,21 +554,45 @@ export default function TimeAnalysisDialog({
                       </>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : (
-              <Card className="py-10">
-                <CardContent className="flex flex-col items-center gap-2">
-                  <span className="text-3xl">📊</span>
-                  <p className="text-sm text-muted-foreground">
-                    Belum ada data waktu untuk periode ini.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Centang habit dengan track waktu untuk mulai mengumpulkan data.
-                  </p>
-                </CardContent>
-              </Card>
+              /* PREMIUM REDESIGN (Task 4-c): premium-empty + orb instead of
+                 the bare 📊 emoji card. */
+              <div className="premium-card premium-empty rounded-2xl">
+                <div className="premium-empty-orb" aria-hidden="true">
+                  <BarChart3 className="h-8 w-8 text-primary" />
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  Belum ada data untuk periode ini
+                </p>
+                <p className="text-xs text-muted-foreground/70 -mt-0.5">
+                  Centang habit dengan track waktu untuk mulai mengumpulkan data.
+                </p>
+              </div>
             )}
+          </div>
+        )}
+
+        {/* Task 4-c (auto-detect fallback): the user explicitly picked a
+            non-yearly period for a habit that does not track time (the API
+            400-errors there). Show a soft premium-empty hint instead of the
+            old red error card. The pre-auto-detect transient frame is
+            covered by the metaPending skeleton above, so this branch only
+            renders for an explicit, filterLocked choice. */}
+        {!isYearlyView && !data && !effectiveError && !loading && !metaPending && habitMeta && !habitMeta.trackTime && filterLocked && (
+          <div className="premium-card premium-empty rounded-2xl">
+            <div className="premium-empty-orb" aria-hidden="true">
+              <Clock className="h-8 w-8 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-foreground">
+              Habit ini tidak mencatat waktu
+            </p>
+            <p className="text-xs text-muted-foreground/70 -mt-0.5">
+              Pilih periode{' '}
+              <span className="font-semibold text-foreground">Tahun</span> untuk
+              melihat riwayat lengkap habit ini.
+            </p>
           </div>
         )}
       </DialogContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useDeferredValue } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import { format, id as idLocale } from '@/lib/date-utils';
 // ('yyyy-MM', 'MMMM yyyy' with id locale) — verified via test script in
 // worklog FIX-TIER3 entry.
 import { jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, type FinanceFocus, type FinanceSubTab } from '@/store/app-store';
 import { MoneyParticles } from './money-particles';
 import { useFinanceMutations } from '@/hooks/use-finance-mutations';
 // Split-out dialog components (SPLIT-PHASE2-UI):
@@ -203,10 +203,43 @@ export default function Finance() {
   const selectedMonth = useAppStore(s => s.selectedMonth);
   const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
   const queryClient = useQueryClient();
-  const [activeSubTab, setActiveSubTab] = useState('overview');
+  // ONE-CLICK-3: activeSubTab lifted from local useState to the global
+  // store — previously it reset to 'overview' every time the user left the
+  // Finance tab (page.tsx only mounts the active tab). Now it survives tab
+  // switches AND any component can deep-link to a sub-tab in one call via
+  // openFinanceSubTab / openFinanceFocus (e.g. dashboard budget-status card
+  // → Budgets sub-tab; budget category card → Transactions filtered).
+  const activeSubTab = useAppStore(s => s.financeSubTab);
+  const setActiveSubTab = useAppStore(s => s.setFinanceSubTab);
 
   // Filter states (declared early because useQuery depends on txFilter)
   const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
+
+  // ONE-CLICK-4: consume the global finance focus (set by openFinanceFocus
+  // anywhere in the app — dashboard cards, budget cards, daily recap…).
+  // Applies the requested transactions filter, then clears the ephemeral
+  // focus (same consume-and-clear pattern as quickAddAction). Category is
+  // a NAME string, matching txFilter.category semantics.
+  const financeFocus = useAppStore(s => s.financeFocus);
+  const clearFinanceFocus = useAppStore(s => s.clearFinanceFocus);
+  const applyFinanceFocus = useCallback((focus: FinanceFocus) => {
+    setTxFilter(prev => ({
+      ...prev,
+      type: 'all',
+      source: 'all',
+      search: '',
+      category: focus.category ?? 'all',
+    }));
+  }, []);
+  // Stable latest-ref: applyFinanceFocus has empty deps (never changes
+  // identity), so the ref is initialized once and never reassigned.
+  const applyFocusRef = useRef(applyFinanceFocus);
+  useEffect(() => {
+    if (financeFocus) {
+      applyFocusRef.current(financeFocus);
+      clearFinanceFocus();
+    }
+  }, [financeFocus, clearFinanceFocus]);
 
   // ── Data Fetching (TanStack Query) ─────────────────────────────────────
   // All fetch calls migrated from manual useEffect + useState to useQuery.
@@ -549,7 +582,7 @@ export default function Finance() {
       </div>
 
       {/* Sub Tabs — icon-only on mobile, icon+label on desktop */}
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as FinanceSubTab)}>
         <TabsList className="flex w-full overflow-x-auto scrollbar-hide">
           <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
           <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
@@ -609,7 +642,10 @@ export default function Finance() {
         </TabsContent>
 
         <TabsContent value="explorer" className="mt-4 anim-tab-fade-up">
-          <FinanceExplorer getCategoryMeta={getCategoryMeta} />
+          {/* Task 4-b A.5: pass the shared edit-tx handler down so explorer
+              drill-down tx rows are no longer a dead-end — tapping a row
+              opens the FinanceTxDialog mounted at this component's root. */}
+          <FinanceExplorer getCategoryMeta={getCategoryMeta} onEditTx={mutations.openEditTx} />
         </TabsContent>
 
         <TabsContent value="categories" className="mt-4 anim-tab-fade-up">

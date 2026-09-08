@@ -47,6 +47,8 @@ import {
   Check,
   ListChecks,
   Pipette,
+  Activity,
+  CalendarCheck,
 } from 'lucide-react';
 import {
   applyThemeColors,
@@ -341,21 +343,23 @@ export default function Settings() {
         description="Kelola preferensi, habits, dan data"
       />
 
-      {/* Sub-tabs */}
-      <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+      {/* Sub-tabs — premium segmented control (pola view-toggle daily-tracker) */}
+      <div
+        className="premium-segment"
+        role="group"
+        aria-label="Bagian pengaturan"
+      >
         {SECTION_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveSection(tab.id)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150',
-                isActive
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+              data-active={isActive}
+              aria-pressed={isActive}
+              className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm flex items-center gap-1.5"
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{tab.label}</span>
@@ -665,19 +669,27 @@ export default function Settings() {
       {activeSection === 'data' && (
         <SectionCard icon={Database} title="Data">
           <div className="space-y-3">
+            {/* Stat tiles — chip-soft + premium-label + premium-stat (pola stat goals) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold text-foreground">{dbStats?.habits ?? '-'}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Total Habits</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold text-foreground">{dbStats?.logs ?? '-'}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Total Log</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold text-foreground">{dbStats?.days ?? '-'}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Hari Dilacak</p>
-              </div>
+              {([
+                { label: 'Total Habits', value: dbStats?.habits ?? '-', icon: ListChecks, tint: 'chip-soft-teal' },
+                { label: 'Total Log', value: dbStats?.logs ?? '-', icon: Activity, tint: 'chip-soft-violet' },
+                { label: 'Hari Dilacak', value: dbStats?.days ?? '-', icon: CalendarCheck, tint: 'chip-soft-amber' },
+              ] as const).map((stat) => {
+                const StatIcon = stat.icon;
+                return (
+                  <div
+                    key={stat.label}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-border/70 bg-card/40 dark:bg-card/20 p-3 text-center"
+                  >
+                    <span className={cn('chip-soft h-8 w-8', stat.tint)} aria-hidden="true">
+                      <StatIcon className="h-4 w-4" />
+                    </span>
+                    <p className="premium-stat text-2xl text-foreground">{stat.value}</p>
+                    <p className="premium-label">{stat.label}</p>
+                  </div>
+                );
+              })}
             </div>
 
             <Separator className="my-2" />

@@ -40,7 +40,7 @@ export interface DashboardData {
   moodAverage: string;
   sleepAverage: string;
   productivityScore: number;
-  weeklyChartData: { day: string; date: string; completed: number; total: number; rate: number }[];
+  weeklyChartData: { day: string; date: string; dateKey: string; completed: number; total: number; rate: number }[];
   monthlyChartData: { day: string; completed: number; total: number; rate: number }[];
   categoryPerformance: { category: string; done: number; total: number; rate: number }[];
   todayFocus: { id: string; name: string; icon: string; priority: string }[];

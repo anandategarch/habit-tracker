@@ -273,6 +273,12 @@ export default function DailyRecap() {
 
   const { today, comparison, streaks, predictions, alerts, patterns, gamification, sparkline, dailyBudget } = recap;
 
+  // Task 4-b B.6: emoji + color lookup untuk baris "Transaksi hari ini"
+  // (dari today.categories — nol query/fetch baru; fallback 📦 muted).
+  const todayCatMeta = new Map(
+    today.categories.map((c) => [c.name, { emoji: c.emoji, color: c.color }] as const),
+  );
+
   // ── Empty state: no transactions today ─────────────────────────────
   // Note: budget ring/button is still shown here so the user can set/view
   // their daily budget even on a no-transaction day (was previously hidden,
@@ -1100,28 +1106,38 @@ export default function DailyRecap() {
                 <span className="text-[11px] text-muted-foreground">+{today.transactionCount - today.transactions.length} lainnya</span>
               )}
             </div>
-            <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar cv-auto">
-              {today.transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center gap-2 py-1 text-xs">
-                  <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-12">
-                    {formatTxTime(tx.date)}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {tx.description || tx.category}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {tx.category} · {tx.source}
-                    </p>
+            <div className="space-y-0.5 max-h-56 overflow-y-auto custom-scrollbar cv-auto">
+              {today.transactions.map((tx) => {
+                // PREMIUM-UI ("Rutina Aurora"): pola .premium-list-item —
+                // avatar emoji squircle (tint warna kategori) + judul + meta
+                // + nominal rata kanan emerald/rose. HANYA section ini yang
+                // di-restyle (section lain daily-recap sudah didesain ulang).
+                const meta = todayCatMeta.get(tx.category) ?? { emoji: '📦', color: '#78716c' };
+                const isIncome = tx.type === 'income';
+                return (
+                  <div key={tx.id} className="premium-list-item py-1.5! px-2!">
+                    <span
+                      className="h-9 w-9 rounded-xl grid place-items-center text-base shrink-0 ring-1 ring-black/5 dark:ring-white/10"
+                      style={{ backgroundColor: `${meta.color}20` }}
+                      aria-hidden="true"
+                    >
+                      {meta.emoji}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{tx.description || tx.category}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {formatTxTime(tx.date)} · {tx.category} · {tx.source}
+                      </p>
+                    </div>
+                    <span className={cn(
+                      'font-semibold tabular-nums shrink-0 text-xs',
+                      isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    )}>
+                      {isIncome ? '+' : '−'}{compactRupiahSafe(tx.amount)}
+                    </span>
                   </div>
-                  <span className={cn(
-                    'font-semibold tabular-nums shrink-0',
-                    tx.type === 'income' ? 'text-success' : 'text-destructive'
-                  )}>
-                    {tx.type === 'income' ? '+' : '−'}{compactRupiahSafe(tx.amount)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

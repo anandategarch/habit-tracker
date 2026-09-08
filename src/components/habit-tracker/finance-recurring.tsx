@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit3, Trash2, RefreshCw, Repeat, CalendarClock } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -146,16 +146,17 @@ export default function FinanceRecurring({
   };
 
   const handleSubmit = async () => {
+    // Task 4-b A.6: alert() → toast (no browser popups inside the app).
     if (!form.category) {
-      alert('Pilih kategori dulu');
+      toast.error('Pilih kategori dulu');
       return;
     }
     if (!form.amount || parseInt(form.amount.replace(/[^\d]/g, '') || '0', 10) <= 0) {
-      alert('Jumlah harus lebih dari 0');
+      toast.error('Jumlah harus lebih dari 0');
       return;
     }
     if (form.frequency === 'monthly' && (!form.dayOfMonth || parseInt(form.dayOfMonth, 10) < 1 || parseInt(form.dayOfMonth, 10) > 31)) {
-      alert('Hari (tgl) harus 1-31');
+      toast.error('Hari (tgl) harus 1-31');
       return;
     }
     setSubmitting(true);
@@ -163,13 +164,15 @@ export default function FinanceRecurring({
       const payload = formToPayload(form);
       if (editing) {
         await updateMutation.mutateAsync({ ...payload, id: editing.id });
+        toast.success('Transaksi berulang diperbarui');
       } else {
         await createMutation.mutateAsync(payload);
+        toast.success('Transaksi berulang dibuat');
       }
       invalidateAll();
       setDialogOpen(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Terjadi kesalahan');
+      toast.error(e instanceof Error ? e.message : 'Terjadi kesalahan');
     } finally {
       setSubmitting(false);
     }
@@ -179,9 +182,10 @@ export default function FinanceRecurring({
     if (!deletingId) return;
     try {
       await deleteMutation.mutateAsync(deletingId);
+      toast.success('Transaksi berulang dihapus');
       invalidateAll();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Terjadi kesalahan');
+      toast.error(e instanceof Error ? e.message : 'Terjadi kesalahan');
     } finally {
       setDeletingId(null);
     }
@@ -260,37 +264,61 @@ export default function FinanceRecurring({
           ))}
         </div>
       ) : recurring.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 flex flex-col items-center text-muted-foreground">
-            <Repeat className="h-12 w-12 mb-3 opacity-20" />
-            <p className="text-sm font-medium">Belum ada transaksi berulang</p>
-            <p className="text-xs mt-1">
-              Buat jadwal otomatis untuk tagihan, langganan, atau pemasukan rutin
+        /* PREMIUM-UI: empty state dengan orb ilustrasi + CTA gradient. */
+        <div
+          className="premium-card premium-card-sheen rounded-2xl premium-fade-up"
+          style={{ animationDelay: '60ms' }}
+        >
+          <div className="premium-empty min-h-[20rem] sm:min-h-[22rem]">
+            <div className="premium-empty-orb" aria-hidden="true">
+              <Repeat className="h-9 w-9 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold tracking-tight mt-2">
+              Otomatiskan Tagihan Rutinmu
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+              Sewa, langganan, atau gaji — buat jadwal sekali dan transaksinya
+              tercatat otomatis setiap periodenya.
             </p>
-          </CardContent>
-        </Card>
+            <Button
+              size="sm"
+              className="mt-3"
+              onClick={openAdd}
+            >
+              <Plus className="h-4 w-4" />
+              Buat Jadwal Pertama
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="space-y-2.5">
-          {recurring.map((r) => {
+          {recurring.map((r, idx) => {
             const meta = getCategoryMeta(r.category);
             const isExpense = r.type === 'expense';
             const next = computeNextDue(r);
             const isOverdue =
               next && next.getTime() < Date.now() && r.isActive;
             return (
+              /* PREMIUM-UI: bare div .premium-card (bukan Card shadcn —
+                 .card-shadow-premium unlayered akan menimpa shadow premium,
+                 lihat worklog 2-c) + avatar emoji squircle tint + nominal
+                 rata kanan (rose pengeluaran / emerald pemasukan) — pola
+                 .premium-list-item ditingkatkan jadi kartu section. */
               <div
                 key={r.id}
                 className={cn(
-                  'group rounded-2xl bg-card p-4 transition-all hover:shadow-md',
+                  'group premium-card premium-card-sheen rounded-2xl p-4 anim-stagger',
                   !r.isActive && 'opacity-60',
-                  isOverdue && 'ring-1 ring-warning/40'
+                  isOverdue && 'ring-1 ring-amber-500/30 dark:ring-amber-500/40'
                 )}
+                style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
-                      style={{ backgroundColor: `${meta.color}22` }}
+                      className="h-9 w-9 rounded-xl grid place-items-center text-lg shrink-0 ring-1 ring-black/5 dark:ring-white/10"
+                      style={{ backgroundColor: `${meta.color}20` }}
+                      aria-hidden="true"
                     >
                       {meta.emoji}
                     </div>
@@ -304,8 +332,8 @@ export default function FinanceRecurring({
                           className={cn(
                             'text-[10px] py-0 px-1.5',
                             isExpense
-                              ? 'text-destructive border-destructive/30'
-                              : 'text-success border-success/30'
+                              ? 'text-rose-600 dark:text-rose-400 border-rose-500/30'
+                              : 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                           )}
                         >
                           {isExpense ? 'Pengeluaran' : 'Pemasukan'}
@@ -315,69 +343,75 @@ export default function FinanceRecurring({
                           {frequencyLabel(r)}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span
-                          className={cn(
-                            'text-sm font-bold',
-                            isExpense ? 'text-destructive' : 'text-success'
-                          )}
-                        >
-                          {isExpense ? '-' : '+'}
-                          {formatRupiah(r.amount)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          · {r.category} · {r.source}
-                        </span>
-                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {r.category} · {r.source}
+                      </p>
                       <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                        <CalendarClock className="h-3 w-3" />
-                        {r.isActive ? formatNextRun(r) : 'Dijeda'}
-                        {r.lastRunAt && (
-                          <span className="ml-1">
-                            · terakhir:{' '}
-                            {new Intl.DateTimeFormat('id-ID', {
-                              day: 'numeric',
-                              month: 'short',
-                            }).format(new Date(r.lastRunAt))}
-                          </span>
-                        )}
+                        <CalendarClock className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {r.isActive ? formatNextRun(r) : 'Dijeda'}
+                          {r.lastRunAt && (
+                            <span className="ml-1">
+                              · terakhir:{' '}
+                              {new Intl.DateTimeFormat('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                              }).format(new Date(r.lastRunAt))}
+                            </span>
+                          )}
+                        </span>
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Switch
-                      checked={r.isActive}
-                      onCheckedChange={async (checked) => {
-                        try {
-                          await updateMutation.mutateAsync({
-                            id: r.id,
-                            isActive: checked,
-                          });
-                          invalidateAll();
-                        } catch (e) {
-                          alert(
-                            e instanceof Error ? e.message : 'Gagal mengubah status'
-                          );
-                        }
-                      }}
-                      aria-label="Aktif/nonaktifkan"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(r)}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span
+                      className={cn(
+                        'text-sm font-bold tabular-nums',
+                        isExpense
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-emerald-600 dark:text-emerald-400'
+                      )}
+                      aria-label={`Jumlah ${isExpense ? 'pengeluaran' : 'pemasukan'} ${formatRupiah(r.amount)} ${frequencyLabel(r)}`}
                     >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeletingId(r.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                      {isExpense ? '−' : '+'}{formatRupiah(r.amount)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Switch
+                        checked={r.isActive}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await updateMutation.mutateAsync({
+                              id: r.id,
+                              isActive: checked,
+                            });
+                            invalidateAll();
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : 'Gagal mengubah status'
+                            );
+                          }
+                        }}
+                        aria-label="Aktif/nonaktifkan"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label={`Edit transaksi berulang ${r.description || r.category}`}
+                        onClick={() => openEdit(r)}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        aria-label={`Hapus transaksi berulang ${r.description || r.category}`}
+                        onClick={() => setDeletingId(r.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -10,11 +10,13 @@ import {
   Cell,
   AreaChart,
   Area,
+  type BarRectangleItem,
 } from 'recharts';
 import { BarChart3, CalendarDays, Info, Layers, Tags, TrendingUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
+import { useAppStore } from '@/store/app-store';
 
 // Shared chart config — labels only; colors stay dynamic via `primary`.
 // ChartContainer uses this to inject per-chart CSS variables (--color-*)
@@ -56,7 +58,7 @@ function ChartInfo({ text }: { text: string }) {
 }
 
 interface DashboardChartsProps {
-  weeklyBarData: { day: string; label: string; date: string; completed: number; total: number; rate: number }[];
+  weeklyBarData: { day: string; label: string; date: string; dateKey: string; completed: number; total: number; rate: number }[];
   categoryPerformance: { category: string; done: number; total: number; rate: number }[];
   monthlyChartData: { day: string; completed: number; total: number; rate: number }[];
   stackedBarData: { day: string; completed: number; missed: number; total: number; rate: number }[];
@@ -77,6 +79,24 @@ export default function DashboardCharts({
   const primary = useThemeColor('primary');
   // Build category colors with primary as the first entry.
   const CATEGORY_COLORS = [primary, ...CATEGORY_COLORS_FIXED.slice(1)];
+
+  // ── ONE-CLICK (Task 4-a): chart bars are deep-links ─────────────────────
+  // Clicking a day in the weekly bar chart jumps to the tracker grid with
+  // that date preselected (openTrackerDate). The clicked bar's original
+  // datum arrives in `data.payload` (BarRectangleItem); `dateKey` is the
+  // yyyy-MM-dd twin of the "MMM dd" display label.
+  const openTrackerDate = useAppStore((s) => s.openTrackerDate);
+  const handleWeeklyBarClick = (data: BarRectangleItem) => {
+    const dateKey = data.payload?.dateKey;
+    if (typeof dateKey === 'string' && dateKey) openTrackerDate(dateKey);
+  };
+  // Clicking a category bar deep-links into the finance transactions list
+  // with that category filter pre-applied (openFinanceFocus).
+  const openFinanceFocus = useAppStore((s) => s.openFinanceFocus);
+  const handleCategoryBarClick = (data: BarRectangleItem) => {
+    const category = data.payload?.category;
+    if (typeof category === 'string' && category) openFinanceFocus({ category });
+  };
 
   return (
     <>
@@ -115,7 +135,13 @@ export default function DashboardCharts({
                     }}
                     formatter={(value) => [`${value}%`, 'Penyelesaian']}
                   />
-                  <Bar dataKey="rate" radius={[6, 6, 0, 0]} maxBarSize={40}>
+                  <Bar
+                    dataKey="rate"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={40}
+                    className="cursor-pointer"
+                    onClick={handleWeeklyBarClick}
+                  >
                     {weeklyBarData.map((entry, index) => (
                       <Cell
                         key={index}
@@ -168,7 +194,13 @@ export default function DashboardCharts({
                     }}
                     formatter={(value) => [`${value}%`, 'Rate']}
                   />
-                  <Bar dataKey="rate" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                  <Bar
+                    dataKey="rate"
+                    radius={[0, 6, 6, 0]}
+                    maxBarSize={20}
+                    className="cursor-pointer"
+                    onClick={handleCategoryBarClick}
+                  >
                     {categoryPerformance.map((_, index) => (
                       <Cell
                         key={index}

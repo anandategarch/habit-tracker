@@ -43,6 +43,10 @@ export function buildWeeklyChart(
     out.push({
       day: format(d, 'EEE'),
       date: format(d, 'MMM dd'),
+      // ONE-CLICK (4-a): yyyy-MM-dd twin of the `date` label (same `key`
+      // computed above) — consumed by the dashboard chart's bar onClick
+      // → openTrackerDate(dateKey). Additive; display untouched.
+      dateKey: key,
       completed: done,
       total: activeOnDay,
       rate,

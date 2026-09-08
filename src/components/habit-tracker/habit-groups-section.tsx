@@ -1,10 +1,20 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { GROUP_EMOJIS, type HabitGroup } from './habit-master-types';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
@@ -35,21 +45,23 @@ export function HabitGroupsSection({
 }: HabitGroupsSectionProps) {
   return (
     <Collapsible open={groupsOpen} onOpenChange={setGroupsOpen}>
-      <Card>
+      {/* Div polong premium-card (bukan Card — pola agent 2-a/2-b/2-c). */}
+      <div className="premium-card premium-card-sheen rounded-2xl">
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-accent/50 transition-colors rounded-t-lg"
+            className="w-full text-left mx-1 mt-1 px-4 py-3 flex items-center justify-between hover:bg-accent/40 transition-colors rounded-xl focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none cursor-pointer"
+            aria-label="Buka atau tutup bagian grup habit"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {groupsOpen ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               )}
-              <span className="text-sm font-semibold">Grup Habit</span>
+              <span className="premium-label">Grup Habit</span>
               {!groupsLoading && groups.length > 0 && (
-                <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
+                <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5 rounded-full">
                   {groups.length}
                 </Badge>
               )}
@@ -57,24 +69,25 @@ export function HabitGroupsSection({
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <CardContent className="pt-0 pb-4 px-4">
+          <div className="pt-0 pb-4 px-4">
             {/* Inline form */}
             <div className="flex items-center gap-2 mb-3">
               <div className="relative">
                 <button
                   type="button"
-                  className="h-8 w-8 flex items-center justify-center rounded-md border bg-background text-base hover:bg-accent transition-colors shrink-0"
+                  className="chip-soft h-10 w-10 text-base cursor-pointer hover:bg-accent/60 transition-colors active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none shrink-0"
                   onClick={() => setShowGroupEmojiPicker(!showGroupEmojiPicker)}
+                  aria-label={`Pilih emoji grup, sekarang ${newGroupEmoji}`}
                 >
                   {newGroupEmoji}
                 </button>
                 {showGroupEmojiPicker && (
-                  <div className="absolute top-full mt-1 z-50 bg-popover border rounded-lg shadow-lg p-2 flex flex-wrap gap-1 w-56">
+                  <div className="absolute top-full mt-1.5 z-50 rounded-2xl border border-border bg-popover/95 backdrop-blur shadow-lg p-2 grid grid-cols-4 gap-1 w-56">
                     {GROUP_EMOJIS.map((e) => (
                       <button
                         key={e}
                         type="button"
-                        className="text-xl hover:bg-accent rounded-lg p-1 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                        className="text-xl hover:bg-accent rounded-xl p-1.5 transition-all min-w-[40px] min-h-[40px] flex items-center justify-center active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
                         onClick={() => {
                           setNewGroupEmoji(e);
                           // Auto-derive color from emoji — no manual color picker.
@@ -86,13 +99,14 @@ export function HabitGroupsSection({
                           setNewGroupColor(derived);
                           setShowGroupEmojiPicker(false);
                         }}
+                        aria-label={`Pilih emoji ${e}`}
                       >
                         {e}
                       </button>
                     ))}
                     <button
                       type="button"
-                      className="text-xs text-muted-foreground hover:text-foreground p-1"
+                      className="col-span-4 text-xs text-muted-foreground hover:text-foreground py-1.5 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
                       onClick={() => setShowGroupEmojiPicker(false)}
                     >
                       tutup
@@ -102,17 +116,18 @@ export function HabitGroupsSection({
               </div>
               <Input
                 placeholder="Nama grup baru..."
-                className="flex-1 h-8 text-sm"
+                className="flex-1 h-10 text-sm rounded-xl"
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreateGroup();
                 }}
                 disabled={addingGroup}
+                aria-label="Nama grup baru"
               />
               {/* Color preview — auto-derived from emoji */}
               <div
-                className="h-8 w-8 rounded-md border border-border shrink-0"
+                className="h-10 w-10 rounded-xl border border-border shrink-0"
                 style={{ backgroundColor: newGroupColor }}
                 aria-label={`Warna otomatis: ${newGroupColor}`}
                 title="Warna otomatis dari emoji"
@@ -120,7 +135,7 @@ export function HabitGroupsSection({
               <Button
                 onClick={handleCreateGroup}
                 disabled={addingGroup || !newGroupName.trim()}
-                className="h-8 gap-1 shrink-0"
+                className="btn-primary-gradient h-10 gap-1 shrink-0"
                 size="sm"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -149,26 +164,53 @@ export function HabitGroupsSection({
                       color: g.color || undefined,
                     }}
                   >
-                    <span>{g.emoji || '📌'}</span>
+                    <span aria-hidden="true">{g.emoji || '📌'}</span>
                     <span>{g.name}</span>
                     {g._count.habits > 0 && (
-                      <span className="text-xs opacity-60">({g._count.habits})</span>
+                      <span className="text-xs opacity-60 tabular-nums">({g._count.habits})</span>
                     )}
-                    <button
-                      type="button"
-                      className="ml-0.5 h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                      onClick={() => handleDeleteGroup(g.id)}
-                      aria-label={`Hapus grup ${g.name}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    {/* Hapus grup — sebelumnya one-click destroy tanpa konfirmasi.
+                        Dibungkus AlertDialog (pola konfirmasi hapus habit/goal);
+                        handler handleDeleteGroup tidak berubah. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="ml-0.5 h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+                          aria-label={`Hapus grup ${g.name}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Hapus grup?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Yakin ingin menghapus grup &ldquo;{g.name}&rdquo;?
+                            {g._count.habits > 0
+                              ? ` Grup ini berisi ${g._count.habits} habit — habit di dalamnya tidak ikut terhapus, hanya dikeluarkan dari grup.`
+                              : ' Grup ini belum berisi habit.'}
+                            {' '}Tindakan ini tidak bisa dibatalkan.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Batal</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteGroup(g.id)}
+                            className="bg-destructive hover:bg-destructive text-white focus:ring-destructive"
+                          >
+                            Hapus
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </span>
                 ))}
               </div>
             )}
-          </CardContent>
+          </div>
         </CollapsibleContent>
-      </Card>
+      </div>
     </Collapsible>
   );
 }

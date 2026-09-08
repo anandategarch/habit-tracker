@@ -23,7 +23,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useMemo, useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 import { jakartaDateKey } from '@/lib/timezone';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { formatRupiah, type Transaction } from './finance-types';
@@ -44,6 +46,16 @@ interface DayCell {
 export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmapProps) {
   const reduceMotion = usePrefersReducedMotion();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  // ONE-CLICK-7 (Task 4-b A.4): "Lihat transaksi bulan ini →" in the day
+  // detail box. txFilter has no date filter, so we pin the store's month to
+  // this grid's month + jump to the Transactions sub-tab (single call pair).
+  const setStoreMonth = useAppStore(s => s.setSelectedMonth);
+  const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+
+  const handleOpenMonthTransactions = () => {
+    setStoreMonth(selectedMonth);
+    openFinanceSubTab('transactions');
+  };
 
   // Reset selection when month changes — uses the "adjust state during render"
   // pattern (React docs) instead of useEffect+setState (which the
@@ -189,19 +201,34 @@ export function SpendingHeatmap({ transactions, selectedMonth }: SpendingHeatmap
       {/* Selected day detail */}
       {selectedDay && (
         <div className="mt-3 p-3 rounded-lg bg-muted/50 anim-tab-enter">
-          <p className="text-xs font-medium">Tanggal {selectedDay}</p>
-          {!selectedData ? (
-            <p className="text-xs text-muted-foreground">Tidak ada pengeluaran</p>
-          ) : (
-            <div className="flex items-baseline gap-2">
-              <p className="text-sm font-semibold text-primary">
-                {formatRupiah(selectedData.total)}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {selectedData.count} transaksi
-              </p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-medium">Tanggal {selectedDay}</p>
+              {!selectedData ? (
+                <p className="text-xs text-muted-foreground">Tidak ada pengeluaran</p>
+              ) : (
+                <div className="flex items-baseline gap-2">
+                  <p className="text-sm font-semibold text-primary">
+                    {formatRupiah(selectedData.total)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {selectedData.count} transaksi
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+            {/* ONE-CLICK-7: single tap → Transactions sub-tab on this grid's
+                month. Ghost pill — kecil, tidak mengganggu grid. */}
+            <button
+              type="button"
+              onClick={handleOpenMonthTransactions}
+              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 min-h-8 -my-0.5 text-[11px] font-semibold text-primary hover:bg-primary/10 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              aria-label="Lihat transaksi bulan ini"
+            >
+              Lihat transaksi bulan ini
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       )}
 

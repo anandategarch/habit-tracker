@@ -14,11 +14,9 @@
 
 import { useState, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import {
   Plus,
   Minus,
@@ -230,6 +228,50 @@ export default function FinanceSavingsGoals() {
     setAdjustOpen(true);
   };
 
+  // 1-tap quick-add chips (Task 4-b A.3) — TRUE 1-tap: reuses the EXISTING
+  // quick-adjust endpoint (PUT /api/finance/savings-goals/:id with `{ delta }`,
+  // same call shape as handleAdjust below) but skips the dialog. Optimistic
+  // UI: cache is patched via setQueryData immediately (clamped at >= 0,
+  // mirroring the API), then invalidated to reconcile with the server. On
+  // failure the refetch rolls the optimistic value back + an error toast.
+  const handleQuickAdd = async (g: SavingsGoal, delta: number) => {
+    // Optimistic patch — same query key the useQuery above subscribes to.
+    queryClient.setQueryData<SavingsGoal[]>(['finance', 'savings-goals'], (old) =>
+      old
+        ? old.map(x =>
+            x.id === g.id
+              ? { ...x, currentAmount: Math.max(0, x.currentAmount + delta) }
+              : x,
+          )
+        : old,
+    );
+    try {
+      const res = await fetch(`/api/finance/savings-goals/${g.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error((err as { error?: string }).error || 'Gagal memperbarui tabungan');
+        invalidateAll(); // rollback via refetch
+        return;
+      }
+      const data = (await res.json()) as AdjustResponse;
+      if (data.justCompleted) {
+        // Goal crossed the finish line on this chip tap — celebrate!
+        celebrate({ emojis: [g.emoji, '🎉', '🏆', '⭐'] });
+        toast.success(`🎉 Selamat! Tabungan "${g.name}" tercapai!`);
+      } else {
+        toast.success(`+${formatRupiah(delta)} ditambahkan ke "${g.name}"`);
+      }
+      invalidateAll();
+    } catch {
+      toast.error('Gagal memperbarui tabungan');
+      invalidateAll(); // rollback via refetch
+    }
+  };
+
   const handleAdjust = async () => {
     if (!adjustGoal) return;
     const raw = parseNominalInput(adjustAmount);
@@ -302,20 +344,22 @@ export default function FinanceSavingsGoals() {
             Tetapkan target tabungan dan pantau progresnya.
           </p>
           {goals.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-1.5 text-xs">
-              <Badge variant="secondary" className="font-medium">
-                <Target className="h-3 w-3 mr-1" />
+            /* PREMIUM-UI: ringkasan sebagai pill chip-soft (bukan Badge
+               polos) — konsisten dgn chip-soft di area premium lain. */
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="chip-soft chip-soft-teal rounded-full! h-6 px-2.5 gap-1 text-[11px] font-semibold inline-flex items-center">
+                <Target className="h-3 w-3" aria-hidden="true" />
                 {stats.activeCount} aktif
-              </Badge>
+              </span>
               {stats.completedCount > 0 && (
-                <Badge className="bg-success/10 text-success border-success/20">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                <span className="chip-soft bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 rounded-full! h-6 px-2.5 gap-1 text-[11px] font-semibold inline-flex items-center">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
                   {stats.completedCount} tercapai
-                </Badge>
+                </span>
               )}
-              <Badge variant="outline" className="font-medium">
+              <span className="chip-soft bg-muted text-muted-foreground rounded-full! h-6 px-2.5 text-[11px] font-semibold inline-flex items-center tabular-nums">
                 Total {formatRupiah(stats.totalSaved)} / {formatRupiah(stats.totalTarget)}
-              </Badge>
+              </span>
             </div>
           )}
         </div>
@@ -325,21 +369,33 @@ export default function FinanceSavingsGoals() {
         </Button>
       </div>
 
-      {/* ── Empty state ──────────────────────────────────────────────── */}
+      {/* ── Empty state — PREMIUM-UI: orb + headline + CTA gradient ── */}
       {goals.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 flex flex-col items-center text-muted-foreground text-center">
-            <Target className="h-12 w-12 mb-3 opacity-20" />
-            <p className="text-sm font-medium">Belum ada tabungan</p>
-            <p className="text-xs mt-1 max-w-xs">
-              Mulai dengan menambahkan target tabungan — liburan, dana darurat, atau beli barang impian.
+        <div
+          className="premium-card premium-card-sheen rounded-2xl premium-fade-up"
+          style={{ animationDelay: '60ms' }}
+        >
+          <div className="premium-empty min-h-[22rem] sm:min-h-[24rem]">
+            <div className="premium-empty-orb" aria-hidden="true">
+              <Target className="h-9 w-9 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold tracking-tight mt-2">
+              Mulai Tabungan Pertamamu
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+              Liburan, dana darurat, atau barang impian — tetapkan targetnya
+              dan pantau progresnya di sini.
             </p>
-            <Button size="sm" variant="outline" className="mt-4" onClick={openCreate}>
+            <Button
+              size="sm"
+              className="mt-3"
+              onClick={openCreate}
+            >
               <Plus className="h-4 w-4" />
               Buat Tabungan Pertama
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {goals.map((g, idx) => {
@@ -355,15 +411,18 @@ export default function FinanceSavingsGoals() {
                 key={g.id}
                 ref={(el) => { cardRefs.current[g.id] = el; }}
                 className={cn(
-                  'group relative rounded-2xl bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 anim-stagger',
-                  g.isCompleted && 'ring-1 ring-success/40 dark:ring-success/60'
+                  'group relative premium-card premium-card-sheen premium-card-hover rounded-2xl p-4 sm:p-5 anim-stagger',
+                  g.isCompleted && 'ring-1 ring-emerald-500/30 dark:ring-emerald-500/40'
                 )}
-                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)', animationDelay: `${idx * 50}ms` }}
+                style={{ animationDelay: `${idx * 50}ms` }}
               >
                 {/* Top row: emoji + name + actions */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 bg-muted/50">
+                    <div
+                      className="h-10 w-10 rounded-xl grid place-items-center text-xl shrink-0 ring-1 ring-black/5 dark:ring-white/10 bg-muted/50"
+                      aria-hidden="true"
+                    >
                       {g.emoji}
                     </div>
                     <div className="min-w-0">
@@ -376,10 +435,10 @@ export default function FinanceSavingsGoals() {
                     </div>
                   </div>
                   <div className="flex gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(g)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit tabungan ${g.name}`} onClick={() => openEdit(g)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(g.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" aria-label={`Hapus tabungan ${g.name}`} onClick={() => setDeleteId(g.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -389,16 +448,16 @@ export default function FinanceSavingsGoals() {
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-baseline">
                     <div>
-                      <span className="text-lg font-bold">{formatRupiah(g.currentAmount)}</span>
+                      <span className="premium-stat text-lg">{formatRupiah(g.currentAmount)}</span>
                       <span className="text-xs text-muted-foreground ml-1">/ {formatRupiah(g.targetAmount)}</span>
                     </div>
                     <span
                       className={cn(
                         'text-xs font-semibold px-2 py-0.5 rounded-full',
                         g.isCompleted
-                          ? 'bg-success/10 text-success'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                           : pct >= 80
-                            ? 'bg-warning/10 text-warning'
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                             : 'bg-muted text-muted-foreground'
                       )}
                     >
@@ -410,10 +469,45 @@ export default function FinanceSavingsGoals() {
                     value={pct}
                     className={cn(
                       'h-2 anim-progress-fill',
-                      g.isCompleted && '[&>div]:bg-success',
-                      !g.isCompleted && pct >= 80 && '[&>div]:bg-warning'
+                      g.isCompleted && '[&>div]:bg-emerald-500',
+                      !g.isCompleted && pct >= 80 && '[&>div]:bg-amber-500'
                     )}
                   />
+
+                  {/* 1-tap quick-add chips (Task 4-b A.3) — pills kecil di
+                      bawah progress bar: +50rb / +100rb / Sisa (langsung
+                      memanggil endpoint adjust yang sama, optimistic UI). */}
+                  {!g.isCompleted && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAdd(g, 50_000)}
+                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        aria-label={`Tambah Rp50.000 ke tabungan ${g.name}`}
+                      >
+                        +Rp50rb
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAdd(g, 100_000)}
+                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        aria-label={`Tambah Rp100.000 ke tabungan ${g.name}`}
+                      >
+                        +Rp100rb
+                      </button>
+                      {remaining > 0 && remaining !== 50_000 && remaining !== 100_000 && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickAdd(g, remaining)}
+                          className="rounded-full px-2.5 py-1 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                          aria-label={`Tambah sisa ${formatRupiah(remaining)} ke tabungan ${g.name}`}
+                          title={`Tambah sisa ${formatRupiah(remaining)}`}
+                        >
+                          Sisa
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Footer: remaining + deadline */}
                   <div className="flex flex-wrap justify-between gap-x-3 gap-y-0.5 mt-1">

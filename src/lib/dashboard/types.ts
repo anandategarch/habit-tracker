@@ -72,6 +72,10 @@ export type LatestHabitLogRow = TimeHabitLogRow;
 export interface WeeklyChartPoint {
   day: string;
   date: string;
+  // ONE-CLICK (4-a): machine-readable yyyy-MM-dd twin of the `date`
+  // display label — lets the dashboard weekly bar chart deep-link via
+  // openTrackerDate(dateKey) without parsing "MMM dd" back to a date.
+  dateKey: string;
   completed: number;
   total: number;
   rate: number;

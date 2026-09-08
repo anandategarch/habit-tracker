@@ -1,7 +1,12 @@
 // Extracted from settings.tsx — reusable building blocks for the settings page.
+//
+// PREMIUM-UI ("Rutina Aurora"): SectionCard sekarang pakai div polong
+// `.premium-card .premium-card-sheen` (bukan komponen Card shadcn — pola agent
+// 2-a/2-b/2-c: `.card-shadow-premium` milik Card menimpa multi-layer shadow
+// premium; div polong menjaga efek premium penuh). API props tetap identik.
+
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 
 export function SectionCard({
@@ -14,15 +19,15 @@ export function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Icon className="h-4 w-4 text-primary" />
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
+    <div className="premium-card premium-card-sheen rounded-2xl">
+      <div className="flex items-center gap-3 px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
+        <span className="chip-soft chip-soft-teal h-9 w-9" aria-hidden="true">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h3 className="text-base font-semibold">{title}</h3>
+      </div>
+      <div className="space-y-4 px-5 pb-5 sm:px-6 sm:pb-6">{children}</div>
+    </div>
   );
 }
 

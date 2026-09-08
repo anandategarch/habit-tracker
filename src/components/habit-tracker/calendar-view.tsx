@@ -23,7 +23,6 @@ import {
 // startOfWeek/endOfWeek/eachDayOfInterval/isToday/isSameMonth/isBefore/
 // startOfDay/addMonths/subMonths) — verified via test script in worklog
 // FIX-TIER3 entry.
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -35,7 +34,16 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Flame, Droplets, RefreshCw } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  Droplets,
+  RefreshCw,
+  CalendarDays,
+  CalendarCheck,
+  TrendingUp,
+} from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 
 // ── Settings type ──────────────────────────────────────────────────────────
@@ -107,20 +115,68 @@ function rotateWeekdays(weekStartsOn: 0 | 1 | 6): string[] {
   return [...WEEKDAYS_BASE.slice(idx), ...WEEKDAYS_BASE.slice(0, idx)];
 }
 
+// PREMIUM REDESIGN (Rutina Aurora / Task 4-c): legacy gray/orange/lime
+// heatmap → Aurora teal-emerald scale. 0% keeps a soft destructive tint —
+// a tracked-but-missed day is a *status*, not a heat level. High cells
+// (bg-teal-600/500) need white text for AA contrast; see the text helpers.
 function getHeatmapColor(rate: number | null): string {
-  if (rate === null) return 'bg-gray-100 dark:bg-gray-800/50';
-  if (rate === 0) return 'bg-destructive/30 dark:bg-destructive/15';
-  if (rate < 25) return 'bg-orange-200 dark:bg-orange-900/40';
-  if (rate < 50) return 'bg-warning/30 dark:bg-warning/15';
-  if (rate < 75) return 'bg-lime-200 dark:bg-lime-900/40';
-  return 'bg-success/30 dark:bg-success/15';
+  if (rate === null) return 'bg-muted/60';
+  if (rate === 0) return 'bg-destructive/25 dark:bg-destructive/15';
+  if (rate < 50) return 'bg-teal-200/70 dark:bg-teal-900/50';
+  if (rate < 75) return 'bg-teal-400/80 dark:bg-teal-700/60';
+  return 'bg-teal-600 dark:bg-teal-500';
 }
 
 function getHeatmapTextColor(rate: number | null): string {
-  if (rate === null) return 'text-gray-400 dark:text-gray-500';
+  if (rate === null) return 'text-muted-foreground';
   if (rate === 0) return 'text-destructive dark:text-destructive/80';
-  if (rate < 50) return 'text-warning dark:text-warning/80';
-  return 'text-success dark:text-success/80';
+  if (rate >= 75) return 'text-white';
+  return 'text-foreground';
+}
+
+// Day-number color follows the same rules (white on high-heat cells so it
+// stays readable on teal-600; today keeps its primary-bold affordance).
+function getDayNumTextColor(day: DayData): string {
+  if (day.completionRate !== null && day.completionRate >= 75) return 'text-white font-bold';
+  if (day.isToday) return 'text-primary font-bold';
+  if (!day.isCurrentMonth) return 'text-muted-foreground';
+  return 'text-foreground';
+}
+
+// Task 4-c hover affordance: neutral/destructive cells tint with accent on
+// hover (spec: `hover:bg-accent/60`); heat-colored cells keep their fill —
+// the accent tint would wash out the white % text — so they brighten + get
+// a hairline ring instead. Both paths get active:scale-95 press feedback.
+function getHeatmapHover(rate: number | null): string {
+  if (rate === null || rate === 0) return 'hover:bg-accent/60';
+  return 'hover:brightness-105 hover:ring-1 hover:ring-ring/60';
+}
+
+// Mood emoji for days whose daily-log has mood data (1–5 scale, same map
+// as the dashboard's MoodEmoji). Renders inside the day cell so the legend
+// row "😊 Mood tercatat" is no longer a dead promise.
+const MOOD_EMOJIS: Record<number, string> = {
+  1: '😢',
+  2: '😔',
+  3: '😐',
+  4: '🙂',
+  5: '😊',
+};
+
+// Task 4-c: Indonesian aria-label for the day buttons, e.g.
+// "Rabu 15 Januari 2025, 3 dari 5 habit selesai".
+function buildDayAriaLabel(day: DayData): string {
+  const dateLabel = `${format(day.date, 'EEEE', {
+    locale: idLocale,
+  })} ${format(day.date, 'd MMMM yyyy', { locale: idLocale })}`;
+  if (!day.isCurrentMonth) return dateLabel;
+  if (day.completionRate === null) return `${dateLabel}, belum ada data`;
+  if (day.totalHabits > 0) {
+    return `${dateLabel}, ${day.completedHabits} dari ${day.totalHabits} habit selesai`;
+  }
+  // Edge case: logs exist but no habit was considered active that day
+  // (completionRate is 100 by convention — see BUG-9 note above).
+  return `${dateLabel}, semua catatan selesai`;
 }
 
 function generateMonthOptions(): { value: string; label: string }[] {
@@ -137,10 +193,23 @@ function generateMonthOptions(): { value: string; label: string }[] {
   return options;
 }
 
+// Heatmap legend — mirrors getHeatmapColor thresholds exactly.
+const HEATMAP_LEGEND: { label: string; color: string }[] = [
+  { label: 'Tidak ada data', color: 'bg-muted/60' },
+  { label: '0%', color: 'bg-destructive/25 dark:bg-destructive/15' },
+  { label: '1–49%', color: 'bg-teal-200/70 dark:bg-teal-900/50' },
+  { label: '50–74%', color: 'bg-teal-400/80 dark:bg-teal-700/60' },
+  { label: '75–100%', color: 'bg-teal-600 dark:bg-teal-500' },
+];
+
 // ── Component ──────────────────────────────────────────────────────────────
 export default function CalendarView() {
   const selectedMonth = useAppStore(s => s.selectedMonth);
   const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
+  // Task 4-c (calendar 1-click): store primitive from 4-foundation — jumps
+  // to the tracker grid with the tapped date preselected. dayStr is
+  // 'yyyy-MM-dd', exactly matching the store's selectedDate semantics.
+  const openTrackerDate = useAppStore(s => s.openTrackerDate);
   const queryClient = useQueryClient();
 
   // ── Fetch AppSettings to read `weekStart` (BUG-H3 fix) ────────────────
@@ -355,6 +424,19 @@ export default function CalendarView() {
     setSelectedMonth(format(next, 'yyyy-MM'));
   }, [monthDate, setSelectedMonth]);
 
+  // Task 4-c: day-cell tap → openTrackerDate (tracker grid + preselected
+  // date). zustand setters are stable, so the callback identity is stable.
+  const handleDayClick = useCallback(
+    (dayStr: string) => openTrackerDate(dayStr),
+    [openTrackerDate]
+  );
+
+  const retryFetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['habits'] });
+    queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
+    queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+  }, [queryClient]);
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -392,9 +474,21 @@ export default function CalendarView() {
       />
 
       {fetchError && (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <p className="text-sm text-muted-foreground">Gagal memuat data kalender</p>
-          <Button variant="outline" size="sm" onClick={() => { queryClient.invalidateQueries({ queryKey: ['habits'] }); queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] }); queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] }); }}>
+        <div className="premium-card premium-empty rounded-2xl">
+          <div className="premium-empty-orb" aria-hidden="true">
+            <CalendarDays className="h-8 w-8 text-primary" />
+          </div>
+          <p className="text-sm font-medium text-foreground">
+            Gagal memuat data kalender
+          </p>
+          <p className="text-xs text-muted-foreground/70 -mt-0.5">
+            Coba muat ulang habit dan log kamu.
+          </p>
+          <Button
+            size="sm"
+            className="btn-primary-gradient anim-press"
+            onClick={retryFetch}
+          >
             <RefreshCw className="h-4 w-4" />
             Coba Lagi
           </Button>
@@ -402,12 +496,35 @@ export default function CalendarView() {
       )}
 
       {!fetchError && (loading ? (
-        <Skeleton className="h-[600px] w-full rounded-xl" />
+        // Task 4-c: light skeleton that mimics the calendar grid (weekday
+        // header bars + a 7-col grid of rounded squares, capped at 420px)
+        // instead of one giant blank block.
+        <div
+          className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5"
+          aria-busy="true"
+          aria-label="Memuat kalender"
+        >
+          <div className="grid grid-cols-7 gap-1.5 mb-3">
+            {WEEKDAYS.map((d) => (
+              <Skeleton key={d} className="h-4 rounded-md" />
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1.5 max-h-[420px] overflow-hidden">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-[60px] sm:h-[68px] rounded-lg"
+                style={{ animationDelay: `${(i % 7) * 70}ms` }}
+              />
+            ))}
+          </div>
+        </div>
       ) : (
         <>
           {/* ── Calendar Card ──────────────────────────────────────────── */}
-          <Card>
-            <CardContent className="p-4 md:p-6">
+          {/* PREMIUM REDESIGN (Task 4-c): bare div + premium-card (NOT shadcn
+              Card — see worklog 2-c anti-pattern note). */}
+          <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 premium-fade-up">
               {/* Weekday headers */}
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {WEEKDAYS.map((d) => (
@@ -420,32 +537,44 @@ export default function CalendarView() {
                 ))}
               </div>
 
-              {/* Day cells */}
+              {/* Day cells — Task 4-c: every day is a real button.
+                  Click → openTrackerDate(dayStr) → tracker grid with that
+                  date preselected (the app's highest-value 1-click link).
+                  Cells are ~49px wide on a 400px viewport (≥40px touch
+                  target); the grid stretches them full-width on desktop. */}
               <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, idx) => (
-                  <div
-                    key={idx}
+                {calendarDays.map((day) => (
+                  <button
+                    key={day.dayStr}
+                    type="button"
+                    onClick={() => handleDayClick(day.dayStr)}
+                    aria-label={buildDayAriaLabel(day)}
                     className={`
-                      relative min-h-[72px] sm:min-h-[88px] md:min-h-[100px] rounded-lg p-1.5 sm:p-2
-                      transition-all duration-150
+                      relative min-h-[72px] sm:min-h-[88px] md:min-h-[100px] rounded-lg p-1.5 sm:p-2 text-left
+                      transition-all duration-150 cursor-pointer active:scale-95
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60
                       ${getHeatmapColor(day.completionRate)}
+                      ${getHeatmapHover(day.completionRate)}
                       ${!day.isCurrentMonth ? 'opacity-35' : ''}
                       ${day.isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-background anim-glow-breathe' : ''}
-                      hover:ring-1 hover:ring-primary/50 cursor-default
                     `}
                   >
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-xs sm:text-sm font-medium ${
-                          day.isToday
-                            ? 'text-primary font-bold'
-                            : !day.isCurrentMonth
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        }`}
+                        className={`text-xs sm:text-sm font-medium ${getDayNumTextColor(day)}`}
                       >
                         {day.dayNum}
                       </span>
+                      {/* Mood marker (Task 4-c): real data from the daily-log
+                          lookup — makes the "Mood tercatat" legend honest. */}
+                      {day.isCurrentMonth && day.mood !== null && (
+                        <span
+                          className="text-[10px] leading-none"
+                          aria-hidden="true"
+                        >
+                          {MOOD_EMOJIS[day.mood] ?? '😐'}
+                        </span>
+                      )}
                     </div>
 
                     {day.isCurrentMonth && day.completionRate !== null && (
@@ -457,9 +586,12 @@ export default function CalendarView() {
                         >
                           {day.completionRate}%
                         </span>
-                        <div className="w-full bg-black/10 rounded-full h-1 overflow-hidden">
+                        {/* Progress bar kept (Task 4-c); track/fill now use
+                            foreground tokens so they stay visible on every
+                            heat level in light AND dark mode. */}
+                        <div className="w-full bg-foreground/10 rounded-full h-1 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-primary transition-all duration-300"
+                            className="h-full rounded-full bg-foreground/60 transition-all duration-300"
                             style={{
                               width: `${Math.max(day.completionRate, 0)}%`,
                             }}
@@ -473,124 +605,141 @@ export default function CalendarView() {
                         <span className="text-xs text-muted-foreground">—</span>
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+          </div>
 
           {/* ── Heatmap Legend + Month Summary ─────────────────────────── */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Heatmap Legend */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Legenda Heatmap</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap items-center gap-3">
-                  {[
-                    { label: 'Tidak ada data', color: 'bg-gray-100 dark:bg-gray-800/50' },
-                    { label: '0%', color: 'bg-destructive/30 dark:bg-destructive/15' },
-                    { label: '25%', color: 'bg-orange-200 dark:bg-orange-900/40' },
-                    { label: '50%', color: 'bg-warning/30 dark:bg-warning/15' },
-                    { label: '75%', color: 'bg-lime-200 dark:bg-lime-900/40' },
-                    { label: '100%', color: 'bg-success/30 dark:bg-success/15' },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center gap-2">
-                      <div
-                        className={`h-6 w-6 rounded ${item.color} border border-border/50`}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {item.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+            <section className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+              <h3 className="premium-label mb-3">Legenda Heatmap</h3>
+              <div className="flex flex-wrap items-center gap-3">
+                {HEATMAP_LEGEND.map((item) => (
+                  <div key={item.label} className="flex items-center gap-2">
+                    <div
+                      className={`h-6 w-6 rounded ${item.color} border border-border/50`}
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded ring-2 ring-primary ring-offset-1 bg-primary/10" />
-                    <span className="text-xs text-muted-foreground">Hari Ini</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">😊</span>
-                    <span className="text-xs text-muted-foreground">Mood tercatat</span>
-                  </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-6 w-6 rounded ring-2 ring-primary ring-offset-1 bg-primary/10"
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs text-muted-foreground">Hari Ini</span>
                 </div>
-              </CardContent>
-            </Card>
+                {/* Task 4-c: no longer a dead promise — day cells now render
+                    a small mood emoji when the daily-log has mood data. */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm" aria-hidden="true">😊</span>
+                  <span className="text-xs text-muted-foreground">Mood tercatat</span>
+                </div>
+              </div>
+            </section>
 
             {/* Month Summary */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  {monthLabel} Ringkasan
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1 p-3 rounded-lg bg-primary/10">
-                    <p className="text-xs text-muted-foreground">
-                      Rata-rata Penyelesaian
-                    </p>
-                    <p className="text-2xl font-bold text-primary">
-                      {monthSummary.avg.toFixed(1)}%
-                    </p>
+            <section className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="chip-soft chip-soft-amber h-8 w-8">
+                  <Flame className="h-4 w-4" />
+                </span>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Ringkasan {monthLabel}
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Stat tiles follow the daily-tracker KPI pattern:
+                    chip-soft icon + premium-label + premium-stat. */}
+                <div className="premium-card p-3.5 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="chip-soft chip-soft-teal h-8 w-8 shrink-0">
+                      <TrendingUp className="h-4 w-4" />
+                    </span>
+                    <span className="premium-label truncate">Rata-rata</span>
                   </div>
-
-                  <div className="space-y-1 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-                    <p className="text-xs text-muted-foreground">
-                      Hari Dilacak
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {monthSummary.entries}
-                    </p>
-                  </div>
-
-                  {monthSummary.best && (
-                    <div className="space-y-1 p-3 rounded-lg bg-primary/10">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Flame className="h-3 w-3 text-primary" /> Hari Terbaik
-                      </p>
-                      <p className="text-lg font-bold text-primary">
-                        {format(monthSummary.best.date, 'd MMM', { locale: idLocale })}
-                      </p>
-                      <Badge
-                        variant="secondary"
-                        className="bg-primary/10 text-primary hover:bg-primary/10 text-xs"
-                      >
-                        {monthSummary.best.completionRate}%
-                      </Badge>
-                    </div>
-                  )}
-
-                  {monthSummary.worst && (
-                    <div className="space-y-1 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Droplets className="h-3 w-3 text-orange-500" /> Hari
-                        Terburuk
-                      </p>
-                      <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
-                        {format(monthSummary.worst.date, 'd MMM', { locale: idLocale })}
-                      </p>
-                      <Badge
-                        variant="secondary"
-                        className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs"
-                      >
-                        {monthSummary.worst.completionRate}%
-                      </Badge>
-                    </div>
-                  )}
+                  <p className="premium-stat text-2xl mt-3 text-foreground">
+                    {monthSummary.avg.toFixed(1)}%
+                  </p>
+                  <p className="text-[11px] mt-1 text-muted-foreground">
+                    Penyelesaian per hari aktif
+                  </p>
                 </div>
 
-                {monthSummary.entries === 0 && (
-                  <div className="mt-4 text-center text-sm text-muted-foreground py-4">
-                    Belum ada hari yang dilacak bulan ini. Mulai selesaikan habit!
+                <div className="premium-card p-3.5 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="chip-soft chip-soft-violet h-8 w-8 shrink-0">
+                      <CalendarCheck className="h-4 w-4" />
+                    </span>
+                    <span className="premium-label truncate">Hari Dilacak</span>
+                  </div>
+                  <p className="premium-stat text-2xl mt-3 text-foreground">
+                    {monthSummary.entries}
+                  </p>
+                  <p className="text-[11px] mt-1 text-muted-foreground">
+                    Hari dengan data bulan ini
+                  </p>
+                </div>
+
+                {monthSummary.best && (
+                  <div className="premium-card p-3.5 sm:p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="chip-soft chip-soft-amber h-8 w-8 shrink-0">
+                        <Flame className="h-4 w-4" />
+                      </span>
+                      <span className="premium-label truncate">Hari Terbaik</span>
+                    </div>
+                    <p className="premium-stat text-2xl mt-3 text-foreground">
+                      {format(monthSummary.best.date, 'd MMM', { locale: idLocale })}
+                    </p>
+                    <p className="mt-1.5">
+                      <Badge
+                        variant="secondary"
+                        className="bg-primary/10 text-primary hover:bg-primary/10 text-[10px]"
+                      >
+                        {monthSummary.best.completionRate}% selesai
+                      </Badge>
+                    </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+
+                {monthSummary.worst && (
+                  <div className="premium-card p-3.5 sm:p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="chip-soft chip-soft-rose h-8 w-8 shrink-0">
+                        <Droplets className="h-4 w-4" />
+                      </span>
+                      <span className="premium-label truncate">Hari Terburuk</span>
+                    </div>
+                    <p className="premium-stat text-2xl mt-3 text-foreground">
+                      {format(monthSummary.worst.date, 'd MMM', { locale: idLocale })}
+                    </p>
+                    <p className="mt-1.5">
+                      <Badge
+                        variant="secondary"
+                        className="bg-destructive/10 text-destructive hover:bg-destructive/10 text-[10px]"
+                      >
+                        {monthSummary.worst.completionRate}% selesai
+                      </Badge>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {monthSummary.entries === 0 && (
+                <div className="mt-4 text-center text-sm text-muted-foreground py-4">
+                  Belum ada hari yang dilacak bulan ini. Mulai selesaikan habit!
+                </div>
+              )}
+            </section>
           </div>
         </>
       ))}

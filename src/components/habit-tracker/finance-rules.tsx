@@ -12,7 +12,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit3, Trash2, Wand2, ArrowRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -126,21 +126,21 @@ export default function FinanceRules({
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      alert('Nama aturan wajib diisi');
+      toast.error('Nama aturan wajib diisi');
       return;
     }
     if (!form.conditionValue.trim()) {
-      alert('Nilai kondisi wajib diisi');
+      toast.error('Nilai kondisi wajib diisi');
       return;
     }
     if (!form.actionValue.trim()) {
-      alert('Nilai aksi wajib diisi');
+      toast.error('Nilai aksi wajib diisi');
       return;
     }
     if (form.conditionField === 'amount') {
       const n = Number(form.conditionValue);
       if (!Number.isFinite(n)) {
-        alert('Nilai kondisi untuk amount harus berupa angka');
+        toast.error('Nilai kondisi untuk amount harus berupa angka');
         return;
       }
     }
@@ -149,13 +149,15 @@ export default function FinanceRules({
       const payload = formToPayload(form);
       if (editing) {
         await updateMutation.mutateAsync({ ...payload, id: editing.id });
+        toast.success('Aturan diperbarui');
       } else {
         await createMutation.mutateAsync(payload);
+        toast.success('Aturan dibuat');
       }
       invalidate();
       setDialogOpen(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Terjadi kesalahan');
+      toast.error(e instanceof Error ? e.message : 'Terjadi kesalahan');
     } finally {
       setSubmitting(false);
     }
@@ -165,9 +167,10 @@ export default function FinanceRules({
     if (!deletingId) return;
     try {
       await deleteMutation.mutateAsync(deletingId);
+      toast.success('Aturan dihapus');
       invalidate();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Terjadi kesalahan');
+      toast.error(e instanceof Error ? e.message : 'Terjadi kesalahan');
     } finally {
       setDeletingId(null);
     }
@@ -201,55 +204,83 @@ export default function FinanceRules({
           ))}
         </div>
       ) : rules.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 flex flex-col items-center text-muted-foreground">
-            <Wand2 className="h-12 w-12 mb-3 opacity-20" />
-            <p className="text-sm font-medium">Belum ada aturan</p>
-            <p className="text-xs mt-1">
+        /* PREMIUM-UI: empty state dengan orb ilustrasi + CTA gradient. */
+        <div
+          className="premium-card premium-card-sheen rounded-2xl premium-fade-up"
+          style={{ animationDelay: '60ms' }}
+        >
+          <div className="premium-empty min-h-[20rem] sm:min-h-[22rem]">
+            <div className="premium-empty-orb" aria-hidden="true">
+              <Wand2 className="h-9 w-9 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold tracking-tight mt-2">
+              Buat Aturan Otomatis Pertamamu
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
               Contoh: jika deskripsi mengandung &quot;indomaret&quot; → kategori
-              &quot;Makanan &amp; Minuman&quot;
+              &quot;Makanan &amp; Minuman&quot; — transaksi baru otomatis terkategori.
             </p>
-          </CardContent>
-        </Card>
+            <Button
+              size="sm"
+              className="mt-3"
+              onClick={openAdd}
+            >
+              <Plus className="h-4 w-4" />
+              Buat Aturan Pertama
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="space-y-2.5">
-          {rules.map((r) => (
+          {rules.map((r, idx) => (
+            /* PREMIUM-UI: bare div .premium-card + chip-soft avatar (Wand2)
+               + title + kondisi→aksi meta + status/actions rata kanan —
+               pola .premium-list-item ditingkatkan jadi kartu section. */
             <div
               key={r.id}
               className={cn(
-                'group rounded-2xl bg-card p-4 transition-all hover:shadow-md',
+                'group premium-card premium-card-sheen rounded-2xl p-4 anim-stagger',
                 !r.isActive && 'opacity-60'
               )}
+              style={{ animationDelay: `${idx * 40}ms` }}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-semibold truncate">{r.name}</h3>
-                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
-                      Prioritas {r.priority ?? 0}
-                    </Badge>
-                    {!r.isActive && (
-                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-muted-foreground">
-                        Nonaktif
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <span
+                    className="chip-soft chip-soft-teal h-9 w-9 shrink-0"
+                    aria-hidden="true"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold truncate">{r.name}</h3>
+                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
+                        Prioritas {r.priority ?? 0}
                       </Badge>
-                    )}
-                  </div>
-                  {/* Condition → Action */}
-                  <div className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                    <span>
-                      Jika <strong className="text-foreground">{FIELD_LABELS[r.conditionField] ?? r.conditionField}</strong>{' '}
-                      <em className="text-foreground/80">{OP_LABELS[r.conditionOp] ?? r.conditionOp}</em>{' '}
-                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
-                        &quot;{r.conditionValue}&quot;
-                      </code>
-                    </span>
-                    <ArrowRight className="h-3 w-3 shrink-0" />
-                    <span>
-                      Set <strong className="text-foreground">{ACTION_FIELD_LABELS[r.actionField] ?? r.actionField}</strong>{' '}
-                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
-                        &quot;{r.actionValue}&quot;
-                      </code>
-                    </span>
+                      {!r.isActive && (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-muted-foreground">
+                          Nonaktif
+                        </Badge>
+                      )}
+                    </div>
+                    {/* Condition → Action */}
+                    <div className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                      <span>
+                        Jika <strong className="text-foreground">{FIELD_LABELS[r.conditionField] ?? r.conditionField}</strong>{' '}
+                        <em className="text-foreground/80">{OP_LABELS[r.conditionOp] ?? r.conditionOp}</em>{' '}
+                        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
+                          &quot;{r.conditionValue}&quot;
+                        </code>
+                      </span>
+                      <ArrowRight className="h-3 w-3 shrink-0" />
+                      <span>
+                        Set <strong className="text-foreground">{ACTION_FIELD_LABELS[r.actionField] ?? r.actionField}</strong>{' '}
+                        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
+                          &quot;{r.actionValue}&quot;
+                        </code>
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -263,7 +294,7 @@ export default function FinanceRules({
                         });
                         invalidate();
                       } catch (e) {
-                        alert(
+                        toast.error(
                           e instanceof Error ? e.message : 'Gagal mengubah status'
                         );
                       }
@@ -274,6 +305,7 @@ export default function FinanceRules({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    aria-label={`Edit aturan ${r.name}`}
                     onClick={() => openEdit(r)}
                   >
                     <Edit3 className="h-3.5 w-3.5" />
@@ -282,6 +314,7 @@ export default function FinanceRules({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
+                    aria-label={`Hapus aturan ${r.name}`}
                     onClick={() => setDeletingId(r.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

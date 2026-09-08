@@ -23,7 +23,10 @@ export async function GET() {
     });
 
     // Analyze patterns
-    const insights: { type: string; icon: string; title: string; description: string; severity: 'positive' | 'negative' | 'neutral' }[] = [];
+    // ONE-CLICK (4-a): `habitId` (optional, additive) lets the weekly-review
+    // card deep-link straight to the habit's TimeAnalysisDialog via
+    // openHabitFocus(id). Only habit-specific insights carry it.
+    const insights: { type: string; icon: string; title: string; description: string; severity: 'positive' | 'negative' | 'neutral'; habitId?: string }[] = [];
 
     if (logs.length === 0) {
       insights.push({
@@ -50,13 +53,13 @@ export async function GET() {
     }
 
     // Best habit
-    let bestStat: { name: string; icon: string; rate: number } | null = null;
-    let worstStat: { name: string; icon: string; rate: number } | null = null;
-    for (const [, stat] of habitStats) {
+    let bestStat: { id: string; name: string; icon: string; rate: number } | null = null;
+    let worstStat: { id: string; name: string; icon: string; rate: number } | null = null;
+    for (const [statId, stat] of habitStats) {
       if (stat.total > 0) {
         const rate = Math.round((stat.done / stat.total) * 100);
-        if (!bestStat || rate > bestStat.rate) bestStat = { name: stat.name, icon: stat.icon, rate };
-        if (!worstStat || rate < worstStat.rate) worstStat = { name: stat.name, icon: stat.icon, rate };
+        if (!bestStat || rate > bestStat.rate) bestStat = { id: statId, name: stat.name, icon: stat.icon, rate };
+        if (!worstStat || rate < worstStat.rate) worstStat = { id: statId, name: stat.name, icon: stat.icon, rate };
       }
     }
 
@@ -67,6 +70,7 @@ export async function GET() {
         title: 'Performa Terbaik',
         description: `${bestStat.icon} ${bestStat.name} punya completion rate terbaik di ${bestStat.rate}%. Pertahankan!'`,
         severity: 'positive',
+        habitId: bestStat.id,
       });
     }
 
@@ -77,6 +81,7 @@ export async function GET() {
         title: 'Perlu Perhatian',
         description: `${worstStat.icon} ${worstStat.name} punya hanya ${worstStat.rate}%. Coba sesuaikan difficulty atau waktu.'`,
         severity: 'negative',
+        habitId: worstStat.id,
       });
     }
 

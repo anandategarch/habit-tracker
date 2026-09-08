@@ -54,6 +54,7 @@ const EXCLUDED_CATEGORIES = ['Penyesuaian Saldo', 'Transfer Antar Sumber'];
 
 export default function FinanceExplorer({
   getCategoryMeta,
+  onEditTx,
 }: FinanceExplorerProps) {
   // FIX-COLOR-P3: pull additional theme tokens as hex so they can be used
   // in string-concatenation contexts (gradient stops, alpha hex suffixes)
@@ -512,6 +513,7 @@ export default function FinanceExplorer({
             dayData={dayData}
             transactionList={transactionList}
             getCategoryMeta={getCategoryMeta}
+            onEditTx={onEditTx}
           />
         )}
       </div>

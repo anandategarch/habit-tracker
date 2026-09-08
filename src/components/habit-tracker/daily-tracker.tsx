@@ -50,7 +50,7 @@ import {
 // utility module. Output is identical for the patterns and helpers used
 // here — verified via test script in worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
-import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag } from 'lucide-react';
+import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag, Plus } from 'lucide-react';
 
 import type { Habit, HabitLog } from './daily-tracker-types';
 import {
@@ -89,6 +89,10 @@ export default function DailyTracker() {
   const selectedDate = useAppStore((s) => s.selectedDate);
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
   const refreshKey = useAppStore((s) => s.refreshKey);
+  // ONE-CLICK-5: used by the tracker empty-state CTA ("Buat Habit Pertama")
+  // to open the add-habit dialog directly, same flow as the FAB.
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
   const queryClient = useQueryClient();
   const { xpMap, categoryMap } = useHabitOptions();
   const primaryColor = useThemeColor('primary');
@@ -101,7 +105,11 @@ export default function DailyTracker() {
   const [viewFilter, setViewFilter] = useState<'all' | 'incomplete' | 'completed'>('all');
   const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set());
   // Calendar merge: toggle between 'today' (habit grid) and 'history' (calendar)
-  const [viewMode, setViewMode] = useState<'today' | 'history'>('today');
+  // ONE-CLICK-3: viewMode lifted to the global store — survives tab switches,
+  // AND lets other components (calendar day tap, dashboard jumps) switch the
+  // tracker into grid mode from outside.
+  const viewMode = useAppStore((s) => s.trackerViewMode);
+  const setViewMode = useAppStore((s) => s.setTrackerViewMode);
 
   // ---- time dialog state ----
   const [timeDialogHabit, setTimeDialogHabit] = useState<Habit | null>(null);
@@ -114,6 +122,23 @@ export default function DailyTracker() {
 
   // ---- time analysis dialog ----
   const [analysisHabitId, setAnalysisHabitId] = useState<string | null>(null);
+
+  // ONE-CLICK-1: consume the global habit focus (set by openHabitFocus anywhere
+  // in the app — dashboard rows, calendar, weekly review, …). Opens the
+  // TimeAnalysisDialog for the focused habit immediately after the tracker
+  // tab mounts, then clears the ephemeral focus (same consume-and-clear
+  // pattern as quickAddAction; latest-ref indirection like use-finance-mutations).
+  const focusHabitId = useAppStore((s) => s.focusHabitId);
+  const clearHabitFocus = useAppStore((s) => s.clearHabitFocus);
+  const openAnalysis = useCallback((id: string) => setAnalysisHabitId(id), []);
+  const openAnalysisRef = useRef(openAnalysis);
+  openAnalysisRef.current = openAnalysis;
+  useEffect(() => {
+    if (focusHabitId) {
+      openAnalysisRef.current(focusHabitId);
+      clearHabitFocus();
+    }
+  }, [focusHabitId, clearHabitFocus]);
 
   // ---- refs ----
   const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
@@ -949,6 +974,18 @@ export default function DailyTracker() {
             <p className="text-xs text-muted-foreground/70 -mt-0.5">
               Buka Habit Master untuk membuatnya!
             </p>
+            {/* ONE-CLICK-5: empty state is no longer a dead end — the CTA
+                opens the add-habit dialog directly (same flow as the FAB
+                "Habit Baru"): trigger the quick-add action + jump to the
+                settings tab, where the HabitMaster auto-opens its form. */}
+            <Button
+              size="sm"
+              className="btn-primary-gradient anim-press"
+              onClick={() => { triggerQuickAdd('habit'); setActiveTab('settings'); }}
+            >
+              <Plus className="h-4 w-4" />
+              Buat Habit Pertama
+            </Button>
           </div>
         ) : !dragMode && filteredHabits.length === 0 ? (
           <div className="premium-card premium-empty rounded-2xl">

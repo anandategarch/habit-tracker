@@ -41,10 +41,12 @@ import {
   Receipt,
   Clock,
   Wallet,
+  ArrowUpRight,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 import { formatRupiah, type Transaction } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import { jakartaDateKey } from '@/lib/timezone';
@@ -158,6 +160,18 @@ export function CategoryDetailView({
   onBack,
   onSelectMonth,
 }: CategoryDetailViewProps) {
+  // ONE-CLICK-8 (Task 4-b A.7): 1-tap jump from a category's analytics
+  // detail to the Transactions sub-tab with this category's filter applied
+  // (openFinanceFocus). The explorer's month is mirrored to the global month
+  // picker first so the filtered list shows the same period being explored.
+  const setStoreMonth = useAppStore(s => s.setSelectedMonth);
+  const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
+
+  const handleViewTransactions = () => {
+    setStoreMonth(selectedMonth);
+    openFinanceFocus({ category: cat.name });
+  };
+
   // PERF-REACT-1 fix: ALL 9 heavy derived datasets (catTx filter/sort,
   // dailyMap, chartData with 7-day moving avg, peakHour, timeOfDayMap,
   // sourceList, dowMap, histogram, anomalies) are wrapped in a single
@@ -451,17 +465,28 @@ export function CategoryDetailView({
 
   return (
     <div className="space-y-4 overflow-x-hidden">
-      {/* Breadcrumb + back */}
+      {/* Breadcrumb + back + 1-click tx link */}
       <div className="flex items-center gap-2">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <ChevronLeft className="h-4 w-4" />
           Kategori
         </button>
         <ChevronLeft className="h-3 w-3 text-muted-foreground/50" />
         <span className="text-xs font-medium text-foreground">{cat.emoji} {cat.name}</span>
+        {/* ONE-CLICK-8: ghost pill rata kanan — langsung ke transaksi
+            kategori ini (filter terpasang). */}
+        <button
+          type="button"
+          onClick={handleViewTransactions}
+          className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 min-h-8 text-xs font-semibold text-primary hover:bg-primary/10 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          aria-label={`Lihat transaksi kategori ${cat.name}`}
+        >
+          Lihat transaksi
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       </div>
 
       {/* Month picker */}

@@ -25,9 +25,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { BarChart3, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
 
 interface HourBucket {
   hour: number;
@@ -46,11 +45,14 @@ interface HourlyConsistencyData {
 
 type TimeBand = 'pagi' | 'siang' | 'sore' | 'malam';
 
+// PREMIUM UI v2 ("Rutina Aurora"): band summary tiles use soft /10 tinted
+// backgrounds (bg-amber-500/10 etc.) instead of the old flat -50 washes so
+// they harmonize with the premium-card surface in both light & dark mode.
 const BAND_META: Record<TimeBand, { label: string; icon: typeof Sunrise; bar: string; bg: string }> = {
-  pagi: { label: 'Pagi', icon: Sunrise, bar: 'bg-amber-400 dark:bg-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/20' },
+  pagi: { label: 'Pagi', icon: Sunrise, bar: 'bg-amber-400 dark:bg-amber-500', bg: 'bg-amber-500/10' },
   siang: { label: 'Siang', icon: Sun, bar: 'bg-primary', bg: 'bg-primary/10' },
-  sore: { label: 'Sore', icon: Sunset, bar: 'bg-emerald-500 dark:bg-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
-  malam: { label: 'Malam', icon: Moon, bar: 'bg-violet-500 dark:bg-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20' },
+  sore: { label: 'Sore', icon: Sunset, bar: 'bg-emerald-500 dark:bg-emerald-400', bg: 'bg-emerald-500/10' },
+  malam: { label: 'Malam', icon: Moon, bar: 'bg-violet-500 dark:bg-violet-400', bg: 'bg-violet-500/10' },
 };
 
 // BUG-PHASE3 BUG-2: the time-band boundaries were off by one hour at the
@@ -115,47 +117,41 @@ export function HourlyConsistency({ periodDays = 30, compact = false }: HourlyCo
 
   if (isLoading) {
     return (
-      <Card className="py-3">
-        <CardHeader className="pb-2 pt-0 px-4">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Kapan Paling Konsisten?
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4">
-          <Skeleton className="h-24 w-full rounded-md" />
-        </CardContent>
-      </Card>
+      <div className="premium-card premium-card-sheen rounded-2xl p-4">
+        <div className="premium-label mb-3">Kapan Paling Konsisten?</div>
+        <Skeleton className="h-24 w-full rounded-md" />
+      </div>
     );
   }
 
+  // PREMIUM UI v2: bare 📊 emoji → premium-empty + premium-empty-orb with a
+  // BarChart3 icon so the empty state matches the Aurora design language.
   if (!data || data.totalCompletions === 0) {
     return (
-      <Card className="py-6">
-        <CardContent className="flex flex-col items-center gap-2 py-0">
-          <span className="text-3xl">📊</span>
-          <p className="text-sm text-muted-foreground">
-            Belum ada data waktu untuk periode ini.
+      <div className="premium-card premium-card-sheen rounded-2xl">
+        <div className="premium-empty">
+          <div className="premium-empty-orb">
+            <BarChart3 className="h-8 w-8 text-primary" aria-hidden="true" />
+          </div>
+          <p className="text-sm font-medium">Belum ada data waktu untuk periode ini</p>
+          <p className="max-w-sm text-center text-xs text-muted-foreground">
+            Centang habit dengan track waktu untuk mulai mengumpulkan data jam
+            penyelesaian.
           </p>
-          <p className="text-xs text-muted-foreground text-center">
-            Centang habit dengan track waktu untuk mulai mengumpulkan data
-            jam penyelesaian.
-          </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="py-3">
-      <CardHeader className="pb-2 pt-0 px-4">
-        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-          <span>Kapan Paling Konsisten?</span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {data.totalCompletions} selesai · {data.periodDays} hari
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 space-y-3">
+    <div className="premium-card premium-card-sheen rounded-2xl p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="premium-label">Kapan Paling Konsisten?</h3>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {data.totalCompletions} selesai · {data.periodDays} hari
+        </span>
+      </div>
+      <div className="space-y-3">
         {/* 24-cell heatmap. Each cell is colored by its band + intensity
             based on rate. Cells are clickable to see the hour detail. */}
         <div className="flex items-end gap-[2px] h-20">
@@ -247,8 +243,8 @@ export function HourlyConsistency({ periodDays = 30, compact = false }: HourlyCo
             <span className="font-semibold text-foreground">{formatHour(data.peakHour)}</span>
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

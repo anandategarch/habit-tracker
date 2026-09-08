@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +17,7 @@ import { jakartaDateString } from '@/lib/jakarta-date';
 import { jakartaNowParts } from '@/lib/timezone';
 import {
   Target,
+  BarChart3,
   CheckCircle,
   Flame,
   Trophy,
@@ -132,6 +132,13 @@ function GreetingHero({ successToday }: { successToday: number }) {
 
 export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
+  // ── Task 4-a "1-click wiring": deep-link actions from the global store.
+  // The dashboard used to be a read-only island — KPI cards, Today's Focus
+  // rows, per-habit rows and the finance card below now jump straight to the
+  // tab + view that contains the data (store primitives from Task 4-foundation).
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const openHabitFocus = useAppStore((s) => s.openHabitFocus);
+  const openTrackerDate = useAppStore((s) => s.openTrackerDate);
   const queryClient = useQueryClient();
   const primaryColor = useThemeColor('primary');
   const [period, setPeriod] = useState<Period>('all');
@@ -270,6 +277,9 @@ export default function Dashboard() {
   }
 
   const displayData = data || DEFAULT_DATA;
+  // Jakarta "today" — destination of the Today's Focus row jump (so the user
+  // lands on the tracker grid ready to complete the habit).
+  const todayStr = jakartaDateString();
   const weeklyBarData = displayData.weeklyChartData.map((d) => ({
     ...d,
     label: d.day.slice(0, 3),
@@ -345,20 +355,20 @@ export default function Dashboard() {
       <section aria-label="Key metrics">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {[
-            { label: 'Total Habit', icon: Target, chip: 'chip-teal', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'habit aktif', key: 'habits' },
+            { label: 'Total Habit', icon: Target, chip: 'chip-teal', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'habit aktif', key: 'habits', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat semua habit' },
             { label: 'Tingkat Selesai', icon: CheckCircle, chip: 'chip-emerald', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
             { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
             { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
-            { label: 'Hari Ini', icon: Zap, chip: 'chip-lime', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success' },
+            { label: 'Hari Ini', icon: Zap, chip: 'chip-lime', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker hari ini' },
             { label: '7 Hari', icon: CalendarDays, chip: 'chip-sky', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, key: 'weekly' },
             { label: '30 Hari', icon: TrendingUp, chip: 'chip-teal', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, key: 'monthly' },
             { label: 'Total XP', icon: Star, chip: 'chip-amber', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, chip: 'chip-violet', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${displayData.levelProgress}%`, key: 'level' },
             { label: 'Lencana', icon: Award, chip: 'chip-rose', value: <span><CountUpNumber value={displayData.unlockedBadges} /><span className="text-sm font-normal text-muted-foreground">/{displayData.totalBadges}</span></span>, sub: null, progress: displayData.totalBadges > 0 ? (displayData.unlockedBadges / displayData.totalBadges) * 100 : 0, key: 'badges' },
             { label: 'Skor', icon: Brain, chip: 'chip-emerald', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
-            { label: 'Target', icon: Flag, chip: 'chip-sky', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals' },
-            { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood' },
-            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'jam / malam', key: 'sleep' },
+            { label: 'Target', icon: Flag, chip: 'chip-sky', value: <CountUpNumber value={displayData.goalProgress} suffix="%" />, sub: null, progress: displayData.goalProgress, key: 'goals', nav: () => setActiveTab('goals'), navLabel: 'Buka tab target untuk melihat progres goal' },
+            { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log mood' },
+            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: <CountUpNumber value={Number(displayData.sleepAverage) || 0} />, sub: 'jam / malam', key: 'sleep', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log tidur' },
           ].map((card, i) => {
             const Icon = card.icon;
             // Hide non-essential KPI cards on mobile (< 640px) to reduce
@@ -371,12 +381,10 @@ export default function Dashboard() {
             // kartunya selalu menampilkan "%" tanpa angka (tampak rusak).
             const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'badges', 'productivity', 'goals']);
             const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
-            return (
-              <div
-                key={card.key}
-                className={cn('premium-card premium-card-sheen anim-stagger rounded-2xl p-4', isHiddenOnMobile && 'hidden sm:block')}
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
+            // KPI body shared by both the interactive <button> and the
+            // static <div> variants below.
+            const kpiBody = (
+              <>
                 <div className="flex items-center gap-2.5">
                   <span className={cn('chip-icon h-9 w-9', card.chip)}>
                     <Icon className={cn('h-4.5 w-4.5', card.iconClass)} />
@@ -391,6 +399,40 @@ export default function Dashboard() {
                   </div>
                 )}
                 {card.sub && <p className="mt-1.5 text-xs text-muted-foreground">{card.sub}</p>}
+              </>
+            );
+            // ONE-CLICK (4-a): KPIs whose data lives in another tab become
+            // real <button>s (keyboard focusable) with premium-card-hover
+            // lift + an ArrowUpRight affordance that fades in on hover.
+            if (card.nav) {
+              return (
+                <button
+                  type="button"
+                  key={card.key}
+                  onClick={card.nav}
+                  aria-label={card.navLabel}
+                  className={cn(
+                    'premium-card premium-card-sheen premium-card-hover anim-stagger group relative cursor-pointer rounded-2xl p-4 text-left',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                    isHiddenOnMobile && 'hidden sm:block'
+                  )}
+                  style={{ animationDelay: `${i * 50}ms` }}
+                >
+                  <ArrowUpRight
+                    className="absolute right-3 top-3 h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+                    aria-hidden="true"
+                  />
+                  {kpiBody}
+                </button>
+              );
+            }
+            return (
+              <div
+                key={card.key}
+                className={cn('premium-card premium-card-sheen anim-stagger rounded-2xl p-4', isHiddenOnMobile && 'hidden sm:block')}
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                {kpiBody}
               </div>
             );
           })}
@@ -507,17 +549,34 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {displayData.todayFocus.map((habit) => (
-                <div
-                  key={habit.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base" aria-hidden="true">{habit.icon}</span>
-                    <span className="text-sm font-medium truncate">{habit.name}</span>
-                  </div>
-                  <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-xs">
-                    {habit.priority}
-                  </Badge>
+                <div key={habit.id} className="group/row flex items-center gap-1.5">
+                  {/* ONE-CLICK (4-a): row main click → jump to the tracker grid
+                      (today preselected) so the user can complete it right away. */}
+                  <button
+                    type="button"
+                    onClick={() => openTrackerDate(todayStr)}
+                    aria-label={`Buka tracker hari ini untuk menyelesaikan habit ${habit.name}`}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base" aria-hidden="true">{habit.icon}</span>
+                      <span className="text-sm font-medium truncate">{habit.name}</span>
+                    </div>
+                    <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-xs">
+                      {habit.priority}
+                    </Badge>
+                  </button>
+                  {/* ONE-CLICK (4-a): icon-button → openHabitFocus(id) opens this
+                      habit's TimeAnalysisDialog on the tracker tab. Subtle on
+                      mobile (always visible), fades in on row hover on desktop. */}
+                  <button
+                    type="button"
+                    onClick={() => openHabitFocus(habit.id)}
+                    aria-label={`Lihat analisis waktu habit ${habit.name}`}
+                    className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-visible:opacity-100"
+                  >
+                    <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -539,9 +598,12 @@ export default function Dashboard() {
             <div className="max-h-80 overflow-y-auto pr-1">
               <div className="space-y-2">
                 {displayData.habitDetailStats.map((habit) => (
-                  <div
+                  <button
                     key={habit.id}
-                    className="flex items-center gap-3 rounded-xl border border-border/70 p-3 transition-colors hover:bg-muted/30"
+                    type="button"
+                    onClick={() => openHabitFocus(habit.id)}
+                    aria-label={`Lihat analisis waktu habit ${habit.name}`}
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border/70 p-3 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <span className="chip-soft chip-soft-teal h-10 w-10 shrink-0 text-lg" aria-hidden="true">{habit.icon}</span>
                     <div className="flex-1 min-w-0">
@@ -563,7 +625,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -585,20 +647,15 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {insights.map((insight, i) => (
-              <Card
+              <div
                 key={i}
-                className={cn(
-                  'rounded-xl p-4',
-                  insight.type === 'success' && 'border-primary/20 bg-primary/5',
-                  insight.type === 'warning' && 'border-orange-500/25 bg-orange-500/5 dark:border-orange-400/20 dark:bg-orange-400/10',
-                  insight.type === 'info' && 'border-primary/15 bg-primary/[0.04]'
-                )}
+                className="premium-card premium-card-sheen rounded-xl p-4"
               >
-                <CardContent className="p-0 flex items-start gap-3">
+                <div className="flex items-start gap-3">
                   <div className="mt-0.5 shrink-0">{insight.icon}</div>
                   <p className="text-sm text-muted-foreground leading-relaxed">{insight.text}</p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         </section>

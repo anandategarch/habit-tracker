@@ -2,10 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,9 +40,11 @@ import {
   Shield,
   Ban,
   Gauge,
+  Sprout,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { deriveColorFromEmoji } from '@/lib/emoji-color';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TimePicker } from './time-picker';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
@@ -422,8 +420,18 @@ export default function HabitMaster() {
           {/* ── Add / Edit Dialog ─────────────────────────────────────── */}
           <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingId ? 'Edit Habit' : 'Buat Habit Baru'}
+              <DialogTitle asChild>
+                <div className="flex items-center gap-3 pr-8">
+                  <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0" aria-hidden="true">
+                    <Sprout className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="premium-label">Habit Master</p>
+                    <span className="block text-lg font-semibold leading-tight">
+                      {editingId ? 'Edit Habit' : 'Buat Habit Baru'}
+                    </span>
+                  </div>
+                </div>
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-5 py-2">
@@ -438,13 +446,14 @@ export default function HabitMaster() {
                     placeholder="misal Meditasi Pagi"
                     value={form.name}
                     onChange={(e) => updateForm('name', e.target.value)}
+                    className="rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Icon</Label>
                   <div className="relative">
                     <Input
-                      className="w-20 text-center text-xl"
+                      className="w-20 text-center text-xl rounded-xl"
                       value={form.icon}
                       onChange={(e) => {
                         const icon = e.target.value;
@@ -467,12 +476,12 @@ export default function HabitMaster() {
                       maxLength={11}
                     />
                     {formEmojiPicker && (
-                      <div className="absolute top-full mt-1 z-50 bg-popover border rounded-lg shadow-lg p-2 flex flex-wrap gap-1 w-48">
+                      <div className="absolute top-full mt-1.5 z-50 rounded-2xl border border-border bg-popover/95 backdrop-blur shadow-lg p-2 grid grid-cols-4 gap-1 w-48">
                         {DEFAULT_EMOJIS.map((e) => (
                           <button
                             key={e}
                             type="button"
-                            className="text-2xl hover:bg-accent rounded-lg p-1 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            className="text-2xl hover:bg-accent rounded-xl p-1.5 transition-all min-w-[40px] min-h-[40px] flex items-center justify-center active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
                             onClick={() => {
                               updateForm('icon', e);
                               // Auto-derive color from emoji — extract dominant
@@ -494,7 +503,7 @@ export default function HabitMaster() {
                         ))}
                         <button
                           type="button"
-                          className="text-xs text-muted-foreground hover:text-foreground p-1 transition-colors"
+                          className="col-span-4 text-xs text-muted-foreground hover:text-foreground py-1.5 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
                           onClick={() => setFormEmojiPicker(false)}
                         >
                           tutup
@@ -513,7 +522,7 @@ export default function HabitMaster() {
                     value={form.category}
                     onValueChange={(v) => updateForm('category', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -531,7 +540,7 @@ export default function HabitMaster() {
                     value={form.priority}
                     onValueChange={(v) => updateForm('priority', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -549,7 +558,7 @@ export default function HabitMaster() {
                     value={form.groupId || '__none__'}
                     onValueChange={(v) => updateForm('groupId', v === '__none__' ? null : v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-xl">
                       <SelectValue placeholder="Tanpa Grup" />
                     </SelectTrigger>
                     <SelectContent>
@@ -589,6 +598,7 @@ export default function HabitMaster() {
                       const n = Number(e.target.value) || 1;
                       updateForm('target', Math.min(max, Math.max(1, n)));
                     }}
+                    className="rounded-xl"
                   />
                   <p className="text-xs text-muted-foreground">
                     {form.habitType === 'amount'
@@ -602,7 +612,7 @@ export default function HabitMaster() {
                     value={form.targetType}
                     onValueChange={(v) => updateForm('targetType', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -634,7 +644,7 @@ export default function HabitMaster() {
                     value={form.difficulty}
                     onValueChange={(v) => updateForm('difficulty', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -690,7 +700,7 @@ export default function HabitMaster() {
                     type="button"
                     onClick={() => updateForm('habitType', opt.value)}
                     className={cn(
-                      'rounded-lg border p-3 text-left transition-all flex items-start gap-2',
+                      'rounded-xl border p-3 text-left transition-all flex items-start gap-2',
                       opt.tint,
                       form.habitType === opt.value
                         ? opt.active
@@ -748,6 +758,7 @@ export default function HabitMaster() {
                     placeholder="misal 08:00"
                     value={form.reminder ?? ''}
                     onChange={(e) => updateForm('reminder', e.target.value)}
+                    className="rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
@@ -756,7 +767,7 @@ export default function HabitMaster() {
                     value={form.status}
                     onValueChange={(v) => updateForm('status', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -778,6 +789,7 @@ export default function HabitMaster() {
                     type="date"
                     value={form.startDate}
                     onChange={(e) => updateForm('startDate', e.target.value)}
+                    className="rounded-xl"
                   />
                 </div>
                 <div className="space-y-2">
@@ -786,12 +798,13 @@ export default function HabitMaster() {
                     type="date"
                     value={form.endDate ?? ''}
                     onChange={(e) => updateForm('endDate', e.target.value)}
+                    className="rounded-xl"
                   />
                 </div>
               </div>
 
               {/* Track Time */}
-              <div className="rounded-lg border p-4 space-y-3">
+              <div className="rounded-xl border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
@@ -823,7 +836,7 @@ export default function HabitMaster() {
               </div>
 
               {/* Track Last Done */}
-              <div className="rounded-lg border p-4 space-y-3">
+              <div className="rounded-xl border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <History className="h-4 w-4 text-muted-foreground" />
@@ -848,7 +861,7 @@ export default function HabitMaster() {
                       placeholder="3d"
                       value={form.lastDoneInterval || ''}
                       onChange={(e) => updateForm('lastDoneInterval', e.target.value)}
-                      className="w-40"
+                      className="w-40 rounded-xl"
                     />
                     <p className="text-xs text-muted-foreground">
                       Contoh: 3d = setiap 3 hari, 1w = setiap minggu. Akan ditandai overdue jika lewat.
@@ -858,7 +871,7 @@ export default function HabitMaster() {
               </div>
 
               {/* PHASE1-HABIT: Vacation Mode */}
-              <div className="rounded-lg border p-4 space-y-3 bg-sky-50/40 dark:bg-sky-950/10">
+              <div className="rounded-xl border p-4 space-y-3 bg-sky-50/40 dark:bg-sky-950/10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Palmtree className="h-4 w-4 text-sky-600 dark:text-sky-400" />
@@ -891,7 +904,7 @@ export default function HabitMaster() {
                       value={form.vacationEnd ?? ''}
                       onChange={(e) => updateForm('vacationEnd', e.target.value)}
                       min={jakartaDateString()}
-                      className="w-48"
+                      className="w-48 rounded-xl"
                     />
                     <p className="text-xs text-muted-foreground">
                       Setelah tanggal ini, mode liburan otomatis nonaktif dan habit
@@ -909,6 +922,7 @@ export default function HabitMaster() {
                   value={form.notes ?? ''}
                   onChange={(e) => updateForm('notes', e.target.value)}
                   rows={3}
+                  className="rounded-xl"
                 />
               </div>
 
@@ -924,6 +938,7 @@ export default function HabitMaster() {
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !form.name.trim()}
+                  className="btn-primary-gradient"
                 >
                   {submitting ? 'Menyimpan...' : editingId ? 'Perbarui Habit' : 'Buat Habit'}
                 </Button>
@@ -978,39 +993,43 @@ export default function HabitMaster() {
 
       {/* ── Habit List (Desktop Table + Mobile Cards) ────────────────────── */}
       {loading ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-10 bg-muted animate-pulse rounded-md"
-                />
-              ))}
+        // Skeleton — meniru layout baris final (avatar emoji squircle 40px +
+        // title bar + meta bar), pola goals-skeleton (div polong premium-card).
+        <div className="premium-card rounded-2xl p-4 sm:p-5 space-y-1">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3.5 py-2.5">
+              <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <Skeleton className="h-4 w-2/5" />
+                <Skeleton className="h-3 w-3/5" />
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
       ) : filteredHabits.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="text-4xl mb-3">🌱</div>
-            <p className="text-muted-foreground font-medium">🌱 Belum ada habit</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {habits.length === 0
-                ? 'Buat habit pertama kamu untuk mulai!'
-                : 'Coba ubah pencarian atau filter.'}
-            </p>
-            {habits.length === 0 && (
-              <Button
-                onClick={openAdd}
-                className="mt-4"
-              >
-                <Plus className="h-4 w-4" />
-                Buat Habit
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        // Empty state premium — orb + headline + CTA (CTA membuka dialog yang
+        // sama dengan tombol "Habit Baru" di header).
+        <div className="premium-card premium-empty rounded-2xl min-h-[18rem]">
+          <div className="premium-empty-orb">
+            <Sprout className="h-8 w-8 text-primary" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">Belum Ada Habit</p>
+          <p className="text-xs text-muted-foreground/70 -mt-0.5">
+            {habits.length === 0
+              ? 'Buat habit pertama kamu untuk mulai!'
+              : 'Coba ubah pencarian atau filter.'}
+          </p>
+          {habits.length === 0 && (
+            <Button
+              size="sm"
+              className="btn-primary-gradient mt-2"
+              onClick={openAdd}
+            >
+              <Plus className="h-4 w-4" />
+              Habit Baru
+            </Button>
+          )}
+        </div>
       ) : (
         <>
           <HabitTable

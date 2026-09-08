@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 // (`format` and `id as idLocale` were imported but never called in this
 // file — verified via grep).
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 import { formatRupiah } from './finance-types';
 import { CountUpRupiah, CountUpNumber } from './count-up';
 import type { DashboardData, LastDoneItem, Transaction } from './finance-types';
@@ -52,6 +53,12 @@ export default function FinanceOverview({
   transactions,
   selectedMonth,
 }: FinanceOverviewProps) {
+  // ONE-CLICK-5 (Task 4-b): subtle "Lihat transaksi →" affordance on the
+  // hero jumps to the Transactions sub-tab in a single tap. Kept on a small
+  // dedicated button (NOT the whole tilt card) so the hero's 3D tilt + shine
+  // mouse handlers are untouched.
+  const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+
   const incomeChange = dashboardData.previousMonth.income > 0
     ? Math.round(((dashboardData.totalIncome - dashboardData.previousMonth.income) / dashboardData.previousMonth.income) * 100)
     : 0;
@@ -281,8 +288,8 @@ export default function FinanceOverview({
             </div>
           </div>
 
-          {/* Bottom section: avg/day + projection (inline) */}
-          <div className="relative px-4 py-3 sm:px-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/15">
+          {/* Bottom section: avg/day + projection (inline) + 1-click tx link */}
+          <div className="relative px-4 py-3 sm:px-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-t border-white/15">
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-white/60">Rata-rata:</span>
               <span className="text-xs font-semibold text-white tabular-nums">{formatRupiah(dashboardData.avgDailyExpense)}/hari</span>
@@ -291,6 +298,18 @@ export default function FinanceOverview({
               <span className="text-xs text-white/60">Proyeksi:</span>
               <span className="text-xs font-semibold text-white tabular-nums">{formatRupiah(dashboardData.projectedMonthlyExpense)}/bln</span>
             </div>
+            {/* ONE-CLICK-5: ghost pill on the teal hero — single tap to the
+                Transactions sub-tab. Small + dedicated so it never fights the
+                hero tilt/shine mouse handlers on the card itself. */}
+            <button
+              type="button"
+              onClick={() => openFinanceSubTab('transactions')}
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 -my-0.5 text-xs font-semibold text-teal-50/90 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              aria-label="Lihat semua transaksi bulan ini"
+            >
+              Lihat transaksi
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </button>
           </div>
         </div>{/* BUGFIX POST-1 #7: close inner tiltTransformRef div */}
       </div>
