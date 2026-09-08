@@ -21,7 +21,6 @@ import {
   Plus,
   ArrowDownRight,
   ArrowUpRight,
-  X,
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
@@ -70,8 +69,8 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
 ];
 
-// FLUTTER PATTERN: Bottom nav = 2 left + FAB center + 2 right.
-// NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in FlutterBottomNav below.
+// PREMIUM DOCK PATTERN: Bottom nav = 2 left + FAB center + 2 right.
+// NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in PremiumBottomNav below.
 // Goals accessible via sidebar drawer (hamburger menu).
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
@@ -353,9 +352,9 @@ export default function Home() {
           </header>
 
           {/* Content area — extra bottom padding on mobile so content
-              doesn't get hidden behind the fixed bottom navigation bar.
-              Uses pb-28 (112px) to accommodate the morph-bump nav which
-              is taller than the previous flat nav (active tab bumps up).
+              doesn't get hidden behind the floating glass dock.
+              Dock stack: 62px bar + 10px bottom margin + 16px breathing
+              gap = 88px (excluding safe-area inset).
 
               overflow-y-auto + overscroll-y-contain for smooth touch scroll
               on mobile (prevents scroll chaining to body / stuck scroll
@@ -369,7 +368,7 @@ export default function Home() {
               desktop (no touch), it's a pass-through wrapper — no
               behaviour change. */}
           <PullToRefresh
-            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(86px+env(safe-area-inset-bottom))] md:pb-6"
+            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-6"
             onRefresh={handleRefresh}
           >
             {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -384,11 +383,13 @@ export default function Home() {
           </PullToRefresh>
         </main>
 
-        {/* ── Mobile bottom navigation (Flutter BottomAppBar + FAB style) ────
-            Design: 2 tabs left + FAB center (fixed notch) + 2 tabs right.
-            FAB = quick-add button (popup: Pengeluaran/Pemasukan/Habit).
-            Notch FIXED di center. Active tab = teal + filled icon + pill bg. */}
-        <FlutterBottomNav
+        {/* ── Mobile bottom navigation (Premium Floating Glass Dock) ────
+            Design: floating frosted-glass dock (mx-3, rounded-[26px]) with
+            2 tabs left + FAB center + 2 tabs right. A gradient "liquid"
+            indicator slides between tabs with spring easing (passes behind
+            the FAB). FAB = quick-add (glass popup: Pengeluaran/Pemasukan/
+            Habit) with staggered spring item entrance + dimmed backdrop. */}
+        <PremiumBottomNav
           activeTab={activeTab}
           onNavClick={handleNavClick}
         />
@@ -398,16 +399,25 @@ export default function Home() {
 }
 
 
-// ── FlutterBottomNav ───────────────────────────────────────────────────
-// Flutter BottomAppBar + FAB style: 2 tabs left + FAB center (fixed notch)
-// + 2 tabs right. FAB = quick-add popup. Notch FIXED di center.
-// Active tab = teal color + filled icon + pill background.
-// Mobile-only (md:hidden).
+// ── PremiumBottomNav ───────────────────────────────────────────────────
+// PREMIUM REDESIGN (replaces the old Flutter notched bar):
+// "Floating Glass Dock" — iOS-18 / modern-fintech design language.
+//  • Floating frosted-glass bar (mx-3, rounded-[26px], backdrop-blur-2xl)
+//    with layered teal-tinted depth shadows + top hairline highlight.
+//  • Gradient "liquid" indicator that slides between tabs with a spring
+//    curve (cubic-bezier overshoot) and passes BEHIND the FAB.
+//  • Center FAB: teal→emerald gradient, glow, socket ring illusion,
+//    rotates 45° into an X when the menu is open.
+//  • Quick-add popup: frosted glass card, spring-staggered items, tail
+//    pointer, dimmed backdrop (tap/Escape to close).
+//  • Mobile-only (md:hidden). a11y: aria-current, aria-expanded,
+//    role=menu, focus-visible rings, prefers-reduced-motion respected.
 
-const FLUTTER_NAV_HEIGHT = 76;
-const FLUTTER_CORNER_R = 22;
-const FLUTTER_NOTCH_R = 34; // notch top radius (FAB is 50px = 25r, gap = 9px)
-const FLUTTER_NOTCH_BASE_W = 30; // flare width at base
+const DOCK_H = 62; // dock height (px)
+const DOCK_SIDE = 0.375; // width share of each tab group (left/right)
+const IND_INSET = 3; // indicator horizontal inset inside a tab
+const FAB_SIZE = 56; // FAB diameter (px)
+const FAB_PROTRUDE = 22; // px of FAB protruding above the dock top edge
 
 const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
@@ -419,70 +429,54 @@ const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] =
   { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
 ];
 
-function FlutterBottomNav({
+// Left-edge x-offset of each dock tab, as a fraction of dock width.
+// `goals` is NOT in the dock (sidebar-only) → undefined → indicator hides.
+const TAB_X_FRACTION: Partial<Record<TabId, number>> = {
+  dashboard: 0,
+  tracker: DOCK_SIDE / 2,
+  finance: 1 - DOCK_SIDE,
+  settings: 1 - DOCK_SIDE / 2,
+};
+
+function PremiumBottomNav({
   activeTab,
   onNavClick,
 }: {
   activeTab: TabId;
   onNavClick: (id: TabId) => void;
 }) {
-  const navRef = useRef<HTMLDivElement>(null);
-  const [navWidth, setNavWidth] = useState(388);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [dockW, setDockW] = useState(0);
   const [fabOpen, setFabOpen] = useState(false);
   // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
   // deep nav component can fire it without prop-drilling from Home().
   const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
 
   useLayoutEffect(() => {
-    if (!navRef.current) return;
-    const update = () => setNavWidth(navRef.current?.offsetWidth ?? 388);
+    if (!dockRef.current) return;
+    const update = () => setDockW(dockRef.current?.offsetWidth ?? 0);
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(navRef.current);
+    observer.observe(dockRef.current);
     return () => observer.disconnect();
   }, []);
 
-  // Close FAB popup on outside tap
+  // Close popup on Escape (a11y parity with the tap-to-close backdrop).
   useEffect(() => {
     if (!fabOpen) return;
-    const handler = () => setFabOpen(false);
-    const timer = setTimeout(() => document.addEventListener('click', handler), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('click', handler);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFabOpen(false);
     };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [fabOpen]);
 
-  // Fixed center notch — always at navWidth/2
-  const W = navWidth;
-  const H = FLUTTER_NAV_HEIGHT;
-  const cR = FLUTTER_CORNER_R;
-  const nR = FLUTTER_NOTCH_R;
-  const nB = FLUTTER_NOTCH_BASE_W;
-  const nX = W / 2; // FIXED center
-  const bumpHeight = nR;
-
-  // BUGFIX FLUTTER-2 #2,#5,#6: Rewrite Bezier control points untuk smooth
-  // dome tanpa 90° corners + tanpa dip into nav body.
-  // C1 of left curve = (nX-nR+8, -bumpHeight*0.4) — co-linear dengan incoming
-  //   L direction (rightward + slightly up) → no 90° corner, no dip.
-  // C2 of left curve = (nX-12, -bumpHeight) — horizontal through peak → C1 continuity.
-  // Right curve = mirror.
-  const path = [
-    `M ${cR} 0`,
-    `L ${nX - nR} 0`,
-    `C ${nX - nR + 8} ${-bumpHeight * 0.4} ${nX - 12} ${-bumpHeight} ${nX} ${-bumpHeight}`,
-    `C ${nX + 12} ${-bumpHeight} ${nX + nR - 8} ${-bumpHeight * 0.4} ${nX + nR} 0`,
-    `L ${W - cR} 0`,
-    `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
-    `L ${W} ${H}`,
-    `L 0 ${H}`,
-    `L 0 ${cR}`,
-    `A ${cR} ${cR} 0 0 1 ${cR} 0`,
-    'Z',
-  ].join(' ');
-
-  const clipPathValue = `path('${path}')`;
+  // Liquid indicator geometry. GPU-friendly: fixed width per tab +
+  // translateX transition with a spring (overshoot) easing curve.
+  const tabW = (dockW * DOCK_SIDE) / 2;
+  const activeFraction = TAB_X_FRACTION[activeTab];
+  const indVisible = activeFraction !== undefined && dockW > 0;
+  const indX = indVisible ? activeFraction * dockW + IND_INSET : 0;
 
   const renderTab = (item: { id: TabId; label: string; icon: React.ElementType }) => {
     const Icon = item.icon;
@@ -494,32 +488,32 @@ function FlutterBottomNav({
         aria-label={item.label}
         aria-current={isActive ? 'page' : undefined}
         className={cn(
-          'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
-          'transition-colors duration-200',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:rounded-2xl',
-          'motion-reduce:transition-none'
+          'relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px]',
+          'whitespace-nowrap',
+          'transition-transform duration-150 motion-reduce:transition-none active:scale-[0.94]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70',
+          'focus-visible:ring-offset-1 focus-visible:rounded-2xl'
         )}
       >
-        {/* Active pill background */}
         <span
           aria-hidden="true"
-          className={cn(
-            'absolute inset-x-2 top-1 bottom-1 rounded-xl transition-opacity duration-200',
-            isActive ? 'bg-teal-500/10 opacity-100' : 'opacity-0'
-          )}
-        />
-        <Icon
-          className={cn(
-            'h-[22px] w-[22px] shrink-0 relative z-10 transition-all duration-200 motion-reduce:transition-none',
-            isActive ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'
-          )}
-          strokeWidth={isActive ? 2.5 : 1.5}
-        />
+          className={cn('grid place-items-center', isActive && 'anim-nav-icon-pop')}
+        >
+          <Icon
+            className={cn(
+              'h-[21px] w-[21px] shrink-0 transition-colors duration-300 motion-reduce:transition-none',
+              isActive
+                ? 'text-white drop-shadow-[0_1px_1px_rgba(0,66,55,0.25)]'
+                : 'text-slate-500 dark:text-slate-400'
+            )}
+            strokeWidth={isActive ? 2.4 : 1.7}
+          />
+        </span>
         <span
           className={cn(
-            'text-[11px] leading-none relative z-10 transition-colors duration-200 motion-reduce:transition-none',
+            'premium-dock-label transition-colors duration-300 motion-reduce:transition-none',
             isActive
-              ? 'font-semibold text-teal-600 dark:text-teal-400'
+              ? 'font-bold text-white'
               : 'font-medium text-slate-500 dark:text-slate-400'
           )}
         >
@@ -530,157 +524,169 @@ function FlutterBottomNav({
   };
 
   return (
-    <nav
-      ref={navRef}
-      aria-label="Primary mobile navigation"
-      className={cn(
-        'fixed bottom-0 left-0 right-0 z-30 md:hidden',
-        'bottom-[env(safe-area-inset-bottom)]',
-        'w-full',
-        'h-[76px]',
-        'shadow-[0_-2px_8px_rgba(0,0,0,0.04),0_-1px_0_rgba(0,0,0,0.06)]'
-      )}
-    >
-      {/* Solid background — clipped to notched shape.
-          BUGFIX FLUTTER-2 #3: Extend div ke top:-bumpHeight supaya bump area
-          (y=-34..0) juga terisi. Sebelumnya inset-0 (76px) tidak cover bump. */}
-      <div
-        aria-hidden="true"
-        className="absolute"
-        style={{
-          top: `${-bumpHeight}px`,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          clipPath: clipPathValue,
-          WebkitClipPath: clipPathValue,
-          background: 'rgb(255, 255, 255)',
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="absolute hidden dark:block"
-        style={{
-          top: `${-bumpHeight}px`,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          clipPath: clipPathValue,
-          WebkitClipPath: clipPathValue,
-          background: 'rgb(15, 23, 42)',
-        }}
-      />
-      {/* Border */}
-      <svg
-        width={W}
-        height={H}
-        // BUGFIX FLUTTER-2 #1: Drop viewBox expansion (caused 66.7% scale + 24px
-        // offset). Keep viewBox=0 0 W H + overflow-visible supaya bump border
-        // render di atas y=0 tanpa scaling.
-        viewBox={`0 0 ${W} ${H}`}
-        className="absolute inset-0 pointer-events-none overflow-visible"
-        fill="none"
-      >
-        <path d={path} stroke="rgb(226, 232, 240)" strokeWidth="1" />
-      </svg>
-
-      {/* Left tabs */}
-      <div className="absolute left-0 top-0 h-full flex items-stretch" style={{ width: '37.5%' }}>
-        {NAV_LEFT_ITEMS.map(renderTab)}
-      </div>
-
-      {/* Right tabs */}
-      <div className="absolute right-0 top-0 h-full flex items-stretch" style={{ width: '37.5%' }}>
-        {NAV_RIGHT_ITEMS.map(renderTab)}
-      </div>
-
-      {/* FAB popup menu */}
+    <div className="fixed bottom-0 inset-x-0 z-40 md:hidden">
+      {/* Dimmed backdrop while the quick-add popup is open — tap to close.
+          Rendered OUTSIDE the animated nav element (no transformed
+          ancestor) so position:fixed is always viewport-correct. */}
       {fabOpen && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-40"
-          style={{ bottom: '96px' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex flex-col gap-1 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 min-w-[160px] anim-tab-enter">
+          className="fixed inset-0 z-30 bg-slate-950/25 dark:bg-black/40 backdrop-blur-[2px] anim-fab-backdrop"
+          onClick={() => setFabOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <nav
+        ref={dockRef}
+        aria-label="Navigasi utama"
+        className={cn(
+          'relative z-40 mx-3 mb-[calc(env(safe-area-inset-bottom)+10px)]',
+          'anim-nav-dock-enter',
+          'rounded-[26px]',
+          'bg-white/80 dark:bg-slate-900/80',
+          'backdrop-blur-2xl backdrop-saturate-150',
+          'border border-slate-900/[0.07] dark:border-white/10',
+          'premium-dock-shadow'
+        )}
+        style={{ height: DOCK_H }}
+      >
+        {/* Glass hairline highlight along the top edge (light refraction) */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-[16px] top-0 h-px rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-white/15 pointer-events-none"
+        />
+
+        {/* Liquid gradient indicator — slides between tabs, passes behind
+            the FAB (z-0 vs z-20). Fades out when a non-dock tab (goals)
+            is active. */}
+        <div
+          aria-hidden="true"
+          className="nav-liquid-indicator absolute left-0 top-[7px] z-0 rounded-full"
+          style={{
+            height: DOCK_H - 14,
+            width: Math.max(0, tabW - IND_INSET * 2),
+            transform: `translateX(${indX}px)`,
+            opacity: indVisible ? 1 : 0,
+          }}
+        />
+
+        {/* Soft teal halo behind the FAB — glows through the glass dock */}
+        <div
+          aria-hidden="true"
+          className="absolute left-1/2 -top-[46px] -translate-x-1/2 w-[104px] h-[104px] rounded-full bg-teal-400/20 dark:bg-teal-400/25 blur-3xl pointer-events-none"
+        />
+
+        {/* Tab groups — 37.5% each side; the center 25% is the FAB zone */}
+        <div className="absolute left-0 top-0 h-full flex items-stretch" style={{ width: `${DOCK_SIDE * 100}%` }}>
+          {NAV_LEFT_ITEMS.map(renderTab)}
+        </div>
+        <div className="absolute right-0 top-0 h-full flex items-stretch" style={{ width: `${DOCK_SIDE * 100}%` }}>
+          {NAV_RIGHT_ITEMS.map(renderTab)}
+        </div>
+
+        {/* Quick-add popup — frosted glass card, spring-staggered items.
+            bottom is nav-relative: dock height + FAB protrusion + 10px gap
+            (the nav already sits above the safe-area inset). */}
+        {fabOpen && (
+          <div
+            role="menu"
+            aria-label="Menu tambah cepat"
+            className="absolute left-1/2 -translate-x-1/2 z-40 w-[212px] rounded-[22px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl backdrop-saturate-150 border border-slate-900/[0.07] dark:border-white/10 premium-pop-shadow p-2"
+            style={{ bottom: DOCK_H + FAB_PROTRUDE + 10 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Tail pointer aimed at the FAB */}
+            <div
+              aria-hidden="true"
+              className="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 rounded-[3px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border-b border-r border-slate-900/[0.07] dark:border-white/10"
+            />
+            <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400 dark:text-slate-500">
+              Tambah Cepat
+            </p>
+
             <button
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+              role="menuitem"
+              className="anim-fab-item anim-fab-item-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
               // BUGHUNT-ROUND2 FAB-1: was just onNavClick('finance') — the
-              // dialog never opened. Now the quick-add action makes the
+              // dialog never opened. The quick-add action makes the
               // Finance tab open the expense dialog after mounting.
               onClick={() => { triggerQuickAdd('expense'); onNavClick('finance'); setFabOpen(false); }}
             >
-              <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center shrink-0">
-                <ArrowDownRight className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Pengeluaran</p>
-                <p className="text-[10px] text-slate-500">Catat pengeluaran</p>
-              </div>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-rose-500 to-red-600 shadow-[0_4px_10px_-2px_rgba(244,63,94,0.5)]">
+                <ArrowDownRight className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Pengeluaran</span>
+                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Catat pengeluaran</span>
+              </span>
             </button>
+
             <button
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+              role="menuitem"
+              className="anim-fab-item anim-fab-item-2 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
               onClick={() => { triggerQuickAdd('income'); onNavClick('finance'); setFabOpen(false); }}
             >
-              <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
-                <ArrowUpRight className="h-4 w-4 text-teal-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Pemasukan</p>
-                <p className="text-[10px] text-slate-500">Catat pemasukan</p>
-              </div>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 shadow-[0_4px_10px_-2px_rgba(16,185,129,0.5)]">
+                <ArrowUpRight className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Pemasukan</span>
+                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Catat pemasukan</span>
+              </span>
             </button>
+
             <button
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
-              // "Habit Baru" previously went to the tracker tab — but the
-              // tracker has no add-habit entry; the form lives in Settings →
+              role="menuitem"
+              className="anim-fab-item anim-fab-item-3 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+              // "Habit Baru" — the add-habit form lives in Settings →
               // Habit Master. Navigate there and let HabitMaster open its
               // dialog via the same quick-add trigger.
               onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
             >
-              <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
-                <CheckSquare className="h-4 w-4 text-teal-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Habit Baru</p>
-                <p className="text-[10px] text-slate-500">Tambah habit</p>
-              </div>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_4px_10px_-2px_rgba(245,158,11,0.5)]">
+                <Sprout className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Habit Baru</span>
+                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Tambah habit baru</span>
+              </span>
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* FAB — fixed center, protrudes above nav */}
-      <div
-        className="absolute left-1/2 z-20"
-        style={{
-          top: 0,
-          transform: 'translateX(-50%) translateY(-40%)',
-        }}
-      >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setFabOpen(!fabOpen);
-          }}
-          aria-label="Tambah cepat"
-          className={cn(
-            'w-[50px] h-[50px] rounded-full',
-            'bg-gradient-to-br from-teal-400 to-teal-600',
-            'shadow-[0_4px_16px_rgba(20,184,166,0.25)]',
-            'ring-1 ring-inset ring-white/20',
-            'flex items-center justify-center',
-            'transition-transform duration-200',
-            'active:scale-90',
-            'motion-reduce:transition-none',
-            fabOpen && 'rotate-45'
-          )}
+        {/* FAB — half-socketed into the dock, protruding above the edge */}
+        <div
+          className="absolute left-1/2 z-20 -translate-x-1/2"
+          style={{ top: -FAB_PROTRUDE }}
         >
-          {/* BUGFIX FLUTTER-1 #1: Hapus icon swap — keep Plus only + rotate 45°.
-              Sebelumnya: swap Plus→X AND rotate 45° = X rotated 45° looks like +
-              = no visual change. Now: Plus rotated 45° = looks like X. Clean. */}
-          <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
-        </button>
-      </div>
-    </nav>
+          <button
+            onClick={() => setFabOpen(!fabOpen)}
+            aria-label={fabOpen ? 'Tutup menu tambah cepat' : 'Tambah cepat'}
+            aria-haspopup="menu"
+            aria-expanded={fabOpen}
+            className={cn(
+              'relative grid place-items-center rounded-full',
+              'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-500',
+              'premium-fab-shadow',
+              // Socket illusion: the ring approximates the dock bg color so
+              // the FAB looks punched through the frosted glass.
+              'ring-[4px] ring-white/80 dark:ring-slate-900/90',
+              'transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+              'active:scale-90 motion-reduce:transition-none',
+              fabOpen && 'rotate-45'
+            )}
+            style={{ width: FAB_SIZE, height: FAB_SIZE }}
+          >
+            {/* Inner sheen — subtle 3D glass-metal feel */}
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 via-transparent to-black/10 pointer-events-none"
+            />
+            {/* Plus rotated 45° = X when open (clean swap-free close icon) */}
+            <Plus className="h-6 w-6 text-white drop-shadow-[0_1px_2px_rgba(0,66,55,0.35)]" strokeWidth={2.5} />
+          </button>
+        </div>
+      </nav>
+    </div>
   );
 }

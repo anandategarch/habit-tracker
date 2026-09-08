@@ -1,7 +1,11 @@
-const CACHE_NAME = 'habit-tracker-v12';
+const CACHE_NAME = 'habit-tracker-v13';
 
 // Bump cache version (v1 → v2 → ... → v10) to purge any stale /api/ responses that
 // may have been cached by the previous service worker version.
+// v13: Premium bottom-nav redesign (floating glass dock + liquid indicator +
+// FAB popup) — purge v12 JS chunks that still contain the old Flutter
+// notched-bar nav. Users on the cached v12 shell would otherwise never
+// receive the new PremiumBottomNav component.
 // v10: i18n Indonesian — purge old English JS feature removed — purge old sw.js with push handler
 // + old JS chunks with PushNotificationSettings component.
 // v8: Rewards/Badges/Challenges removed — purge old JS chunks that still
