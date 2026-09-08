@@ -1,0 +1,687 @@
+     1→'use client';
+     2→
+     3→import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+     4→import { useQueryClient } from '@tanstack/react-query';
+     5→import { useAppStore, type TabId } from '@/store/app-store';
+     6→import { cn } from '@/lib/utils';
+     7→import { Button } from '@/components/ui/button';
+     8→import { ScrollArea } from '@/components/ui/scroll-area';
+     9→import { Separator } from '@/components/ui/separator';
+    10→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+    11→import {
+    12→  LayoutDashboard,
+    13→  CheckSquare,
+    14→  Target,
+    15→
+    16→  Wallet,
+    17→  Settings as SettingsIcon,
+    18→  PanelLeftClose,
+    19→  PanelLeftOpen,
+    20→  Sprout,
+    21→  Plus,
+    22→  ArrowDownRight,
+    23→  ArrowUpRight,
+    24→  X,
+    25→} from 'lucide-react';
+    26→import { jakartaDateString } from '@/lib/jakarta-date';
+    27→
+    28→import dynamic from 'next/dynamic';
+    29→import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
+    30→import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
+    31→import { SproutGrow } from '@/components/ui/loaders';
+    32→
+    33→// FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
+    34→// initial bundle small + avoid SSR for components that use browser-only APIs.
+    35→// Previously these had NO `loading` fallback — when the user switched to a
+    36→// tab whose chunk wasn't yet loaded, the dynamic component returned `null`
+    37→// during the ~300ms chunk-fetch/parse window, producing a blank white screen
+    38→// ("transisi antar tab hanya putih aja").
+    39→//
+    40→// Now each dynamic() provides a `loading` render-prop that shows SproutGrow
+    41→// (same pohon animation as splash screen) for consistent branding across
+    42→// app load + tab transitions. The loader mounts immediately when the dynamic
+    43→// wrapper renders, then swaps out atomically once the chunk resolves — no
+    44→// blank frame in between. The PageTransition's motion.div still animates the
+    45→// surrounding fade, so the loader itself enters with the same fade-in.
+    46→//
+    47→// FEAT-SPROUT-NAV: SproutGrow digunakan untuk tab loading juga (bukan hanya
+    48→// splash screen) supaya consistent branding — user lihat pohon grow setiap
+    49→// kali pindah tab, bukan AuroraRing generic.
+    50→const tabLoading = () => (
+    51→  <div className="flex flex-col items-center justify-center gap-3 py-8">
+    52→    <SproutGrow size={80} />
+    53→    <p className="text-xs text-muted-foreground">Memuat...</p>
+    54→  </div>
+    55→);
+    56→
+    57→const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false, loading: tabLoading });
+    58→const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
+    59→const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
+    60→
+    61→const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
+    62→const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
+    63→
+    64→const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+    65→  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    66→  { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
+    67→  { id: 'goals', label: 'Tujuan', icon: Target },
+    68→
+    69→  { id: 'finance', label: 'Keuangan', icon: Wallet },
+    70→  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+    71→];
+    72→
+    73→// FLUTTER PATTERN: Bottom nav = 2 left + FAB center + 2 right.
+    74→// NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in FlutterBottomNav below.
+    75→// Goals accessible via sidebar drawer (hamburger menu).
+    76→
+    77→const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
+    78→  dashboard: Dashboard,
+    79→  tracker: DailyTracker,
+    80→  goals: Goals,
+    81→
+    82→  finance: Finance,
+    83→  settings: SettingsTab,
+    84→};
+    85→
+    86→// BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
+    87→const VALID_TAB_IDS = new Set<string>([
+    88→  'dashboard', 'tracker', 'goals',
+    89→  'finance', 'settings',
+    90→]);
+    91→
+    92→export default function Home() {
+    93→  const activeTab = useAppStore(s => s.activeTab);
+    94→  const setActiveTab = useAppStore(s => s.setActiveTab);
+    95→  const sidebarOpen = useAppStore(s => s.sidebarOpen);
+    96→  const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
+    97→  const triggerRefresh = useAppStore(s => s.triggerRefresh);
+    98→  const triggerQuickAdd = useAppStore(s => s.triggerQuickAdd);
+    99→  const queryClient = useQueryClient();
+   100→
+   101→  // Splash screen on initial app load — shows SproutGrow loader for 2.6s
+   102→  // while dynamic imports + React Query fetch data. Makes first load feel
+   103→  // premium + branded (sprout theme) instead of blank white flash.
+   104→  // FEAT-SPLASH-REVEAL: Exit animation (fade + scale + slide up) instead of
+   105→  // hard cut. Uses splashExiting state to delay unmount until animation completes.
+   106→  const [showSplash, setShowSplash] = useState(true);
+   107→  const [splashExiting, setSplashExiting] = useState(false);
+   108→  useEffect(() => {
+   109→    // BUGFIX POST-2 #2: Hoist unmountTimer ke outer scope supaya outer
+   110→    // cleanup bisa clear both timers. Sebelumnya inner return adalah dead
+   111→    // code (setTimeout ignores callback return values) → timer leak +
+   112→    // setState-after-unmount risk.
+   113→    let unmountTimer: ReturnType<typeof setTimeout>;
+   114→    const exitTimer = setTimeout(() => {
+   115→      setSplashExiting(true);
+   116→      // Unmount after exit animation completes (600ms)
+   117→      unmountTimer = setTimeout(() => setShowSplash(false), 600);
+   118→    }, 2600);
+   119→    return () => {
+   120→      clearTimeout(exitTimer);
+   121→      if (unmountTimer) clearTimeout(unmountTimer);
+   122→    };
+   123→  }, []);
+   124→
+   125→  // ANIM-3 / Feature 5: Pull-to-refresh handler. Called by PullToRefresh
+   126→  // when the user pulls past the threshold on a touch device. Invalidates
+   127→  // all React Query caches (active queries refetch immediately) AND bumps
+   128→  // `refreshKey` for components that use the non-React-Query refresh
+   129→  // pattern (e.g. daily-tracker's month-cache useEffect). Wrapped in
+   130→  // Promise.resolve so the caller can always `await` even if the inner
+   131→  // work is sync.
+   132→  const handleRefresh = useCallback(async () => {
+   133→    await Promise.all([
+   134→      queryClient.invalidateQueries(),
+   135→      Promise.resolve(triggerRefresh()),
+   136→    ]);
+   137→  }, [queryClient, triggerRefresh]);
+   138→
+   139→  // BUGHUNT-OTHER-1 BUG-L9: header date string should use Jakarta wall-clock
+   140→  // date, not the browser-local date, so it stays consistent for users in
+   141→  // non-WIB timezones. We compute the initial value lazily on the client.
+   142→  const [dateString, setDateString] = useState(() =>
+   143→    typeof window !== 'undefined'
+   144→      ? new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+   145→      : ''
+   146→  );
+   147→
+   148→  // Refresh date string every minute so it stays accurate past midnight
+   149→  // (Jakarta midnight, not browser-local midnight).
+   150→  useEffect(() => {
+   151→    const update = () => {
+   152→      setDateString(
+   153→        new Date(`${jakartaDateString()}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+   154→      );
+   155→    };
+   156→    update();
+   157→    const id = setInterval(update, 60_000);
+   158→    return () => clearInterval(id);
+   159→  }, []);
+   160→
+   161→  // BUGHUNT-OTHER-1 BUG-M14: deep-link `?tab=` from URL on first mount.
+   162→  // This makes tabs shareable and survives reload. The replaceState below
+   163→  // also updates the URL whenever the user changes tabs (without breaking
+   164→  // the back button — we use replace, not push).
+   165→  // Intentionally run once on mount — we don't want to override the
+   166→  // store when the URL changes via setActiveTab's replaceState.
+   167→  useEffect(() => {
+   168→    if (typeof window === 'undefined') return;
+   169→    const params = new URLSearchParams(window.location.search);
+   170→    const tab = params.get('tab');
+   171→    if (tab && VALID_TAB_IDS.has(tab) && tab !== activeTab) {
+   172→      setActiveTab(tab as TabId);
+   173→    }
+   174→  }, []);
+   175→
+   176→  // Sync activeTab → URL (replaceState so back button still works).
+   177→  useEffect(() => {
+   178→    if (typeof window === 'undefined') return;
+   179→    const url = new URL(window.location.href);
+   180→    if (activeTab === 'dashboard') {
+   181→      url.searchParams.delete('tab'); // keep URLs clean for the default tab
+   182→    } else {
+   183→      url.searchParams.set('tab', activeTab);
+   184→    }
+   185→    window.history.replaceState(null, '', url.toString());
+   186→  }, [activeTab]);
+   187→
+   188→  // Auto-open sidebar on desktop (≥768px) on first mount.
+   189→  // Default is closed to avoid jarring overlay on mobile first load.
+   190→  // BUGHUNT-OTHER-1 BUG-L16: also react to window resize — previously the
+   191→  // sidebar only opened if the user happened to be on desktop at first
+   192→  // mount, and never re-opened when resizing from mobile to desktop.
+   193→  // BUGHUNT-ROUND2 SIDEBAR-1: the resize listener only ever OPENED the
+   194→  // sidebar (>=768px) — shrinking the window back to mobile left the
+   195→  // sidebar drawer open, covering ~2/3 of a phone screen with the dark
+   196→  // overlay. Now resize sets the state to match the viewport: open on
+   197→  // desktop, closed on mobile. A deliberately-opened mobile drawer is
+   198→  // unaffected until the user actually resizes/rotates the device.
+   199→  useEffect(() => {
+   200→    if (typeof window === 'undefined') return;
+   201→    const apply = () => {
+   202→      setSidebarOpen(window.innerWidth >= 768);
+   203→    };
+   204→    apply();
+   205→    window.addEventListener('resize', apply);
+   206→    return () => window.removeEventListener('resize', apply);
+   207→  }, [setSidebarOpen]);
+   208→
+   209→  const handleNavClick = useCallback((id: TabId) => {
+   210→    setActiveTab(id);
+   211→    // Auto-close sidebar on mobile after clicking a nav item
+   212→    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+   213→      setSidebarOpen(false);
+   214→    }
+   215→  }, [setActiveTab, setSidebarOpen]);
+   216→
+   217→  const toggleSidebar = useCallback(() => {
+   218→    setSidebarOpen(!sidebarOpen);
+   219→  }, [sidebarOpen, setSidebarOpen]);
+   220→
+   221→  const ActiveComponent = TAB_COMPONENTS[activeTab];
+   222→
+   223→  return (
+   224→    <TooltipProvider delayDuration={300}>
+   225→      {/* Splash screen — SproutGrow loader on initial app load (2.6s).
+   226→          Premium branded loading experience instead of blank white flash.
+   227→          FEAT-SPLASH-REVEAL: Splash has exit animation (fade + scale + slide up)
+   228→          instead of hard cut. Content underneath has entrance animation
+   229→          (fade + slide up) for smooth transition. Inspired by motion-splash repo. */}
+   230→      {showSplash && (
+   231→        <div
+   232→          className={cn(
+   233→            'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-6',
+   234→            splashExiting ? 'anim-splash-exit' : 'anim-splash-enter'
+   235→          )}
+   236→          key="splash"
+   237→        >
+   238→          <SproutGrow size={140} />
+   239→          <div className="text-center">
+   240→            <p className="text-lg font-semibold text-primary tracking-tight">Rutina</p>
+   241→            <p className="text-xs text-muted-foreground mt-1">Menumbuhkan habit harian</p>
+   242→          </div>
+   243→        </div>
+   244→      )}
+   245→      {/* BUGFIX SCROLL-2: h-dvh + overflow-hidden bounds the layout to the
+   246→          viewport so the inner PullToRefresh (content area) becomes a REAL
+   247→          scroll container. Previously min-h-dvh (no max height) let the
+   248→          wrapper grow to fit content, making overflow-y-auto inert and
+   249→          forcing the document (html) to scroll — which on mobile Chrome/
+   250→          iOS Safari intermittently fails to respond to touch after DnD
+   251→          sensors or CSS animations intercept touch events. With the layout
+   252→          bounded, PullToRefresh owns the scroll, document doesn't scroll. */}
+   253→      <div className={cn('h-dvh flex bg-background overflow-hidden', splashExiting && 'anim-content-reveal')}>
+   254→        {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
+   255→            gradient that drifts opposite to scroll direction. Fixed-positioned,
+   256→            behind all content (-z-10), pointer-events-none. Renders as a static
+   257→            layer when prefers-reduced-motion is set. */}
+   258→        <ParallaxBackground className="bg-gradient-to-b from-primary/5 via-background to-background" />
+   259→
+   260→        {/* Mobile dark overlay */}
+   261→        {sidebarOpen && (
+   262→          <div
+   263→            className="fixed inset-0 bg-black/40 z-40 md:hidden"
+   264→            onClick={() => setSidebarOpen(false)}
+   265→          />
+   266→        )}
+   267→
+   268→        {/* Sidebar - fixed position, slides in/out */}
+   269→        <aside
+   270→          className={cn(
+   271→            'fixed top-0 left-0 z-50 h-dvh w-64 bg-card border-r border-border flex flex-col',
+   272→            'transition-transform duration-300 ease-in-out',
+   273→            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+   274→          )}
+   275→        >
+   276→          {/* Logo */}
+   277→          <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
+   278→            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
+   279→              <Sprout className="h-5 w-5" />
+   280→            </div>
+   281→            <span className="font-bold text-sm leading-tight tracking-tight">Rutina</span>
+   282→          </div>
+   283→
+   284→          {/* Navigation */}
+   285→          <ScrollArea className="flex-1 py-2 custom-scrollbar">
+   286→            <nav className="px-2 space-y-0.5">
+   287→              {NAV_ITEMS.map((item) => {
+   288→                const Icon = item.icon;
+   289→                const isActive = activeTab === item.id;
+   290→                return (
+   291→                  <button
+   292→                    key={item.id}
+   293→                    onClick={() => handleNavClick(item.id)}
+   294→                    className={cn(
+   295→                      'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+   296→                      isActive
+   297→                        ? 'bg-primary text-primary-foreground shadow-sm'
+   298→                        : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+   299→                    )}
+   300→                  >
+   301→                    <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary-foreground')} />
+   302→                    <span>{item.label}</span>
+   303→                  </button>
+   304→                );
+   305→              })}
+   306→            </nav>
+   307→          </ScrollArea>
+   308→
+   309→          <Separator />
+   310→
+   311→          {/* Footer */}
+   312→          <div className="px-4 py-3 shrink-0">
+   313→            <p className="text-[10px] text-muted-foreground/60">by Ananda Tegar</p>
+   314→          </div>
+   315→        </aside>
+   316→
+   317→        {/* Main content - shifts right on desktop when sidebar is open.
+   318→            min-h-0 (BUGFIX SCROLL-1) lets flex-1 children shrink below content
+   319→            height so a future bounded-height layout produces a real scroll
+   320→            container instead of growing to fit content. */}
+   321→        <main
+   322→          className={cn(
+   323→            'flex-1 min-w-0 min-h-0 flex flex-col transition-[margin] duration-300 ease-in-out',
+   324→            sidebarOpen ? 'md:ml-64' : 'md:ml-0'
+   325→          )}
+   326→        >
+   327→          {/* Top bar */}
+   328→          <header className="sticky top-0 z-30 h-14 bg-background/80 backdrop-blur-md border-b border-border flex items-center px-4 md:px-6 gap-3">
+   329→            <Tooltip>
+   330→              <TooltipTrigger asChild>
+   331→                <Button
+   332→                  variant="ghost"
+   333→                  size="icon"
+   334→                  onClick={toggleSidebar}
+   335→                  aria-label={sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
+   336→                >
+   337→                  {sidebarOpen
+   338→                    ? <PanelLeftClose className="h-5 w-5" />
+   339→                    : <PanelLeftOpen className="h-5 w-5" />
+   340→                  }
+   341→                </Button>
+   342→              </TooltipTrigger>
+   343→              <TooltipContent side="right">
+   344→                {sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
+   345→              </TooltipContent>
+   346→            </Tooltip>
+   347→            <h1 className="text-lg font-semibold">
+   348→              {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}
+   349→            </h1>
+   350→            <div className="ml-auto text-xs text-muted-foreground hidden xs:block sm:block" suppressHydrationWarning>
+   351→              {dateString}
+   352→            </div>
+   353→          </header>
+   354→
+   355→          {/* Content area — extra bottom padding on mobile so content
+   356→              doesn't get hidden behind the fixed bottom navigation bar.
+   357→              Uses pb-28 (112px) to accommodate the morph-bump nav which
+   358→              is taller than the previous flat nav (active tab bumps up).
+   359→
+   360→              overflow-y-auto + overscroll-y-contain for smooth touch scroll
+   361→              on mobile (prevents scroll chaining to body / stuck scroll
+   362→              after DnD sensors or CSS animations intercept touch events).
+   363→              WebkitOverflowScrolling: 'touch' enables iOS momentum scrolling.
+   364→
+   365→              ANIM-3 / Feature 5: PullToRefresh wraps the content area.
+   366→              On touch devices, the user can pull down at the top of the
+   367→              scroll area to trigger a full data refresh (a 🌱 sprout
+   368→              grows as they pull, then spins while refreshing). On
+   369→              desktop (no touch), it's a pass-through wrapper — no
+   370→              behaviour change. */}
+   371→          <PullToRefresh
+   372→            className="flex-1 min-h-0 p-4 md:p-6 overscroll-y-contain pb-[calc(86px+env(safe-area-inset-bottom))] md:pb-6"
+   373→            onRefresh={handleRefresh}
+   374→          >
+   375→            {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
+   376→                content with a smooth enter/exit (fade + slide x).
+   377→                Replaces the previous `anim-tab-enter` CSS-only transition
+   378→                with framer-motion's AnimatePresence for crossfade-aware
+   379→                enter/exit (no overlap). `tabId={activeTab}` triggers a
+   380→                re-mount on tab change. */}
+   381→            <PageTransition tabId={activeTab}>
+   382→              <ActiveComponent />
+   383→            </PageTransition>
+   384→          </PullToRefresh>
+   385→        </main>
+   386→
+   387→        {/* ── Mobile bottom navigation (Flutter BottomAppBar + FAB style) ────
+   388→            Design: 2 tabs left + FAB center (fixed notch) + 2 tabs right.
+   389→            FAB = quick-add button (popup: Pengeluaran/Pemasukan/Habit).
+   390→            Notch FIXED di center. Active tab = teal + filled icon + pill bg. */}
+   391→        <FlutterBottomNav
+   392→          activeTab={activeTab}
+   393→          onNavClick={handleNavClick}
+   394→        />
+   395→      </div>
+   396→    </TooltipProvider>
+   397→  );
+   398→}
+   399→
+   400→
+   401→// ── FlutterBottomNav ───────────────────────────────────────────────────
+   402→// Flutter BottomAppBar + FAB style: 2 tabs left + FAB center (fixed notch)
+   403→// + 2 tabs right. FAB = quick-add popup. Notch FIXED di center.
+   404→// Active tab = teal color + filled icon + pill background.
+   405→// Mobile-only (md:hidden).
+   406→
+   407→const FLUTTER_NAV_HEIGHT = 76;
+   408→const FLUTTER_CORNER_R = 22;
+   409→const FLUTTER_NOTCH_R = 34; // notch top radius (FAB is 50px = 25r, gap = 9px)
+   410→const FLUTTER_NOTCH_BASE_W = 30; // flare width at base
+   411→
+   412→const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+   413→  { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+   414→  { id: 'tracker', label: 'Track', icon: CheckSquare },
+   415→];
+   416→
+   417→const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+   418→  { id: 'finance', label: 'Keuangan', icon: Wallet },
+   419→  { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+   420→];
+   421→
+   422→function FlutterBottomNav({
+   423→  activeTab,
+   424→  onNavClick,
+   425→}: {
+   426→  activeTab: TabId;
+   427→  onNavClick: (id: TabId) => void;
+   428→}) {
+   429→  const navRef = useRef<HTMLDivElement>(null);
+   430→  const [navWidth, setNavWidth] = useState(388);
+   431→  const [fabOpen, setFabOpen] = useState(false);
+   432→  // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
+   433→  // deep nav component can fire it without prop-drilling from Home().
+   434→  const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
+   435→
+   436→  useLayoutEffect(() => {
+   437→    if (!navRef.current) return;
+   438→    const update = () => setNavWidth(navRef.current?.offsetWidth ?? 388);
+   439→    update();
+   440→    const observer = new ResizeObserver(update);
+   441→    observer.observe(navRef.current);
+   442→    return () => observer.disconnect();
+   443→  }, []);
+   444→
+   445→  // Close FAB popup on outside tap
+   446→  useEffect(() => {
+   447→    if (!fabOpen) return;
+   448→    const handler = () => setFabOpen(false);
+   449→    const timer = setTimeout(() => document.addEventListener('click', handler), 0);
+   450→    return () => {
+   451→      clearTimeout(timer);
+   452→      document.removeEventListener('click', handler);
+   453→    };
+   454→  }, [fabOpen]);
+   455→
+   456→  // Fixed center notch — always at navWidth/2
+   457→  const W = navWidth;
+   458→  const H = FLUTTER_NAV_HEIGHT;
+   459→  const cR = FLUTTER_CORNER_R;
+   460→  const nR = FLUTTER_NOTCH_R;
+   461→  const nB = FLUTTER_NOTCH_BASE_W;
+   462→  const nX = W / 2; // FIXED center
+   463→  const bumpHeight = nR;
+   464→
+   465→  // BUGFIX FLUTTER-2 #2,#5,#6: Rewrite Bezier control points untuk smooth
+   466→  // dome tanpa 90° corners + tanpa dip into nav body.
+   467→  // C1 of left curve = (nX-nR+8, -bumpHeight*0.4) — co-linear dengan incoming
+   468→  //   L direction (rightward + slightly up) → no 90° corner, no dip.
+   469→  // C2 of left curve = (nX-12, -bumpHeight) — horizontal through peak → C1 continuity.
+   470→  // Right curve = mirror.
+   471→  const path = [
+   472→    `M ${cR} 0`,
+   473→    `L ${nX - nR} 0`,
+   474→    `C ${nX - nR + 8} ${-bumpHeight * 0.4} ${nX - 12} ${-bumpHeight} ${nX} ${-bumpHeight}`,
+   475→    `C ${nX + 12} ${-bumpHeight} ${nX + nR - 8} ${-bumpHeight * 0.4} ${nX + nR} 0`,
+   476→    `L ${W - cR} 0`,
+   477→    `A ${cR} ${cR} 0 0 1 ${W} ${cR}`,
+   478→    `L ${W} ${H}`,
+   479→    `L 0 ${H}`,
+   480→    `L 0 ${cR}`,
+   481→    `A ${cR} ${cR} 0 0 1 ${cR} 0`,
+   482→    'Z',
+   483→  ].join(' ');
+   484→
+   485→  const clipPathValue = `path('${path}')`;
+   486→
+   487→  const renderTab = (item: { id: TabId; label: string; icon: React.ElementType }) => {
+   488→    const Icon = item.icon;
+   489→    const isActive = activeTab === item.id;
+   490→    return (
+   491→      <button
+   492→        key={item.id}
+   493→        onClick={() => onNavClick(item.id)}
+   494→        aria-label={item.label}
+   495→        aria-current={isActive ? 'page' : undefined}
+   496→        className={cn(
+   497→          'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
+   498→          'transition-colors duration-200',
+   499→          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/50 focus-visible:rounded-2xl',
+   500→          'motion-reduce:transition-none'
+   501→        )}
+   502→      >
+   503→        {/* Active pill background */}
+   504→        <span
+   505→          aria-hidden="true"
+   506→          className={cn(
+   507→            'absolute inset-x-2 top-1 bottom-1 rounded-xl transition-opacity duration-200',
+   508→            isActive ? 'bg-teal-500/10 opacity-100' : 'opacity-0'
+   509→          )}
+   510→        />
+   511→        <Icon
+   512→          className={cn(
+   513→            'h-[22px] w-[22px] shrink-0 relative z-10 transition-all duration-200 motion-reduce:transition-none',
+   514→            isActive ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'
+   515→          )}
+   516→          strokeWidth={isActive ? 2.5 : 1.5}
+   517→        />
+   518→        <span
+   519→          className={cn(
+   520→            'text-[11px] leading-none relative z-10 transition-colors duration-200 motion-reduce:transition-none',
+   521→            isActive
+   522→              ? 'font-semibold text-teal-600 dark:text-teal-400'
+   523→              : 'font-medium text-slate-500 dark:text-slate-400'
+   524→          )}
+   525→        >
+   526→          {item.label}
+   527→        </span>
+   528→      </button>
+   529→    );
+   530→  };
+   531→
+   532→  return (
+   533→    <nav
+   534→      ref={navRef}
+   535→      aria-label="Primary mobile navigation"
+   536→      className={cn(
+   537→        'fixed bottom-0 left-0 right-0 z-30 md:hidden',
+   538→        'bottom-[env(safe-area-inset-bottom)]',
+   539→        'w-full',
+   540→        'h-[76px]',
+   541→        'shadow-[0_-2px_8px_rgba(0,0,0,0.04),0_-1px_0_rgba(0,0,0,0.06)]'
+   542→      )}
+   543→    >
+   544→      {/* Solid background — clipped to notched shape.
+   545→          BUGFIX FLUTTER-2 #3: Extend div ke top:-bumpHeight supaya bump area
+   546→          (y=-34..0) juga terisi. Sebelumnya inset-0 (76px) tidak cover bump. */}
+   547→      <div
+   548→        aria-hidden="true"
+   549→        className="absolute"
+   550→        style={{
+   551→          top: `${-bumpHeight}px`,
+   552→          left: 0,
+   553→          right: 0,
+   554→          bottom: 0,
+   555→          clipPath: clipPathValue,
+   556→          WebkitClipPath: clipPathValue,
+   557→          background: 'rgb(255, 255, 255)',
+   558→        }}
+   559→      />
+   560→      <div
+   561→        aria-hidden="true"
+   562→        className="absolute hidden dark:block"
+   563→        style={{
+   564→          top: `${-bumpHeight}px`,
+   565→          left: 0,
+   566→          right: 0,
+   567→          bottom: 0,
+   568→          clipPath: clipPathValue,
+   569→          WebkitClipPath: clipPathValue,
+   570→          background: 'rgb(15, 23, 42)',
+   571→        }}
+   572→      />
+   573→      {/* Border */}
+   574→      <svg
+   575→        width={W}
+   576→        height={H}
+   577→        // BUGFIX FLUTTER-2 #1: Drop viewBox expansion (caused 66.7% scale + 24px
+   578→        // offset). Keep viewBox=0 0 W H + overflow-visible supaya bump border
+   579→        // render di atas y=0 tanpa scaling.
+   580→        viewBox={`0 0 ${W} ${H}`}
+   581→        className="absolute inset-0 pointer-events-none overflow-visible"
+   582→        fill="none"
+   583→      >
+   584→        <path d={path} stroke="rgb(226, 232, 240)" strokeWidth="1" />
+   585→      </svg>
+   586→
+   587→      {/* Left tabs */}
+   588→      <div className="absolute left-0 top-0 h-full flex items-stretch" style={{ width: '37.5%' }}>
+   589→        {NAV_LEFT_ITEMS.map(renderTab)}
+   590→      </div>
+   591→
+   592→      {/* Right tabs */}
+   593→      <div className="absolute right-0 top-0 h-full flex items-stretch" style={{ width: '37.5%' }}>
+   594→        {NAV_RIGHT_ITEMS.map(renderTab)}
+   595→      </div>
+   596→
+   597→      {/* FAB popup menu */}
+   598→      {fabOpen && (
+   599→        <div
+   600→          className="absolute left-1/2 -translate-x-1/2 z-40"
+   601→          style={{ bottom: '96px' }}
+   602→          onClick={(e) => e.stopPropagation()}
+   603→        >
+   604→          <div className="flex flex-col gap-1 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 min-w-[160px] anim-tab-enter">
+   605→            <button
+   606→              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+   607→              // BUGHUNT-ROUND2 FAB-1: was just onNavClick('finance') — the
+   608→              // dialog never opened. Now the quick-add action makes the
+   609→              // Finance tab open the expense dialog after mounting.
+   610→              onClick={() => { triggerQuickAdd('expense'); onNavClick('finance'); setFabOpen(false); }}
+   611→            >
+   612→              <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center shrink-0">
+   613→                <ArrowDownRight className="h-4 w-4 text-red-500" />
+   614→              </div>
+   615→              <div>
+   616→                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Pengeluaran</p>
+   617→                <p className="text-[10px] text-slate-500">Catat pengeluaran</p>
+   618→              </div>
+   619→            </button>
+   620→            <button
+   621→              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+   622→              onClick={() => { triggerQuickAdd('income'); onNavClick('finance'); setFabOpen(false); }}
+   623→            >
+   624→              <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
+   625→                <ArrowUpRight className="h-4 w-4 text-teal-500" />
+   626→              </div>
+   627→              <div>
+   628→                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Pemasukan</p>
+   629→                <p className="text-[10px] text-slate-500">Catat pemasukan</p>
+   630→              </div>
+   631→            </button>
+   632→            <button
+   633→              className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+   634→              // "Habit Baru" previously went to the tracker tab — but the
+   635→              // tracker has no add-habit entry; the form lives in Settings →
+   636→              // Habit Master. Navigate there and let HabitMaster open its
+   637→              // dialog via the same quick-add trigger.
+   638→              onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
+   639→            >
+   640→              <div className="w-8 h-8 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
+   641→                <CheckSquare className="h-4 w-4 text-teal-500" />
+   642→              </div>
+   643→              <div>
+   644→                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Habit Baru</p>
+   645→                <p className="text-[10px] text-slate-500">Tambah habit</p>
+   646→              </div>
+   647→            </button>
+   648→          </div>
+   649→        </div>
+   650→      )}
+   651→
+   652→      {/* FAB — fixed center, protrudes above nav */}
+   653→      <div
+   654→        className="absolute left-1/2 z-20"
+   655→        style={{
+   656→          top: 0,
+   657→          transform: 'translateX(-50%) translateY(-40%)',
+   658→        }}
+   659→      >
+   660→        <button
+   661→          onClick={(e) => {
+   662→            e.stopPropagation();
+   663→            setFabOpen(!fabOpen);
+   664→          }}
+   665→          aria-label="Tambah cepat"
+   666→          className={cn(
+   667→            'w-[50px] h-[50px] rounded-full',
+   668→            'bg-gradient-to-br from-teal-400 to-teal-600',
+   669→            'shadow-[0_4px_16px_rgba(20,184,166,0.25)]',
+   670→            'ring-1 ring-inset ring-white/20',
+   671→            'flex items-center justify-center',
+   672→            'transition-transform duration-200',
+   673→            'active:scale-90',
+   674→            'motion-reduce:transition-none',
+   675→            fabOpen && 'rotate-45'
+   676→          )}
+   677→        >
+   678→          {/* BUGFIX FLUTTER-1 #1: Hapus icon swap — keep Plus only + rotate 45°.
+   679→              Sebelumnya: swap Plus→X AND rotate 45° = X rotated 45° looks like +
+   680→              = no visual change. Now: Plus rotated 45° = looks like X. Clean. */}
+   681→          <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
+   682→        </button>
+   683→      </div>
+   684→    </nav>
+   685→  );
+   686→}
+   687→

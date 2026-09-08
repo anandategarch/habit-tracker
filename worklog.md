@@ -22,3 +22,22 @@ Stage Summary:
 - LOW: fetch race daily tracker (cancelled guard), toast error PUT menelan pesan API.
 - Bug diketahui TIDAK difix (dilaporkan ke user): tipe habit "amount" diiklankan di form tapi belum ada progress tracking (keputusan produk), all-time search dibatasi take:500, rule engine bisa inject kategori tak-ada, bulk-delete N+1.
 - Artifact: dev server habit-tracker jalan di port 3001 (DATABASE_URL absolut ke /home/z/habit-tracker/db/dev.db); test data (habit "Minum air", transaksi seed) ada di db lokal — bukan bagian dari repo.
+
+---
+Task ID: 2
+Agent: main-agent (Z.ai Code)
+Task: Redesain bottom navigation habit-tracker jadi lebih bagus & premium (request user: "Coba redesain botton navigation jadi lebih bagus dan premium").
+
+Work Log:
+- Ganti FlutterBottomNav → PremiumBottomNav di src/app/page.tsx: floating frosted-glass dock (mx-3, rounded-[26px], h-62, backdrop-blur-2xl+saturate, layered teal-tinted shadows, hairline top), liquid indicator gradient (translateX spring cubic-bezier(0.34,1.4,0.5,1), lewat di belakang FAB), FAB gradient 56px socket-ring + glow + rotate-45, popup glass stagger (fab-item-pop) + tail + backdrop dim + Escape.
+- globals.css: +premium-dock-shadow/pop/fab-shadow, .nav-liquid-indicator, .premium-dock-label (10→9.5→9px media query agar "Pengaturan" muat), keyframes nav-icon-pop/fab-item-pop/nav-dock-enter/fab-backdrop-in, reduced-motion guard.
+- Konten pb 86→88px; sw.js cache bump v12→v13 (penting: SW stale-while-revalidate menahan JS chunk lama — tanpa bump, user lama tak akan melihat nav baru).
+- Infra issue yang dipecahkan: (1) Turbopack CSS stale → rm -rf .next + restart; watcher mati setelahnya → perlu restart lagi setelah tiap edit CSS late-session. (2) OOM 4GB: 2 dev server Next.js tak muat → my-project dev (3000) dihentikan, habit-tracker kini jalan DI PORT 3000 (default gateway:81) sehingga Preview Panel user langsung menampilkan habit-tracker. (3) Proses background dari tool-call dibunuh di call boundary → solusi double-fork Python daemon (fork→setsid→fork→exec) — server kini persist.
+- Verifikasi agent-browser 390x844 + VLM: dock glass light+dark ✓, indicator slide antar tab + fade saat goals ✓, label muat di 360px ✓, FAB popup (backdrop click, Escape, quick-add Pengeluaran→tab Keuangan+dialog "Tambah Transaksi" terbuka) ✓, clearance konten 16px saat scroll penuh ✓, md:hidden di desktop ✓, zero console error setelah reload fresh ✓. VLM rating premium feel 8.5/10.
+- tsc + eslint bersih → commit eaf06d3 (email anandategarch@gmail.com) → push origin/main sukses (dba8b48..eaf06d3).
+
+Stage Summary:
+- 3 file diubah (+358/−212): page.tsx (PremiumBottomNav), globals.css (treatments & keyframes), sw.js (v13).
+- Desain final: "Premium Floating Glass Dock" — dock kaca melayang + pill gradient cair + FAB glow + popup glass stagger; semua fungsi lama (quick-add trigger, URL ?tab= sync, a11y) terjaga.
+- Dev server habit-tracker sekarang di port 3000 via double-fork daemon (persist antar tool-call); gateway :81 default route langsung ke sana → preview panel = habit-tracker.
+- Catatan: theme user sempat di-set 'dark' untuk testing, sudah dikembalikan ke 'system' via API.
