@@ -123,6 +123,7 @@ bun run db:generate      # regenerate Prisma client (after schema changes)
 bun run db:push          # push schema changes to the local SQLite file
 bun run db:reset         # reset local DB (DESTRUCTIVE)
 bun run turso:push       # sync schema.prisma → Turso (idempotent, delta-based)
+bun run turso:migrate-data  # mirror db/custom.db → Turso (idempotent, DELETE+INSERT)
 bun scripts/seed.ts      # seed demo data (respects DATABASE_URL env)
 ```
 
@@ -147,11 +148,16 @@ model from `schema.prisma` produces a `DROP TABLE` on the remote, so back up fir
    turso db show rutina --url      # → libsql://…  (DATABASE_URL)
    turso db tokens create rutina   # → DATABASE_AUTH_TOKEN
    ```
-3. Create the schema + demo data from your machine:
+3. Sync the schema, then copy your local data to Turso:
    ```bash
    TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="eyJ…" bun run turso:push
-   DATABASE_URL="libsql://…" DATABASE_AUTH_TOKEN="eyJ…" bun scripts/seed.ts   # opsional
+   TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="eyJ…" bun run turso:migrate-data
    ```
+   `turso:migrate-data` mirrors **all** rows from the local SQLite (`db/custom.db`)
+   into Turso — habits, logs, transactions, goals, settings — preserving ids and
+   dates, and re-verifying row counts per table. Idempotent: re-running replaces
+   the remote rows as an exact mirror. Use `scripts/seed.ts` only for demo data
+   on a fresh empty database.
 
 ### 2. App (Vercel)
 
@@ -163,6 +169,15 @@ model from `schema.prisma` produces a `DROP TABLE` on the remote, so back up fir
 4. Deploy — `prisma generate && next build` (from `vercel.json`) runs automatically.
 
 Protect the deployment as described in **Security** above.
+
+### 3. Troubleshooting deploy
+
+| Gejala | Penyebab & solusi |
+|---|---|
+| Deploy sukses tapi data kosong / API error 500 | App tidak bisa konek ke Turso. Pastikan **kedua** env var ter-set di Vercel: `DATABASE_URL` (libsql://…) **dan** `DATABASE_AUTH_TOKEN`. Cek log function di Vercel. |
+| Turso 401 `invalid JWT token: can't be decoded with any of the existing keys` | Token tidak cocok untuk database itu — dibuat untuk DB lain, salah copy, atau kunci sudah dirotasi. Buat ulang: `turso db tokens create <nama-db>` → perbarui `DATABASE_AUTH_TOKEN` (Vercel). Uji cepat: `curl $URL/v2/pipeline -H "Authorization: Bearer $TOKEN" -d '{"requests":[{"type":"execute","stmt":{"sql":"SELECT 1"}}]}'`. |
+| Data lama (dari sandbox/lokal) tidak muncul | Data hanya ada di SQLite lokal — jalankan `turso:migrate-data` (langkah 1 no. 3 di atas). |
+| Build error `ENOENT .next/next-server.js.nft.json` | Sudah diperbaiki (standalone off saat `VERCEL=1`). Kalau muncul lagi: pastikan `next.config.ts` terbaru ter-deploy, lalu *Redeploy → clear build cache*. |
 
 ---
 
@@ -177,6 +192,7 @@ Protect the deployment as described in **Security** above.
 | `bun run db:push` | Push schema to local DB (no migration files) |
 | `bun run db:generate` | Regenerate Prisma client                 |
 | `bun run turso:push` | Sync schema to Turso (idempotent)         |
+| `bun run turso:migrate-data` | Mirror local SQLite data → Turso     |
 
 ---
 
@@ -189,6 +205,7 @@ prisma/
 scripts/
   seed.ts               # Demo data (habits, logs, transactions, goals)
   turso-push.ts         # Idempotent schema sync → Turso
+  turso-migrate-data.ts # Mirror local SQLite rows → Turso (idempotent)
 
 src/
   app/
