@@ -33,7 +33,6 @@ import {
  ArrowUpRight,
  AlertTriangle,
  Sparkles,
- Quote,
  RefreshCw,
  Calendar,
 } from 'lucide-react';
@@ -358,10 +357,7 @@ export default function Dashboard() {
 
      {/* ── Motivational Quote Card (glass tinted) ──────────────── */}
      <div className="premium-quote">
-       <div className="pointer-events-none absolute right-4 top-4 opacity-10" aria-hidden="true">
-         <Quote className="h-14 w-14 text-primary" />
-       </div>
-       <div className="relative z-10 p-5">
+       <div className="relative z-10 p-5 pl-6">
          {quoteLoading ? (
            <div className="flex items-center gap-3 flex-wrap gap-y-2">
              <Skeleton className="h-8 w-8 rounded-xl" />
@@ -398,16 +394,16 @@ export default function Dashboard() {
      <section aria-label="Key metrics">
        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
          {[
-           { label: 'Total Habit', icon: Target, chip: 'chip-teal', value: <CountUpNumber value={displayData.totalHabits} />, sub: 'habit aktif', key: 'habits', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat semua habit' },
-           { label: 'Tingkat Selesai', icon: CheckCircle, chip: 'chip-emerald', value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
-           { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
-           { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
-           { label: 'Hari Ini', icon: Zap, chip: 'chip-lime', value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker hari ini' },
-           { label: '7 Hari', icon: CalendarDays, chip: 'chip-sky', value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, key: 'weekly' },
-           { label: '30 Hari', icon: TrendingUp, chip: 'chip-teal', value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, key: 'monthly' },
-           { label: 'Total XP', icon: Star, chip: 'chip-amber', value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
-           { label: 'Level', icon: Award, chip: 'chip-violet', value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${Math.round(displayData.levelProgress)}%`, key: 'level' },
-           { label: 'Skor', icon: Brain, chip: 'chip-emerald', value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
+           { label: 'Total Habit', icon: Target, chip: 'chip-teal', numeric: true, value: <CountUpNumber value={displayData.totalHabits} />, sub: 'habit aktif', key: 'habits', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat semua habit' },
+           { label: 'Tingkat Selesai', icon: CheckCircle, chip: 'chip-emerald', numeric: true, value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
+           { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', numeric: true, value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
+           { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
+           { label: 'Hari Ini', icon: Zap, chip: 'chip-lime', numeric: true, value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker hari ini' },
+           { label: '7 Hari', icon: CalendarDays, chip: 'chip-sky', numeric: true, value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, key: 'weekly' },
+           { label: '30 Hari', icon: TrendingUp, chip: 'chip-teal', numeric: true, value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, key: 'monthly' },
+           { label: 'Total XP', icon: Star, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
+           { label: 'Level', icon: Award, chip: 'chip-violet', numeric: true, value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${Math.round(displayData.levelProgress)}%`, key: 'level' },
+           { label: 'Skor', icon: Brain, chip: 'chip-emerald', numeric: true, value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
            { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log mood' },
            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: displayData.sleepAverage != null ? <CountUpNumber value={displayData.sleepAverage} decimals={1} /> : <span aria-label="Belum ada data">—</span>, sub: displayData.sleepAverage != null ? 'jam / malam' : 'belum ada data', key: 'sleep', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log tidur' },
            { label: 'Energi', icon: Activity, chip: 'chip-slate', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><EnergyEmoji energy={displayData.energyAverage} className="text-xl" /></span><span className="text-lg font-bold">{getEnergyLabel(displayData.energyAverage)}</span></span>, sub: null, key: 'energy', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log energi' },
@@ -433,10 +429,10 @@ export default function Dashboard() {
                  </span>
                  <span className="premium-label min-w-0 leading-tight">{card.label}</span>
                </div>
-               <div className="premium-stat mt-3 text-xl sm:text-2xl">{card.value}</div>
+               <div className={cn('premium-stat mt-3 text-2xl sm:text-[1.7rem]', card.numeric && 'premium-stat-grad')}>{card.value}</div>
                {card.progress !== undefined && (
                  <div className="mt-2 flex items-center gap-1">
-                   <Progress value={card.progress} className="h-1.5 flex-1" />
+                   <Progress value={card.progress} className="premium-progress h-1.5 flex-1" />
                    {card.progressLabel && <span className="text-xs text-muted-foreground">{card.progressLabel}</span>}
                  </div>
                )}

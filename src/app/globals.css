@@ -1920,6 +1920,7 @@
 
 /* --- §2 chip-icon — ikon gradien 9 warna --------------------------------- */
 .chip-icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1927,7 +1928,18 @@
   color: #fff;
   box-shadow:
     inset 0 1px 0 hsl(0 0% 100% / 0.35),
+    inset 0 -8px 14px -8px hsl(0 0% 0% / 0.25),
     0 2px 6px -2px hsl(160 12% 32% / 0.35);
+  overflow: hidden;
+}
+/* Highlight radial lembut — ikon terasa "bercahaya dari dalam", bukan stiker. */
+.chip-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 110% at 30% 0%, hsl(0 0% 100% / 0.4) 0%, hsl(0 0% 100% / 0.05) 45%, transparent 70%);
+  pointer-events: none;
 }
 .chip-teal {
   background: linear-gradient(135deg, #14b8a6, #0d9488);
@@ -2011,18 +2023,54 @@
   overflow: hidden;
   border-radius: 1.25rem;
   border: 1px solid hsl(160 30% 88% / 0.8);
-  background: linear-gradient(120deg, #14b8a6 0%, #10b981 55%, #0d9488 100%);
+  background:
+    radial-gradient(120% 160% at 85% -20%, hsl(166 84% 62% / 0.55) 0%, transparent 55%),
+    linear-gradient(125deg, #10b981 0%, #059669 28%, #14b8a6 62%, #0d9488 100%);
   color: #ecfdf5;
   box-shadow:
     0 2px 4px -2px hsl(172 48% 24% / 0.4),
-    0 10px 28px -10px hsl(172 48% 24% / 0.5);
+    0 10px 28px -10px hsl(172 48% 24% / 0.5),
+    0 18px 44px -18px hsl(172 60% 30% / 0.45);
 }
 .dark .premium-hero {
   border-color: hsl(168 40% 22% / 0.9);
-  background: linear-gradient(120deg, hsl(176 60% 24%), hsl(160 65% 22%), hsl(174 55% 18%));
+  background:
+    radial-gradient(120% 160% at 85% -20%, hsl(166 60% 40% / 0.35) 0%, transparent 55%),
+    linear-gradient(125deg, hsl(176 60% 24%), hsl(160 65% 22%), hsl(174 55% 18%));
   box-shadow:
     0 2px 6px -2px hsl(0 0% 0% / 0.5),
     0 14px 34px -12px hsl(0 0% 0% / 0.6);
+}
+/* Aurora glow lembut di belakang teks (-depth tanpa noise). */
+.premium-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 90% at 18% 110%, hsl(158 90% 72% / 0.22) 0%, transparent 60%);
+  pointer-events: none;
+}
+/* Kilau diagonal lembut yang menyapu perlahan (subtle, 7s). */
+.premium-hero::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    hsl(0 0% 100% / 0.14) 50%,
+    transparent 60%
+  );
+  transform: translateX(-60%);
+  animation: premium-hero-sheen 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+@keyframes premium-hero-sheen {
+  0%, 55% { transform: translateX(-70%); }
+  85%, 100% { transform: translateX(70%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .premium-hero::after { animation: none; opacity: 0; }
 }
 .premium-hero-bubbles::before,
 .premium-hero-bubbles::after {
@@ -2031,6 +2079,7 @@
   border-radius: 9999px;
   background: hsl(0 0% 100% / 0.12);
   pointer-events: none;
+  box-shadow: inset 0 0 40px hsl(166 80% 90% / 0.18);
 }
 .premium-hero-bubbles::before {
   width: 220px;
@@ -2063,6 +2112,30 @@
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
+/* Angka KPI dengan gradient teal→emerald — "meledak" secara visual. */
+.premium-stat-grad {
+  background: linear-gradient(135deg, hsl(168 70% 26%), hsl(160 70% 36%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.dark .premium-stat-grad {
+  background: linear-gradient(135deg, hsl(166 65% 62%), hsl(158 60% 52%));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* --- §5b premium-progress — bar gradien teal→emerald ---------------------- */
+.premium-progress[data-slot='progress'] {
+  background: hsl(160 20% 92% / 0.8);
+}
+.dark .premium-progress[data-slot='progress'] {
+  background: hsl(166 10% 26% / 0.8);
+}
+.premium-progress [data-slot='progress-indicator'] {
+  background: linear-gradient(90deg, hsl(173 70% 40%), hsl(160 75% 42%));
+  box-shadow: 0 1px 3px -1px hsl(160 60% 30% / 0.5);
+}
 
 /* --- §6 premium-quote ----------------------------------------------------- */
 .premium-quote {
@@ -2070,12 +2143,69 @@
   overflow: hidden;
   border-radius: 1.25rem;
   border: 1px solid hsl(160 16% 90% / 0.9);
-  background: linear-gradient(120deg, hsl(160 30% 97%), hsl(173 40% 96%));
-  box-shadow: 0 8px 24px -14px hsl(160 12% 32% / 0.18);
+  background:
+    radial-gradient(90% 140% at 100% 0%, hsl(166 60% 94% / 0.8) 0%, transparent 55%),
+    linear-gradient(120deg, hsl(160 30% 97%), hsl(173 40% 96%));
+  box-shadow:
+    0 1px 2px 0 hsl(160 12% 32% / 0.05),
+    0 8px 24px -14px hsl(160 12% 32% / 0.2);
 }
 .dark .premium-quote {
   border-color: hsl(165 10% 26% / 0.9);
-  background: linear-gradient(120deg, hsl(166 12% 18%), hsl(172 20% 16%));
+  background:
+    radial-gradient(90% 140% at 100% 0%, hsl(166 30% 22% / 0.5) 0%, transparent 55%),
+    linear-gradient(120deg, hsl(166 12% 18%), hsl(172 20% 16%));
+}
+/* Garis aksen gradien di sisi kiri kartu kutipan. */
+.premium-quote::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, transparent, var(--primary) 30%, hsl(160 70% 42%) 70%, transparent);
+  opacity: 0.9;
+}
+/* Flourish tanda kutip dekoratif besar (gradient, samar). */
+.premium-quote::after {
+  content: '\201C';
+  position: absolute;
+  right: 1.1rem;
+  bottom: -1.6rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 7rem;
+  line-height: 1;
+  font-weight: 700;
+  color: hsl(166 70% 45% / 0.1);
+  pointer-events: none;
+}
+.dark .premium-quote::after {
+  color: hsl(166 60% 60% / 0.08);
+}
+
+/* --- §6b premium-quote-text — tipografi kutipan serif elegan -------------- */
+.premium-quote-text {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  font-weight: 500;
+  color: hsl(168 30% 20%);
+  letter-spacing: 0.005em;
+}
+.dark .premium-quote-text {
+  color: hsl(165 25% 88%);
+}
+.premium-quote-author {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: hsl(168 55% 30%);
+}
+.dark .premium-quote-author {
+  color: hsl(166 55% 68%);
 }
 
 /* --- §7 premium-segment --------------------------------------------------- */

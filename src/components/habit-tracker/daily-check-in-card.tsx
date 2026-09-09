@@ -198,7 +198,7 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
                   className={
                     'h-9 w-9 rounded-xl text-lg grid place-items-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ' +
                     (active
-                      ? 'bg-primary/15 ring-2 ring-primary/40 scale-105 ' +
+                      ? 'bg-primary/20 ring-2 ring-primary/50 scale-110 shadow-[0_2px_12px_-2px_hsl(160_70%_45%/0.5)] ' +
                         (grayed ? 'opacity-50 ' : '')
                       : 'hover:bg-muted')
                   }
@@ -231,7 +231,7 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
                   className={
                     'h-9 w-9 rounded-xl text-lg grid place-items-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ' +
                     (active
-                      ? 'bg-primary/15 ring-2 ring-primary/40 scale-105 ' +
+                      ? 'bg-primary/20 ring-2 ring-primary/50 scale-110 shadow-[0_2px_12px_-2px_hsl(160_70%_45%/0.5)] ' +
                         (grayed ? 'opacity-50 ' : '')
                       : 'hover:bg-muted')
                   }

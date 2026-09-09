@@ -284,16 +284,23 @@ export function computeSourceBalances(sources: SourceRowLike[], allTx: TxLike[])
 
 export const MOTIVATIONAL_QUOTES: Array<{ text: string; author: string }> = [
   { text: 'Kebiasaan kecil yang konsisten mengalahkan motivasi besar yang datang sesekali.', author: 'Rutina' },
-  { text: 'Satu persen lebih baik setiap hari adalah rumus perubahan yang paling kuat.', author: 'James Clear' },
   { text: 'Kita adalah apa yang kita lakukan berulang-ulang. Keunggulan bukan tindakan, tapi kebiasaan.', author: 'Aristoteles' },
+  { text: 'Setiap aksi yang kamu lakukan adalah suara untuk orang yang ingin kamu jadikan.', author: 'James Clear' },
   { text: 'Jangan menunggu waktu yang tepat. Waktu yang tepat dibuat, bukan ditunggu.', author: 'Rutina' },
-  { text: 'Disiplin adalah jembatan antara tujuan dan pencapaian.', author: 'Jim Rohn' },
-  { text: 'Uang yang tidak dilacak akan menguap tanpa jejak. Catat hari ini, syukuri nanti.', author: 'Rutina' },
+  { text: 'Kebiasaan adalah kompas: sekali diatur, arah hidupmu mengikuti dengan sendirinya.', author: 'Rutina' },
+  { text: 'Celah antara siapa kamu hari ini dan siapa kamu ingin jadi adalah apa yang kamu lakukan setiap hari.', author: 'Rutina' },
+  { text: 'Ubahlah tujuan besar menjadi kebiasaan kecil — sisanya waktu yang akan mengerjakannya.', author: 'Rutina' },
+  { text: 'Motivasi memulai, kebiasaan yang melanjutkan.', author: 'Rutina' },
+  { text: 'Kebiasaan buruk tidak dihapus, ia digantikan oleh kebiasaan baik yang lebih mudah dilakukan.', author: 'Rutina' },
+  { text: 'Satu persen lebih baik setiap hari adalah rumus perubahan yang paling kuat.', author: 'James Clear' },
+  { text: 'Kalau mau memulai, jangan tunggu besok pagi. Mulai 30 detik dari sekarang.', author: 'Rutina' },
+  { text: 'Kebiasaan yang kamu tanam hari ini adalah kehidupan yang kamu panen esok.', author: 'Rutina' },
   { text: 'Hari buruk bagi kebiasaanmu bukan kegagalan — itu jeda untuk bangkit lagi.', author: 'Rutina' },
-  { text: 'Mulai sekecil apa pun. Nol dikali apa pun tetap nol.', author: 'Rutina' },
-  { text: 'Energi untuk mengubah hidup datang dari tidur yang cukup dan pikiran yang tenang.', author: 'Rutina' },
-  { text: 'Tabungan bukan sisa pengeluaran, tapi pengeluaran yang direncanakan lebih dulu.', author: 'Rutina' },
   { text: 'Streak tidak harus sempurna; cukup tidak putus lama.', author: 'Rutina' },
+  { text: 'Disiplin bukan hukuman, melainkan hadiah untuk versi dirimu di masa depan.', author: 'Rutina' },
+  { text: 'Orang sukses bukan yang tidak pernah malas, tapi yang tidak membiarkan malas menetap.', author: 'Rutina' },
+  { text: 'Bangun pagi hari ini adalah kemenangan pertama sebelum dunia sempat memintamu apa pun.', author: 'Rutina' },
+  { text: 'Tandai satu kotak kecil setiap hari; setahun kemudian kamu tak akan mengenali dirimu.', author: 'Rutina' },
 ];
 
 /** Kutipan deterministik per hari (stabil seharian, berganti tiap hari). */
