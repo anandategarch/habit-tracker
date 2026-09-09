@@ -166,6 +166,7 @@ model from `schema.prisma` produces a `DROP TABLE` on the remote, so back up fir
 3. Set environment variables:
    - `DATABASE_URL` — the Turso `libsql://…` URL
    - `DATABASE_AUTH_TOKEN` — the Turso token
+   - Alternatif satu-var: `DATABASE_URL="libsql://…?authToken=eyJ…"` (token tertanam di URL — kompatibel dengan konfigurasi lama)
 4. Deploy — `prisma generate && next build` (from `vercel.json`) runs automatically.
 
 Protect the deployment as described in **Security** above.
