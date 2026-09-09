@@ -343,8 +343,9 @@
  font-size: 0.75rem;
  font-weight: 600;
  color: oklch(0.50 0 0);
- margin-bottom: 0.5rem;
- margin-top: 0.5rem;
+ margin-bottom: 0.25rem;
+ margin-top: 0.25rem;
+ /* SPACING-FIX: rapatkan jarak pil tanggal (dulu 0.5rem/0.5rem) */
  backdrop-filter: blur(8px);
 }
 .dark .tx-date-pill {
@@ -2534,4 +2535,66 @@
   box-shadow:
     0 2px 8px -2px hsl(172 60% 22% / 0.5),
     0 8px 22px -6px hsl(172 60% 22% / 0.55);
+}
+
+/* --- §16 Meja Kerja (Task 17-a) — blok BARU di akhir file; kelas lama tidak disentuh --- */
+
+/* Pratinjau catatan serif Georgia italic (ala mockup Meja Kerja) */
+.work-serif {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+/* Badge BARU gradien teal→emerald (ala mockup b-baru) */
+.work-badge-new {
+  background: linear-gradient(135deg, #14b8a6, #10b981);
+  color: #fff;
+  box-shadow: 0 2px 6px -1px hsl(172 66% 30% / 0.4);
+}
+
+/* Kartu catatan warna lembut — light: pastel; dark: tint gelap (aman dua mode) */
+.work-note-card-pin {
+  background: hsl(48 60% 96%);
+  border-color: hsl(48 55% 86%);
+}
+.work-note-card-mint {
+  background: hsl(160 35% 96%);
+  border-color: hsl(160 30% 88%);
+}
+.work-note-card-rose {
+  background: hsl(350 50% 97%);
+  border-color: hsl(350 45% 91%);
+}
+.work-note-card-sky {
+  background: hsl(205 55% 96%);
+  border-color: hsl(205 50% 89%);
+}
+
+.dark .work-note-card-pin {
+  background: hsl(45 25% 15%);
+  border-color: hsl(45 30% 26%);
+}
+.dark .work-note-card-mint {
+  background: hsl(160 20% 15%);
+  border-color: hsl(160 20% 26%);
+}
+.dark .work-note-card-rose {
+  background: hsl(350 25% 17%);
+  border-color: hsl(350 20% 27%);
+}
+.dark .work-note-card-sky {
+  background: hsl(210 30% 16%);
+  border-color: hsl(210 25% 27%);
+}
+
+/* Guard reduced-motion untuk animasi Meja Kerja (mengikuti pola §reduced-motion) */
+@media (prefers-reduced-motion: reduce) {
+  .work-badge-new,
+  .work-note-card-pin,
+  .work-note-card-mint,
+  .work-note-card-rose,
+  .work-note-card-sky {
+    box-shadow: none;
+    transition: none;
+  }
 }

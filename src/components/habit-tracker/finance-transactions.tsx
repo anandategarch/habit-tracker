@@ -5,7 +5,13 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Edit3, Search, X, ChevronDown, Wallet } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Trash2, Edit3, Search, X, ChevronDown, Wallet, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import { format } from '@/lib/date-utils';
@@ -100,7 +106,7 @@ function estimateRowSize(row: FlatRow | undefined): number {
  // list rows (avatar 40px + 2-line content, ~64px + 6px margin-bottom
  // ≈ 70px after the PREMIUM-UI restyle). measureElement below self-heals
  // any drift (e.g. rows with the tap-to-expand panel open).
- return row.kind === 'header' ? 36 : 72;
+ return row.kind === 'header' ? 34 : 70;
 }
 
 export default function FinanceTransactions({
@@ -563,7 +569,7 @@ function TransactionRow({
          - single-select + no expand content: fallback ke edit dialog. */}
      <div
        className={cn(
-         'premium-list-item group relative mb-1.5 px-4! py-3!',
+         'premium-list-item group relative mb-1.5 flex-wrap px-4! py-3!',
          'cursor-pointer active:scale-[0.99]'
        )}
        onClick={() => {
@@ -664,40 +670,46 @@ function TransactionRow({
          </span>
        </div>
 
-       {/* Action buttons (visible on hover, always visible on mobile) */}
+       {/* SPACING-FIX (permintaan user: "jarak card terlalu jauh"):
+           dulu 2 tombol aksi ditumpuk VERTIKAL — kolom 78px membengkakkan
+           kartu jadi ±104px. Kini 1 tombol menu kebab — tinggi kartu
+           kembali ±64px (avatar 40px + padding), lebar teks mobile tetap.
+           Edit/hapus jadi 2 ketuk via menu. Aturan lama dipertahankan:
+           edit disabled untuk transfer (pasangan ter-link, API menolak
+           perubahan jumlah/kategori); delete tetap boleh untuk transfer
+           (API atomik menghapus pasangan + memulihkan saldo). */}
        {!multiSelect && (
-         <div className="flex flex-col gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ml-1">
-           {/* Disable edit untuk transfer — pasangan ter-link yang tidak
-               bisa diubah jumlah/kategorinya tanpa merusak saldo (API menolak).
-               M3: guard lama memakai kategori 'Transfer Antar Sumber' (nama
-               kategori salah — transfer memakai 'Transfer Keluar'/'Transfer
-               Masuk'/fee 'Transfer') sehingga tombol edit transfer aktif.
-               BUGHUNT-ROUND2 TRANSFER-DEL: delete tetap WORKS untuk
-               transfer (API atomik menghapus pasangan + memulihkan saldo). */}
-           <Button
-             variant="ghost"
-             size="icon"
-             className="h-9 w-9"
-             onClick={(e) => { e.stopPropagation(); onEditTx(tx); }}
-             disabled={tx.type === 'transfer'}
-             title={tx.type === 'transfer' ? 'Transfer tidak bisa diedit' : 'Edit'}
-           >
-             <Edit3 className="h-3 w-3" />
-           </Button>
-           <Button
-             variant="ghost"
-             size="icon"
-             className="h-9 w-9 text-destructive hover:text-destructive"
-             onClick={(e) => {
-               e.stopPropagation();
-               // BUGHUNT-ROUND2 TRANSFER-DEL: transfers CAN be deleted now —
-               // the API deletes the linked pair atomically.
-               onDeleteTx(tx.id);
-             }}
-             title={tx.type === 'transfer' ? 'Hapus transfer (kedua sisi otomatis)' : 'Hapus'}
-           >
-             <Trash2 className="h-3 w-3" />
-           </Button>
+         <div className="shrink-0 ml-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+           <DropdownMenu>
+             <DropdownMenuTrigger asChild>
+               <Button
+                 variant="ghost"
+                 size="icon"
+                 className="h-9 w-9"
+                 onClick={(e) => e.stopPropagation()}
+                 title="Menu transaksi"
+                 aria-label="Menu transaksi"
+               >
+                 <MoreHorizontal className="h-4 w-4" />
+               </Button>
+             </DropdownMenuTrigger>
+             <DropdownMenuContent align="end">
+               <DropdownMenuItem
+                 disabled={tx.type === 'transfer'}
+                 onClick={() => onEditTx(tx)}
+               >
+                 <Edit3 className="h-3.5 w-3.5" />
+                 <span>Edit</span>
+               </DropdownMenuItem>
+               <DropdownMenuItem
+                 className="text-destructive focus:text-destructive"
+                 onClick={() => onDeleteTx(tx.id)}
+               >
+                 <Trash2 className="h-3.5 w-3.5" />
+                 <span>Hapus</span>
+               </DropdownMenuItem>
+             </DropdownMenuContent>
+           </DropdownMenu>
          </div>
        )}
 
@@ -716,7 +728,7 @@ function TransactionRow({
            expand state survives because it's keyed by tx.id in the
            parent, not held in row-local state. */}
        {isExpanded && hasExpandContent && (
-         <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground anim-tab-enter">
+         <div className="mt-2 pt-2 w-full basis-full border-t border-border/50 text-xs text-muted-foreground anim-tab-enter">
            {tx.notes && (
              <p className="mb-1 break-words">{tx.notes}</p>
            )}
