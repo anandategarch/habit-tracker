@@ -140,7 +140,16 @@ export function WorkAssistant({ date, data }: { date: string; data: WorkPayload 
         push({ role: 'ai', kind: 'ai-result', result });
         setDraft('');
       },
-      // Error sudah ditampilkan sebagai toast oleh hook.
+      onError: () => {
+        // Jangan diam saja: beri jawaban di chat + buka lagi kotak draft
+        // (teks masih tersimpan) supaya user bisa coba lagi sekali sentuh.
+        push({
+          role: 'ai',
+          kind: 'text',
+          text: 'Waduh, aku belum bisa baca catatan itu — kayaknya sinyalnya lagi ngadat. Catatanmu masih tersimpan di kotak bawah, coba kirim lagi ya.',
+        });
+        setRapikanOpen(true);
+      },
     });
   };
 

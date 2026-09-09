@@ -111,7 +111,6 @@ function KilatInput({ date }: { date: string }) {
     </div>
   );
 }
-
 function NoteCard({
   note,
   index,
@@ -272,6 +271,9 @@ export function WorkNotes({
   const [editing, setEditing] = useState<WorkNoteItem | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editTag, setEditTag] = useState('');
+  // Konfirmasi hapus dua langkah: klik 1 = senjatakan, klik 2 = hapus.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saveNote = useSaveNote(date);
   const deleteNote = useDeleteNote(date);
   const search = useWorkSearch(debounced);
@@ -302,6 +304,26 @@ export function WorkNotes({
     setEditing(note);
     setEditContent(note.content);
     setEditTag(note.tag ?? '');
+    setConfirmDelete(false);
+  };
+
+  // Tombol hapus dua langkah: tekan pertama mengubah jadi "Yakin?", kedua
+  // baru benar-benar menghapus; senjatakan ulang otomatis setelah 4 detik.
+  const handleDeleteNote = () => {
+    if (!editing) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirmDelete(false), 4000);
+      return;
+    }
+    deleteNote.mutate(editing.id, {
+      onSuccess: () => {
+        clearTimeout(confirmTimer.current);
+        setConfirmDelete(false);
+        setEditing(null);
+      },
+    });
   };
 
   return (
@@ -402,7 +424,7 @@ export function WorkNotes({
       )}
 
       {/* Dialog edit catatan */}
-      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) { setEditing(null); setConfirmDelete(false); clearTimeout(confirmTimer.current); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit Catatan</DialogTitle>
@@ -429,14 +451,15 @@ export function WorkNotes({
               type="button"
               variant="ghost"
               disabled={deleteNote.isPending}
-              onClick={() => {
-                if (!editing) return;
-                deleteNote.mutate(editing.id, { onSuccess: () => setEditing(null) });
-              }}
-              aria-label="Hapus catatan"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleDeleteNote}
+              aria-label={confirmDelete ? 'Klik lagi untuk hapus permanen' : 'Hapus catatan'}
+              className={cn(
+                'gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive',
+                confirmDelete && 'bg-destructive/10 font-bold'
+              )}
             >
               {deleteNote.isPending ? <MiniSpinner /> : <Trash2 className="h-4 w-4" />}
+              {confirmDelete && 'Yakin hapus?'}
             </Button>
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => setEditing(null)}>

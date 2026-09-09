@@ -2,6 +2,7 @@
 // src/components/work/work-types.ts — tipe payload API Meja Kerja (Task 17-a).
 // Bentuk field identik dengan respons JSON route /api/work*.
 // ---------------------------------------------------------------------------
+import { jakartaDateString } from '@/lib/timezone';
 
 export type WorkTimeOfDay = 'pagi' | 'siang' | 'sore';
 export type WorkTaskStatus = 'todo' | 'jalan' | 'nunggu' | 'selesai';
@@ -85,7 +86,13 @@ export interface AiParsedPayload {
   summary: string;
 }
 
-/** Tugas dibuat hari ini (badge BARU) — createdAt berada pada dayKey "today". */
+/** Tugas dibuat hari ini (badge BARU) — createdAt dikonversi ke tanggal Jakarta
+ *  dulu (bukan slice UTC mentah) supaya tugas yang dibuat 00:00–06:59 pagi
+ *  WIB tetap dihitung "baru" (UTC masih tanggal kemarin di jam segitu). */
 export function isTaskNew(task: WorkTaskItem, today: string): boolean {
-  return task.createdAt.slice(0, 10) === today;
+  try {
+    return jakartaDateString(new Date(task.createdAt)) === today;
+  } catch {
+    return task.createdAt.slice(0, 10) === today;
+  }
 }

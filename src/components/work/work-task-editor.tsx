@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -82,6 +82,10 @@ function TaskEditorForm({
   const [notes, setNotes] = useState(task?.notes ?? '');
   const [status, setStatus] = useState(task?.status ?? 'todo');
   const [dayKey, setDayKey] = useState<string | null>(task ? task.dayKey : date);
+  // Konfirmasi hapus dua langkah (form di-remount per tugas via key, jadi
+  // state ini otomatis segar setiap kali editor dibuka untuk tugas lain).
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const busy = saveTask.isPending || deleteTask.isPending;
 
@@ -102,7 +106,19 @@ function TaskEditorForm({
 
   const handleDelete = () => {
     if (!task) return;
-    deleteTask.mutate(task.id, { onSuccess: onClose });
+    // Tekan pertama = senjatakan ("Yakin?"), tekan kedua = hapus sungguhan.
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirmDelete(false), 4000);
+      return;
+    }
+    deleteTask.mutate(task.id, {
+      onSuccess: () => {
+        clearTimeout(confirmTimer.current);
+        onClose();
+      },
+    });
   };
 
   return (
@@ -222,13 +238,22 @@ function TaskEditorForm({
           <Button
             type="button"
             variant="ghost"
-            size="icon"
             onClick={handleDelete}
             disabled={busy}
-            aria-label="Hapus tugas"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            aria-label={confirmDelete ? 'Klik lagi untuk hapus permanen' : 'Hapus tugas'}
+            className={cn(
+              'gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive',
+              confirmDelete && 'bg-destructive/10 font-bold'
+            )}
           >
-            {deleteTask.isPending ? <MiniSpinner /> : <Trash2 className="h-4 w-4" />}
+            {deleteTask.isPending ? (
+              <MiniSpinner />
+            ) : (
+              <>
+                <Trash2 className="h-4 w-4" />
+                {confirmDelete && 'Yakin hapus?'}
+              </>
+            )}
           </Button>
         )}
         <div className="ml-auto flex gap-2">

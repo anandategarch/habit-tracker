@@ -1,9 +1,13 @@
-// Rutina Service Worker — v16 (Meja Kerja: tab catatan kerjaan + Asisten AI).
+// Rutina Service Worker — v17 (Meja Kerja: bugfix round 1).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v16';
+const CACHE_NAME = 'habit-tracker-v17';
 // Riwayat versi:
+//  v17 — Meja Kerja bugfix (Task 18): badge BARU zona waktu Jakarta, AI
+//        rapikan lebih tahan banting (parser toleran + retry + gagal terlihat
+//        di chat), konfirmasi hapus 2 langkah (catatan & tugas), Catatan
+//        Kilat tampilkan 3 terbaru sungguhan.
 //  v16 — Meja Kerja (Task 17-a): rutinitas kerja berulang, tugas lepas,
 //        catatan kilat + pencarian, Asisten AI (rapikan catatan).
 //  v15 — Gelombang-1: hapus fitur hantu (KPI Lencana/Tantangan, dropdown

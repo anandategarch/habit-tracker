@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 const LLM_TIMEOUT_MS = 45_000;
 const MAX_TASKS = 8;
+const MAX_ATTEMPTS = 2;
 
 const SYSTEM_PROMPT =
   'Kamu adalah asisten meja kerja pribadi di aplikasi Rutina (pengguna Indonesia, pekerja lepas/solo). ' +
@@ -62,7 +63,9 @@ function extractFirstJsonObject(raw: string): string | null {
   return null;
 }
 
-/** Parser toleran: buang code fence, cari {...} pertama, JSON.parse. */
+/** Parser toleran: buang code fence, cari {...} pertama, JSON.parse —
+ *  dengan dua lapis penyelamat: (1) JSON.parse langsung, (2) bila gagal,
+ *  bersihkan koma buntut sebelum }/] dan quote pintar lalu parse ulang. */
 function parseAiPayload(content: string): AiParsed | null {
   const cleaned = content.replace(/```(?:json)?/gi, '').trim();
   const candidate = extractFirstJsonObject(cleaned);
@@ -71,7 +74,17 @@ function parseAiPayload(content: string): AiParsed | null {
   try {
     parsed = JSON.parse(candidate);
   } catch {
-    return null;
+    // LLM kadang menyisakan koma buntut (trailing comma) atau quote pintar —
+    // bersihkan lalu coba sekali lagi sebelum menyerah.
+    const rescued = candidate
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/,\s*([}\]])/g, '$1');
+    try {
+      parsed = JSON.parse(rescued);
+    } catch {
+      return null;
+    }
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   const obj = parsed as Record<string, unknown>;
@@ -110,22 +123,31 @@ export async function POST(req: Request) {
     if (text.length > 2000) throw badRequest('Catatan terlalu panjang (maks 2000 karakter)');
 
     const zai = await ZAI.create();
-    const llmPromise = zai.chat.completions.create({
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: text },
-      ],
-      thinking: { type: 'disabled' },
-    });
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS);
-    });
-    const completion = await Promise.race([llmPromise, timeoutPromise]);
-    const content = String(
-      (completion as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content ?? ''
-    );
+    const messages = [
+      { role: 'system' as const, content: SYSTEM_PROMPT },
+      { role: 'user' as const, content: text },
+    ];
 
-    const parsed = parseAiPayload(content);
+    let parsed: AiParsed | null = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !parsed; attempt++) {
+      const llmPromise = zai.chat.completions.create({
+        messages,
+        thinking: { type: 'disabled' },
+      });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS);
+      });
+      const completion = await Promise.race([llmPromise, timeoutPromise]);
+      const content = String(
+        (completion as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content ?? ''
+      );
+      parsed = parseAiPayload(content);
+      if (!parsed && attempt < MAX_ATTEMPTS) {
+        // Percobaan kedua: tegaskan format JSON mentah tanpa teks lain.
+        messages.push({ role: 'user', content: 'Balas ULANGI HANYA JSON valid: {"tasks":[{"title":"..."}],"notes":[{"content":"..."}]} — tanpa kalimat pembuka/penutup.' });
+      }
+    }
+
     if (!parsed) {
       // Respons LLM tidak bisa diparse → pesan Indonesia yang bisa ditindaklanjuti.
       return NextResponse.json(

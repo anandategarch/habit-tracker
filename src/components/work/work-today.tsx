@@ -119,7 +119,9 @@ function TaskRow({
 function KilatCard({ date, notes }: { date: string; notes: WorkPayload['notes'] }) {
   const saveNote = useSaveNote(date);
   const [draft, setDraft] = useState('');
-  const newest = notes.slice(0, 3);
+  // "3 catatan terakhir" = urut waktu update sungguhan (bukan ikut sematan
+  // pin yang memang ditaru di atas oleh API — pin bukan berarti terbaru).
+  const newest = [...notes].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 3);
   const submit = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
