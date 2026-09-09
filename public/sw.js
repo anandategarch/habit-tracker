@@ -1,9 +1,11 @@
-// Rutina Service Worker — v15 (Gelombang-1: hapus fitur hantu + sinkron versi).
+// Rutina Service Worker — v16 (Meja Kerja: tab catatan kerjaan + Asisten AI).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v15';
+const CACHE_NAME = 'habit-tracker-v16';
 // Riwayat versi:
+//  v16 — Meja Kerja (Task 17-a): rutinitas kerja berulang, tugas lepas,
+//        catatan kilat + pencarian, Asisten AI (rapikan catatan).
 //  v15 — Gelombang-1: hapus fitur hantu (KPI Lencana/Tantangan, dropdown
 //        Bahasa, targetCompletion UI), input mood/energi/tidur, habit amount
 //        stepper + value, level XP total. sw-register kini parse versi dari

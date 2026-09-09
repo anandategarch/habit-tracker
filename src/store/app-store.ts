@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import { jakartaDateString } from '@/lib/timezone';
 
-export type TabId = 'dashboard' | 'tracker' | 'finance' | 'goals' | 'settings';
+export type TabId = 'dashboard' | 'tracker' | 'work' | 'finance' | 'goals' | 'settings';
 export type FinanceSubTab =
   | 'overview'
   | 'transactions'

@@ -22,6 +22,7 @@ import {
  ArrowDownRight,
  ArrowUpRight,
  ArrowLeftRight,
+ Briefcase,
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
@@ -58,12 +59,17 @@ const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), 
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
 
+// TAB MESA KERJA (Task 17-a): catatan kerjaan — rutinitas berulang + tugas
+// lepas + catatan kilat + Asisten AI. Loader sama (SproutGrow) seperti tab lain.
+const WorkDesk = dynamic(() => import('@/components/work/work-desk'), { ssr: false, loading: tabLoading });
+
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
  { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
+ { id: 'work', label: 'Meja Kerja', icon: Briefcase },
  { id: 'goals', label: 'Tujuan', icon: Target },
 
  { id: 'finance', label: 'Keuangan', icon: Wallet },
@@ -72,11 +78,13 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 // PREMIUM DOCK PATTERN: Bottom nav = 2 left + FAB center + 2 right.
 // NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in PremiumBottomNav below.
-// Goals accessible via sidebar drawer (hamburger menu).
+// Meja Kerja & Tujuan reachable via sidebar drawer (hamburger) + deep-link ?tab=
+// — dock hanya memuat 5 tab agar label tetap terbaca di layar 390px.
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
  dashboard: Dashboard,
  tracker: DailyTracker,
+ work: WorkDesk,
  goals: Goals,
 
  finance: Finance,
@@ -85,7 +93,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
- 'dashboard', 'tracker', 'goals',
+ 'dashboard', 'tracker', 'work', 'goals',
  'finance', 'settings',
 ]);
 

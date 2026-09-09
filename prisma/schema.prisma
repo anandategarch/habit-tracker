@@ -212,3 +212,53 @@ model Goal {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ── Meja Kerja (Task 17-a) ─────────────────────────────────────────────────
+// Catatan kerjaan harian: rutinitas berulang + tugas lepas + catatan kilat.
+// Konvensi tanggal sama dengan HabitLog/DailyLog: dayKey = 'yyyy-MM-dd' Jakarta
+// (disimpan sebagai STRING, bukan DateTime, supaya perbandingan leksikografis
+// sederhana dan aman lintas TZ).
+
+model WorkRoutine {
+  id        String          @id @default(cuid())
+  title     String
+  timeOfDay String          @default("pagi") // pagi | siang | sore
+  active    Boolean         @default(true)
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  logs      WorkRoutineLog[]
+}
+
+model WorkRoutineLog {
+  id        String      @id @default(cuid())
+  routineId String
+  routine   WorkRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  dayKey    String // yyyy-MM-dd (Asia/Jakarta)
+  done      Boolean     @default(false)
+  doneAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  @@unique([routineId, dayKey])
+}
+
+model WorkTask {
+  id          String    @id @default(cuid())
+  title       String
+  notes       String?
+  status      String    @default("todo") // todo | jalan | nunggu | selesai
+  dayKey      String? // tanggal target yyyy-MM-dd; null = kapan saja
+  dueAt       DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model WorkNote {
+  id        String   @id @default(cuid())
+  content   String
+  tag       String?
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
