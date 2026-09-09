@@ -1,8 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Rutina — habit + personal finance tracker (single-user)
+// Konvensi tanggal (hasil bug-hunt ronde sebelumnya):
+//  * HabitLog.date / DailyLog.date  -> UTC midnight (00:00:00Z) dari hari Jakarta
+//  * Transaction.date               -> tengah hari (12:00Z) agar aman TZ browser/server
+//  * completedAt                    -> waktu Jakarta nyata (ISO dengan offset +07:00)
+//  * RecurringTransaction.startDate -> dipatok tengah malam Jakarta (+07:00)
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +14,198 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model AppSettings {
+  id              String   @id @default("singleton")
+  userName        String   @default("User")
+  theme           String   @default("system") // light | dark | system
+  themeColor      String   @default("teal")
+  weekStart       Int      @default(1) // 0 = Minggu, 1 = Senin
+  language        String   @default("id") // kolom tersimpan; UI selalu Indonesia
+  targetCompletion Int     @default(80)
+  appLockHash     String?
+  updatedAt       DateTime @updatedAt
+}
+
+model Habit {
+  id           String      @id @default(cuid())
+  name         String
+  emoji        String      @default("✅")
+  category     String      @default("General")
+  priority     String      @default("Medium") // Low | Medium | High
+  difficulty   String      @default("Medium") // Easy | Medium | Hard — bobot XP
+  habitType    String      @default("normal") // normal | amount | avoid
+  target       Int         @default(1) // amount: target harian (mis. 8 gelas)
+  unit         String?
+  targetType   String? // daily | weekly | monthly (kolom disiapkan)
+  reminder     String? // string bebas "misal 08:00"
+  notes        String?
+  trackTime    Boolean     @default(false)
+  groupId      String?
+  group        HabitGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  sortOrder    Int         @default(0)
+  isActive     Boolean     @default(true)
+  isArchived   Boolean     @default(false)
+  vacationMode Boolean     @default(false)
+  vacationUntil DateTime?
+  startDate    DateTime    @default(now())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  habitLogs    HabitLog[]
+}
+
+model HabitLog {
+  id          String    @id @default(cuid())
+  habitId     String
+  habit       Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  date        DateTime // UTC midnight dari hari Jakarta
+  completed   Boolean   @default(true)
+  value       Int       @default(1) // jumlah unit (habit amount)
+  completedAt DateTime? // waktu Jakarta nyata
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([habitId, date])
+  @@index([date])
+}
+
+model DailyLog {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  date      DateTime @unique // UTC midnight dari hari Jakarta
+  mood      Float    @default(3) // 1..5
+  energy    Float    @default(3) // 1..5
+  sleep     Float    @default(7) // jam
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model Post {
+model HabitOption {
+  id        String  @id @default(cuid())
+  type      String // category | priority | difficulty | unit
+  label     String
+  color     String?
+  sortOrder Int     @default(0)
+
+  @@unique([type, label])
+}
+
+model HabitGroup {
+  id        String  @id @default(cuid())
+  name      String
+  color     String  @default("#14b8a6")
+  sortOrder Int     @default(0)
+  habits    Habit[]
+}
+
+model Transaction {
+  id             String       @id @default(cuid())
+  type           String // income | expense | transfer
+  amount         Float
+  category       String
+  sourceId       String?
+  source         FundSource?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  description    String
+  notes          String?
+  tags           String       @default("") // dipisah koma
+  date           DateTime // 12:00Z dari hari Jakarta (TZ-safe)
+  transferPairId String?    @unique
+  transferPair   Transaction? @relation("TransferPair", fields: [transferPairId], references: [id], onDelete: SetNull)
+  transferPaired Transaction? @relation("TransferPair")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([date])
+  @@index([category])
+}
+
+model FundSource {
+  id             String        @id @default(cuid())
+  name           String
+  emoji          String        @default("💰")
+  type           String        @default("bank") // cash | bank | ewallet
+  initialBalance Float         @default(0)
+  isArchived     Boolean       @default(false)
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  transactions   Transaction[]
+}
+
+model FinanceCategory {
+  id        String @id @default(cuid())
+  name      String @unique
+  emoji     String @default("💸")
+  color     String @default("#14b8a6")
+  type      String @default("expense") // expense | income
+}
+
+model WeeklyBudget {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  category  String
+  month     String // yyyy-MM (Jakarta)
+  amount    Float
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([category, month])
+}
+
+model BudgetSnapshot {
+  id           String   @id @default(cuid())
+  category     String
+  month        String
+  week         Int
+  weeklyAmount Float
+  spent        Float
+  createdAt    DateTime @default(now())
+}
+
+model SavingsGoal {
+  id            String    @id @default(cuid())
+  name          String
+  emoji         String    @default("🎯")
+  targetAmount  Float
+  currentAmount Float     @default(0)
+  deadline      DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model RecurringTransaction {
+  id        String    @id @default(cuid())
+  name      String
+  amount    Float
+  type      String // income | expense
+  category  String
+  sourceId  String?
+  frequency String // daily | weekly | monthly
+  startDate DateTime // tengah malam Jakarta (+07:00)
+  endDate   DateTime?
+  lastRun   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model TransactionRule {
+  id        String   @id @default(cuid())
+  keyword   String
+  category  String
+  sourceId  String?
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  priority    String   @default("Medium") // Low | Medium | High
+  status      String   @default("active") // active | completed | cancelled
+  deadline    String? // yyyy-MM-dd (dibaca komponen YMD, bukan UTC midnight)
+  milestones  String   @default("[]") // JSON [{ text, done }]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

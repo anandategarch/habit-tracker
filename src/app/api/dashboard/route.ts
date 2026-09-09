@@ -1,0 +1,325 @@
+// GET /api/dashboard?period=7|30|90|all — payload dashboard lengkap (kontrak).
+// Level memakai totalXp ALL-TIME + calcLevel dari lib/dashboard-helpers.
+//
+// Fix 11-c:
+//  * M-1: bestStreak & currentStreak = streak GLOBAL (hari berturut dengan
+//    ≥1 habit selesai, all-time) — satu sumber kebenaran; client tidak lagi
+//    menghitung streak sendiri (dulu bestStreak per-habit → KPI kontradiksi
+//    "Streak Aktif 30 > Rekor 11").
+//  * M-2: moodAvg/energyAvg/sleepAvg = null bila tidak ada log check-in
+//    (rata-rata hanya dari nilai non-null — bukan ?? 3/?? 7 → fabrikasi).
+//  * M-3: period=all → jendela sejak log habit pertama; monthlyChart jujur
+//    mengikuti jendela (maks ~90 titik, agregasi mingguan bila > 90 hari).
+//  * L-8: focusToday membawa priority dari habit (badge prioritas hidup).
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { handleApiError, pickDailyQuote, round1, xpForDifficulty, ymdOf } from '@/app/api/_lib/api-utils';
+import { calcLevel, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
+import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
+
+export const dynamic = 'force-dynamic';
+
+function daysBetween(fromYmd: string, toYmd: string): number {
+  return Math.round((dateFromYMD(toYmd).getTime() - dateFromYMD(fromYmd).getTime()) / 86_400_000) + 1;
+}
+
+/** YMD awal minggu berjalan (0 = Minggu, 1 = Senin). */
+function weekStartOf(ymd: string, weekStart: number): string {
+  const dow = dateFromYMD(ymd).getUTCDay();
+  const diff = (dow - weekStart + 7) % 7;
+  return shiftYmd(ymd, -diff);
+}
+
+type ChartDay = { date: string; completed: number; missed: number };
+
+export async function GET(req: Request) {
+  try {
+    const periodParam = new URL(req.url).searchParams.get('period');
+    const validPeriods = new Set(['7', '30', '90', 'all']);
+    if (periodParam !== null && !validPeriods.has(periodParam)) {
+      return NextResponse.json({ error: 'Parameter period tidak valid (7, 30, 90, atau all)' }, { status: 400 });
+    }
+    const period: 7 | 30 | 90 | 'all' =
+      periodParam === '30' || periodParam === '90' ? (Number(periodParam) as 30 | 90) : periodParam === '7' ? 7 : 'all';
+
+    const todayYmd = jakartaDateString();
+    const currentMonth = jakartaMonthString();
+
+    // ── Jendela periode ──
+    // M-3: 'all' → sejak log habit pertama (fallback hari ini bila kosong);
+    // angka → N hari terakhir seperti sebelumnya.
+    let startYmd: string;
+    if (period === 'all') {
+      const firstLog = await db.habitLog.findFirst({ orderBy: { date: 'asc' }, select: { date: true } });
+      startYmd = firstLog ? ymdOf(firstLog.date as Date) : todayYmd;
+      if (startYmd > todayYmd) startYmd = todayYmd; // guard data future
+    } else {
+      startYmd = shiftYmd(todayYmd, -(period - 1));
+    }
+
+    const [settings, habits, allCompleted, dailyLogs, monthTx, budgetRows] = await Promise.all([
+      db.appSettings.findUnique({ where: { id: 'singleton' } }),
+      db.habit.findMany({
+        where: { isActive: true, isArchived: false },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      }),
+      db.habitLog.findMany({
+        where: { completed: true },
+        select: { habitId: true, date: true, value: true },
+      }),
+      db.dailyLog.findMany({
+        where: { date: { gte: dateFromYMD(startYmd), lte: dateFromYMD(todayYmd) } },
+      }),
+      db.transaction.findMany({
+        where: { type: { in: ['income', 'expense'] } },
+        select: { type: true, amount: true, category: true, date: true },
+      }),
+      db.weeklyBudget.findMany({ where: { month: currentMonth } }),
+    ]);
+
+    const weekStart = settings?.weekStart === 0 ? 0 : 1;
+
+    // ── Log completed dikelompokkan per habit ──
+    const logsByHabit = new Map<string, Array<{ ymd: string; value: number }>>();
+    const todayCompleted = new Set<string>();
+    // M-1: hari dengan ≥1 habit selesai (GLOBAL, all-time) — dasar streak.
+    const globalDoneDays = new Set<string>();
+    for (const log of allCompleted) {
+      const ymd = ymdOf(log.date as Date);
+      const arr = logsByHabit.get(log.habitId) ?? [];
+      arr.push({ ymd, value: log.value ?? 1 });
+      logsByHabit.set(log.habitId, arr);
+      globalDoneDays.add(ymd);
+      if (ymd === todayYmd) todayCompleted.add(log.habitId);
+    }
+
+    const activeToday = todayCompleted.size;
+    const totalHabits = habits.length;
+    const successToday = totalHabits > 0 ? Math.round((activeToday / totalHabits) * 100) : 0;
+
+    // ── Rate penyelesaian (denominator = habit aktif per hari) ──
+    const rateBetween = (fromYmd: string, toYmd: string): number => {
+      let denominator = 0;
+      let completed = 0;
+      for (const h of habits) {
+        const startYmdHabit = ymdOf(h.startDate as Date);
+        const effStart = startYmdHabit > fromYmd ? startYmdHabit : fromYmd;
+        if (effStart > toYmd) continue;
+        denominator += daysBetween(effStart, toYmd);
+        const days = logsByHabit.get(h.id) ?? [];
+        completed += days.filter((d) => d.ymd >= effStart && d.ymd <= toYmd).length;
+      }
+      return denominator > 0 ? Math.round((completed / denominator) * 100) : 0;
+    };
+
+    const monthStart = currentMonth + '-01';
+    const weeklyRate = rateBetween(weekStartOf(todayYmd, weekStart), todayYmd);
+    const monthlyRate = rateBetween(monthStart, todayYmd);
+    const consistencyScore = rateBetween(startYmd, todayYmd);
+    const completion7d = rateBetween(shiftYmd(todayYmd, -6), todayYmd);
+    const completion30d = rateBetween(shiftYmd(todayYmd, -29), todayYmd);
+
+    // ── XP & level (all-time) ──
+    let totalXp = 0;
+    let todayXp = 0;
+    for (const h of habits) {
+      const logs = logsByHabit.get(h.id) ?? [];
+      const weight = xpForDifficulty(h.difficulty);
+      totalXp += logs.length * weight;
+      if (todayCompleted.has(h.id)) todayXp += weight;
+    }
+    const currentLevel = calcLevel(totalXp);
+
+    // ── Streak GLOBAL (M-1) ──
+    // currentStreak: hari berturut dengan ≥1 habit selesai hingga hari ini
+    // (hari ini belum selesai tidak memutus — konvensi computeStreakFromSet).
+    const currentStreak = computeStreakFromSet(globalDoneDays, todayYmd);
+    // bestStreak: run terpanjang all-time — computeStreakFromSet(set, D) =
+    // panjang run yang BERAKHIR di D; cukup menguji ujung run (hari
+    // sesudahnya tidak selesai) → O(hari selesai), bukan O(n²).
+    let bestStreak = 0;
+    for (const day of globalDoneDays) {
+      if (globalDoneDays.has(shiftYmd(day, 1))) continue;
+      const streak = computeStreakFromSet(globalDoneDays, day);
+      if (streak > bestStreak) bestStreak = streak;
+    }
+
+    // ── Rata-rata mood/energi/tidur (M-2) ──
+    // Null bila tidak ada nilai; rata-rata hanya dari log yang terisi.
+    const avgOf = (pick: (d: { mood: number | null; energy: number | null; sleep: number | null }) => number | null): number | null => {
+      const vals = dailyLogs.map(pick).filter((v): v is number => v !== null && Number.isFinite(v));
+      return vals.length > 0 ? round1(vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+    };
+    const moodAvg = avgOf((d) => d.mood);
+    const energyAvg = avgOf((d) => d.energy);
+    const sleepAvg = avgOf((d) => d.sleep);
+
+    // ── Habit terbaik / terburuk (rate periode) ──
+    type HabitRate = { id: string; name: string; emoji: string; rate: number; done: number; days: number };
+    const rates: HabitRate[] = [];
+    for (const h of habits) {
+      const startYmdHabit = ymdOf(h.startDate as Date);
+      const effStart = startYmdHabit > startYmd ? startYmdHabit : startYmd;
+      if (effStart > todayYmd) continue;
+      const days = daysBetween(effStart, todayYmd);
+      if (days <= 0) continue;
+      const done = (logsByHabit.get(h.id) ?? []).filter((l) => l.ymd >= startYmd && l.ymd <= todayYmd).length;
+      rates.push({ id: h.id, name: h.name, emoji: h.emoji, rate: Math.round((done / days) * 100), done, days });
+    }
+    rates.sort((a, b) => b.rate - a.rate || b.done - a.done);
+    const bestRate = rates[0] ?? null;
+    const worstRate =
+      rates.length >= 2 ? rates[rates.length - 1] : null;
+    const bestHabit = bestRate ? { id: bestRate.id, name: bestRate.name, emoji: bestRate.emoji, rate: bestRate.rate } : null;
+    const worstHabit = worstRate
+      ? { id: worstRate.id, name: worstRate.name, emoji: worstRate.emoji, rate: worstRate.rate }
+      : null;
+
+    // ── Chart (M-3) ──
+    // completedByDate: jumlah log completed (semua habit) per tanggal.
+    const completedByDate = new Map<string, number>();
+    for (const log of allCompleted) {
+      const ymd = ymdOf(log.date as Date);
+      completedByDate.set(ymd, (completedByDate.get(ymd) ?? 0) + 1);
+    }
+    const buildDailyChart = (fromYmd: string, toYmd: string): ChartDay[] => {
+      const chart: ChartDay[] = [];
+      for (let cursor = fromYmd; cursor <= toYmd; cursor = shiftYmd(cursor, 1)) {
+        const due = habits.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
+        const completed = completedByDate.get(cursor) ?? 0;
+        chart.push({ date: cursor, completed, missed: Math.max(0, due - completed) });
+      }
+      return chart;
+    };
+    // Agregasi mingguan (minggu kalender, Senin-awal default) — bucket
+    // berlabel tanggal awal minggunya; dipakai bila jendela > 90 hari.
+    const buildWeeklyChart = (fromYmd: string, toYmd: string): ChartDay[] => {
+      const buckets = new Map<string, { completed: number; missed: number }>();
+      for (let cursor = fromYmd; cursor <= toYmd; cursor = shiftYmd(cursor, 1)) {
+        const wk = weekStartOf(cursor, weekStart);
+        const b = buckets.get(wk) ?? { completed: 0, missed: 0 };
+        const due = habits.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
+        const completed = completedByDate.get(cursor) ?? 0;
+        b.completed += completed;
+        b.missed += Math.max(0, due - completed);
+        buckets.set(wk, b);
+      }
+      return Array.from(buckets.entries())
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([date, v]) => ({ date, completed: v.completed, missed: v.missed }));
+    };
+
+    const weeklyChart = buildDailyChart(shiftYmd(todayYmd, -6), todayYmd);
+    // monthlyChart ("Tren Penyelesaian") jujur mengikuti jendela periode:
+    // 7 → 7 titik, 30 → 30, 90 → 90, all → seluruh jendela; jendela > 90
+    // hari → agregasi mingguan (maks ~90 titik terakhir).
+    const chartWindowDays = daysBetween(startYmd, todayYmd);
+    const monthlyChartUnit: 'day' | 'week' = chartWindowDays > 90 ? 'week' : 'day';
+    let monthlyChart =
+      monthlyChartUnit === 'week' ? buildWeeklyChart(startYmd, todayYmd) : buildDailyChart(startYmd, todayYmd);
+    if (monthlyChart.length > 90) monthlyChart = monthlyChart.slice(-90);
+    // Sumber "Pola Mingguan": 90 hari terakhir (harian, dibatasi ketersediaan
+    // data) — stabil lintas periode, tetap harian meski tren mingguan.
+    const earliestDoneYmd = [...globalDoneDays].sort().at(0) ?? todayYmd;
+    const patternStart = earliestDoneYmd > shiftYmd(todayYmd, -89) ? earliestDoneYmd : shiftYmd(todayYmd, -89);
+    const patternChart = buildDailyChart(patternStart, todayYmd);
+
+    // ── Performa kategori habit (periode) ──
+    const categoryCounts = new Map<string, number>();
+    for (const log of allCompleted) {
+      const ymd = ymdOf(log.date as Date);
+      if (ymd < startYmd || ymd > todayYmd) continue;
+      const habit = habits.find((h) => h.id === log.habitId);
+      if (!habit) continue;
+      categoryCounts.set(habit.category, (categoryCounts.get(habit.category) ?? 0) + 1);
+    }
+    const categoryChart = Array.from(categoryCounts.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count || (a.category < b.category ? -1 : 1));
+
+    // ── Fokus hari ini (L-8: priority dari habit) ──
+    const focusToday = habits.map((h) => ({
+      id: h.id,
+      name: h.name,
+      emoji: h.emoji,
+      priority: h.priority,
+      completed: todayCompleted.has(h.id),
+    }));
+
+    // ── Terakhir dikerjakan + streak ──
+    const lastDone = habits.map((h) => {
+      const logs = logsByHabit.get(h.id) ?? [];
+      const lastDate = logs.length ? logs.map((l) => l.ymd).sort().at(-1) ?? null : null;
+      const streak = computeStreakFromSet(new Set(logs.map((l) => l.ymd)), todayYmd);
+      return { id: h.id, name: h.name, emoji: h.emoji, lastDate, streak };
+    });
+
+    // ── Waktu terlacak (habit trackTime, menit = Σ value periode) ──
+    const timeTracked = habits
+      .filter((h) => h.trackTime)
+      .map((h) => {
+        const logs = (logsByHabit.get(h.id) ?? []).filter((l) => l.ymd >= startYmd && l.ymd <= todayYmd);
+        return { id: h.id, name: h.name, emoji: h.emoji, minutes: logs.reduce((s, l) => s + l.value, 0) };
+      });
+
+    // ── Overview keuangan bulan berjalan ──
+    const monthPrefix = currentMonth;
+    let monthIncome = 0;
+    let monthExpense = 0;
+    const spentByCategory = new Map<string, number>();
+    for (const tx of monthTx) {
+      const ymd = ymdOf(tx.date as Date);
+      if (!ymd.startsWith(monthPrefix)) continue;
+      if (tx.type === 'income') monthIncome += tx.amount;
+      else if (tx.type === 'expense') {
+        monthExpense += tx.amount;
+        spentByCategory.set(tx.category, (spentByCategory.get(tx.category) ?? 0) + tx.amount);
+      }
+    }
+    const budgetTotal = budgetRows.reduce((s, b) => s + b.amount, 0);
+    const budgetSpent = budgetRows.reduce((s, b) => s + (spentByCategory.get(b.category) ?? 0), 0);
+
+    return NextResponse.json({
+      greeting: { userName: settings?.userName ?? 'User' },
+      kpi: {
+        totalHabits,
+        activeToday,
+        successToday,
+        weeklyRate,
+        monthlyRate,
+        consistencyScore,
+        currentStreak,
+        bestStreak,
+        totalXp,
+        currentLevel,
+        moodAvg,
+        sleepAvg,
+        energyAvg,
+        todayXp,
+        completion7d,
+        completion30d,
+      },
+      bestHabit,
+      worstHabit,
+      weeklyChart,
+      monthlyChart,
+      // 'day' | 'week' — granularitas monthlyChart (judul chart klien jujur).
+      monthlyChartUnit,
+      patternChart,
+      categoryChart,
+      focusToday,
+      lastDone,
+      timeTracked,
+      quote: pickDailyQuote(),
+      financeOverview: {
+        monthIncome: Math.round(monthIncome),
+        monthExpense: Math.round(monthExpense),
+        monthNet: Math.round(monthIncome - monthExpense),
+        budgetTotal: Math.round(budgetTotal),
+        budgetSpent: Math.round(budgetSpent),
+      },
+    });
+  } catch (error) {
+    return handleApiError(error, 'dashboard:GET');
+  }
+}

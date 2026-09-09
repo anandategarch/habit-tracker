@@ -1,0 +1,66 @@
+// components/habit-tracker/daily-tracker-types.ts — bentuk serialisasi API habit.
+// Date dikirim sebagai string ISO oleh API (client memakai slice(0,10) sebagai kunci YMD).
+
+export interface Habit {
+  id: string;
+  name: string;
+  emoji: string;
+  category: string;
+  priority: string;
+  difficulty: string;
+  habitType: 'normal' | 'amount' | 'avoid';
+  target: number;
+  unit?: string | null;
+  targetType?: string | null;
+  reminder?: string | null;
+  notes?: string | null;
+  trackTime: boolean;
+  groupId?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isArchived: boolean;
+  vacationMode: boolean;
+  vacationUntil?: string | null;
+  startDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Jumlah log selesai all-time (dihitung API /api/habits — Gelombang 1). */
+  completedLogCount?: number;
+}
+
+export interface HabitLog {
+  id: string;
+  habitId: string;
+  /** ISO UTC-midnight; kunci hari = slice(0,10). */
+  date: string;
+  completed: boolean;
+  value: number;
+  completedAt?: string | null;
+  notes?: string | null;
+}
+
+export interface DailyLog {
+  id: string;
+  /** ISO UTC-midnight; kunci hari = slice(0,10). */
+  date: string;
+  mood: number;
+  energy: number;
+  sleep: number;
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export interface HabitOption {
+  id: string;
+  type: string;
+  label: string;
+  color?: string | null;
+  sortOrder: number;
+}
+
+export interface HabitGroup {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+}

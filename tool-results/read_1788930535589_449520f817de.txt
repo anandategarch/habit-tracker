@@ -1,0 +1,731 @@
+     1→'use client';
+     2→
+     3→import { useState, useMemo } from 'react';
+     4→import { useWindowVirtualizer } from '@tanstack/react-virtual';
+     5→import { Input } from '@/components/ui/input';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Checkbox } from '@/components/ui/checkbox';
+     8→import { Trash2, Edit3, Search, X, ChevronDown, Wallet } from 'lucide-react';
+     9→import { cn } from '@/lib/utils';
+    10→import { jakartaDateString, jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
+    11→import { toast } from 'sonner';
+    12→import { formatRupiah, capitalize } from './finance-types';
+    13→import type { Transaction } from './finance-types';
+    14→import { parseTags } from './finance-types';
+    15→
+    16→interface GroupedTransaction {
+    17→ dateKey: string;
+    18→ dateLabel: string;
+    19→ dayName: string;
+    20→ txs: Transaction[];
+    21→ totalIncome: number;
+    22→ totalExpense: number;
+    23→ net: number;
+    24→}
+    25→
+    26→interface FinanceTransactionsProps {
+    27→ filteredTransactions: Transaction[];
+    28→ groupedTransactions: GroupedTransaction[];
+    29→ selectedTxIds: Set<string>;
+    30→ txFilter: { type: string; category: string; source: string; search: string };
+    31→ getCategoryList: (type: string) => { value: string; emoji: string; color: string }[];
+    32→ getActiveSources: () => { id: string; name: string; emoji: string; order: number }[];
+    33→ getCategoryMeta: (cat: string) => { emoji: string; color: string };
+    34→ getSourceEmoji: (name: string) => string;
+    35→ onFilterChange: (filter: { type: string; category: string; source: string; search: string }) => void;
+    36→ onToggleSelectTx: (id: string) => void;
+    37→ onToggleSelectAll: () => void;
+    38→ onEditTx: (tx: Transaction) => void;
+    39→ onDeleteTx: (id: string) => void;
+    40→ onBulkDelete: () => void;
+    41→ // FIN-BUG-7 fix: selectedMonth is needed to decide whether to render
+    42→ // the "Total Pengeluaran Hari Ini" footer block — it's only meaningful
+    43→ // when viewing the current month (filteredTransactions is scoped to
+    44→ // selectedMonth, so today's expense is 0 for any other month).
+    45→ selectedMonth: string;
+    46→ // DB-MIGRATE-1: callback to navigate to the previous month. Used by the
+    47→ // empty-state below — when the current month has no transactions (e.g.
+    48→ // user just opened the app at the start of a new month), the empty
+    49→ // state offers a one-tap shortcut to view the previous month's data
+    50→ // instead of leaving the user staring at "Belum ada transaksi" and
+    51→ // wondering whether their data was lost (which was the exact confusion
+    52→ // that triggered the DB-migration debug investigation).
+    53→ onGoToPrevMonth?: () => void;
+    54→}
+    55→
+    56→// PERF-FIX (FIX-TIER3 / Fix 14): Format time from transaction date.
+    57→// Hoisted to module scope — this function is stateless and was previously
+    58→// re-created on every render. MUST use timeZone: 'Asia/Jakarta' explicitly
+    59→// (without it, toLocaleTimeString uses the runtime's default TZ — UTC on
+    60→// Vercel serverless, or the user's browser TZ locally). This caused the
+    61→// time shown here to disagree with the time shown in the Daily Recap's
+    62→// hourly heatmap + transactions list (which both use timeZone:
+    63→// 'Asia/Jakarta'). Same code path as daily-recap.tsx's formatTxTime() —
+    64→// keep them in sync.
+    65→function formatTime(dateStr: string) {
+    66→ try {
+    67→   const d = new Date(dateStr);
+    68→   return d.toLocaleTimeString('id-ID', {
+    69→     timeZone: 'Asia/Jakarta',
+    70→     hour: '2-digit',
+    71→     minute: '2-digit',
+    72→   });
+    73→ } catch {
+    74→   return '';
+    75→ }
+    76→}
+    77→
+    78→// PERF-FIX (FIX-TIER3 / Fix 14): Flat row representation for the virtualized
+    79→// list. The original component rendered a nested structure (groups → txs),
+    80→// which forced the browser to allocate a DOM node for every transaction
+    81→// even when off-screen. For months with 100+ transactions this meant
+    82→// hundreds of nodes living in the layout. Flattening groups into a single
+    83→// row list lets @tanstack/react-virtual only render the visible window.
+    84→type FlatRow =
+    85→ | { kind: 'header'; group: GroupedTransaction }
+    86→ | { kind: 'tx'; tx: Transaction; txIdx: number };
+    87→
+    88→// PREMIUM-UI ("Rutina Aurora"): opsi filter tipe transaksi untuk segmented
+    89→// control premium (menggantikan tombol chip merah/hijau generik). Label &
+    90→// value dipetakan 1:1 ke txFilter.type — logika onFilterChange tidak berubah.
+    91→const TYPE_OPTIONS = [
+    92→ { value: 'all', label: 'Semua' },
+    93→ { value: 'income', label: '↑ Pemasukan' },
+    94→ { value: 'expense', label: '↓ Pengeluaran' },
+    95→] as const;
+    96→
+    97→// PERF-FIX: estimateSize callbacks must be stable (not re-created each
+    98→// render) — the virtualizer uses referential equality to decide whether
+    99→// to re-measure. Hoisting to module scope also avoids a fresh closure
+   100→// per render, which would otherwise cause the virtualizer to reset its
+   101→// measurements on every render of this component.
+   102→function estimateRowSize(row: FlatRow | undefined): number {
+   103→ if (!row) return 80;
+   104→ // Header rows are short (single-line pill). Transaction rows are compact
+   105→ // list rows (avatar 40px + 2-line content, ~64px + 6px margin-bottom
+   106→ // ≈ 70px after the PREMIUM-UI restyle). measureElement below self-heals
+   107→ // any drift (e.g. rows with the tap-to-expand panel open).
+   108→ return row.kind === 'header' ? 36 : 72;
+   109→}
+   110→
+   111→export default function FinanceTransactions({
+   112→ filteredTransactions,
+   113→ groupedTransactions,
+   114→ selectedTxIds,
+   115→ txFilter,
+   116→ getCategoryList,
+   117→ getActiveSources,
+   118→ getCategoryMeta,
+   119→ getSourceEmoji,
+   120→ onFilterChange,
+   121→ onToggleSelectTx,
+   122→ onToggleSelectAll,
+   123→ onEditTx,
+   124→ onDeleteTx,
+   125→ onBulkDelete,
+   126→ selectedMonth,
+   127→ onGoToPrevMonth,
+   128→}: FinanceTransactionsProps) {
+   129→ const [showFilters, setShowFilters] = useState(false);
+   130→ const [multiSelect, setMultiSelect] = useState(false);
+   131→ // SHADCN-PHASE-2: tracks which transaction card is currently tap-expanded
+   132→ // (shows notes + tags). Null = all collapsed. At most one card expands at
+   133→ // a time — tapping a new card collapses the previous. State lives in the
+   134→ // parent (not per-row) so virtualized rows can unmount/remount without
+   135→ // losing expand state, and so toggling is O(1) without prop-drilling a
+   136→ // setter per row.
+   137→ const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
+   138→
+   139→ // FIN-BUG-7 fix: only compute + render "today's expense" when viewing
+   140→ // the current month. filteredTransactions is scoped to selectedMonth,
+   141→ // so for any other month today's expense would always be 0 — rendering
+   142→ // "Total Pengeluaran Hari Ini: Rp 0" is misleading. The footer's right
+   143→ // side (Total Transaksi count) still shows regardless.
+   144→ const isCurrentMonth = selectedMonth === jakartaMonthString();
+   145→ const today = jakartaDateString();
+   146→ // PERF-FIX: memoize today's-expense computation so it doesn't re-run
+   147→ // the filter+reduce on every render (only when filteredTransactions or
+   148→ // the today-string change).
+   149→ const todayExpense = useMemo(
+   150→   () =>
+   151→     isCurrentMonth
+   152→       ? filteredTransactions
+   153→           .filter(t => jakartaDateKey(new Date(t.date)) === today && t.type === 'expense')
+   154→           .reduce((s, t) => s + (t.amount ?? 0), 0)
+   155→       : 0,
+   156→   [isCurrentMonth, filteredTransactions, today]
+   157→ );
+   158→
+   159→ // PERF-FIX (Fix 14): Flatten grouped transactions into a single list of
+   160→ // rows (header + tx interleaved). This is the input to the virtualizer.
+   161→ // useMemo ensures we don't rebuild the flat list on every render — only
+   162→ // when the grouped data actually changes.
+   163→ const flatRows = useMemo<FlatRow[]>(() => {
+   164→   const rows: FlatRow[] = [];
+   165→   for (const group of groupedTransactions) {
+   166→     rows.push({ kind: 'header', group });
+   167→     group.txs.forEach((tx, idx) => rows.push({ kind: 'tx', tx, txIdx: idx }));
+   168→   }
+   169→   return rows;
+   170→ }, [groupedTransactions]);
+   171→
+   172→ // PERF-FIX (Fix 14): useWindowVirtualizer scrolls with the document
+   173→ // (preserving the existing UX where the transaction list lives in
+   174→ // normal page flow). The virtualizer renders only the visible window
+   175→ // of rows + an overscan buffer; off-screen rows are NOT mounted, which
+   176→ // keeps DOM node count bounded regardless of how many transactions
+   177→ // the month has. estimateSize returns a rough height per row kind
+   178→ // (header is short, tx is taller) — the library uses this to compute
+   179→ // total scrollable height and to decide which rows are visible.
+   180→ const virtualizer = useWindowVirtualizer({
+   181→   count: flatRows.length,
+   182→   estimateSize: (i) => estimateRowSize(flatRows[i]),
+   183→   overscan: 12,
+   184→   // FIX: enable dynamic measurement so virtualizer self-heals when CSS
+   185→   // changes card height. Without this, stale estimateRowSize causes
+   186→   // cards to overlap (was 92px estimate vs 122px actual → 18px overlap).
+   187→   measureElement: (el) => el.getBoundingClientRect().height,
+   188→ });
+   189→
+   190→ return (
+   191→   <div className="mt-4 space-y-3">
+   192→     {/* ── Search Bar ────────────────────────────────────────── */}
+   193→     <div className="relative">
+   194→       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   195→       <Input
+   196→         placeholder="Cari transaksi di semua periode..."
+   197→         value={txFilter.search}
+   198→         onChange={e => onFilterChange({ ...txFilter, search: e.target.value })}
+   199→         className="pl-9 h-10 text-sm rounded-xl bg-card border-border"
+   200→       />
+   201→       {txFilter.search && (
+   202→         <button
+   203→           onClick={() => onFilterChange({ ...txFilter, search: '' })}
+   204→           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+   205→         >
+   206→           <X className="h-4 w-4" />
+   207→         </button>
+   208→       )}
+   209→     </div>
+   210→
+   211→     {/* FEAT-SEARCH-ALLTIME: Badge shown when search is active. Tells the
+   212→         user the search spans all periods (not just the selected month)
+   213→         and shows result count. Provides a quick clear button. */}
+   214→     {txFilter.search.trim() && (
+   215→       <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary">
+   216→         <Search className="h-3 w-3 shrink-0" />
+   217→         <span className="flex-1">
+   218→           Mencari di <strong>semua periode</strong> — {filteredTransactions.length} transaksi ditemukan
+   219→         </span>
+   220→         <button
+   221→           onClick={() => onFilterChange({ ...txFilter, search: '' })}
+   222→           className="shrink-0 hover:bg-primary/20 rounded px-1.5 py-0.5 transition-colors"
+   223→           aria-label="Hapus pencarian"
+   224→         >
+   225→           <X className="h-3 w-3" />
+   226→         </button>
+   227→       </div>
+   228→     )}
+   229→
+   230→     {/* ── Filter: segmented control tipe + chips util ──────────── */}
+   231→     {/* PREMIUM-UI: toggle Semua/Pemasukan/Pengeluaran kini memakai
+   232→         .premium-segment (pill gradien aktif per item, data-active attr).
+   233→         Logika onFilterChange/txFilter.type TIDAK berubah. */}
+   234→     <div className="flex flex-wrap items-center gap-2">
+   235→       <div
+   236→         className="premium-segment w-full sm:w-auto"
+   237→         role="group"
+   238→         aria-label="Filter tipe transaksi"
+   239→       >
+   240→         {TYPE_OPTIONS.map((opt) => {
+   241→           const isActive = txFilter.type === opt.value;
+   242→           return (
+   243→             <button
+   244→               key={opt.value}
+   245→               type="button"
+   246→               className="premium-segment-item relative h-9 flex-1 whitespace-nowrap cursor-pointer"
+   247→               data-active={isActive ? 'true' : 'false'}
+   248→               aria-pressed={isActive}
+   249→               onClick={() => onFilterChange({ ...txFilter, type: opt.value })}
+   250→             >
+   251→               {isActive && (
+   252→                 <span
+   253→                   aria-hidden="true"
+   254→                   className="absolute inset-0 -z-10 rounded-full animate-in fade-in zoom-in-95 duration-200"
+   255→                   style={{
+   256→                     background:
+   257→                       'linear-gradient(135deg, var(--primary), color-mix(in oklch, var(--primary) 55%, #2dd4bf))',
+   258→                     boxShadow:
+   259→                       '0 2px 8px -2px color-mix(in oklch, var(--primary) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.28)',
+   260→                   }}
+   261→                 />
+   262→               )}
+   263→               {opt.label}
+   264→             </button>
+   265→           );
+   266→         })}
+   267→       </div>
+   268→       <button
+   269→         className="tx-chip tx-chip-inactive flex items-center gap-1"
+   270→         onClick={() => setShowFilters(!showFilters)}
+   271→       >
+   272→         Filter
+   273→         <ChevronDown className={cn('h-3 w-3 transition-transform', showFilters && 'rotate-180')} />
+   274→       </button>
+   275→       <button
+   276→         className={cn(
+   277→           'tx-chip',
+   278→           multiSelect ? 'tx-chip-active' : 'tx-chip-inactive'
+   279→         )}
+   280→         onClick={() => {
+   281→           setMultiSelect(!multiSelect);
+   282→           if (multiSelect) {
+   283→             // Clear selections when exiting multi-select
+   284→             selectedTxIds.forEach(id => onToggleSelectTx(id));
+   285→           }
+   286→         }}
+   287→       >
+   288→         {multiSelect ? `${selectedTxIds.size} dipilih` : 'Pilih'}
+   289→       </button>
+   290→     </div>
+   291→
+   292→     {/* ── Expanded Filters (category + source) ───────────────── */}
+   293→     {showFilters && (
+   294→       <div className="space-y-2 p-3 rounded-xl bg-card border border-border">
+   295→         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+   296→           <span className="text-xs text-muted-foreground shrink-0">Kategori:</span>
+   297→           <button
+   298→             className={cn('tx-chip', txFilter.category === 'all' ? 'tx-chip-active' : 'tx-chip-inactive')}
+   299→             onClick={() => onFilterChange({ ...txFilter, category: 'all' })}
+   300→           >
+   301→             Semua
+   302→           </button>
+   303→           {getCategoryList('expense').map(c => (
+   304→             <button
+   305→               key={c.value}
+   306→               className={cn('tx-chip', txFilter.category === c.value ? 'tx-chip-active' : 'tx-chip-inactive')}
+   307→               onClick={() => onFilterChange({ ...txFilter, category: c.value })}
+   308→             >
+   309→               {c.emoji} {c.value}
+   310→             </button>
+   311→           ))}
+   312→           {getCategoryList('income').map(c => (
+   313→             <button
+   314→               key={c.value}
+   315→               className={cn('tx-chip', txFilter.category === c.value ? 'tx-chip-active' : 'tx-chip-inactive')}
+   316→               onClick={() => onFilterChange({ ...txFilter, category: c.value })}
+   317→             >
+   318→               {c.emoji} {c.value}
+   319→             </button>
+   320→           ))}
+   321→         </div>
+   322→         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+   323→           <span className="text-xs text-muted-foreground shrink-0">Sumber:</span>
+   324→           <button
+   325→             className={cn('tx-chip', txFilter.source === 'all' ? 'tx-chip-active' : 'tx-chip-inactive')}
+   326→             onClick={() => onFilterChange({ ...txFilter, source: 'all' })}
+   327→           >
+   328→             Semua
+   329→           </button>
+   330→           {getActiveSources().map(s => (
+   331→             <button
+   332→               key={s.id || s.name}
+   333→               className={cn('tx-chip', txFilter.source === s.name ? 'tx-chip-active' : 'tx-chip-inactive')}
+   334→               onClick={() => onFilterChange({ ...txFilter, source: s.name })}
+   335→             >
+   336→               {s.emoji} {s.name}
+   337→             </button>
+   338→           ))}
+   339→         </div>
+   340→       </div>
+   341→     )}
+   342→
+   343→     {/* ── Multi-select toolbar ──────────────────────────────── */}
+   344→     {multiSelect && selectedTxIds.size > 0 && (
+   345→       <div className="flex items-center justify-between p-2 px-3 rounded-xl bg-primary/5 border border-primary/20">
+   346→         <div className="flex items-center gap-2">
+   347→           <Checkbox
+   348→             checked={filteredTransactions.length > 0 && selectedTxIds.size === filteredTransactions.length}
+   349→             onCheckedChange={onToggleSelectAll}
+   350→           />
+   351→           <span className="text-xs text-muted-foreground">
+   352→             {selectedTxIds.size} dari {filteredTransactions.length} dipilih
+   353→           </span>
+   354→         </div>
+   355→         <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={onBulkDelete}>
+   356→           <Trash2 className="h-3 w-3" /> Hapus
+   357→         </Button>
+   358→       </div>
+   359→     )}
+   360→
+   361→     {/* ── Transaction Timeline ──────────────────────────────── */}
+   362→     {filteredTransactions.length === 0 ? (
+   363→       <div className="premium-card rounded-2xl">
+   364→         {/* PREMIUM-UI: empty state dengan orb ilustrasi halus. CTA
+   365→             "Lihat bulan sebelumnya" (DB-MIGRATE-1) dipertahankan. */}
+   366→         <div className="premium-empty min-h-[15rem]">
+   367→             <div className="premium-empty-orb" aria-hidden="true">
+   368→               <Wallet className="h-8 w-8 text-primary" />
+   369→             </div>
+   370→             <p className="text-sm font-semibold mt-2">Belum ada transaksi</p>
+   371→             {/* DB-MIGRATE-1: when viewing the current month and it's empty,
+   372→                 the user may genuinely have no transactions this month (e.g.
+   373→                 just started a new month, or hasn't logged anything yet) —
+   374→                 but they may also be panicking that their data was lost
+   375→                 (this happened during the DB migration). Offer a one-tap
+   376→                 shortcut to view the previous month so they can quickly
+   377→                 confirm their old data is still there. Only show this CTA
+   378→                 when we're on the current month AND a prev-month handler
+   379→                 was wired up by the parent. */}
+   380→             {isCurrentMonth && onGoToPrevMonth ? (
+   381→               <div className="mt-2 flex flex-col items-center gap-2">
+   382→                 <p className="text-xs text-muted-foreground">Belum ada transaksi bulan ini.</p>
+   383→                 <Button
+   384→                   size="sm"
+   385→                   variant="outline"
+   386→                   className="h-8 text-xs"
+   387→                   onClick={onGoToPrevMonth}
+   388→                 >
+   389→                   Lihat bulan sebelumnya
+   390→                 </Button>
+   391→               </div>
+   392→             ) : (
+   393→               <p className="text-xs text-muted-foreground mt-1">Coba ubah filter atau tambah transaksi baru</p>
+   394→             )}
+   395→         </div>
+   396→       </div>
+   397→     ) : (
+   398→       <div className="tx-timeline space-y-1">
+   399→         {/*
+   400→           PERF-FIX (Fix 14): Virtualized list.
+   401→           The container div has height = total virtualized size so the
+   402→           document scroll bar reflects the full list length. Each visible
+   403→           row is absolutely positioned via `transform: translateY(start)`.
+   404→           Off-screen rows are NOT mounted — DOM count stays bounded even
+   405→           for months with hundreds of transactions.
+   406→
+   407→           Note on sticky date pill: previously .tx-date-pill was
+   408→           position: sticky inside each group's container so it stayed
+   409→           pinned at top while scrolling within a group. With virtualized
+   410→           absolute positioning, sticky no longer applies — the date
+   411→           header now scrolls with its row. Trade-off accepted to gain
+   412→           bounded DOM for long lists. The pill's visual styling is
+   413→           preserved (still uses .tx-date-pill class).
+   414→         */}
+   415→         <div
+   416→           style={{
+   417→             height: `${virtualizer.getTotalSize()}px`,
+   418→             position: 'relative',
+   419→             width: '100%',
+   420→           }}
+   421→         >
+   422→           {virtualizer.getVirtualItems().map(vItem => {
+   423→             const row = flatRows[vItem.index];
+   424→             if (!row) return null;
+   425→             return (
+   426→               <div
+   427→                 key={vItem.key}
+   428→                 data-index={vItem.index}
+   429→                 ref={virtualizer.measureElement}
+   430→                 style={{
+   431→                   position: 'absolute',
+   432→                   top: 0,
+   433→                   left: 0,
+   434→                   width: '100%',
+   435→                   transform: `translateY(${vItem.start}px)`,
+   436→                 }}
+   437→               >
+   438→                 {row.kind === 'header' ? (
+   439→                   <div className="tx-date-pill">
+   440→                     {row.group.dateLabel}, {capitalize(row.group.dayName)}
+   441→                     {row.group.totalExpense > 0 && (
+   442→                       <span className="text-rose-600 dark:text-rose-400 ml-1">−{formatRupiah(row.group.totalExpense)}</span>
+   443→                     )}
+   444→                     {row.group.totalIncome > 0 && (
+   445→                       <span className="text-emerald-600 dark:text-emerald-400 ml-1">+{formatRupiah(row.group.totalIncome)}</span>
+   446→                     )}
+   447→                   </div>
+   448→                 ) : (
+   449→                   <TransactionRow
+   450→                     tx={row.tx}
+   451→                     txIdx={row.txIdx}
+   452→                     multiSelect={multiSelect}
+   453→                     selectedTxIds={selectedTxIds}
+   454→                     expandedTxId={expandedTxId}
+   455→                     onToggleExpand={(id: string) =>
+   456→                       setExpandedTxId(prev => (prev === id ? null : id))
+   457→                     }
+   458→                     getCategoryMeta={getCategoryMeta}
+   459→                     getSourceEmoji={getSourceEmoji}
+   460→                     onToggleSelectTx={onToggleSelectTx}
+   461→                     onEditTx={onEditTx}
+   462→                     onDeleteTx={onDeleteTx}
+   463→                   />
+   464→                 )}
+   465→               </div>
+   466→             );
+   467→           })}
+   468→         </div>
+   469→       </div>
+   470→     )}
+   471→
+   472→     {/* ── Total Expense Footer ──────────────────────────────── */}
+   473→     {filteredTransactions.length > 0 && (
+   474→       <div className="tx-total-footer flex items-center justify-between">
+   475→         {/* FIN-BUG-7 fix: only show today-expense block when viewing the
+   476→             current month. For other months, today's expense is always 0
+   477→             (filteredTransactions is scoped to selectedMonth) — showing
+   478→             "Rp 0" was misleading. */}
+   479→         {isCurrentMonth ? (
+   480→           <div>
+   481→             <p className="premium-label">Total Pengeluaran Hari Ini</p>
+   482→             <p className="text-lg font-bold text-destructive premium-stat">{formatRupiah(todayExpense)}</p>
+   483→           </div>
+   484→         ) : (
+   485→           <div />
+   486→         )}
+   487→         <div className="text-right">
+   488→           <p className="premium-label">Total Transaksi</p>
+   489→           <p className="text-lg font-bold premium-stat">{filteredTransactions.length}</p>
+   490→         </div>
+   491→       </div>
+   492→     )}
+   493→   </div>
+   494→ );
+   495→}
+   496→
+   497→// PERF-FIX (Fix 14): Extracted as a separate component so it can be
+   498→// memoized in the future (e.g. React.memo) and so the parent's render
+   499→// doesn't force re-creation of every visible row's JSX tree. Keeping
+   500→// the row's render logic out of the virtualizer map callback also
+   501→// makes the code easier to reason about.
+   502→interface TransactionRowProps {
+   503→ tx: Transaction;
+   504→ txIdx: number;
+   505→ multiSelect: boolean;
+   506→ selectedTxIds: Set<string>;
+   507→ // SHADCN-PHASE-2: expand support. expandedTxId is the currently-expanded
+   508→ // tx id (owned by parent). onToggleExpand flips it (id -> id, same id -> null).
+   509→ expandedTxId: string | null;
+   510→ onToggleExpand: (id: string) => void;
+   511→ getCategoryMeta: (cat: string) => { emoji: string; color: string };
+   512→ getSourceEmoji: (name: string) => string;
+   513→ onToggleSelectTx: (id: string) => void;
+   514→ onEditTx: (tx: Transaction) => void;
+   515→ onDeleteTx: (id: string) => void;
+   516→}
+   517→
+   518→function TransactionRow({
+   519→ tx,
+   520→ txIdx,
+   521→ multiSelect,
+   522→ selectedTxIds,
+   523→ expandedTxId,
+   524→ onToggleExpand,
+   525→ getCategoryMeta,
+   526→ getSourceEmoji,
+   527→ onToggleSelectTx,
+   528→ onEditTx,
+   529→ onDeleteTx,
+   530→}: TransactionRowProps) {
+   531→ const meta = getCategoryMeta(tx.category);
+   532→ const isExpense = tx.type === 'expense';
+   533→ // SHADCN-PHASE-2: tap-to-expand state. parseTags is null-safe (returns []
+   534→ // for missing/invalid tags), so legacy rows without the column render no
+   535→ // expand section. hasExpandContent gates both the onClick handler and the
+   536→ // expand panel render — cards with no notes AND no tags are not
+   537→ // tappable (the edit button remains the only interaction), avoiding a
+   538→ // confusing "tapped but nothing happened" UX.
+   539→ const isExpanded = expandedTxId === tx.id;
+   540→ const tags = parseTags(tx.tags);
+   541→ const hasExpandContent = !!(tx.notes || tags.length > 0);
+   542→ return (
+   543→   <div className="relative anim-stagger" style={{ animationDelay: `${Math.min(txIdx, 8) * 30}ms` }}>
+   544→     {/* Timeline node — warna diharmonisasi dengan amount (rose / emerald) */}
+   545→     <div
+   546→       className="tx-node"
+   547→       style={{
+   548→         backgroundColor: isExpense ? '#f43f5e' : '#10b981',
+   549→       }}
+   550→     />
+   551→
+   552→     {/* Transaction row — PREMIUM-UI ("Rutina Aurora").
+   553→         .premium-list-item: baris kaya dengan hover tint halus; avatar
+   554→         emoji squircle (tint warna kategori), judul font-medium, label
+   555→         kategori kecil muted, nominal rata kanan tabular-nums
+   556→         (emerald + / rose −). Padding dinaikkan via important utility
+   557→         (unlayered .premium-list-item hanya set 10px/12px).
+   558→         onClick behavior (dipertahankan persis):
+   559→         - multiSelect mode: toggle selection.
+   560→         - single-select + hasExpandContent: toggle expand.
+   561→         - single-select + no expand content: fallback ke edit dialog. */}
+   562→     <div
+   563→       className={cn(
+   564→         'premium-list-item group relative mb-1.5 px-4! py-3!',
+   565→         'cursor-pointer active:scale-[0.99]'
+   566→       )}
+   567→       onClick={() => {
+   568→         if (multiSelect) {
+   569→           onToggleSelectTx(tx.id);
+   570→         } else if (hasExpandContent) {
+   571→           onToggleExpand(tx.id);
+   572→         } else {
+   573→           // BUGFIX POST-3 #4: Fallback ke edit dialog saat card tidak punya
+   574→           // notes/tags untuk expand. Sebelum Phase 2, tap card = edit. Sekarang
+   575→           // tap card = expand (jika ada content) atau edit (jika tidak ada).
+   576→           onEditTx(tx);
+   577→         }
+   578→       }}
+   579→     >
+   580→       {/* Multi-select checkbox
+   581→           BUG-FINANCE-CAL BUG-1: wrap the checkbox in a stopPropagation
+   582→           container. Without this, clicking the checkbox bubbles up to the
+   583→           tx-card's onClick (which toggles selection in multi-select mode),
+   584→           so onCheckedChange AND the parent onClick BOTH fire — net-zero
+   585→           selection change. The checkbox appeared broken: clicking it did
+   586→           nothing. Now the wrapper swallows the click so only the checkbox's
+   587→           onCheckedChange runs. */}
+   588→       {multiSelect && (
+   589→         <div
+   590→           className="absolute top-2 right-2 z-10"
+   591→           onClick={(e) => e.stopPropagation()}
+   592→         >
+   593→           <Checkbox
+   594→             checked={selectedTxIds.has(tx.id)}
+   595→             onCheckedChange={() => onToggleSelectTx(tx.id)}
+   596→           />
+   597→         </div>
+   598→       )}
+   599→
+   600→       {/* Avatar emoji squircle — tint warna kategori (meta.color hex +
+   601→           alpha 12.5% = RRGGBBAA; getCategoryMeta selalu mengembalikan
+   602→           6-digit hex, fallback '#78716c'). Ring hairline memberi definisi
+   603→           di atas background sage. */}
+   604→       <span
+   605→         className="h-10 w-10 rounded-xl grid place-items-center text-base shrink-0 ring-1 ring-black/5 dark:ring-white/10"
+   606→         style={{ backgroundColor: `${meta.color}20` }}
+   607→         aria-hidden="true"
+   608→       >
+   609→         {meta.emoji}
+   610→       </span>
+   611→
+   612→       {/* Content: judul (description → fallback kategori) + waktu */}
+   613→       <div className="flex-1 min-w-0">
+   614→         <div className="flex items-start justify-between gap-2.5">
+   615→           <span className="text-sm font-medium truncate flex items-center gap-1.5 min-w-0">
+   616→             {tx.description?.trim() || tx.category}
+   617→             {tx.groupId && (
+   618→               <span className="text-[9px] px-1 py-0 rounded-full bg-success/10 text-success dark:bg-success/15 dark:text-success/80 font-medium shrink-0">
+   619→                 Split
+   620→               </span>
+   621→             )}
+   622→           </span>
+   623→           <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+   624→             {formatTime(tx.date)}
+   625→           </span>
+   626→         </div>
+   627→
+   628→         {/* Meta line: kategori (label kecil muted) + sumber dana.
+   629→             Kategori hanya tampil bila judul memakai description —
+   630→             hindari duplikasi saat kategori sudah menjadi judul.
+   631→             SHADCN-PHASE-2: tag badges tetap di panel tap-to-expand
+   632→             di bawah (declutter tampilan default). */}
+   633→         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 min-w-0">
+   634→           {tx.description?.trim() && (
+   635→             <>
+   636→               <span className="truncate">{tx.category}</span>
+   637→               <span aria-hidden="true" className="shrink-0">·</span>
+   638→             </>
+   639→           )}
+   640→           <span className="shrink-0" aria-hidden="true">{getSourceEmoji(tx.source || tx.sourceName || 'Kas')}</span>
+   641→           <span className="truncate">{tx.source || tx.sourceName || 'Kas'}</span>
+   642→         </p>
+   643→       </div>
+   644→
+   645→       {/* Amount — rata kanan, tabular-nums, emerald (+) / rose (−) */}
+   646→       <div className="shrink-0 text-right self-center">
+   647→         <span
+   648→           className={cn(
+   649→             'text-sm font-semibold tabular-nums',
+   650→             isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+   651→           )}
+   652→         >
+   653→           {isExpense ? '−' : '+'}{formatRupiah(tx.amount)}
+   654→         </span>
+   655→       </div>
+   656→
+   657→       {/* Action buttons (visible on hover, always visible on mobile) */}
+   658→       {!multiSelect && (
+   659→         <div className="flex flex-col gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ml-1">
+   660→           {/* Disable edit + delete for transfer transactions —
+   661→               they're linked pairs that can't be modified
+   662→               independently without corrupting balances.
+   663→               BUGHUNT-ROUND2 TRANSFER-DEL: delete now WORKS for
+   664→               transfers (the API atomically removes the sibling pair +
+   665→               reverts both balances), but edit stays disabled. */}
+   666→           <Button
+   667→             variant="ghost"
+   668→             size="icon"
+   669→             className="h-9 w-9"
+   670→             onClick={(e) => { e.stopPropagation(); onEditTx(tx); }}
+   671→             disabled={tx.category === 'Transfer Antar Sumber'}
+   672→             title={tx.category === 'Transfer Antar Sumber' ? 'Transfer tidak bisa diedit' : 'Edit'}
+   673→           >
+   674→             <Edit3 className="h-3 w-3" />
+   675→           </Button>
+   676→           <Button
+   677→             variant="ghost"
+   678→             size="icon"
+   679→             className="h-9 w-9 text-destructive hover:text-destructive"
+   680→             onClick={(e) => {
+   681→               e.stopPropagation();
+   682→               // BUGHUNT-ROUND2 TRANSFER-DEL: transfers CAN be deleted now —
+   683→               // the API deletes the linked pair atomically.
+   684→               onDeleteTx(tx.id);
+   685→             }}
+   686→             title={tx.category === 'Transfer Antar Sumber' ? 'Hapus transfer (kedua sisi otomatis)' : 'Hapus'}
+   687→           >
+   688→             <Trash2 className="h-3 w-3" />
+   689→           </Button>
+   690→         </div>
+   691→       )}
+   692→
+   693→       {/* SHADCN-PHASE-2: tap-to-expand panel (notes + tags).
+   694→           Renders only when this card is expanded AND has content.
+   695→           anim-tab-enter (defined in globals.css) provides a smooth
+   696→           fade + slide-in from the right, and respects
+   697→           prefers-reduced-motion (globals.css sets it to `none` under
+   698→           the reduced-motion media query).
+   699→           Virtualization note: the parent virtualizer uses
+   700→           measureElement (ResizeObserver) on each row, so when this
+   701→           panel mounts/unmounts and the row's height changes, the
+   702→           virtualizer auto-re-measures — no manual invalidate needed.
+   703→           This is why state lives in the parent: a row can unmount when
+   704→           scrolled out of view and remount when scrolled back, and its
+   705→           expand state survives because it's keyed by tx.id in the
+   706→           parent, not held in row-local state. */}
+   707→       {isExpanded && hasExpandContent && (
+   708→         <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground anim-tab-enter">
+   709→           {tx.notes && (
+   710→             <p className="mb-1 break-words">{tx.notes}</p>
+   711→           )}
+   712→           {tags.length > 0 && (
+   713→             <div className="flex gap-1 flex-wrap">
+   714→               {tags.map((tag, i) => (
+   715→                 <span
+   716→                   key={`${tag}-${i}`}
+   717→                   className="px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground border border-border/60"
+   718→                 >
+   719→                   #{tag}
+   720→                 </span>
+   721→               ))}
+   722→             </div>
+   723→           )}
+   724→         </div>
+   725→       )}
+   726→     </div>
+   727→   </div>
+   728→ );
+   729→}
+   730→
+   731→

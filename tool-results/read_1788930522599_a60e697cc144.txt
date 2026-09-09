@@ -1,0 +1,617 @@
+     1→'use client';
+     2→
+     3→// ── useFinanceMutations ───────────────────────────────────────────────────
+     4→// Extracted from finance.tsx during SPLIT-PHASE2-UI.
+     5→//
+     6→// Owns all dialog open-state + form state + CRUD handlers for the Finance
+     7→// page (Transaction CRUD, Split helpers, Budget CRUD, Category CRUD, Source
+     8→// CRUD, Bulk Delete). The main Finance component consumes this hook's return
+     9→// value and passes the relevant slices to the extracted dialog components.
+    10→//
+    11→// Design notes:
+    12→//  - The hook owns the form/dialog state because every handler needs to
+    13→//    mutate it (close dialog on success, clear form, etc.). Hoisting state
+    14→//    to the parent would require passing ~30 setters back into the hook.
+    15→//  - `getActiveSources` is passed in because it depends on the `sources`
+    16→//    useQuery in the main component (data-fetching stays there per the
+    17→//    split spec).
+    18→//  - `invalidateFinance` is created inside the hook (it depends on
+    19→//    queryClient + useAppStore.triggerRefresh, both of which the hook can
+    20→//    call directly).
+    21→
+    22→import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+    23→import { useQueryClient } from '@tanstack/react-query';
+    24→import { toast } from 'sonner';
+    25→import { useAppStore } from '@/store/app-store';
+    26→import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
+    27→import { smallPop } from '@/lib/confetti';
+    28→import type {
+    29→ Transaction,
+    30→ BudgetItem,
+    31→ FinanceCategory,
+    32→ FundSource,
+    33→} from '@/components/habit-tracker/finance-types';
+    34→import {
+    35→ formatNominalInput,
+    36→ parseNominalInput,
+    37→ formatRupiah,
+    38→ parseTags,
+    39→} from '@/components/habit-tracker/finance-types';
+    40→
+    41→export interface SplitRow {
+    42→ category: string;
+    43→ amount: string;
+    44→}
+    45→
+    46→export interface TxFormState {
+    47→ type: string;
+    48→ amount: string;
+    49→ category: string;
+    50→ description: string;
+    51→ date: string;
+    52→ time: string;
+    53→ notes: string;
+    54→ source: string;
+    55→ // PHASE4-POLISH: tags stored as a string[] in the form. Serialized to a
+    56→ // JSON array string by the API before DB storage. The form keeps the
+    57→ // parsed array form so the chip input UI can add/remove tags directly.
+    58→ tags: string[];
+    59→}
+    60→
+    61→export interface BudgetFormState {
+    62→ category: string;
+    63→ amount: string;
+    64→ period: string;
+    65→}
+    66→
+    67→export interface CatFormState {
+    68→ type: string;
+    69→ name: string;
+    70→ emoji: string;
+    71→ color: string;
+    72→ trackLastDone: boolean;
+    73→}
+    74→
+    75→export interface SourceFormState {
+    76→ name: string;
+    77→ emoji: string;
+    78→ balance: number;
+    79→}
+    80→
+    81→export interface UseFinanceMutationsParams {
+    82→ /** Returns the active sources list — used by handleSaveBalance to detect
+    83→  *  no-op edits. Passed in because it depends on the `sources` useQuery
+    84→  *  which lives in the main Finance component. */
+    85→ getActiveSources: () => Array<{ id: string; name: string; emoji: string; balance: number; order: number }>;
+    86→}
+    87→
+    88→export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsParams) {
+    89→ const queryClient = useQueryClient();
+    90→ const triggerRefresh = useAppStore(s => s.triggerRefresh);
+    91→ // BUGHUNT-ROUND2 FAB-1: FAB quick-add trigger — opens the add-transaction
+    92→ // dialog (expense/income mode) after the Finance tab mounts. Cleared on
+    93→ // consumption so a stale action can't re-fire later.
+    94→ const quickAddAction = useAppStore(s => s.quickAddAction);
+    95→ const clearQuickAdd = useAppStore(s => s.clearQuickAdd);
+    96→
+    97→ // ── Dialog states ──
+    98→ const [txDialogOpen, setTxDialogOpen] = useState(false);
+    99→ const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+   100→ const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+   101→ const [catDialogOpen, setCatDialogOpen] = useState(false);
+   102→ const [catFormOpen, setCatFormOpen] = useState(false);
+   103→ const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+   104→ const [deletingId, setDeletingId] = useState<string | null>(null);
+   105→ const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
+   106→ const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+   107→ const [sourceFormOpen, setSourceFormOpen] = useState(false);
+   108→ const [editingSource, setEditingSource] = useState<FundSource | null>(null);
+   109→ const [sourceForm, setSourceForm] = useState<SourceFormState>({ name: '', emoji: '💵', balance: 0 });
+   110→ const [balanceEditId, setBalanceEditId] = useState<string | null>(null);
+   111→ const [balanceEditValue, setBalanceEditValue] = useState('');
+   112→ const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+   113→ const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+   114→ const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
+   115→ const [budgetEditOpen, setBudgetEditOpen] = useState(false);
+   116→ const [deletingSource, setDeletingSource] = useState<FundSource | null>(null);
+   117→
+   118→ // ── Form states ──
+   119→ const [txForm, setTxForm] = useState<TxFormState>({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: 'Kas', tags: [] });
+   120→ // Split-mode state. Only used when adding a new transaction (not editing —
+   121→ // split children are standalone transactions and are edited individually
+   122→ // via the regular single-category form).
+   123→ const [splitMode, setSplitMode] = useState(false);
+   124→ const [splitRows, setSplitRows] = useState<Array<SplitRow>>([
+   125→   { category: '', amount: '' },
+   126→   { category: '', amount: '' },
+   127→ ]);
+   128→ // Calculator dialog state
+   129→ const [calcOpen, setCalcOpen] = useState(false);
+   130→ const [budgetForm, setBudgetForm] = useState<BudgetFormState>({ category: '', amount: '', period: 'monthly' });
+   131→ const [catForm, setCatForm] = useState<CatFormState>({ type: 'expense', name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
+   132→ const [submitting, setSubmitting] = useState(false);
+   133→ // ANIM-2 / Feature 3: MoneyParticles trigger key. Increment to fire a
+   134→ // burst of floating 💰 particles when an income transaction is added.
+   135→ // Starts at 0 — the MoneyParticles component ignores the initial value.
+   136→ const [moneyParticlesKey, setMoneyParticlesKey] = useState(0);
+   137→ // BUG-5 fix: double-submit guard. Prevents concurrent submissions when the
+   138→ // user double-clicks the Save/Simpan button (especially in split mode where
+   139→ // N expense rows + a balance update are created atomically). Set to true at
+   140→ // the start of handleSubmitTx, reset in each finally block.
+   141→ const submitGuard = useRef(false);
+   142→
+   143→ // ── Helper: invalidate all finance queries after a mutation ─────────────
+   144→ // Replaces the old triggerRefresh() + fetchCategories() + fetchSources() pattern.
+   145→ // Invalidation causes TanStack Query to refetch active queries in the background.
+   146→ //
+   147→ // FIN-BUG-10 fix: debounced the budget-snapshot POST by 2s. Previously
+   148→ // every invalidateFinance() call fired a snapshot POST, and the snapshot
+   149→ // route fetches ALL budgets + ALL transactions for the month + upserts a
+   150→ // row per budget — expensive for users with many budgets/transactions,
+   151→ // and triggered on EVERY CRUD (tx create/edit/delete + budget/category/
+   152→ // source CRUD + balance adjustment + transfer). The debounce coalesces
+   153→ // rapid successive mutations into a single snapshot rebuild. The
+   154→ // mount-time useEffect below still fires an initial snapshot on app
+   155→ // load, so the snapshot is never stale by more than 2s.
+   156→ const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   157→ const invalidateFinance = useCallback(() => {
+   158→   queryClient.invalidateQueries({ queryKey: ['finance'] });
+   159→   // Also notify other components (e.g. dashboard) that data changed
+   160→   triggerRefresh();
+   161→   // Auto-trigger budget snapshot check (creates/updates current month snapshot)
+   162→   if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+   163→   snapshotTimerRef.current = setTimeout(() => {
+   164→     fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
+   165→     snapshotTimerRef.current = null;
+   166→   }, 2000);
+   167→ }, [queryClient, triggerRefresh]);
+   168→
+   169→ // ── Auto-create budget snapshot on mount (ensures current month exists) ──
+   170→ useEffect(() => {
+   171→   fetch('/api/finance/budgets/snapshot', { method: 'POST' }).catch(() => {});
+   172→ }, []);
+   173→
+   174→ // ── Transaction CRUD ──────────────────────────────────────────────────────
+   175→
+   176→ const openNewTx = useCallback((type: 'income' | 'expense') => {
+   177→   setEditingTx(null);
+   178→   // Audit fix: use Jakarta timezone for date + time prefill (was using
+   179→   // date-fns `format(now, ...)` which uses the BROWSER's local TZ).
+   180→   // On Vercel (UTC server) or for a traveler in Tokyo (UTC+9), the
+   181→   // prefilled date/time would be wrong — e.g., a user in Tokyo opening
+   182→   // the dialog at 14:30 local sees "14:30" prefilled, but the app is
+   183→   // Jakarta-based so the transaction should be logged as 12:30 Jakarta.
+   184→   // Now consistent with openEditTx() which already uses Jakarta TZ.
+   185→   const p = jakartaNowParts();
+   186→   const time = `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
+   187→   setTxForm({ type, amount: '', category: '', description: '', date: jakartaDateString(), time, notes: '', source: 'Kas', tags: [] });
+   188→   // Reset split state every time the dialog opens fresh.
+   189→   setSplitMode(false);
+   190→   setSplitRows([
+   191→     { category: '', amount: '' },
+   192→     { category: '', amount: '' },
+   193→   ]);
+   194→   setTxDialogOpen(true);
+   195→ }, []);
+   196→
+   197→ // BUGHUNT-ROUND2 FAB-1: consume the FAB quick-add action. Runs whenever
+   198→ // the Finance tab is live (this hook is only used by the Finance page)
+   199→ // and the store holds an expense/income action — opens the pre-filled
+   200→ // transaction dialog, then clears the action. Uses functional deps so
+   201→ // eslint is satisfied and the latest openNewTx identity is used.
+   202→ const openNewTxRef = useRef(openNewTx);
+   203→ openNewTxRef.current = openNewTx;
+   204→ useEffect(() => {
+   205→   if (quickAddAction === 'expense' || quickAddAction === 'income') {
+   206→     openNewTxRef.current(quickAddAction);
+   207→     clearQuickAdd();
+   208→   }
+   209→ }, [quickAddAction, clearQuickAdd]);
+   210→
+   211→ const openEditTx = useCallback((tx: Transaction) => {
+   212→   setEditingTx(tx);
+   213→   const txDate = new Date(tx.date);
+   214→   // Bug fix: use Jakarta timezone for BOTH date and time prefill.
+   215→   // Previously `format(txDate, 'yyyy-MM-dd')` and `toLocaleTimeString()`
+   216→   // without timeZone used the runtime's local TZ (UTC on Vercel), so
+   217→   // transactions near midnight Jakarta time got prefilled with the wrong
+   218→   // date/time in the edit dialog. Now matches the display in Transactions
+   219→   // tab + Daily Recap (all use Asia/Jakarta).
+   220→   const jakartaTime = new Intl.DateTimeFormat('en-GB', {
+   221→     timeZone: 'Asia/Jakarta',
+   222→     hour: '2-digit',
+   223→     minute: '2-digit',
+   224→     // BUG-5 fix: use hourCycle: 'h23' instead of hour12: false.
+   225→     // hour12: false can produce "24:00" for midnight on some older V8
+   226→     // runtimes, which would make new Date("...T24:00:00+07:00") → Invalid
+   227→     // Date → save fails. hourCycle: 'h23' is the modern standard that
+   228→     // always produces "00" for midnight.
+   229→     hourCycle: 'h23',
+   230→   }).format(txDate);
+   231→   setTxForm({
+   232→     type: tx.type, amount: formatNominalInput(String(tx.amount)), category: tx.category,
+   233→     description: tx.description || '', date: jakartaDateKey(txDate),
+   234→     time: jakartaTime,
+   235→     notes: tx.notes || '', source: tx.source || 'Kas',
+   236→     // PHASE4-POLISH: parse the stored JSON array string into a string[].
+   237→     // parseTags is null-safe and returns [] for missing/invalid input.
+   238→     tags: parseTags(tx.tags),
+   239→   });
+   240→   // Edit always uses single-category mode — split children are
+   241→   // standalone transactions and are edited one at a time.
+   242→   setSplitMode(false);
+   243→   setTxDialogOpen(true);
+   244→ }, []);
+   245→
+   246→ // ── Split helpers ────────────────────────────────────────────────────────
+   247→
+   248→ const addSplitRow = useCallback(() => {
+   249→   // Cap at 10 rows — matches the API-side zod .max(10) constraint.
+   250→   setSplitRows(prev => prev.length >= 10 ? prev : [...prev, { category: '', amount: '' }]);
+   251→ }, []);
+   252→
+   253→ const updateSplitRow = useCallback((idx: number, field: 'category' | 'amount', value: string) => {
+   254→   setSplitRows(prev => prev.map((row, i) => i === idx ? { ...row, [field]: field === 'amount' ? formatNominalInput(value) : value } : row));
+   255→ }, []);
+   256→
+   257→ const removeSplitRow = useCallback((idx: number) => {
+   258→   setSplitRows(prev => {
+   259→     // Don't allow fewer than 2 rows — that's the split minimum.
+   260→     if (prev.length <= 2) return prev;
+   261→     return prev.filter((_, i) => i !== idx);
+   262→   });
+   263→ }, []);
+   264→
+   265→ // Sum of all split row amounts (whole rupiah). Used for the real-time
+   266→ // total indicator + final payload.
+   267→ const splitTotal = useMemo(() => {
+   268→   return splitRows.reduce((sum, r) => sum + (parseInt(parseNominalInput(r.amount) || '0', 10) || 0), 0);
+   269→ }, [splitRows]);
+   270→
+   271→ const handleSubmitTx = useCallback(async (event?: React.MouseEvent<HTMLButtonElement>) => {
+   272→   // BUG-5 fix: double-submit guard. If a submission is already in flight
+   273→   // (e.g. the user double-clicked Simpan), bail out immediately. The guard
+   274→   // is set right before the async fetch and reset in each finally block, so
+   275→   // validation-failure early returns below don't leave it stuck as true.
+   276→   if (submitGuard.current) return;
+   277→   // ── Split mode branch ──
+   278→   // Split is only valid for CREATE (not editing — each split child is
+   279→   // edited individually via the regular single-category form).
+   280→   if (splitMode && !editingTx) {
+   281→     // Validate: at least 2 rows with category + amount > 0
+   282→     const validRows = splitRows.filter(r => r.category && parseNominalInput(r.amount) && parseInt(parseNominalInput(r.amount), 10) > 0);
+   283→     if (validRows.length < 2) { toast.error('Minimal 2 kategori dengan jumlah valid untuk split'); return; }
+   284→     if (!txForm.date) { toast.error('Pilih tanggal'); return; }
+   285→     if (splitTotal <= 0) { toast.error('Total split harus lebih dari 0'); return; }
+   286→     // Parse date+time with explicit Jakarta offset (+07:00) — same
+   287→     // pattern as the non-split path below.
+   288→     const fullDate = txForm.time
+   289→       ? new Date(`${txForm.date}T${txForm.time}:00+07:00`)
+   290→       : new Date(`${txForm.date}T00:00:00+07:00`);
+   291→     const payload = {
+   292→       date: fullDate.toISOString(),
+   293→       source: txForm.source,
+   294→       description: txForm.description || null,
+   295→       splits: validRows.map(r => ({
+   296→         category: r.category,
+   297→         amount: parseInt(parseNominalInput(r.amount), 10),
+   298→       })),
+   299→     };
+   300→     submitGuard.current = true;
+   301→     setSubmitting(true);
+   302→     try {
+   303→       const res = await fetch('/api/finance/transactions/split', {
+   304→         method: 'POST',
+   305→         headers: { 'Content-Type': 'application/json' },
+   306→         body: JSON.stringify(payload),
+   307→       });
+   308→       if (res.ok) {
+   309→         toast.success(`Split transaction berhasil (${validRows.length} kategori)`);
+   310→         setTxDialogOpen(false);
+   311→         invalidateFinance();
+   312→       } else {
+   313→         const err = await res.json().catch(() => null);
+   314→         toast.error(err?.error || 'Gagal membuat split transaction');
+   315→         return;
+   316→       }
+   317→     } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); submitGuard.current = false; }
+   318→     return;
+   319→   }
+   320→
+   321→   // ── Regular (non-split) branch ──
+   322→   const rawAmount = parseNominalInput(txForm.amount);
+   323→   if (!rawAmount || parseFloat(rawAmount) <= 0) { toast.error('Masukkan jumlah yang valid'); return; }
+   324→   if (!txForm.category) { toast.error('Pilih kategori'); return; }
+   325→   if (!txForm.date) { toast.error('Pilih tanggal'); return; }
+   326→   // Audit fix: parse date+time with explicit Jakarta offset (+07:00).
+   327→   // Previously `new Date('2025-01-15T14:30:00')` (no offset) parsed as
+   328→   // the BROWSER's local TZ — so a user in Tokyo (UTC+9) submitting "14:30"
+   329→   // would store an epoch that corresponds to 12:30 Jakarta. Now the
+   330→   // epoch always corresponds to the Jakarta wall-clock the user typed,
+   331→   // regardless of their device timezone. Consistent with openNewTx/openEditTx
+   332→   // which both prefill using Jakarta TZ.
+   333→   const fullDate = txForm.time
+   334→     ? new Date(`${txForm.date}T${txForm.time}:00+07:00`)
+   335→     : new Date(`${txForm.date}T00:00:00+07:00`);
+   336→   const payload = { ...txForm, amount: rawAmount, date: fullDate.toISOString() };
+   337→   submitGuard.current = true;
+   338→   setSubmitting(true);
+   339→   try {
+   340→     if (editingTx) {
+   341→       const res = await fetch(`/api/finance/transactions/${editingTx.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+   342→       // BUGHUNT-ROUND2 TOAST-ERR: surface the API's specific error message
+   343→       // (e.g. "Saldo sumber dana tidak mencukupi...") instead of a generic
+   344→       // one — matches the delete handler's behavior.
+   345→       if (res.ok) toast.success('Transaksi berhasil diupdate');
+   346→       else {
+   347→         const err = await res.json().catch(() => null);
+   348→         toast.error(err?.error || 'Gagal mengupdate transaksi');
+   349→         return;
+   350→       }
+   351→     } else {
+   352→       const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+   353→       if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop((event?.currentTarget as HTMLElement | undefined) ?? null); } else { toast.error('Gagal menambahkan transaksi'); return; }
+   354→       // ANIM-2 / Feature 3: fire money particles when an income transaction
+   355→       // is added. Split mode is expense-only, so this only applies to the
+   356→       // regular single-transaction branch (txForm.type === 'income').
+   357→       if (txForm.type === 'income') {
+   358→         setMoneyParticlesKey(k => k + 1);
+   359→       }
+   360→     }
+   361→     setTxDialogOpen(false);
+   362→     invalidateFinance();
+   363→   } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); submitGuard.current = false; }
+   364→ }, [splitMode, editingTx, splitRows, txForm, splitTotal, invalidateFinance]);
+   365→
+   366→ const handleDeleteTx = useCallback(async () => {
+   367→   if (!deletingId) return;
+   368→   try {
+   369→     const res = await fetch(`/api/finance/transactions/${deletingId}`, { method: 'DELETE' });
+   370→     if (res.ok) {
+   371→       toast.success('Transaksi berhasil dihapus');
+   372→       setDeleteDialogOpen(false);
+   373→       setDeletingId(null);
+   374→       invalidateFinance();
+   375→     } else {
+   376→       // Show the API's error message (e.g. transfer transactions can't be deleted)
+   377→       const err = await res.json().catch(() => null);
+   378→       toast.error(err?.error || 'Gagal menghapus transaksi');
+   379→     }
+   380→   } catch { toast.error('Terjadi kesalahan'); }
+   381→ }, [deletingId, invalidateFinance]);
+   382→
+   383→ // ── Budget CRUD ───────────────────────────────────────────────────────────
+   384→
+   385→ const handleSubmitBudget = useCallback(async () => {
+   386→   if (!budgetForm.category) { toast.error('Pilih kategori'); return; }
+   387→   const rawBudgetAmount = parseNominalInput(budgetForm.amount);
+   388→   if (!rawBudgetAmount || parseFloat(rawBudgetAmount) <= 0) { toast.error('Masukkan jumlah budget yang valid'); return; }
+   389→   const budgetPayload = { ...budgetForm, amount: rawBudgetAmount };
+   390→   setSubmitting(true);
+   391→   try {
+   392→     const res = await fetch('/api/finance/budgets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(budgetPayload) });
+   393→     if (res.ok) { toast.success('Budget berhasil disimpan'); setBudgetDialogOpen(false); invalidateFinance(); }
+   394→     else toast.error('Gagal menyimpan budget');
+   395→   } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+   396→ }, [budgetForm, invalidateFinance]);
+   397→
+   398→ const handleDeleteBudget = useCallback(async (id: string) => {
+   399→   try {
+   400→     const res = await fetch(`/api/finance/budgets/${id}`, { method: 'DELETE' });
+   401→     if (res.ok) { toast.success('Budget berhasil dihapus'); invalidateFinance(); }
+   402→   } catch { toast.error('Gagal menghapus budget'); }
+   403→ }, [invalidateFinance]);
+   404→
+   405→ const openEditBudget = useCallback((b: BudgetItem) => {
+   406→   setEditingBudget(b);
+   407→   setBudgetForm({ category: b.category, amount: formatNominalInput(String(b.amount)), period: b.period });
+   408→   setBudgetEditOpen(true);
+   409→ }, []);
+   410→
+   411→ const handleSubmitEditBudget = useCallback(async () => {
+   412→   if (!editingBudget) return;
+   413→   if (!budgetForm.category) { toast.error('Pilih kategori'); return; }
+   414→   const rawBudgetAmount = parseNominalInput(budgetForm.amount);
+   415→   if (!rawBudgetAmount || parseFloat(rawBudgetAmount) <= 0) { toast.error('Masukkan jumlah budget yang valid'); return; }
+   416→   const budgetPayload = { category: budgetForm.category, amount: rawBudgetAmount, period: budgetForm.period };
+   417→   setSubmitting(true);
+   418→   try {
+   419→     const res = await fetch(`/api/finance/budgets/${editingBudget.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(budgetPayload) });
+   420→     if (res.ok) { toast.success('Budget berhasil diupdate'); setBudgetEditOpen(false); setEditingBudget(null); invalidateFinance(); }
+   421→     else toast.error('Gagal mengupdate budget');
+   422→   } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+   423→ }, [editingBudget, budgetForm, invalidateFinance]);
+   424→
+   425→ // ── Category CRUD ─────────────────────────────────────────────────────────
+   426→
+   427→ const openNewCat = useCallback((type: 'income' | 'expense') => {
+   428→   setEditingCat(null);
+   429→   setCatForm({ type, name: '', emoji: '📦', color: '#78716c', trackLastDone: false });
+   430→   setCatFormOpen(true);
+   431→ }, []);
+   432→
+   433→ const openEditCat = useCallback((cat: FinanceCategory) => {
+   434→   setEditingCat(cat);
+   435→   setCatForm({ type: cat.type, name: cat.name, emoji: cat.emoji, color: cat.color, trackLastDone: cat.trackLastDone });
+   436→   setCatFormOpen(true);
+   437→ }, []);
+   438→
+   439→ const handleSubmitCat = useCallback(async () => {
+   440→   if (!catForm.name.trim()) { toast.error('Masukkan nama kategori'); return; }
+   441→   setSubmitting(true);
+   442→   try {
+   443→     if (editingCat) {
+   444→       const res = await fetch(`/api/finance/categories/${editingCat.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(catForm) });
+   445→       if (res.ok) toast.success('Kategori berhasil diupdate'); else { const err = await res.json(); toast.error(err.error || 'Gagal mengupdate kategori'); return; }
+   446→     } else {
+   447→       const res = await fetch('/api/finance/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(catForm) });
+   448→       if (res.ok) toast.success('Kategori berhasil ditambahkan'); else { toast.error('Gagal menambahkan kategori'); return; }
+   449→     }
+   450→     setCatFormOpen(false);
+   451→     invalidateFinance();
+   452→   } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+   453→ }, [catForm, editingCat, invalidateFinance]);
+   454→
+   455→ const handleDeleteCat = useCallback(async (cat: FinanceCategory) => {
+   456→   try {
+   457→     const res = await fetch(`/api/finance/categories/${cat.id}`, { method: 'DELETE' });
+   458→     if (res.ok) { toast.success('Kategori berhasil dihapus'); invalidateFinance(); }
+   459→     else { const err = await res.json(); toast.error(err.error || 'Gagal menghapus kategori'); }
+   460→   } catch { toast.error('Terjadi kesalahan'); }
+   461→ }, [invalidateFinance]);
+   462→
+   463→ // ── Source CRUD ─────────────────────────────────────────────────────────
+   464→
+   465→ const openNewSource = useCallback(() => { setEditingSource(null); setSourceForm({ name: '', emoji: '💵', balance: 0 }); setSourceFormOpen(true); }, []);
+   466→ const openEditSource = useCallback((src: FundSource) => { setEditingSource(src); setSourceForm({ name: src.name, emoji: src.emoji, balance: src.balance || 0 }); setSourceFormOpen(true); }, []);
+   467→
+   468→ const handleSubmitSource = useCallback(async () => {
+   469→   if (!sourceForm.name.trim()) { toast.error('Masukkan nama sumber dana'); return; }
+   470→   setSubmitting(true);
+   471→   // API membaca field `initialBalance` (schema Prisma) — form memakai
+   472→   // `balance`, jadi dipetakan di sini supaya POST/PUT tidak menyimpan 0.
+   473→   const payload = {
+   474→     name: sourceForm.name.trim(),
+   475→     emoji: sourceForm.emoji,
+   476→     initialBalance: sourceForm.balance,
+   477→   };
+   478→   try {
+   479→     if (editingSource) {
+   480→       const res = await fetch(`/api/finance/sources/${editingSource.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+   481→       if (res.ok) toast.success('Sumber dana berhasil diupdate'); else { const err = await res.json(); toast.error(err.error || 'Gagal mengupdate'); return; }
+   482→     } else {
+   483→       const res = await fetch('/api/finance/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+   484→       if (res.ok) toast.success('Sumber dana berhasil ditambahkan'); else { const err = await res.json(); toast.error(err.error || 'Gagal menambahkan'); return; }
+   485→     }
+   486→     setSourceFormOpen(false); invalidateFinance();
+   487→   } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+   488→ }, [sourceForm, editingSource, invalidateFinance]);
+   489→
+   490→ const handleDeleteSource = useCallback(async (src: FundSource) => {
+   491→   try {
+   492→     const res = await fetch(`/api/finance/sources/${src.id}`, { method: 'DELETE' });
+   493→     if (res.ok) { toast.success('Sumber dana berhasil dihapus'); invalidateFinance(); }
+   494→     else { const err = await res.json(); toast.error(err.error || 'Gagal menghapus'); }
+   495→   } catch { toast.error('Terjadi kesalahan'); }
+   496→ }, [invalidateFinance]);
+   497→
+   498→ const handleSaveBalance = useCallback(async (sourceId: string) => {
+   499→   const raw = parseNominalInput(balanceEditValue);
+   500→   const val = parseFloat(raw);
+   501→   if (isNaN(val)) { setBalanceEditId(null); setBalanceEditValue(''); return; }
+   502→
+   503→   // Bug fix: skip PATCH if value unchanged (user clicked then blurred
+   504→   // without editing). Avoids unnecessary network call + toast spam.
+   505→   const source = getActiveSources().find((s) => s.id === sourceId);
+   506→   const currentBalance = source?.balance ?? 0;
+   507→   if (val === currentBalance) {
+   508→     setBalanceEditId(null);
+   509→     setBalanceEditValue('');
+   510→     return;
+   511→   }
+   512→
+   513→   try {
+   514→     const res = await fetch(`/api/finance/sources/${sourceId}/balance`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
+   515→     if (res.ok) {
+   516→       const data = await res.json();
+   517→       // Invalidate both sources + transactions (adjustment creates a tx)
+   518→       queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] });
+   519→       queryClient.invalidateQueries({ queryKey: ['finance', 'transactions'] });
+   520→       queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+   521→       // Show informative toast based on whether an adjustment was made
+   522→       if (data?.adjustment) {
+   523→         const adj = data.adjustment;
+   524→         const sign = adj.type === 'income' ? '+' : '−';
+   525→         toast.success(`Saldo diupdate — transaksi "${sign}${formatRupiah(adj.amount)}" dibuat`);
+   526→       } else {
+   527→         toast.success('Saldo diupdate');
+   528→       }
+   529→     } else {
+   530→       toast.error('Gagal update saldo');
+   531→     }
+   532→   } catch { toast.error('Gagal update saldo'); }
+   533→   setBalanceEditId(null); setBalanceEditValue('');
+   534→ }, [balanceEditValue, getActiveSources, queryClient]);
+   535→
+   536→ // ── Bulk Delete ─────────────────────────────────────────────────────────
+   537→
+   538→ const toggleSelectTx = useCallback((id: string) => {
+   539→   setSelectedTxIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+   540→ }, []);
+   541→
+   542→ // toggleSelectAll depends on the currently filtered transactions list —
+   543→ // injected via parameter so the hook stays decoupled from filtering logic.
+   544→ const toggleSelectAll = useCallback((filteredTxIds: string[]) => {
+   545→   setSelectedTxIds(prev => {
+   546→     if (prev.size === filteredTxIds.length && filteredTxIds.every(id => prev.has(id))) return new Set();
+   547→     return new Set(filteredTxIds);
+   548→   });
+   549→ }, []);
+   550→
+   551→ const handleBulkDelete = useCallback(async () => {
+   552→   if (selectedTxIds.size === 0) return;
+   553→   setSubmitting(true);
+   554→   try {
+   555→     const res = await fetch('/api/finance/transactions/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: Array.from(selectedTxIds) }) });
+   556→     if (res.ok) { const data = await res.json(); toast.success(`${data.deleted} transaksi berhasil dihapus`); setSelectedTxIds(new Set()); setBulkDeleteOpen(false); invalidateFinance(); }
+   557→     else toast.error('Gagal menghapus transaksi');
+   558→   } catch { toast.error('Terjadi kesalahan'); } finally { setSubmitting(false); }
+   559→ }, [selectedTxIds, invalidateFinance]);
+   560→
+   561→ return {
+   562→   // ── Dialog open states + setters ──
+   563→   txDialogOpen, setTxDialogOpen,
+   564→   budgetDialogOpen, setBudgetDialogOpen,
+   565→   budgetEditOpen, setBudgetEditOpen,
+   566→   deleteDialogOpen, setDeleteDialogOpen,
+   567→   catDialogOpen, setCatDialogOpen,
+   568→   catFormOpen, setCatFormOpen,
+   569→   sourceDialogOpen, setSourceDialogOpen,
+   570→   sourceFormOpen, setSourceFormOpen,
+   571→   bulkDeleteOpen, setBulkDeleteOpen,
+   572→   // ── Editing targets ──
+   573→   editingTx, setEditingTx,
+   574→   editingCat, setEditingCat,
+   575→   editingBudget, setEditingBudget,
+   576→   editingSource, setEditingSource,
+   577→   deletingId, setDeletingId,
+   578→   deletingSource, setDeletingSource,
+   579→   // ── Form state ──
+   580→   txForm, setTxForm,
+   581→   splitMode, setSplitMode,
+   582→   splitRows, setSplitRows,
+   583→   splitTotal,
+   584→   addSplitRow, updateSplitRow, removeSplitRow,
+   585→   calcOpen, setCalcOpen,
+   586→   budgetForm, setBudgetForm,
+   587→   catForm, setCatForm,
+   588→   sourceForm, setSourceForm,
+   589→   balanceEditId, setBalanceEditId,
+   590→   balanceEditValue, setBalanceEditValue,
+   591→   // ── Selection state ──
+   592→   selectedTxIds, setSelectedTxIds,
+   593→   // ── Submitting flag + money particles ──
+   594→   submitting,
+   595→   moneyParticlesKey, setMoneyParticlesKey,
+   596→   // ── Handlers: Transaction ──
+   597→   openNewTx, openEditTx,
+   598→   handleSubmitTx, handleDeleteTx,
+   599→   // ── Handlers: Budget ──
+   600→   handleSubmitBudget, handleDeleteBudget,
+   601→   openEditBudget, handleSubmitEditBudget,
+   602→   // ── Handlers: Category ──
+   603→   openNewCat, openEditCat,
+   604→   handleSubmitCat, handleDeleteCat,
+   605→   // ── Handlers: Source ──
+   606→   openNewSource, openEditSource,
+   607→   handleSubmitSource, handleDeleteSource,
+   608→   handleSaveBalance,
+   609→   // ── Handlers: Bulk ──
+   610→   toggleSelectTx, toggleSelectAll,
+   611→   handleBulkDelete,
+   612→   // ── Misc ──
+   613→   invalidateFinance,
+   614→ };
+   615→}
+   616→
+   617→

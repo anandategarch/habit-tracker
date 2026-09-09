@@ -1,0 +1,18 @@
+{
+  "name": "Rutina — Habit & Finance Tracker",
+  "short_name": "Rutina",
+  "description": "Pelacak habit dan keuangan pribadi. Bangun rutinitas, kelola budget, tabungan, dan tujuan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f5",
+  "theme_color": "#14b8a6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,771 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
+     4→     4→import { useQuery, useQueryClient } from '@tanstack/react-query';
+     5→     5→import dynamic from 'next/dynamic';
+     6→     6→import { Button } from '@/components/ui/button';
+     7→     7→import {
+     8→     8→ Select,
+     9→     9→ SelectContent,
+    10→    10→ SelectItem,
+    11→    11→ SelectTrigger,
+    12→    12→ SelectValue,
+    13→    13→} from '@/components/ui/select';
+    14→    14→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    15→    15→import { Skeleton } from '@/components/ui/skeleton';
+    16→    16→import {
+    17→    17→ ArrowUpRight,
+    18→    18→ ArrowDownRight,
+    19→    19→ Target,
+    20→    20→ Wallet,
+    21→    21→ Settings2,
+    22→    22→ CalendarDays,
+    23→    23→ Compass,
+    24→    24→ BarChart3,
+    25→    25→ PieChart,
+    26→    26→ PiggyBank,
+    27→    27→ Repeat,
+    28→    28→ Wand2,
+    29→    29→} from 'lucide-react';
+    30→    30→import { format, id as idLocale } from '@/lib/date-utils';
+    31→    31→// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+    32→    32→// utility module. Output is identical for the patterns used here
+    33→    33→// ('yyyy-MM', 'MMMM yyyy' with id locale) — verified via test script in
+    34→    34→// worklog FIX-TIER3 entry.
+    35→    35→import { jakartaDateKey, jakartaMonthString } from '@/lib/timezone';
+    36→    36→import { useAppStore, type FinanceFocus, type FinanceSubTab } from '@/store/app-store';
+    37→    37→import { MoneyParticles } from './money-particles';
+    38→    38→import { useFinanceMutations } from '@/hooks/use-finance-mutations';
+    39→    39→// Split-out dialog components (SPLIT-PHASE2-UI):
+    40→    40→import { FinanceTxDialog } from './finance-tx-dialog';
+    41→    41→import { FinanceBudgetDialogs } from './finance-budget-dialogs';
+    42→    42→import { FinanceDeleteDialogs } from './finance-delete-dialogs';
+    43→    43→import { FinanceCategoryDialogs } from './finance-category-dialogs';
+    44→    44→import { FinanceSourceDialogs } from './finance-source-dialogs';
+    45→    45→
+    46→    46→// Lazy-loaded sub-components.
+    47→    47→// FIX-TIER2 / Fix 6: All 5 finance sub-tabs use dynamic() with ssr:false
+    48→    48→// + a loading skeleton fallback so the user sees an immediate placeholder
+    49→    49→// instead of a blank frame while the chunk fetches. The loading fallbacks
+    50→    50→// match each sub-tab's layout (transactions = filter bar + list rows,
+    51→    51→// budgets = grid of cards) to minimize visual shift when the chunk resolves.
+    52→    52→const FinanceOverview = dynamic(() => import('./finance-overview'), {
+    53→    53→ ssr: false,
+    54→    54→ loading: () => (
+    55→    55→   <div className="space-y-4 mt-4">
+    56→    56→     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    57→    57→       {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+    58→    58→     </div>
+    59→    59→     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    60→    60→       <Skeleton className="h-[300px] rounded-xl" />
+    61→    61→       <Skeleton className="h-[300px] rounded-xl" />
+    62→    62→     </div>
+    63→    63→   </div>
+    64→    64→ ),
+    65→    65→});
+    66→    66→const FinanceTransactions = dynamic(() => import('./finance-transactions'), {
+    67→    67→ ssr: false,
+    68→    68→ loading: () => (
+    69→    69→   <div className="space-y-3 mt-4">
+    70→    70→     {/* Filter bar skeleton */}
+    71→    71→     <div className="flex flex-wrap gap-2">
+    72→    72→       <Skeleton className="h-9 w-32 rounded-md" />
+    73→    73→       <Skeleton className="h-9 w-32 rounded-md" />
+    74→    74→       <Skeleton className="h-9 w-40 rounded-md" />
+    75→    75→     </div>
+    76→    76→     {/* Grouped transaction list skeleton */}
+    77→    77→     {[1, 2, 3].map((g) => (
+    78→    78→       <div key={g} className="space-y-2">
+    79→    79→         <Skeleton className="h-5 w-32 rounded" />
+    80→    80→         {[1, 2].map((r) => (
+    81→    81→           <Skeleton key={r} className="h-14 w-full rounded-lg" />
+    82→    82→         ))}
+    83→    83→       </div>
+    84→    84→     ))}
+    85→    85→   </div>
+    86→    86→ ),
+    87→    87→});
+    88→    88→const FinanceBudgets = dynamic(() => import('./finance-budgets'), {
+    89→    89→ ssr: false,
+    90→    90→ loading: () => (
+    91→    91→   <div className="space-y-3 mt-4">
+    92→    92→     <div className="flex items-center justify-between">
+    93→    93→       <Skeleton className="h-7 w-32 rounded" />
+    94→    94→       <Skeleton className="h-9 w-28 rounded-md" />
+    95→    95→     </div>
+    96→    96→     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+    97→    97→       {[1, 2, 3, 4, 5, 6].map((i) => (
+    98→    98→         <Skeleton key={i} className="h-28 rounded-xl" />
+    99→    99→       ))}
+   100→   100→     </div>
+   101→   101→   </div>
+   102→   102→ ),
+   103→   103→});
+   104→   104→
+   105→   105→// Lazy load explorer — drill-down analytics workspace
+   106→   106→const FinanceExplorer = dynamic(() => import('./finance-explorer'), {
+   107→   107→ ssr: false,
+   108→   108→ loading: () => (
+   109→   109→   <div className="space-y-4">
+   110→   110→     <Skeleton className="h-[300px] rounded-xl" />
+   111→   111→     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   112→   112→       {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+   113→   113→     </div>
+   114→   114→   </div>
+   115→   115→ ),
+   116→   116→});
+   117→   117→
+   118→   118→// Lazy load category explorer — per-category drill-down with charts
+   119→   119→const CategoryExplorer = dynamic(() => import('./category-explorer'), {
+   120→   120→ ssr: false,
+   121→   121→ loading: () => (
+   122→   122→   <div className="space-y-4">
+   123→   123→     <Skeleton className="h-[300px] rounded-xl" />
+   124→   124→     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   125→   125→       {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+   126→   126→     </div>
+   127→   127→   </div>
+   128→   128→ ),
+   129→   129→});
+   130→   130→
+   131→   131→// Lazy load savings goals — Firefly III "piggy banks" inspired feature
+   132→   132→// (PHASE2-FINANCE-2). Same skeleton pattern as budgets since the layout is
+   133→   133→// a header + grid of cards.
+   134→   134→const FinanceSavingsGoals = dynamic(() => import('./finance-savings-goals'), {
+   135→   135→ ssr: false,
+   136→   136→ loading: () => (
+   137→   137→   <div className="space-y-3 mt-4">
+   138→   138→     <div className="flex items-center justify-between">
+   139→   139→       <Skeleton className="h-7 w-32 rounded" />
+   140→   140→       <Skeleton className="h-9 w-32 rounded-md" />
+   141→   141→     </div>
+   142→   142→     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+   143→   143→       {[1, 2, 3, 4, 5, 6].map((i) => (
+   144→   144→         <Skeleton key={i} className="h-44 rounded-2xl" />
+   145→   145→       ))}
+   146→   146→     </div>
+   147→   147→   </div>
+   148→   148→ ),
+   149→   149→});
+   150→   150→
+   151→   151→// Lazy load recurring transactions — Actual Budget + Firefly III inspired
+   152→   152→// auto-create transactions on a schedule (PHASE2-FINANCE-1).
+   153→   153→const FinanceRecurring = dynamic(() => import('./finance-recurring'), {
+   154→   154→ ssr: false,
+   155→   155→ loading: () => (
+   156→   156→   <div className="space-y-3 mt-4">
+   157→   157→     <div className="flex items-center justify-between">
+   158→   158→       <Skeleton className="h-7 w-40 rounded" />
+   159→   159→       <Skeleton className="h-9 w-40 rounded-md" />
+   160→   160→     </div>
+   161→   161→     {[1, 2, 3].map((i) => (
+   162→   162→       <Skeleton key={i} className="h-24 w-full rounded-xl" />
+   163→   163→     ))}
+   164→   164→   </div>
+   165→   165→ ),
+   166→   166→});
+   167→   167→
+   168→   168→// Lazy load rule engine — Firefly III inspired auto-categorization rules
+   169→   169→// (PHASE2-FINANCE-1).
+   170→   170→const FinanceRules = dynamic(() => import('./finance-rules'), {
+   171→   171→ ssr: false,
+   172→   172→ loading: () => (
+   173→   173→   <div className="space-y-3 mt-4">
+   174→   174→     <div className="flex items-center justify-between">
+   175→   175→       <Skeleton className="h-7 w-32 rounded" />
+   176→   176→       <Skeleton className="h-9 w-32 rounded-md" />
+   177→   177→     </div>
+   178→   178→     {[1, 2, 3].map((i) => (
+   179→   179→       <Skeleton key={i} className="h-20 w-full rounded-xl" />
+   180→   180→     ))}
+   181→   181→   </div>
+   182→   182→ ),
+   183→   183→});
+   184→   184→
+   185→   185→// Types & shared imports
+   186→   186→import type {
+   187→   187→ Transaction,
+   188→   188→ BudgetItem,
+   189→   189→ DashboardData,
+   190→   190→ FinanceCategory,
+   191→   191→ LastDoneItem,
+   192→   192→ FundSource,
+   193→   193→} from './finance-types';
+   194→   194→import {
+   195→   195→ FALLBACK_EXPENSE,
+   196→   196→ FALLBACK_INCOME,
+   197→   197→ FALLBACK_SOURCES,
+   198→   198→} from './finance-types';
+   199→   199→
+   200→   200→// ── Component ────────────────────────────────────────────────────────────────
+   201→   201→
+   202→   202→export default function Finance() {
+   203→   203→ const selectedMonth = useAppStore(s => s.selectedMonth);
+   204→   204→ const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
+   205→   205→ const queryClient = useQueryClient();
+   206→   206→ // ONE-CLICK-3: activeSubTab lifted from local useState to the global
+   207→   207→ // store — previously it reset to 'overview' every time the user left the
+   208→   208→ // Finance tab (page.tsx only mounts the active tab). Now it survives tab
+   209→   209→ // switches AND any component can deep-link to a sub-tab in one call via
+   210→   210→ // openFinanceSubTab / openFinanceFocus (e.g. dashboard budget-status card
+   211→   211→ // → Budgets sub-tab; budget category card → Transactions filtered).
+   212→   212→ const activeSubTab = useAppStore(s => s.financeSubTab);
+   213→   213→ const setActiveSubTab = useAppStore(s => s.setFinanceSubTab);
+   214→   214→
+   215→   215→ // Filter states (declared early because useQuery depends on txFilter)
+   216→   216→ const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
+   217→   217→
+   218→   218→ // ONE-CLICK-4: consume the global finance focus (set by openFinanceFocus
+   219→   219→ // anywhere in the app — dashboard cards, budget cards, daily recap…).
+   220→   220→ // Applies the requested transactions filter, then clears the ephemeral
+   221→   221→ // focus (same consume-and-clear pattern as quickAddAction). Category is
+   222→   222→ // a NAME string, matching txFilter.category semantics.
+   223→   223→ const financeFocus = useAppStore(s => s.financeFocus);
+   224→   224→ const clearFinanceFocus = useAppStore(s => s.clearFinanceFocus);
+   225→   225→ const applyFinanceFocus = useCallback((focus: FinanceFocus) => {
+   226→   226→   setTxFilter(prev => ({
+   227→   227→     ...prev,
+   228→   228→     type: 'all',
+   229→   229→     source: 'all',
+   230→   230→     search: '',
+   231→   231→     category: focus.category ?? 'all',
+   232→   232→   }));
+   233→   233→ }, []);
+   234→   234→ // Stable latest-ref: applyFinanceFocus has empty deps (never changes
+   235→   235→ // identity), so the ref is initialized once and never reassigned.
+   236→   236→ const applyFocusRef = useRef(applyFinanceFocus);
+   237→   237→ useEffect(() => {
+   238→   238→   if (financeFocus) {
+   239→   239→     applyFocusRef.current(financeFocus);
+   240→   240→     clearFinanceFocus();
+   241→   241→   }
+   242→   242→ }, [financeFocus, clearFinanceFocus]);
+   243→   243→
+   244→   244→ // ── Data Fetching (TanStack Query) ─────────────────────────────────────
+   245→   245→ // All fetch calls migrated from manual useEffect + useState to useQuery.
+   246→   246→ // Benefits: automatic dedup, caching, background refetch, race-free.
+   247→   247→
+   248→   248→ // Shared data (categories + sources) — fetched on mount, cached for all sub-components.
+   249→   249→ // Sources is declared FIRST because useFinanceMutations needs getActiveSources
+   250→   250→ // (which depends on sources) — see the hook call below.
+   251→   251→ const { data: sources = [], isLoading: sourcesLoading } = useQuery<FundSource[]>({
+   252→   252→   queryKey: ['finance', 'sources'],
+   253→   253→   queryFn: async () => {
+   254→   254→     const res = await fetch('/api/finance/sources');
+   255→   255→     if (!res.ok) return [];
+   256→   256→     return res.json();
+   257→   257→   },
+   258→   258→   staleTime: 30_000,
+   259→   259→ });
+   260→   260→
+   261→   261→ const getActiveSources = useCallback(() => {
+   262→   262→   if (sources.length > 0) return sources;
+   263→   263→   return FALLBACK_SOURCES.map(s => ({ id: '', name: s.value, emoji: s.emoji, balance: 0, order: 0 }));
+   264→   264→ }, [sources]);
+   265→   265→
+   266→   266→ // ── Mutations hook (SPLIT-PHASE2-UI) ──
+   267→   267→ // All dialog/form state + CRUD handlers live in this hook.
+   268→   268→ const mutations = useFinanceMutations({ getActiveSources });
+   269→   269→
+   270→   270→ // BUGFIX POST-1 #4: Reset selectedTxIds saat ganti bulan supaya stale tx IDs
+   271→   271→ // dari bulan sebelumnya tidak persist di multi-select UI.
+   272→   272→ // BUGFIX INFINITE-LOOP: Jangan include `mutations` di dependency array —
+   273→   273→ // mutations adalah object baru setiap render (dari hook), jadi useEffect
+   274→   274→ // terus fire → setSelectedTxIds → re-render → mutations baru → infinite loop
+   275→   275→ // (React error #185). setSelectedTxIds adalah stable reference (useState setter),
+   276→   276→ // jadi aman untuk exclude dari deps.
+   277→   277→ const { setSelectedTxIds } = mutations;
+   278→   278→ useEffect(() => {
+   279→   279→   setSelectedTxIds(new Set());
+   280→   280→ }, [selectedMonth, setSelectedTxIds]);
+   281→   281→
+   282→   282→ const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
+   283→   283→   queryKey: ['finance', 'categories'],
+   284→   284→   queryFn: async () => {
+   285→   285→     const res = await fetch('/api/finance/categories');
+   286→   286→     if (!res.ok) return [];
+   287→   287→     return res.json() as Promise<FinanceCategory[]>;
+   288→   288→   },
+   289→   289→   staleTime: 60_000, // categories rarely change
+   290→   290→ });
+   291→   291→
+   292→   292→ // Auto-migrate legacy emoji (separate effect — NOT inside queryFn to avoid infinite loop)
+   293→   293→ // Uses localStorage (shared across tabs) instead of sessionStorage (per-tab) to
+   294→   294→ // prevent multi-tab race condition where two tabs both trigger migration POST.
+   295→   295→ useEffect(() => {
+   296→   296→   if (categories.length > 0 && categories.some((c: FinanceCategory) => c.emoji === '📦')) {
+   297→   297→     if (!localStorage.getItem('emoji_migrated')) {
+   298→   298→       localStorage.setItem('emoji_migrated', '1');
+   299→   299→       fetch('/api/finance/categories/migrate-emojis', { method: 'POST' })
+   300→   300→         .then((r) => { if (r.ok) queryClient.invalidateQueries({ queryKey: ['finance', 'categories'] }); })
+   301→   301→         .catch(() => { localStorage.removeItem('emoji_migrated'); /* retry next time */ });
+   302→   302→     }
+   303→   303→   }
+   304→   304→ }, [categories, queryClient]);
+   305→   305→
+   306→   306→ // Tab-specific data — fetched on demand based on activeSubTab + selectedMonth
+   307→   307→ const { data: dashboardData } = useQuery<DashboardData>({
+   308→   308→   queryKey: ['finance', 'dashboard', selectedMonth],
+   309→   309→   queryFn: async () => {
+   310→   310→     const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
+   311→   311→     if (!res.ok) return null;
+   312→   312→     return res.json();
+   313→   313→   },
+   314→   314→   enabled: activeSubTab === 'overview' || activeSubTab === 'budgets',
+   315→   315→   staleTime: 30_000,
+   316→   316→ });
+   317→   317→
+   318→   318→ // PERF-FIX (FIX-TIER3 / Fix 18): debounce the search input.
+   319→   319→ // Previously `txFilter.search` was used directly in the queryKey, so
+   320→   320→ // every keystroke triggered a React Query refetch — even though the
+   321→   321→ // API route ignores the `search` param (FIN-BUG-6 fix: Prisma
+   322→   322→ // `contains` is case-sensitive on SQLite, so filtering is done
+   323→   323→ // client-side). The refetch returned the same data each time, wasting
+   324→   324→ // a network round-trip per keystroke.
+   325→   325→ //
+   326→   326→ // `useDeferredValue` lets the input update immediately (no input lag)
+   327→   327→ // while deferring the queryKey update until React's render budget
+   328→   328→ // allows — effectively debouncing rapid keystrokes into a single
+   329→   329→ // refetch once the user pauses typing. The client-side
+   330→   330→ // `filteredTransactions` filter (line ~294) still uses the immediate
+   331→   331→ // `txFilter.search`, so the displayed list updates instantly; only
+   332→   332→ // the API refetch is debounced.
+   333→   333→ const debouncedSearch = useDeferredValue(txFilter.search);
+   334→   334→
+   335→   335→ const { data: transactions = [] } = useQuery<Transaction[]>({
+   336→   336→   queryKey: ['finance', 'transactions', selectedMonth, { ...txFilter, search: debouncedSearch }],
+   337→   337→   queryFn: async () => {
+   338→   338→     // FEAT-SEARCH-ALLTIME: When user types a search query, skip the month
+   339→   339→     // param so the search spans ALL periods. This lets users find a
+   340→   340→     // transaction from any month without navigating to that month first.
+   341→   341→     // When search is empty, fall back to month-scoped view (normal mode).
+   342→   342→     const params = new URLSearchParams();
+   343→   343→     const isSearching = debouncedSearch.trim().length > 0;
+   344→   344→     if (!isSearching) {
+   345→   345→       params.set('month', selectedMonth);
+   346→   346→     }
+   347→   347→     if (txFilter.type !== 'all') params.set('type', txFilter.type);
+   348→   348→     if (txFilter.category !== 'all') params.set('category', txFilter.category);
+   349→   349→     if (txFilter.source !== 'all') params.set('source', txFilter.source);
+   350→   350→     if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+   351→   351→     const res = await fetch(`/api/finance/transactions?${params}`);
+   352→   352→     if (!res.ok) return [];
+   353→   353→     return res.json();
+   354→   354→   },
+   355→   355→   // SHADCN-PHASE-3: also fetch on the overview tab so the SpendingHeatmap
+   356→   356→   // has per-day expense data + counts. The queryKey still includes txFilter
+   357→   357→   // + debouncedSearch, but those are at default ('all' / '') when the user
+   358→   358→   // hasn't visited the transactions tab, so we get the full month's data.
+   359→   359→   // Cache is shared — switching to the transactions tab reuses this data
+   360→   360→   // if the filter is unchanged.
+   361→   361→   enabled: activeSubTab === 'transactions' || activeSubTab === 'overview',
+   362→   362→   staleTime: 15_000,
+   363→   363→ });
+   364→   364→
+   365→   365→ const { data: budgets = [] } = useQuery<BudgetItem[]>({
+   366→   366→   queryKey: ['finance', 'budgets'],
+   367→   367→   queryFn: async () => {
+   368→   368→     const res = await fetch('/api/finance/budgets');
+   369→   369→     if (!res.ok) return [];
+   370→   370→     return res.json();
+   371→   371→   },
+   372→   372→   enabled: activeSubTab === 'budgets',
+   373→   373→   staleTime: 30_000,
+   374→   374→ });
+   375→   375→
+   376→   376→ const { data: lastDoneData = [] } = useQuery<LastDoneItem[]>({
+   377→   377→   queryKey: ['finance', 'last-done'],
+   378→   378→   queryFn: async () => {
+   379→   379→     const res = await fetch('/api/finance/last-done');
+   380→   380→     if (!res.ok) return [];
+   381→   381→     return res.json();
+   382→   382→   },
+   383→   383→   enabled: activeSubTab === 'overview',
+   384→   384→   staleTime: 60_000,
+   385→   385→ });
+   386→   386→
+   387→   387→ const sharedLoading = categoriesLoading || sourcesLoading;
+   388→   388→
+   389→   389→ // ── Category helpers ──────────────────────────────────────────────────────
+   390→   390→
+   391→   391→ const ALL_KNOWN_EMOJIS = useMemo(() => {
+   392→   392→   const map = new Map<string, { emoji: string; color: string }>();
+   393→   393→   [...FALLBACK_EXPENSE, ...FALLBACK_INCOME].forEach(c => map.set(c.value, { emoji: c.emoji, color: c.color }));
+   394→   394→   return map;
+   395→   395→ }, []);
+   396→   396→
+   397→   397→ const resolveEmoji = useCallback((cat: FinanceCategory) => {
+   398→   398→   if (cat.emoji !== '📦') return cat;
+   399→   399→   const known = ALL_KNOWN_EMOJIS.get(cat.name);
+   400→   400→   return known ? { ...cat, emoji: known.emoji, color: known.color || cat.color } : cat;
+   401→   401→ }, [ALL_KNOWN_EMOJIS]);
+   402→   402→
+   403→   403→ const getCategoryMeta = useCallback((cat: string) => {
+   404→   404→   if (!cat) return { emoji: '📦', color: '#78716c' };
+   405→   405→   const trimmed = cat.trim();
+   406→   406→   // Exact match first (fast path)
+   407→   407→   const found = categories.find(c => c.name === trimmed);
+   408→   408→   if (found) {
+   409→   409→     if (found.emoji === '📦') {
+   410→   410→       const known = ALL_KNOWN_EMOJIS.get(trimmed);
+   411→   411→       if (known) return { emoji: known.emoji, color: known.color || found.color };
+   412→   412→     }
+   413→   413→     return { emoji: found.emoji, color: found.color };
+   414→   414→   }
+   415→   415→   // Case-insensitive fallback
+   416→   416→   const foundCI = categories.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+   417→   417→   if (foundCI) {
+   418→   418→     if (foundCI.emoji === '📦') {
+   419→   419→       const known = ALL_KNOWN_EMOJIS.get(trimmed);
+   420→   420→       if (known) return { emoji: known.emoji, color: known.color || foundCI.color };
+   421→   421→     }
+   422→   422→     return { emoji: foundCI.emoji, color: foundCI.color };
+   423→   423→   }
+   424→   424→   // Fallback to known emoji map
+   425→   425→   const known = ALL_KNOWN_EMOJIS.get(trimmed) || ALL_KNOWN_EMOJIS.get(trimmed.toLowerCase());
+   426→   426→   if (known) return known;
+   427→   427→   // First letter as emoji for custom categories without emoji
+   428→   428→   return { emoji: '📦', color: '#78716c' };
+   429→   429→ }, [categories, ALL_KNOWN_EMOJIS]);
+   430→   430→
+   431→   431→ const getCategoryList = useCallback((type: string) => {
+   432→   432→   const cats = categories.filter(c => c.type === type);
+   433→   433→   if (cats.length > 0) return cats.map(c => {
+   434→   434→     if (c.emoji === '📦') {
+   435→   435→       const known = ALL_KNOWN_EMOJIS.get(c.name);
+   436→   436→       if (known) return { value: c.name, emoji: known.emoji, color: known.color || c.color };
+   437→   437→     }
+   438→   438→     return { value: c.name, emoji: c.emoji, color: c.color };
+   439→   439→   });
+   440→   440→   return type === 'expense' ? FALLBACK_EXPENSE : FALLBACK_INCOME;
+   441→   441→ }, [categories, ALL_KNOWN_EMOJIS]);
+   442→   442→
+   443→   443→ const getSourceEmoji = useCallback((name: string) => {
+   444→   444→   const found = sources.find(s => s.name === name);
+   445→   445→   if (found) return found.emoji;
+   446→   446→   return FALLBACK_SOURCES.find(s => s.value === name)?.emoji || '💵';
+   447→   447→ }, [sources]);
+   448→   448→
+   449→   449→ // ── Month Navigation ──────────────────────────────────────────────────────
+   450→   450→
+   451→   451→ const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m - 2, 1), 'yyyy-MM')); };
+   452→   452→ const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m, 1), 'yyyy-MM')); };
+   453→   453→ const goToThisMonth = () => { setSelectedMonth(jakartaMonthString()); };
+   454→   454→
+   455→   455→ const monthOptions = useMemo(() => {
+   456→   456→   const now = new Date();
+   457→   457→   const opts: { value: string; label: string }[] = [];
+   458→   458→   for (let i = -24; i <= 24; i++) {
+   459→   459→     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+   460→   460→     opts.push({ value: format(d, 'yyyy-MM'), label: format(d, 'MMMM yyyy', { locale: idLocale }) });
+   461→   461→   }
+   462→   462→   return opts;
+   463→   463→ }, []);
+   464→   464→
+   465→   465→ // ── Render Helpers ────────────────────────────────────────────────────────
+   466→   466→
+   467→   467→ const filteredTransactions = useMemo(() => transactions.filter(tx => {
+   468→   468→   if (txFilter.type !== 'all' && tx.type !== txFilter.type) return false;
+   469→   469→   if (txFilter.category !== 'all' && tx.category !== txFilter.category) return false;
+   470→   470→   if (txFilter.source !== 'all' && tx.source !== txFilter.source) return false;
+   471→   471→   // FEAT-SEARCH-ALLTIME: Client-side search filter must match the server-side
+   472→   472→   // filter logic (description OR category OR source OR tags) so that
+   473→   473→   // instant (non-debounced) filtering doesn't discard source/tags matches
+   474→   474→   // that the server correctly returned. Notes is also checked for
+   475→   475→   // completeness (client has notes in the Transaction type even though the
+   476→   476→   // API select drops it — notes will be undefined, which safely skips).
+   477→   477→   if (txFilter.search) {
+   478→   478→     const term = txFilter.search.toLowerCase();
+   479→   479→     const tagsStr = typeof tx.tags === 'string' ? tx.tags : '';
+   480→   480→     let tagsArr: string[] = [];
+   481→   481→     try { tagsArr = JSON.parse(tagsStr || '[]'); } catch { /* malformed */ }
+   482→   482→     const matches =
+   483→   483→       tx.description?.toLowerCase().includes(term) ||
+   484→   484→       (tx.category ?? '').toLowerCase().includes(term) ||
+   485→   485→       (tx.source ?? '').toLowerCase().includes(term) ||
+   486→   486→       tx.notes?.toLowerCase().includes(term) ||
+   487→   487→       tagsArr.some((t) => t.toLowerCase().includes(term));
+   488→   488→     if (!matches) return false;
+   489→   489→   }
+   490→   490→   return true;
+   491→   491→ }), [transactions, txFilter]);
+   492→   492→
+   493→   493→ const groupedTransactions = useMemo(() => {
+   494→   494→   const sorted = [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+   495→   495→   const groups: { dateKey: string; dateLabel: string; dayName: string; txs: Transaction[]; totalIncome: number; totalExpense: number; net: number }[] = [];
+   496→   496→   // BUG-6 fix: hoist Intl.DateTimeFormat instances outside the loop.
+   497→   497→   // Previously used date-fns format(d, 'yyyy-MM-dd') which reads the
+   498→   498→   // BROWSER's local TZ — transactions near midnight Jakarta got grouped
+   499→   499→   // under the wrong date. Now use jakartaDateKey() for the date key and
+   500→   500→   // Intl.DateTimeFormat with timeZone: 'Asia/Jakarta' for labels.
+   501→   501→   // Hoisting avoids creating a new formatter per transaction (expensive).
+   502→   502→   const dateLabelFmt = new Intl.DateTimeFormat('id-ID', {
+   503→   503→     timeZone: 'Asia/Jakarta',
+   504→   504→     day: 'numeric',
+   505→   505→     month: 'long',
+   506→   506→   });
+   507→   507→   const dayNameFmt = new Intl.DateTimeFormat('id-ID', {
+   508→   508→     timeZone: 'Asia/Jakarta',
+   509→   509→     weekday: 'long',
+   510→   510→   });
+   511→   511→   let currentGroup: typeof groups[0] | null = null;
+   512→   512→   for (const tx of sorted) {
+   513→   513→     const d = new Date(tx.date);
+   514→   514→     const dateKey = jakartaDateKey(d);
+   515→   515→     if (!currentGroup || currentGroup.dateKey !== dateKey) {
+   516→   516→       currentGroup = {
+   517→   517→         dateKey,
+   518→   518→         dateLabel: dateLabelFmt.format(d),
+   519→   519→         dayName: dayNameFmt.format(d),
+   520→   520→         txs: [], totalIncome: 0, totalExpense: 0, net: 0,
+   521→   521→       };
+   522→   522→       groups.push(currentGroup);
+   523→   523→     }
+   524→   524→     currentGroup.txs.push(tx);
+   525→   525→     if (tx.type === 'income') { currentGroup.totalIncome += tx.amount; currentGroup.net += tx.amount; }
+   526→   526→     else { currentGroup.totalExpense += tx.amount; currentGroup.net -= tx.amount; }
+   527→   527→   }
+   528→   528→   return groups;
+   529→   529→ }, [filteredTransactions]);
+   530→   530→
+   531→   531→ const expenseCategories = categories.filter(c => c.type === 'expense').map(resolveEmoji);
+   532→   532→ const incomeCategories = categories.filter(c => c.type === 'income').map(resolveEmoji);
+   533→   533→
+   534→   534→ // ── Loading State ─────────────────────────────────────────────────────────
+   535→   535→
+   536→   536→ if (sharedLoading) {
+   537→   537→   return (
+   538→   538→     <div className="space-y-4">
+   539→   539→       <div className="flex gap-2"><Skeleton className="h-10 w-48" /><Skeleton className="h-10 w-32" /></div>
+   540→   540→       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>
+   541→   541→       <Skeleton className="h-80 rounded-xl" />
+   542→   542→     </div>
+   543→   543→   );
+   544→   544→ }
+   545→   545→
+   546→   546→ // ── Render ────────────────────────────────────────────────────────────────
+   547→   547→
+   548→   548→ return (
+   549→   549→   <div className="space-y-3">
+   550→   550→     {/* ANIM-2 / Feature 3: Floating 💰 particles overlay — fires when an
+   551→   551→         income transaction is added. Fixed-positioned (covers viewport),
+   552→   552→         pointer-events-none, aria-hidden. Auto-cleans after 2.6s. */}
+   553→   553→     <MoneyParticles triggerKey={mutations.moneyParticlesKey} />
+   554→   554→
+   555→   555→     {/* Header — compact on mobile: month picker + action buttons in 2 rows */}
+   556→   556→     <div className="flex flex-col gap-2">
+   557→   557→       {/* Row 1: Month navigation */}
+   558→   558→       <div className="flex items-center gap-2">
+   559→   559→         <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={goToPrevMonth}><CalendarDays className="h-4 w-4" /></Button>
+   560→   560→         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+   561→   561→           <SelectTrigger className="w-full sm:w-[170px] h-9"><SelectValue /></SelectTrigger>
+   562→   562→           <SelectContent className="max-h-64">
+   563→   563→             {monthOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}><span className="capitalize">{opt.label}</span></SelectItem>))}
+   564→   564→           </SelectContent>
+   565→   565→         </Select>
+   566→   566→         {/* FIN-BUG-4 fix: use jakartaMonthString() instead of browser-local
+   567→   567→             format(new Date(), 'yyyy-MM') — consistent with selectedMonth's
+   568→   568→             initial value (from app-store.ts) and avoids TZ-boundary off-by-
+   569→   569→             one-month bugs for users behind Jakarta TZ. */}
+   570→   570→         {selectedMonth !== jakartaMonthString() && (
+   571→   571→           <Button variant="ghost" size="sm" className="text-xs h-7 shrink-0" onClick={goToThisMonth}>Hari ini</Button>
+   572→   572→         )}
+   573→   573→         <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={goToNextMonth}><CalendarDays className="h-4 w-4 rotate-180" /></Button>
+   574→   574→       </div>
+   575→   575→       {/* Row 2: Quick actions — horizontal scroll on mobile, wrap on desktop */}
+   576→   576→       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:overflow-visible sm:pb-0 sm:flex-wrap">
+   577→   577→         <Button size="sm" className="shrink-0 bg-destructive hover:bg-destructive text-white anim-press anim-pulse-ring" onClick={() => mutations.openNewTx('expense')}><ArrowDownRight className="h-4 w-4" />Pengeluaran</Button>
+   578→   578→         <Button size="sm" className="shrink-0 anim-press" onClick={() => mutations.openNewTx('income')}><ArrowUpRight className="h-4 w-4" />Pemasukan</Button>
+   579→   579→         <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => mutations.setCatDialogOpen(true)}><Settings2 className="h-4 w-4" />Kategori</Button>
+   580→   580→         <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => mutations.setSourceDialogOpen(true)}><Wallet className="h-4 w-4" />Sumber Dana</Button>
+   581→   581→       </div>
+   582→   582→     </div>
+   583→   583→
+   584→   584→     {/* Sub Tabs — icon-only on mobile, icon+label on desktop */}
+   585→   585→     <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as FinanceSubTab)}>
+   586→   586→       <TabsList className="flex w-full overflow-x-auto scrollbar-hide">
+   587→   587→         <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
+   588→   588→         <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
+   589→   589→         <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
+   590→   590→         <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Explorer</span></TabsTrigger>
+   591→   591→         <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PieChart className="h-3.5 w-3.5" /><span className="hidden sm:inline">Kategori</span></TabsTrigger>
+   592→   592→         <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ricurring</span></TabsTrigger>
+   593→   593→         <TabsTrigger value="rules" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wand2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Aturan</span></TabsTrigger>
+   594→   594→         <TabsTrigger value="savings" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PiggyBank className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tabungan</span></TabsTrigger>
+   595→   595→       </TabsList>
+   596→   596→
+   597→   597→       <TabsContent value="overview" className="mt-4 anim-tab-fade-up">
+   598→   598→         {dashboardData ? (
+   599→   599→           <FinanceOverview
+   600→   600→             dashboardData={dashboardData}
+   601→   601→             lastDoneData={lastDoneData}
+   602→   602→             getCategoryMeta={getCategoryMeta}
+   603→   603→             transactions={transactions}
+   604→   604→             selectedMonth={selectedMonth}
+   605→   605→           />
+   606→   606→         ) : (
+   607→   607→           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>
+   608→   608→         )}
+   609→   609→       </TabsContent>
+   610→   610→
+   611→   611→       <TabsContent value="transactions" className="mt-4 anim-tab-fade-up">
+   612→   612→         <FinanceTransactions
+   613→   613→           filteredTransactions={filteredTransactions}
+   614→   614→           groupedTransactions={groupedTransactions}
+   615→   615→           selectedTxIds={mutations.selectedTxIds}
+   616→   616→           txFilter={txFilter}
+   617→   617→           getCategoryList={getCategoryList}
+   618→   618→           getActiveSources={getActiveSources}
+   619→   619→           getCategoryMeta={getCategoryMeta}
+   620→   620→           getSourceEmoji={getSourceEmoji}
+   621→   621→           onFilterChange={setTxFilter}
+   622→   622→           onToggleSelectTx={mutations.toggleSelectTx}
+   623→   623→           onToggleSelectAll={() => mutations.toggleSelectAll(filteredTransactions.map(t => t.id))}
+   624→   624→           onEditTx={mutations.openEditTx}
+   625→   625→           onDeleteTx={(id) => { mutations.setDeletingId(id); mutations.setDeleteDialogOpen(true); }}
+   626→   626→           onBulkDelete={() => mutations.setBulkDeleteOpen(true)}
+   627→   627→           selectedMonth={selectedMonth}
+   628→   628→           onGoToPrevMonth={goToPrevMonth}
+   629→   629→         />
+   630→   630→       </TabsContent>
+   631→   631→
+   632→   632→       <TabsContent value="budgets" className="mt-4 anim-tab-fade-up">
+   633→   633→         <FinanceBudgets
+   634→   634→           budgets={budgets}
+   635→   635→           dashboardData={dashboardData ?? null}
+   636→   636→           selectedMonth={selectedMonth}
+   637→   637→           getCategoryMeta={getCategoryMeta}
+   638→   638→           onAddBudget={() => { mutations.setBudgetForm({ category: '', amount: '', period: 'monthly' }); mutations.setBudgetDialogOpen(true); }}
+   639→   639→           onEditBudget={mutations.openEditBudget}
+   640→   640→           onDeleteBudget={mutations.handleDeleteBudget}
+   641→   641→         />
+   642→   642→       </TabsContent>
+   643→   643→
+   644→   644→       <TabsContent value="explorer" className="mt-4 anim-tab-fade-up">
+   645→   645→         {/* Task 4-b A.5: pass the shared edit-tx handler down so explorer
+   646→   646→             drill-down tx rows are no longer a dead-end — tapping a row
+   647→   647→             opens the FinanceTxDialog mounted at this component's root. */}
+   648→   648→         <FinanceExplorer getCategoryMeta={getCategoryMeta} onEditTx={mutations.openEditTx} />
+   649→   649→       </TabsContent>
+   650→   650→
+   651→   651→       <TabsContent value="categories" className="mt-4 anim-tab-fade-up">
+   652→   652→         <CategoryExplorer getCategoryMeta={getCategoryMeta} />
+   653→   653→       </TabsContent>
+   654→   654→
+   655→   655→       <TabsContent value="recurring" className="mt-4 anim-tab-fade-up">
+   656→   656→         <FinanceRecurring
+   657→   657→           getCategoryList={getCategoryList}
+   658→   658→           getActiveSources={getActiveSources}
+   659→   659→           getCategoryMeta={getCategoryMeta}
+   660→   660→         />
+   661→   661→       </TabsContent>
+   662→   662→
+   663→   663→       <TabsContent value="rules" className="mt-4 anim-tab-fade-up">
+   664→   664→         <FinanceRules
+   665→   665→           getCategoryList={getCategoryList}
+   666→   666→           getActiveSources={getActiveSources}
+   667→   667→         />
+   668→   668→       </TabsContent>
+   669→   669→
+   670→   670→       <TabsContent value="savings" className="mt-4 anim-tab-fade-up">
+   671→   671→         <FinanceSavingsGoals />
+   672→   672→       </TabsContent>
+   673→   673→     </Tabs>
+   674→   674→
+   675→   675→     {/* ─── ADD/EDIT TRANSACTION DIALOG ─── */}
+   676→   676→     <FinanceTxDialog
+   677→   677→       open={mutations.txDialogOpen}
+   678→   678→       onOpenChange={mutations.setTxDialogOpen}
+   679→   679→       editingTx={mutations.editingTx}
+   680→   680→       txForm={mutations.txForm}
+   681→   681→       setTxForm={mutations.setTxForm}
+   682→   682→       splitMode={mutations.splitMode}
+   683→   683→       setSplitMode={mutations.setSplitMode}
+   684→   684→       splitRows={mutations.splitRows}
+   685→   685→       setSplitRows={mutations.setSplitRows}
+   686→   686→       splitTotal={mutations.splitTotal}
+   687→   687→       addSplitRow={mutations.addSplitRow}
+   688→   688→       updateSplitRow={mutations.updateSplitRow}
+   689→   689→       removeSplitRow={mutations.removeSplitRow}
+   690→   690→       calcOpen={mutations.calcOpen}
+   691→   691→       setCalcOpen={mutations.setCalcOpen}
+   692→   692→       submitting={mutations.submitting}
+   693→   693→       onSubmit={mutations.handleSubmitTx}
+   694→   694→       getCategoryList={getCategoryList}
+   695→   695→       getActiveSources={getActiveSources}
+   696→   696→     />
+   697→   697→
+   698→   698→     {/* ─── ADD + EDIT BUDGET DIALOGS ─── */}
+   699→   699→     <FinanceBudgetDialogs
+   700→   700→       addOpen={mutations.budgetDialogOpen}
+   701→   701→       onAddOpenChange={mutations.setBudgetDialogOpen}
+   702→   702→       editOpen={mutations.budgetEditOpen}
+   703→   703→       onEditOpenChange={mutations.setBudgetEditOpen}
+   704→   704→       budgetForm={mutations.budgetForm}
+   705→   705→       setBudgetForm={mutations.setBudgetForm}
+   706→   706→       submitting={mutations.submitting}
+   707→   707→       onSubmitAdd={mutations.handleSubmitBudget}
+   708→   708→       onSubmitEdit={mutations.handleSubmitEditBudget}
+   709→   709→       getCategoryList={getCategoryList}
+   710→   710→     />
+   711→   711→
+   712→   712→     {/* ─── DELETE + BULK DELETE CONFIRMATIONS ─── */}
+   713→   713→     <FinanceDeleteDialogs
+   714→   714→       deleteOpen={mutations.deleteDialogOpen}
+   715→   715→       onDeleteOpenChange={mutations.setDeleteDialogOpen}
+   716→   716→       onDelete={mutations.handleDeleteTx}
+   717→   717→       bulkDeleteOpen={mutations.bulkDeleteOpen}
+   718→   718→       onBulkDeleteOpenChange={mutations.setBulkDeleteOpen}
+   719→   719→       onBulkDelete={mutations.handleBulkDelete}
+   720→   720→       selectedCount={mutations.selectedTxIds.size}
+   721→   721→     />
+   722→   722→
+   723→   723→     {/* ─── CATEGORY MANAGEMENT + FORM DIALOGS ─── */}
+   724→   724→     <FinanceCategoryDialogs
+   725→   725→       mgmtOpen={mutations.catDialogOpen}
+   726→   726→       onMgmtOpenChange={mutations.setCatDialogOpen}
+   727→   727→       expenseCategories={expenseCategories}
+   728→   728→       incomeCategories={incomeCategories}
+   729→   729→       onAddNew={mutations.openNewCat}
+   730→   730→       onEdit={mutations.openEditCat}
+   731→   731→       onDelete={mutations.handleDeleteCat}
+   732→   732→       formOpen={mutations.catFormOpen}
+   733→   733→       onFormOpenChange={mutations.setCatFormOpen}
+   734→   734→       editingCat={mutations.editingCat}
+   735→   735→       catForm={mutations.catForm}
+   736→   736→       setCatForm={mutations.setCatForm}
+   737→   737→       allCategories={categories}
+   738→   738→       submitting={mutations.submitting}
+   739→   739→       onSubmit={mutations.handleSubmitCat}
+   740→   740→     />
+   741→   741→
+   742→   742→     {/* ─── SOURCE MANAGEMENT + FORM + DELETE DIALOGS ─── */}
+   743→   743→     <FinanceSourceDialogs
+   744→   744→       mgmtOpen={mutations.sourceDialogOpen}
+   745→   745→       onMgmtOpenChange={mutations.setSourceDialogOpen}
+   746→   746→       sources={sources}
+   747→   747→       getActiveSources={getActiveSources}
+   748→   748→       onAddNew={mutations.openNewSource}
+   749→   749→       onEdit={mutations.openEditSource}
+   750→   750→       balanceEditId={mutations.balanceEditId}
+   751→   751→       setBalanceEditId={mutations.setBalanceEditId}
+   752→   752→       balanceEditValue={mutations.balanceEditValue}
+   753→   753→       setBalanceEditValue={mutations.setBalanceEditValue}
+   754→   754→       onSaveBalance={mutations.handleSaveBalance}
+   755→   755→       onRequestDelete={(src) => mutations.setDeletingSource(src)}
+   756→   756→       formOpen={mutations.sourceFormOpen}
+   757→   757→       onFormOpenChange={mutations.setSourceFormOpen}
+   758→   758→       editingSource={mutations.editingSource}
+   759→   759→       sourceForm={mutations.sourceForm}
+   760→   760→       setSourceForm={mutations.setSourceForm}
+   761→   761→       submitting={mutations.submitting}
+   762→   762→       onSubmit={mutations.handleSubmitSource}
+   763→   763→       deletingSource={mutations.deletingSource}
+   764→   764→       onCancelDelete={() => mutations.setDeletingSource(null)}
+   765→   765→       onConfirmDelete={() => { if (mutations.deletingSource) { mutations.handleDeleteSource(mutations.deletingSource); mutations.setDeletingSource(null); } }}
+   766→   766→     />
+   767→   767→   </div>
+   768→   768→ );
+   769→   769→}
+   770→   770→
+   771→   771→

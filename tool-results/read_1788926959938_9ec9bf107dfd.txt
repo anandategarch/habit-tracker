@@ -1,0 +1,1466 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+     4→import { useQuery, useQueryClient } from '@tanstack/react-query';
+     5→import dynamic from 'next/dynamic';
+     6→import {
+     7→ DndContext,
+     8→ closestCenter,
+     9→ KeyboardSensor,
+    10→ PointerSensor,
+    11→ TouchSensor,
+    12→ useSensor,
+    13→ useSensors,
+    14→ type DragEndEvent,
+    15→} from '@dnd-kit/core';
+    16→import {
+    17→ SortableContext,
+    18→ sortableKeyboardCoordinates,
+    19→ arrayMove,
+    20→ rectSortingStrategy,
+    21→} from '@dnd-kit/sortable';
+    22→import { useAppStore } from '@/store/app-store';
+    23→import { jakartaNowIso, jakartaNowParts, dateFromYMD } from '@/lib/timezone';
+    24→import { Button } from '@/components/ui/button';
+    25→import {
+    26→ Dialog,
+    27→ DialogContent,
+    28→ DialogHeader,
+    29→ DialogTitle,
+    30→} from '@/components/ui/dialog';
+    31→import { Input } from '@/components/ui/input';
+    32→import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
+    33→import { TimePicker } from '@/components/habit-tracker/time-picker';
+    34→import { useHabitOptions } from '@/hooks/use-habit-options';
+    35→import { useThemeColor } from '@/hooks/use-theme-color';
+    36→import { jakartaDateString } from '@/lib/jakarta-date';
+    37→import { xpForHabit } from '@/lib/dashboard-helpers';
+    38→import { THEME_PRESETS } from '@/lib/theme-utils';
+    39→import {
+    40→ burstFromElement,
+    41→ milestoneForStreak,
+    42→} from '@/lib/confetti';
+    43→import {
+    44→ getDaysInMonth,
+    45→ getDate,
+    46→} from '@/lib/date-utils';
+    47→// PERF-FIX (FIX-TIER3 / Fix 15): replaced `date-fns` with native Intl-based
+    48→// utility module. Output is identical for the patterns and helpers used
+    49→// here — verified via test script in worklog FIX-TIER3 entry.
+    50→import { toast } from 'sonner';
+    51→import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag, Plus } from 'lucide-react';
+    52→
+    53→import type { Habit, HabitLog } from './daily-tracker-types';
+    54→import {
+    55→ toDateString,
+    56→ formatJakartaTime,
+    57→ computeStreak,
+    58→ shiftYmdKey,
+    59→ saveDailyLog,
+    60→ htmlToPlainText,
+    61→} from './daily-tracker-helpers';
+    62→import { DateNav } from './daily-tracker-date-nav';
+    63→import { DailySummary } from './daily-tracker-daily-summary';
+    64→import { HabitCard } from './daily-tracker-habit-card';
+    65→import { SortableHabitCard } from './daily-tracker-sortable-card';
+    66→import { LoadingSkeleton } from './daily-tracker-skeleton';
+    67→import { DailyCheckInCard } from './daily-check-in-card';
+    68→
+    69→// Calendar merged into Tracker as sub-tab (nav 6 → 5)
+    70→const CalendarView = dynamic(() => import('./calendar-view'), { ssr: false });
+    71→
+    72→// PHASE4-POLISH: TipTap rich text editor for the daily notes. Loaded with
+    73→// ssr:false because TipTap pokes at the DOM during initial render (it needs
+    74→// document.execCommand + contenteditable), and Next.js's SSR pass would
+    75→// crash without a real browser. The dynamic import also keeps the TipTap
+    76→// bundle (~80kb gzipped) out of the initial JS for users who never open
+    77→// the daily tracker tab.
+    78→const RichNotesEditor = dynamic(
+    79→ () => import('./rich-notes-editor').then((m) => m.RichNotesEditor),
+    80→ {
+    81→   ssr: false,
+    82→   loading: () => <div className="min-h-[112px] rounded-md bg-muted/30" />,
+    83→ },
+    84→);
+    85→
+    86→// ---------------------------------------------------------------------------
+    87→// Component
+    88→// ---------------------------------------------------------------------------
+    89→
+    90→export default function DailyTracker() {
+    91→ const selectedDate = useAppStore((s) => s.selectedDate);
+    92→ const setSelectedDate = useAppStore((s) => s.setSelectedDate);
+    93→ const refreshKey = useAppStore((s) => s.refreshKey);
+    94→ // ONE-CLICK-5: used by the tracker empty-state CTA ("Buat Habit Pertama")
+    95→ // to open the add-habit dialog directly, same flow as the FAB.
+    96→ const setActiveTab = useAppStore((s) => s.setActiveTab);
+    97→ const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
+    98→ const queryClient = useQueryClient();
+    99→ // Opsi label habit (kategori/prioritas/difficulty) — query tunggal; peta
+   100→ // kategori diturunkan lokal (bobot XP langsung dari lib/dashboard-helpers).
+   101→ const { data: habitOptions = [] } = useHabitOptions();
+   102→ const { themeColor } = useThemeColor();
+   103→ const categoryMap = useMemo(() => {
+   104→   const map: Record<string, { label: string; color?: string | null }> = {};
+   105→   for (const opt of habitOptions) {
+   106→     if (opt.type === 'category') map[opt.label] = opt;
+   107→   }
+   108→   return map;
+   109→ }, [habitOptions]);
+   110→ // Warna primer aktif (hex preset tema) untuk kartu habit.
+   111→ const primaryColor = useMemo(
+   112→   () =>
+   113→     THEME_PRESETS.find((p) => p.id === themeColor)?.primary ??
+   114→     THEME_PRESETS[0].primary,
+   115→   [themeColor],
+   116→ );
+   117→
+   118→ // ---- state ----
+   119→ const [loading, setLoading] = useState(true);
+   120→ const [completionMap, setCompletionMap] = useState<Record<string, boolean>>({});
+   121→ const [notes, setNotes] = useState('');
+   122→ const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+   123→ const [viewFilter, setViewFilter] = useState<'all' | 'incomplete' | 'completed'>('all');
+   124→ const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set());
+   125→ // Calendar merge: toggle between 'today' (habit grid) and 'history' (calendar)
+   126→ // ONE-CLICK-3: viewMode lifted to the global store — survives tab switches,
+   127→ // AND lets other components (calendar day tap, dashboard jumps) switch the
+   128→ // tracker into grid mode from outside.
+   129→ const viewMode = useAppStore((s) => s.trackerViewMode);
+   130→ const setViewMode = useAppStore((s) => s.setTrackerViewMode);
+   131→
+   132→ // ---- time dialog state ----
+   133→ const [timeDialogHabit, setTimeDialogHabit] = useState<Habit | null>(null);
+   134→ const [manualDate, setManualDate] = useState('');
+   135→ const [manualTime, setManualTime] = useState('');
+   136→ const [timeSubmitting, setTimeSubmitting] = useState(false);
+   137→
+   138→ // ---- completedAt display map ----
+   139→ const [completedAtMap, setCompletedAtMap] = useState<Record<string, string>>({});
+   140→
+   141→ // ---- GELOMBANG 1: nilai amount per habit (habitType 'amount') ----
+   142→ const [amountValueMap, setAmountValueMap] = useState<Record<string, number>>({});
+   143→
+   144→ // ---- time analysis dialog ----
+   145→ const [analysisHabitId, setAnalysisHabitId] = useState<string | null>(null);
+   146→
+   147→ // ONE-CLICK-1: consume the global habit focus (set by openHabitFocus anywhere
+   148→ // in the app — dashboard rows, calendar, weekly review, …). Opens the
+   149→ // TimeAnalysisDialog for the focused habit immediately after the tracker
+   150→ // tab mounts, then clears the ephemeral focus (same consume-and-clear
+   151→ // pattern as quickAddAction; latest-ref indirection like use-finance-mutations).
+   152→ const focusHabitId = useAppStore((s) => s.focusHabitId);
+   153→ const clearHabitFocus = useAppStore((s) => s.clearHabitFocus);
+   154→ // ONE-CLICK-1: openAnalysis is a stable useCallback (empty deps), so the
+   155→ // effect can depend on it directly — no render-phase ref write needed
+   156→ // (react-hooks/refs compliant; migrated from the old latest-ref pattern
+   157→ // per worklog note when this block was touched).
+   158→ const openAnalysis = useCallback((id: string) => setAnalysisHabitId(id), []);
+   159→ useEffect(() => {
+   160→   if (focusHabitId) {
+   161→     openAnalysis(focusHabitId);
+   162→     clearHabitFocus();
+   163→   }
+   164→ }, [focusHabitId, clearHabitFocus, openAnalysis]);
+   165→
+   166→ // ---- refs ----
+   167→ const monthLogsCacheRef = useRef<Record<string, Record<string, HabitLog[]>>>({});
+   168→ const cachedMonthRef = useRef('');
+   169→ // BUG-16 fix: track the refreshKey that was used to populate the cache.
+   170→ // When refreshKey changes (e.g. user hit "refresh" or created a new habit),
+   171→ // the cache short-circuit must be bypassed so the new data is fetched.
+   172→ const cachedRefreshKeyRef = useRef(0);
+   173→ const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   174→ // BUG-19 fix: store the latest pending notes-save so we can fire-and-forget
+   175→ // it on unmount (using keepalive) instead of cancelling it. Previously the
+   176→ // debounced save was cancelled on unmount, so typing-then-navigating within
+   177→ // 600ms lost the user's notes silently.
+   178→ const pendingSaveRef = useRef<{ date: string; notes?: string } | null>(null);
+   179→
+   180→ // PERF-REACT-1 fix: mirror `completionMap` into a ref so toggleHabit and
+   181→ // handleHabitCheck can read the latest value WITHOUT having `completionMap`
+   182→ // in their useCallback deps. Without this, every toggle (which updates
+   183→ // completionMap) would create new handler identities, which would defeat
+   184→ // React.memo on HabitCard and re-render every card in the grid — even
+   185→ // untouched ones. With the ref, handlers stay stable across toggles, so
+   186→ // only the actually-toggled card re-renders.
+   187→ const completionMapRef = useRef(completionMap);
+   188→ useEffect(() => {
+   189→   completionMapRef.current = completionMap;
+   190→ }, [completionMap]);
+   191→
+   192→ // PERF-REACT-1 (pola sama): mirror amountValueMap agar handleAmountDelta
+   193→ // membaca nilai terbaru tanpa memasukkannya ke deps useCallback.
+   194→ const amountValueMapRef = useRef(amountValueMap);
+   195→ useEffect(() => {
+   196→   amountValueMapRef.current = amountValueMap;
+   197→ }, [amountValueMap]);
+   198→
+   199→ // ---- TanStack Query: habits, daily-log ----
+   200→ const { data: queryHabits = [] } = useQuery<Habit[]>({
+   201→   queryKey: ['habits'],
+   202→   queryFn: async () => {
+   203→     const res = await fetch('/api/habits');
+   204→     if (!res.ok) throw new Error('Gagal memuat habits');
+   205→     const json = (await res.json()) as { habits?: Habit[] };
+   206→     return json.habits ?? [];
+   207→   },
+   208→   staleTime: 30_000,
+   209→ });
+   210→
+   211→ // PHASE4-POLISH: drag-to-reorder support. When the user reorders habits via
+   212→ // the @dnd-kit drag handle, we apply the new order optimistically via a
+   213→ // local override. The override is cleared after the server confirms (PUT
+   214→ // succeeds + query refetch). While `localHabitsOverride` is set, it
+   215→ // shadows the query data so the UI reflects the new order immediately.
+   216→ const [dragMode, setDragMode] = useState(false);
+   217→ const [localHabitsOverride, setLocalHabitsOverride] = useState<Habit[] | null>(null);
+   218→ const habits = localHabitsOverride ?? queryHabits;
+   219→
+   220→ const { data: dailyLogData } = useQuery<
+   221→   | { notes: string | null; date?: string; mood?: number; energy?: number; sleep?: number }
+   222→   | null
+   223→ >({
+   224→   queryKey: ['daily-logs', selectedDate],
+   225→   queryFn: async () => {
+   226→     const res = await fetch(`/api/daily-logs?date=${selectedDate}`);
+   227→     if (!res.ok) return null;
+   228→     return res.json();
+   229→   },
+   230→   staleTime: 15_000,
+   231→ });
+   232→
+   233→ // keepPreviousData (global QueryClient default) means that right after a
+   234→ // date switch `dailyLogData` still holds the PREVIOUS date's log until the
+   235→ // new one arrives. Applying it unconditionally showed (and let the user
+   236→ // edit + auto-save) day A's notes under day B's header. Gate on the
+   237→ // response's own date and clear while the correct day is still loading.
+   238→ // GELOMBANG 1: refetch tanggal yang sama dipicu simpanan check-in/notes
+   239→ // (invalidate ['daily-logs', date]) — jangan menimpa draft yang sedang
+   240→ // diketik (debounce aktif) dengan nilai server yang lebih lama; draft
+   241→ // tersimpan oleh debounce lalu sinkron kembali lewat refetch berikutnya.
+   242→ useEffect(() => {
+   243→   const dataDate = dailyLogData?.date?.slice(0, 10);
+   244→   if (dataDate === selectedDate && saveTimerRef.current) return;
+   245→   if (!dailyLogData || dataDate === selectedDate) {
+   246→     // GELOMBANG 1: notes lama berformat HTML (era TipTap) dibersihkan
+   247→     // jadi teks polos — editor kini textarea controlled.
+   248→     setNotes(htmlToPlainText(dailyLogData?.notes || ''));
+   249→   } else {
+   250→     setNotes('');
+   251→   }
+   252→ }, [dailyLogData, selectedDate]);
+   253→
+   254→ // GELOMBANG 1: nilai check-in (mood/energi/tidur) — digate pada tanggal
+   255→ // yang cocok (anti stale keepPreviousData, pola worklog 6-c).
+   256→ const checkInValue = useMemo(() => {
+   257→   if (!dailyLogData) return null;
+   258→   const dataDate = dailyLogData.date?.slice(0, 10);
+   259→   if (dataDate && dataDate !== selectedDate) return null;
+   260→   return {
+   261→     mood: dailyLogData.mood ?? 3,
+   262→     energy: dailyLogData.energy ?? 3,
+   263→     sleep: dailyLogData.sleep ?? 7,
+   264→   };
+   265→ }, [dailyLogData, selectedDate]);
+   266→
+   267→ // ---- derived ----
+   268→ // STREAK-TZ-class fix (versi date-utils UTC): seluruh pembaca komponen di
+   269→ // bawah (format 'EEEE'/'MMMM d' DateNav, getDate, getDaysInMonth) memakai
+   270→ // komponen UTC dari lib/date-utils — maka dateObj HARUS UTC-midnight dari
+   271→ // komponen YMD (dateFromYMD). Konstruksi local-midnight (date-fns era lama)
+   272→ // akan meleset sehari di browser non-UTC; parseISO+format lokal lebih buruk.
+   273→ const dateObj = useMemo(() => dateFromYMD(selectedDate), [selectedDate]);
+   274→ const dayOfMonth = getDate(dateObj);
+   275→ const daysInMonth = getDaysInMonth(dateObj);
+   276→ // BUG-7 fix: use jakartaDateString() (TZ-explicit) instead of
+   277→ // format(startOfDay(new Date()), 'yyyy-MM-dd') which reads the BROWSER's
+   278→ // local TZ. A user in UTC-8 viewing the app at 22:00 local would see
+   279→ // todayStr = "2025-01-15" while Jakarta is already 2025-01-16 — selecting
+   280→ // "Today" would jump to the wrong date.
+   281→ const todayStr = jakartaDateString();
+   282→
+   283→ const activeHabits = useMemo(
+   284→   () => habits.filter((h) => h.isActive && !h.isArchived),
+   285→   [habits],
+   286→ );
+   287→
+   288→ const filteredHabits = useMemo(() => {
+   289→   let list = activeHabits;
+   290→   if (viewFilter === 'completed')
+   291→     // PHASE3-HABIT: "Selesai" filter shows habits where the user succeeded
+   292→     // today. For avoid habits, success = NOT checked (no relapse).
+   293→     list = list.filter((h) => {
+   294→       const checked = !!(completionMap[h.id] ?? false);
+   295→       const success = h.habitType === 'avoid' ? !checked : checked;
+   296→       return success;
+   297→     });
+   298→   if (viewFilter === 'incomplete')
+   299→     // PHASE1-HABIT: vacation habits don't count as "incomplete" — they're
+   300→     // paused, not missed. Exclude them so the "Belum" filter never shows
+   301→     // vacationing habits.
+   302→     // PHASE3-HABIT: "Belum" filter shows habits where the user hasn't yet
+   303→     // succeeded today. For avoid habits, "not yet succeeded" = checked
+   304→     // (relapsed today).
+   305→     list = list.filter((h) => {
+   306→       const checked = !!(completionMap[h.id] ?? false);
+   307→       const success = h.habitType === 'avoid' ? !checked : checked;
+   308→       return !success && !h.vacationMode;
+   309→     });
+   310→   return list;
+   311→ }, [activeHabits, completionMap, viewFilter]);
+   312→
+   313→ // PHASE1-HABIT: vacation habits don't count toward today's completion stats.
+   314→ // They're excluded from both completedCount and totalCount so the daily
+   315→ // summary's X/Y and percentage reflect only the habits the user is actually
+   316→ // expected to do today. Vacation habits still appear in the grid (with a
+   317→ // 🏖️ badge) when the "Semua" filter is active.
+   318→ const trackableHabits = useMemo(
+   319→   () => activeHabits.filter((h) => !h.vacationMode),
+   320→   [activeHabits],
+   321→ );
+   322→
+   323→ // ── PHASE4-POLISH: drag-to-reorder (@dnd-kit) ──────────────────────────
+   324→ // Sensors + handlers are declared HERE (after `activeHabits` is defined)
+   325→ // because handleDragEnd's deps array references `activeHabits` directly —
+   326→ // moving them above would hit the temporal-dead-zone on the first render.
+   327→ // Sensors: PointerSensor (mouse), TouchSensor (mobile drag — required for
+   328→ // touch devices), KeyboardSensor (a11y). Activation constraints prevent
+   329→ // accidental drags when the user is just tapping a card to toggle it.
+   330→ const sensors = useSensors(
+   331→   useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+   332→   useSensor(TouchSensor, {
+   333→     activationConstraint: { delay: 150, tolerance: 6 },
+   334→   }),
+   335→   useSensor(KeyboardSensor, {
+   336→     coordinateGetter: sortableKeyboardCoordinates,
+   337→   }),
+   338→ );
+   339→
+   340→ const handleDragEnd = useCallback(
+   341→   async (event: DragEndEvent) => {
+   342→     const { active, over } = event;
+   343→     if (!over || active.id === over.id) return;
+   344→     const oldIndex = activeHabits.findIndex((h) => h.id === active.id);
+   345→     const newIndex = activeHabits.findIndex((h) => h.id === over.id);
+   346→     if (oldIndex < 0 || newIndex < 0) return;
+   347→
+   348→     const reordered = arrayMove(activeHabits, oldIndex, newIndex);
+   349→     // Re-assign `order` so the new array position matches the DB order
+   350→     // (0..N-1 across active habits). Collect only the diffs to PUT.
+   351→     const updates: { id: string; sortOrder: number }[] = [];
+   352→     reordered.forEach((h, idx) => {
+   353→       if (h.sortOrder !== idx) updates.push({ id: h.id, sortOrder: idx });
+   354→     });
+   355→
+   356→     // Optimistic local override: reordered active habits (with new order
+   357→     // field) followed by the unchanged paused/archived habits.
+   358→     const activeIds = new Set(reordered.map((h) => h.id));
+   359→     const nonActive = habits.filter((h) => !activeIds.has(h.id));
+   360→     const reorderedAll: Habit[] = [
+   361→       ...reordered.map((h, idx) => ({ ...h, sortOrder: idx })),
+   362→       ...nonActive,
+   363→     ];
+   364→     setLocalHabitsOverride(reorderedAll);
+   365→
+   366→     // Persist each changed habit's order via PUT /api/habits/[id].
+   367→     // Fire-and-forget in parallel; invalidate the query on settle so the
+   368→     // server-side truth is re-fetched (and the local override cleared).
+   369→     try {
+   370→       await Promise.all(
+   371→         updates.map((u) =>
+   372→           fetch(`/api/habits/${u.id}`, {
+   373→             method: 'PUT',
+   374→             headers: { 'Content-Type': 'application/json' },
+   375→             body: JSON.stringify({ sortOrder: u.sortOrder }),
+   376→           }),
+   377→         ),
+   378→       );
+   379→       await queryClient.invalidateQueries({ queryKey: ['habits'] });
+   380→       // Brief delay so the refetch lands before we drop the override —
+   381→       // otherwise a re-render with the stale query cache could flicker
+   382→       // back to the old order for one frame.
+   383→       setTimeout(() => setLocalHabitsOverride(null), 200);
+   384→     } catch {
+   385→       toast.error('Gagal menyimpan urutan');
+   386→       // Revert to server truth.
+   387→       await queryClient.invalidateQueries({ queryKey: ['habits'] });
+   388→       setLocalHabitsOverride(null);
+   389→     }
+   390→   },
+   391→   [activeHabits, habits, queryClient],
+   392→ );
+   393→
+   394→ /** Toggle drag mode. When enabling, force viewFilter to "all" so every
+   395→  *  active habit is visible for reordering. When disabling, drop the
+   396→  *  optimistic override (any pending server update is left to complete —
+   397→  *  the next habits refetch will surface the truth). */
+   398→ const toggleDragMode = useCallback(() => {
+   399→   if (!dragMode) {
+   400→     setViewFilter('all');
+   401→     setDragMode(true);
+   402→   } else {
+   403→     setDragMode(false);
+   404→     setLocalHabitsOverride(null);
+   405→   }
+   406→ }, [dragMode]);
+   407→ // PHASE3-HABIT — for "avoid" habits, "success today" means NO relapse
+   408→ // (i.e. completionMap[h.id] is false). For "normal" + "amount" habits,
+   409→ // success = completionMap[h.id] is true. This derived flag drives the
+   410→ // daily summary's completedCount / completionPct / todayXP / bestStreak
+   411→ // so an avoid habit that wasn't checked today counts as a success.
+   412→ const isSuccess = useCallback(
+   413→   (h: Habit) => {
+   414→     const checked = !!(completionMap[h.id] ?? false);
+   415→     if (h.habitType === 'avoid') return !checked;
+   416→     return checked;
+   417→   },
+   418→   [completionMap],
+   419→ );
+   420→ const completedCount = trackableHabits.filter((h) => isSuccess(h)).length;
+   421→ const totalCount = trackableHabits.length;
+   422→ const completionPct =
+   423→   totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+   424→
+   425→ const todayXP = useMemo(() => {
+   426→   return trackableHabits.reduce((sum, h) => {
+   427→     if (isSuccess(h)) return sum + xpForHabit(h);
+   428→     return sum;
+   429→   }, 0);
+   430→ }, [trackableHabits, isSuccess]);
+   431→
+   432→ // GELOMBANG 1: XP TOTAL all-time — Level TIDAK lagi reset harian.
+   433→ // Sumber: completedLogCount per habit dari /api/habits × bobot difficulty
+   434→ // (lib) — agregat yang sama dengan kpi.totalXp /api/dashboard.
+   435→ const totalXp = useMemo(
+   436→   () => habits.reduce((sum, h) => sum + (h.completedLogCount ?? 0) * xpForHabit(h), 0),
+   437→   [habits],
+   438→ );
+   439→
+   440→ // Best current streak across all active habits
+   441→ const bestStreak = useMemo(() => {
+   442→   const month = selectedDate.slice(0, 7);
+   443→   const cache = monthLogsCacheRef.current[month];
+   444→   if (!cache) return 0;
+   445→   let best = 0;
+   446→   for (const h of activeHabits) {
+   447→     const logs = cache[h.id] || [];
+   448→     // PHASE1-HABIT: pass vacationMode so vacationing habits' streaks don't
+   449→     // break during the pause.
+   450→     // PHASE3-HABIT: pass invert + startDate for "avoid" habits so the
+   451→     // streak counts consecutive days WITHOUT a relapse.
+   452→     const s = computeStreak(logs, selectedDate, {
+   453→       onVacation: !!h.vacationMode,
+   454→       invert: h.habitType === 'avoid',
+   455→       startDate: h.startDate,
+   456→     });
+   457→     if (s > best) best = s;
+   458→   }
+   459→   return best;
+   460→ }, [activeHabits, selectedDate, completionMap]);
+   461→
+   462→ // ---- fetch completions (month-cached) ----
+   463→ // BUGHUNT-ROUND2 RACE-1: `isCancelled` guard (passed by the loading
+   464→ // effect) prevents a SLOWER stale fetch (e.g. for the previous date/
+   465→ // month after rapid navigation) from overwriting the state of the
+   466→ // NEWER fetch that already resolved. Previously only `setLoading` was
+   467→ // guarded — the completion maps could be painted with the wrong day's
+   468→ // data.
+   469→ const fetchCompletions = async (
+   470→   habitList: Habit[],
+   471→   date: string,
+   472→   isCancelled?: () => boolean,
+   473→ ) => {
+   474→   const month = date.slice(0, 7);
+   475→
+   476→   // BUG-16 fix: include refreshKey in the cache hit check. Without this,
+   477→   // changing refreshKey (e.g. after creating a habit) would still hit the
+   478→   // stale cache and never re-fetch.
+   479→   if (
+   480→     cachedMonthRef.current === month &&
+   481→     monthLogsCacheRef.current[month] &&
+   482→     cachedRefreshKeyRef.current === refreshKey
+   483→   ) {
+   484→     const cache = monthLogsCacheRef.current[month];
+   485→     const map: Record<string, boolean> = {};
+   486→     const atMap: Record<string, string> = {};
+   487→     const valueMap: Record<string, number> = {};
+   488→     habitList
+   489→       .filter((h) => h.isActive && !h.isArchived)
+   490→       .forEach((h) => {
+   491→         const logs = cache[h.id] || [];
+   492→         const dayLog = logs.find((l) => toDateString(l.date) === date);
+   493→         map[h.id] = dayLog?.completed ?? false;
+   494→         valueMap[h.id] = dayLog?.value ?? 0;
+   495→         if (dayLog?.completedAt) {
+   496→           atMap[h.id] = formatJakartaTime(dayLog.completedAt);
+   497→         }
+   498→       });
+   499→     setCompletionMap(map);
+   500→     setCompletedAtMap(atMap);
+   501→     setAmountValueMap(valueMap);
+   502→     return;
+   503→   }
+   504→
+   505→   const active = habitList.filter((h) => h.isActive && !h.isArchived);
+   506→   const ids = active.map((h) => h.id);
+   507→
+   508→   let groupedLogs: Record<string, HabitLog[]> = {};
+   509→   try {
+   510→     const res = await fetch(
+   511→       `/api/habits/batch-logs?month=${month}&ids=${ids.join(',')}`,
+   512→     );
+   513→     if (res.ok) {
+   514→       // Kontrak API: { logs: HabitLog[] } (flat) — di-group per habit di
+   515→       // sini. Toleransi bentuk grouped lama demi robustness.
+   516→       const json: unknown = await res.json();
+   517→       let flat: HabitLog[] = [];
+   518→       if (Array.isArray(json)) {
+   519→         flat = json as HabitLog[];
+   520→       } else if (
+   521→         json &&
+   522→         typeof json === 'object' &&
+   523→         Array.isArray((json as { logs?: HabitLog[] }).logs)
+   524→       ) {
+   525→         flat = (json as { logs: HabitLog[] }).logs;
+   526→       } else if (json && typeof json === 'object') {
+   527→         flat = Object.values(json as Record<string, HabitLog[]>).flat();
+   528→       }
+   529→       for (const log of flat) {
+   530→         if (log?.habitId) {
+   531→           (groupedLogs[log.habitId] ||= []).push(log);
+   532→         }
+   533→       }
+   534→     }
+   535→   } catch {
+   536→     // fall through to empty defaults
+   537→   }
+   538→
+   539→   // RACE-1: a newer fetch may have resolved while this one was in flight.
+   540→   // Bailing here avoids: (a) painting stale completion maps over the
+   541→   // current date's state, (b) flipping cachedMonthRef back to the stale
+   542→   // month (which would only cost a redundant re-fetch later, but still).
+   543→   if (isCancelled?.()) return;
+   544→
+   545→   const monthCache: Record<string, HabitLog[]> = {};
+   546→   const map: Record<string, boolean> = {};
+   547→   const atMap: Record<string, string> = {};
+   548→   const valueMap: Record<string, number> = {};
+   549→
+   550→   active.forEach((habit) => {
+   551→     const logs = groupedLogs[habit.id] || [];
+   552→     monthCache[habit.id] = logs;
+   553→     const dayLog = logs.find((l) => toDateString(l.date) === date);
+   554→     map[habit.id] = dayLog?.completed ?? false;
+   555→     valueMap[habit.id] = dayLog?.value ?? 0;
+   556→     if (dayLog?.completedAt) {
+   557→       atMap[habit.id] = formatJakartaTime(dayLog.completedAt);
+   558→     }
+   559→   });
+   560→
+   561→   monthLogsCacheRef.current[month] = monthCache;
+   562→   cachedMonthRef.current = month;
+   563→   // BUG-16 fix: record the refreshKey that populated this cache so a future
+   564→   // refreshKey change invalidates the cache.
+   565→   cachedRefreshKeyRef.current = refreshKey;
+   566→   setCompletionMap(map);
+   567→   setCompletedAtMap(atMap);
+   568→   setAmountValueMap(valueMap);
+   569→ };
+   570→
+   571→ // ---- debounced save (notes only) ----
+   572→ const debouncedSave = useCallback(
+   573→   (patch: { notes?: string }) => {
+   574→     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+   575→     // BUG-19 fix: stash the pending patch (with the current selectedDate)
+   576→     // so the unmount handler can fire-and-forget it. Previously the timer
+   577→     // was just cancelled on unmount, losing the last <600ms of typing.
+   578→     pendingSaveRef.current = { date: selectedDate, ...patch };
+   579→     saveTimerRef.current = setTimeout(async () => {
+   580→       const pending = pendingSaveRef.current;
+   581→       pendingSaveRef.current = null;
+   582→       if (!pending) return;
+   583→       try {
+   584→         // Kontrak API: PUT partial-safe (fallback POST bila 405).
+   585→         const res = await saveDailyLog(pending);
+   586→         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   587→         queryClient.invalidateQueries({ queryKey: ['daily-logs', pending.date] });
+   588→       } catch {
+   589→         toast.error('Gagal menyimpan catatan');
+   590→       }
+   591→     }, 600);
+   592→   },
+   593→   [selectedDate, queryClient],
+   594→ );
+   595→
+   596→ const handleNotesChange = useCallback(
+   597→   (html: string) => {
+   598→     setNotes(html);
+   599→     debouncedSave({ notes: html });
+   600→   },
+   601→   [debouncedSave],
+   602→ );
+   603→
+   604→ // PHASE4-POLISH: visible-text length for the "X karakter" hint. The stored
+   605→ // notes are now HTML (TipTap), so the raw string length includes <p>/<ul>
+   606→ // tags etc. — which would be misleading. Strip tags to get the user-visible
+   607→ // length. Returns 0 for empty/whitespace-only content.
+   608→ const notesCharCount = useMemo(() => {
+   609→   if (!notes) return 0;
+   610→   // Quick + dirty tag stripper — sufficient for the count display only.
+   611→   // (For rendering, the TipTap editor handles its own HTML safely.)
+   612→   return notes.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim().length;
+   613→ }, [notes]);
+   614→
+   615→ // ---- handlers ----
+   616→ // Ref to track the element that triggered a habit completion (for confetti position).
+   617→ // Set in handleHabitCheck, read in toggleHabit after successful API response.
+   618→ const confettiElRef = useRef<HTMLElement | null>(null);
+   619→
+   620→ // PERF-REACT-1 fix: toggleHabit is declared BEFORE handleHabitCheck and
+   621→ // handleTimeDialogSubmit (which call it) so the useCallback deps arrays
+   622→ // can reference it without temporal-dead-zone errors. Reads
+   623→ // `completionMap` via `completionMapRef.current` (not directly) so the
+   624→ // callback identity stays stable across toggles — this is what lets
+   625→ // React.memo on HabitCard actually skip re-renders for untouched cards.
+   626→ const toggleHabit = useCallback(
+   627→   async (habit: Habit, completedAt: string | null) => {
+   628→     const habitId = habit.id;
+   629→     const next = !(completionMapRef.current[habitId] ?? false);
+   630→
+   631→     setCompletionMap((p) => ({ ...p, [habitId]: next }));
+   632→     setTogglingIds((p) => new Set(p).add(habitId));
+   633→
+   634→     if (next) {
+   635→       setRecentlyCompleted((p) => new Set(p).add(habitId));
+   636→       setTimeout(() => {
+   637→         setRecentlyCompleted((p) => {
+   638→           const s = new Set(p);
+   639→           s.delete(habitId);
+   640→           return s;
+   641→         });
+   642→       }, 700);
+   643→     }
+   644→
+   645→     try {
+   646→       const res = await fetch(`/api/habits/${habitId}/logs`, {
+   647→         method: 'POST',
+   648→         headers: { 'Content-Type': 'application/json' },
+   649→         body: JSON.stringify({
+   650→           date: selectedDate,
+   651→           completed: next,
+   652→           completedAt: next ? completedAt : undefined,
+   653→         }),
+   654→       });
+   655→       if (!res.ok) {
+   656→         const errData = await res.json().catch(() => ({}));
+   657→         throw new Error(errData.error || `HTTP ${res.status}`);
+   658→       }
+   659→
+   660→       // update month cache
+   661→       const month = selectedDate.slice(0, 7);
+   662→       const cache = monthLogsCacheRef.current[month];
+   663→       if (cache) {
+   664→         const logs = cache[habitId] || [];
+   665→         const idx = logs.findIndex((l) => toDateString(l.date) === selectedDate);
+   666→         const entry = {
+   667→           id: '',
+   668→           habitId,
+   669→           // STREAK-TZ-class fix: local noon ("T12:00:00") lands on the
+   670→           // PREVIOUS Jakarta day on browsers west of UTC — the optimistic
+   671→           // cache entry was then mis-keyed by toDateString() (jakartaDateKey)
+   672→           // and the post-toggle streak/completion read one day off until a
+   673→           // refetch. UTC noon always maps to the same Jakarta day.
+   674→           date: new Date(selectedDate + 'T12:00:00Z').toISOString(),
+   675→           completed: next,
+   676→           value: 1,
+   677→           completedAt: next && completedAt ? completedAt : null,
+   678→         };
+   679→         if (idx >= 0) {
+   680→           logs[idx] = { ...logs[idx], ...entry };
+   681→         } else {
+   682→           logs.push(entry);
+   683→         }
+   684→       }
+   685→
+   686→       if (next && completedAt) {
+   687→         setCompletedAtMap((p) => ({
+   688→           ...p,
+   689→           [habitId]: formatJakartaTime(completedAt),
+   690→         }));
+   691→       } else {
+   692→         setCompletedAtMap((p) => {
+   693→           const np = { ...p };
+   694→           delete np[habitId];
+   695→           return np;
+   696→         });
+   697→       }
+   698→
+   699→       queryClient.invalidateQueries({ queryKey: ['habits'] });
+   700→       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+   701→       queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+   702→
+   703→       if (next) {
+   704→         // BUG-FIX-COMP-HIGH #1: For "avoid" habits (habitType === 'avoid'),
+   705→         // checking the box records a RELAPSE — not a success. Do NOT fire
+   706→         // the success toast, confetti burst, or milestone celebration here.
+   707→         // Show a gentle relapse message instead. Only normal/amount habits
+   708→         // get the success path below (toast.success + confetti + milestone).
+   709→         //
+   710→         // Captured as a local const before the branch so TS doesn't narrow
+   711→         // `habit.habitType` to `"normal" | "amount"` inside the else-arm
+   712→         // (which would make `habit.habitType === 'avoid'` an "unintentional
+   713→         // comparison" error TS2367).
+   714→         const isAvoid = habit.habitType === 'avoid';
+   715→         if (isAvoid) {
+   716→           toast.error('Kambuh tercatat. Jangan menyerah! 💪');
+   717→           confettiElRef.current = null;
+   718→         } else {
+   719→           toast.success('Habit selesai! 🎉');
+   720→
+   721→           // ── Confetti — ONLY after successful API response ──
+   722→           // BUG-1 fix: the month cache was already mutated above (lines 619-636
+   723→           // in the original) to include today's completion, so computeStreak
+   724→           // already counts today. The previous `newStreak = currentStreak + 1`
+   725→           // double-counted today, firing milestone confetti (7/30/100/365) one
+   726→           // day early. Now `newStreak = currentStreak`.
+   727→           // BUG-18 fix: when no cache exists, return 0 (not _count.logs which
+   728→           // was the total log count — completely unrelated to a streak).
+   729→           // BUG-FIX-COMP-HIGH #2: pass the options object to computeStreak so
+   730→           // the streak is computed correctly for any habit type. For
+   731→           // normal/amount habits (the only ones reaching this branch — avoid
+   732→           // habits were short-circuited above) `invert` is false; the call
+   733→           // signature is still passed explicitly for safety and forward-
+   734→           // compatibility (so a future refactor that re-enables the success
+   735→           // path for avoid habits doesn't silently regress).
+   736→           const currentStreak = cache
+   737→             ? computeStreak(cache[habitId] || [], selectedDate, {
+   738→                 invert: isAvoid,
+   739→                 startDate: habit.startDate,
+   740→                 onVacation: !!habit.vacationMode,
+   741→               })
+   742→             : 0;
+   743→           const newStreak = currentStreak;
+   744→           const el = confettiElRef.current;
+   745→
+   746→           const milestone = milestoneForStreak(newStreak);
+   747→           if (milestone) {
+   748→             // Milestone streak — burst rainbow besar dari elemen asal
+   749→             // (perayaan full-screen berbasis tier lama sudah tidak ada di
+   750→             // lib/confetti — burst ganda dipakai sebagai gantinya).
+   751→             burstFromElement(el, { count: 60, spread: 110, rainbow: true });
+   752→           } else {
+   753→             // Regular completion — burst from the clicked element
+   754→             burstFromElement(el, { count: 20 });
+   755→           }
+   756→           // Clear the ref so a future toggle-OFF doesn't reuse a stale element.
+   757→           confettiElRef.current = null;
+   758→         }
+   759→       }
+   760→     } catch (e) {
+   761→       setCompletionMap((p) => ({ ...p, [habitId]: !next }));
+   762→       toast.error(e instanceof Error ? e.message : 'Gagal memperbarui habit');
+   763→       confettiElRef.current = null;
+   764→     } finally {
+   765→       setTogglingIds((p) => {
+   766→         const s = new Set(p);
+   767→         s.delete(habitId);
+   768→         return s;
+   769→       });
+   770→     }
+   771→   },
+   772→   [selectedDate, queryClient],
+   773→ );
+   774→
+   775→ // ── GELOMBANG 1: stepper habit amount ─────────────────────────────
+   776→ // Habit amount (habitType 'amount') dicatat sebagai value 0..target;
+   777→ // completed = value >= target. completedAt di-set saat PERTAMA mencapai
+   778→ // target (jakartaNowIso) dan di-nol-kan saat turun dari target.
+   779→ const handleAmountDelta = useCallback(
+   780→   async (
+   781→     habit: Habit,
+   782→     delta: number,
+   783→     event?: React.MouseEvent | React.KeyboardEvent,
+   784→   ) => {
+   785→     if (selectedDate > todayStr) {
+   786→       toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
+   787→       return;
+   788→     }
+   789→     const habitId = habit.id;
+   790→     const target = Math.max(1, habit.target || 1);
+   791→     const current = Math.round(amountValueMapRef.current[habitId] ?? 0);
+   792→     const nextValue = Math.min(target, Math.max(0, Math.round(current + delta)));
+   793→     if (nextValue === current) return; // sudah di batas clamp
+   794→     const wasCompleted = !!(completionMapRef.current[habitId] ?? false);
+   795→     const nextCompleted = nextValue >= target;
+   796→
+   797→     if (event && 'currentTarget' in event) {
+   798→       confettiElRef.current = event.currentTarget as HTMLElement;
+   799→     }
+   800→
+   801→     // Optimistic: nilai amount + status selesai + pop anim.
+   802→     setAmountValueMap((p) => ({ ...p, [habitId]: nextValue }));
+   803→     setCompletionMap((p) => ({ ...p, [habitId]: nextCompleted }));
+   804→     setTogglingIds((p) => new Set(p).add(habitId));
+   805→     if (nextCompleted && !wasCompleted) {
+   806→       setRecentlyCompleted((p) => new Set(p).add(habitId));
+   807→       setTimeout(() => {
+   808→         setRecentlyCompleted((p) => {
+   809→           const s = new Set(p);
+   810→           s.delete(habitId);
+   811→           return s;
+   812→         });
+   813→       }, 700);
+   814→     }
+   815→
+   816→     try {
+   817→       const body: {
+   818→         date: string;
+   819→         completed: boolean;
+   820→         value: number;
+   821→         completedAt?: string | null;
+   822→       } = {
+   823→         date: selectedDate,
+   824→         completed: nextCompleted,
+   825→         value: nextValue,
+   826→       };
+   827→       if (nextCompleted && !wasCompleted) {
+   828→         body.completedAt = jakartaNowIso(); // pertama kali capai target
+   829→       } else if (!nextCompleted) {
+   830→         body.completedAt = null; // turun dari target → hapus
+   831→       }
+   832→       const res = await fetch(`/api/habits/${habitId}/logs`, {
+   833→         method: 'POST',
+   834→         headers: { 'Content-Type': 'application/json' },
+   835→         body: JSON.stringify(body),
+   836→       });
+   837→       if (!res.ok) {
+   838→         const errData = await res.json().catch(() => ({}));
+   839→         throw new Error(errData.error || `HTTP ${res.status}`);
+   840→       }
+   841→
+   842→       // update month cache (sumber streak & 7-hari flip)
+   843→       const month = selectedDate.slice(0, 7);
+   844→       const cache = monthLogsCacheRef.current[month];
+   845→       if (cache) {
+   846→         const logs = cache[habitId] || [];
+   847→         const idx = logs.findIndex((l) => toDateString(l.date) === selectedDate);
+   848→         const entry: HabitLog = {
+   849→           id: '',
+   850→           habitId,
+   851→           // UTC noon — selalu jatuh di hari Jakarta yang sama (pola lama).
+   852→           date: new Date(selectedDate + 'T12:00:00Z').toISOString(),
+   853→           completed: nextCompleted,
+   854→           value: nextValue,
+   855→           completedAt:
+   856→             typeof body.completedAt === 'string' ? body.completedAt : null,
+   857→         };
+   858→         if (idx >= 0) {
+   859→           logs[idx] = { ...logs[idx], ...entry };
+   860→         } else {
+   861→           logs.push(entry);
+   862→         }
+   863→       }
+   864→
+   865→       if (nextCompleted && typeof body.completedAt === 'string') {
+   866→         setCompletedAtMap((p) => ({
+   867→           ...p,
+   868→           [habitId]: formatJakartaTime(body.completedAt as string),
+   869→         }));
+   870→       } else if (!nextCompleted) {
+   871→         setCompletedAtMap((p) => {
+   872→           const np = { ...p };
+   873→           delete np[habitId];
+   874→           return np;
+   875→         });
+   876→       }
+   877→
+   878→       queryClient.invalidateQueries({ queryKey: ['habits'] });
+   879→       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+   880→       queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+   881→
+   882→       if (nextCompleted && !wasCompleted) {
+   883→         toast.success(`Target tercapai! 🎉 (${habit.name})`);
+   884→         const currentStreak = cache
+   885→           ? computeStreak(cache[habitId] || [], selectedDate, {
+   886→               startDate: habit.startDate,
+   887→               onVacation: !!habit.vacationMode,
+   888→             })
+   889→           : 0;
+   890→         const milestone = milestoneForStreak(currentStreak);
+   891→         if (milestone) {
+   892→           burstFromElement(confettiElRef.current, {
+   893→             count: 60,
+   894→             spread: 110,
+   895→             rainbow: true,
+   896→           });
+   897→         } else {
+   898→           burstFromElement(confettiElRef.current, { count: 20 });
+   899→         }
+   900→         confettiElRef.current = null;
+   901→       }
+   902→     } catch (e) {
+   903→       // Rollback optimistic.
+   904→       setAmountValueMap((p) => ({ ...p, [habitId]: current }));
+   905→       setCompletionMap((p) => ({ ...p, [habitId]: wasCompleted }));
+   906→       toast.error(e instanceof Error ? e.message : 'Gagal memperbarui progres');
+   907→       confettiElRef.current = null;
+   908→     } finally {
+   909→       setTogglingIds((p) => {
+   910→         const s = new Set(p);
+   911→         s.delete(habitId);
+   912→         return s;
+   913→       });
+   914→     }
+   915→   },
+   916→   [selectedDate, todayStr, queryClient],
+   917→ );
+   918→
+   919→ const handleHabitCheck = useCallback(
+   920→   (habit: Habit, event?: React.MouseEvent | React.KeyboardEvent) => {
+   921→     // FUTURE-DATE GUARD: the tracker grid is reachable for future dates
+   922→     // (DateNav arrows + calendar day-cell 1-click via openTrackerDate).
+   923→     // Checking a habit "tomorrow" writes a future HabitLog that silently
+   924→     // inflates streaks/milestones and shows up as already-done when that
+   925→     // day arrives. The manual time dialog already blocks future dates
+   926→     // (max attr on the date input) — block the checkbox path too.
+   927→     if (selectedDate > todayStr) {
+   928→       toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
+   929→       return;
+   930→     }
+   931→     // GELOMBANG 1: habit amount tidak binary — klik apa pun (badan kartu
+   932→     // atau jalur lama) dialihkan ke stepper +1 (defense in depth; kartu
+   933→     // amount memang tidak merender checkbox).
+   934→     if (habit.habitType === 'amount') {
+   935→       void handleAmountDelta(habit, 1, event);
+   936→       return;
+   937→     }
+   938→     const next = !(completionMapRef.current[habit.id] ?? false);
+   939→     if (!next) {
+   940→       toggleHabit(habit, null);
+   941→       return;
+   942→     }
+   943→     // Store the triggering element for confetti positioning (used in toggleHabit
+   944→     // after successful API response — ensures confetti only fires on actual completion).
+   945→     // For checkbox clicks, event.currentTarget is the checkbox; for card clicks,
+   946→     // it's the card div. Both are valid origins for the confetti burst.
+   947→     //
+   948→     // BUG-5 fix: only OVERWRITE the ref when an event is provided. The checkbox's
+   949→     // onClick handler sets confettiElRef to the checkbox button right before
+   950→     // onCheckedChange fires (which calls handleHabitCheck with no event). The
+   951→     // previous code did `confettiElRef.current = event ? ... : null`, which
+   952→     // overwrote the checkbox ref with null — defeating the FIX-BUGS-1 fix.
+   953→     if (event && 'currentTarget' in event) {
+   954→       confettiElRef.current = event.currentTarget as HTMLElement;
+   955→     }
+   956→
+   957→     if (habit.trackTime) {
+   958→       // BUG-17 fix: use jakartaNowParts() (TZ-explicit) instead of
+   959→       // new Date().getHours()/getMinutes() (browser-local TZ). On a non-Jakarta
+   960→       // browser the local hours would be displayed but stored as Jakarta ISO,
+   961→       // causing the time picker to show the wrong initial value.
+   962→       const now = jakartaNowParts();
+   963→       setTimeDialogHabit(habit);
+   964→       setManualDate(selectedDate);
+   965→       setManualTime(
+   966→         `${String(now.hour).padStart(2, '0')}:${String(now.minute).padStart(2, '0')}`,
+   967→       );
+   968→     } else {
+   969→       toggleHabit(habit, null);
+   970→     }
+   971→   },
+   972→   [toggleHabit, handleAmountDelta, selectedDate, todayStr],
+   973→ );
+   974→
+   975→ const handleTimeDialogSubmit = useCallback(
+   976→   async (useNow: boolean) => {
+   977→     if (!timeDialogHabit) return;
+   978→     setTimeSubmitting(true);
+   979→     try {
+   980→       let completedAtISO: string | null = null;
+   981→       if (useNow) {
+   982→         // BUG-17 fix: use jakartaNowIso() (returns ISO with +07:00 offset,
+   983→         // independent of browser TZ) instead of toLocalISO(new Date()) which
+   984→         // uses the browser's local offset.
+   985→         completedAtISO = jakartaNowIso();
+   986→       } else if (manualTime) {
+   987→         // BUG-17 fix: construct the ISO with +07:00 offset directly. The user
+   988→         // enters manualTime in Jakarta wall-clock (the rest of the app uses
+   989→         // Jakarta), so we just append the offset. Previously toLocalISO() was
+   990→         // used, which interpreted the input as browser-local TZ and produced
+   991→         // a different ISO on non-Jakarta browsers.
+   992→         completedAtISO = `${manualDate}T${manualTime}:00+07:00`;
+   993→       }
+   994→       await toggleHabit(timeDialogHabit, completedAtISO);
+   995→       setTimeDialogHabit(null);
+   996→     } catch {
+   997→       toast.error('Gagal menyimpan waktu');
+   998→     } finally {
+   999→       setTimeSubmitting(false);
+  1000→     }
+  1001→   },
+  1002→   [timeDialogHabit, toggleHabit, manualDate, manualTime],
+  1003→ );
+  1004→
+  1005→ // PERF-REACT-1 fix: stable callback wrappers for the inline arrow functions
+  1006→ // previously passed to HabitCard (onSetConfettiEl, onOpenAnalysis). Without
+  1007→ // useCallback, those arrows created new function identities every render,
+  1008→ // defeating React.memo on HabitCard. Both wrappers have empty deps because
+  1009→ // they only call ref mutation / setState setter (both stable for the
+  1010→ // lifetime of the component).
+  1011→ const handleSetConfettiEl = useCallback((el: HTMLElement | null) => {
+  1012→   confettiElRef.current = el;
+  1013→ }, []);
+  1014→
+  1015→ const handleOpenAnalysis = useCallback((habitId: string) => {
+  1016→   setAnalysisHabitId(habitId);
+  1017→ }, []);
+  1018→
+  1019→ // ---- date navigation ----
+  1020→ // UTC-safe YMD arithmetic (shiftYmdKey) — ms-based subDays/addDays on a
+  1021→ // local-midnight Date would read the local TZ again when formatted (see
+  1022→ // the STREAK-TZ-class note above). String arithmetic is TZ-independent.
+  1023→ const goToPrevDay = useCallback(
+  1024→   () => setSelectedDate(shiftYmdKey(selectedDate, -1)),
+  1025→   [selectedDate, setSelectedDate],
+  1026→ );
+  1027→ const goToNextDay = useCallback(
+  1028→   () => setSelectedDate(shiftYmdKey(selectedDate, 1)),
+  1029→   [selectedDate, setSelectedDate],
+  1030→ );
+  1031→ const goToToday = useCallback(
+  1032→   () => setSelectedDate(todayStr),
+  1033→   [todayStr, setSelectedDate],
+  1034→ );
+  1035→
+  1036→ // ---- effects ----
+  1037→ useEffect(() => {
+  1038→   if (habits.length === 0) {
+  1039→     setLoading(false); // prevent stuck skeleton for users with no habits
+  1040→     return;
+  1041→   }
+  1042→   let cancelled = false;
+  1043→   const load = async () => {
+  1044→     setLoading(true);
+  1045→     try {
+  1046→       await fetchCompletions(habits, selectedDate, () => cancelled);
+  1047→     } finally {
+  1048→       if (!cancelled) setLoading(false);
+  1049→     }
+  1050→   };
+  1051→   load();
+  1052→   return () => {
+  1053→     cancelled = true;
+  1054→   };
+  1055→ }, [habits, selectedDate, refreshKey]);
+  1056→
+  1057→ // BUG-19 fix: on unmount, fire-and-forget any pending debounced notes save
+  1058→ // using `keepalive: true` so the request completes after the component is
+  1059→ // gone. Previously the save was just cancelled, silently dropping the user's
+  1060→ // last edits if they navigated within the 600ms debounce window.
+  1061→ useEffect(
+  1062→   () => () => {
+  1063→     if (saveTimerRef.current) {
+  1064→       clearTimeout(saveTimerRef.current);
+  1065→     }
+  1066→     const pending = pendingSaveRef.current;
+  1067→     if (pending) {
+  1068→       pendingSaveRef.current = null;
+  1069→       try {
+  1070→         // Fire-and-forget: don't await, don't invalidate queries (component
+  1071→         // is gone, queryClient may be torn down). keepalive lets the browser
+  1072→         // finish the request even after the page unmounts.
+  1073→         void saveDailyLog(pending, { keepalive: true }).catch(() => {
+  1074→           /* swallow — there's no UI left to surface the error to */
+  1075→         });
+  1076→       } catch {
+  1077→         /* ignore */
+  1078→       }
+  1079→     }
+  1080→   },
+  1081→   [],
+  1082→ );
+  1083→
+  1084→ if (loading) return <LoadingSkeleton />;
+  1085→
+  1086→ const isToday = selectedDate === todayStr;
+  1087→ const monthLogsCache = monthLogsCacheRef.current[selectedDate.slice(0, 7)];
+  1088→
+  1089→ // ---- render ----
+  1090→ return (
+  1091→   <div className="space-y-5 max-w-6xl mx-auto">
+  1092→     {/* ─────────────────── View Toggle (Hari Ini | Riwayat) ─── */}
+  1093→     {/* PREMIUM REDESIGN (Rutina Aurora): premium segmented pill.
+  1094→         Plain buttons + aria-pressed (not role=tab) so keyboard users can
+  1095→         Tab between them natively without needing arrow-key handlers. */}
+  1096→     <div
+  1097→       className="premium-segment w-fit"
+  1098→       role="group"
+  1099→       aria-label="Mode tampilan tracker"
+  1100→     >
+  1101→       <button
+  1102→         onClick={() => setViewMode('today')}
+  1103→         data-active={viewMode === 'today'}
+  1104→         aria-pressed={viewMode === 'today'}
+  1105→         className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+  1106→       >
+  1107→         Hari Ini
+  1108→       </button>
+  1109→       <button
+  1110→         onClick={() => setViewMode('history')}
+  1111→         data-active={viewMode === 'history'}
+  1112→         aria-pressed={viewMode === 'history'}
+  1113→         className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+  1114→       >
+  1115→         Riwayat
+  1116→       </button>
+  1117→     </div>
+  1118→
+  1119→     {/* ─────────────────── Calendar (History View) ─────────── */}
+  1120→     {viewMode === 'history' ? (
+  1121→       <CalendarView />
+  1122→     ) : (
+  1123→       <>
+  1124→     {/* ─────────────────── Date Navigation ─────────────────── */}
+  1125→     <DateNav
+  1126→       isToday={isToday}
+  1127→       dateObj={dateObj}
+  1128→       dayOfMonth={dayOfMonth}
+  1129→       daysInMonth={daysInMonth}
+  1130→       onPrev={goToPrevDay}
+  1131→       onNext={goToNextDay}
+  1132→       onToday={goToToday}
+  1133→     />
+  1134→
+  1135→     {/* ─────────────────── Daily Summary (4 KPI cards) ─────── */}
+  1136→     <DailySummary
+  1137→       completedCount={completedCount}
+  1138→       totalCount={totalCount}
+  1139→       completionPct={completionPct}
+  1140→       todayXP={todayXP}
+  1141→       bestStreak={bestStreak}
+  1142→       totalXp={totalXp}
+  1143→     />
+  1144→
+  1145→     {/* ───────────── Daily Check-in (GELOMBANG 1) ─────── */}
+  1146→     {/* Mood / energi / tidur — di atas daftar habit; optimistic +
+  1147→         promise-chain save per field (lihat daily-check-in-card).
+  1148→         KEY remount: sinkronisasi nilai server saat (tanggal, kehadiran
+  1149→         baris) berubah TANPA setState dalam effect — refetch biasa
+  1150→         (row → row) tidak me-reset draft optimistic. */}
+  1151→     <DailyCheckInCard
+  1152→       key={`${selectedDate}|${checkInValue ? 'row' : 'none'}`}
+  1153→       date={selectedDate}
+  1154→       value={checkInValue}
+  1155→     />
+  1156→
+  1157→     {/* ─────────────────── Daily Notes (full-width) ────────── */}
+  1158→     <section className="daily-notes-card">
+  1159→       <div className="flex items-center gap-2 mb-2">
+  1160→         <span className="chip-soft chip-soft-teal h-7 w-7">
+  1161→           <NotebookPen className="h-3.5 w-3.5" />
+  1162→         </span>
+  1163→         <h3 className="text-sm font-semibold">Catatan Harian</h3>
+  1164→         <span className="ml-auto text-[11px] text-muted-foreground/70">
+  1165→           {notesCharCount > 0 ? `${notesCharCount} karakter` : 'Tersimpan otomatis'}
+  1166→         </span>
+  1167→       </div>
+  1168→       {/* GELOMBANG 1 (rebuild): editor teks polos premium (tanpa TipTap/
+  1169→           dependensi baru) — HTML lama dibersihkan saat tampil; autosave
+  1170→           tetap lewat debounce parent (handleNotesChange). */}
+  1171→       <RichNotesEditor
+  1172→         value={notes}
+  1173→         onChange={handleNotesChange}
+  1174→         placeholder="Bagaimana harimu? Tulis refleksi di sini…"
+  1175→         className="text-sm leading-relaxed placeholder:text-muted-foreground/50"
+  1176→       />
+  1177→     </section>
+  1178→
+  1179→     {/* ─────────────────── Habit Grid ─────────────────────── */}
+  1180→     <section>
+  1181→       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+  1182→         <h3 className="premium-label">Habits</h3>
+  1183→         <div className="flex items-center gap-2">
+  1184→           <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">
+  1185→             {completedCount}/{totalCount}
+  1186→           </span>
+  1187→           {/* PHASE4-POLISH: drag-to-reorder toggle. When active, hides the
+  1188→               filter chips and shows a "Selesai" button to exit drag mode. */}
+  1189→           {activeHabits.length > 0 && (
+  1190→             <Button
+  1191→               type="button"
+  1192→               variant={dragMode ? 'default' : 'outline'}
+  1193→               size="sm"
+  1194→               onClick={toggleDragMode}
+  1195→               className="h-7 text-xs rounded-full px-3"
+  1196→               title={dragMode ? 'Selesai mengatur urutan' : 'Atur urutan habit'}
+  1197→             >
+  1198→               <GripVertical className="h-3 w-3" />
+  1199→               {dragMode ? 'Selesai' : 'Atur Urutan'}
+  1200→             </Button>
+  1201→           )}
+  1202→           {!dragMode && (
+  1203→             <div
+  1204→               className="premium-segment"
+  1205→               role="group"
+  1206→               aria-label="Filter habit"
+  1207→             >
+  1208→               {(
+  1209→                 [
+  1210→                   ['all', 'Semua'],
+  1211→                   ['incomplete', 'Belum'],
+  1212→                   ['completed', 'Selesai'],
+  1213→                 ] as const
+  1214→               ).map(([key, label]) => (
+  1215→                 <button
+  1216→                   key={key}
+  1217→                   onClick={() => setViewFilter(key)}
+  1218→                   data-active={viewFilter === key}
+  1219→                   aria-pressed={viewFilter === key}
+  1220→                   className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+  1221→                 >
+  1222→                   {label}
+  1223→                 </button>
+  1224→               ))}
+  1225→             </div>
+  1226→           )}
+  1227→         </div>
+  1228→       </div>
+  1229→
+  1230→       {/* PHASE4-POLISH: drag-mode helper banner. Lets the user know that
+  1231→           tapping the grip handle and dragging will reorder habits, and
+  1232→           that normal tap-to-toggle is disabled while in drag mode. */}
+  1233→       {dragMode && activeHabits.length > 0 && (
+  1234→         <div className="premium-card mb-3 rounded-2xl px-3 py-2 flex items-center gap-2.5 text-xs text-muted-foreground">
+  1235→           <span className="chip-soft chip-soft-teal h-6 w-6 shrink-0">
+  1236→             <GripVertical className="h-3.5 w-3.5" />
+  1237→           </span>
+  1238→           <span>
+  1239→             <span className="font-semibold text-foreground">Mode Atur Urutan:</span>{' '}
+  1240→             Tahan tombol geser di sudut kartu untuk mengubah urutan. Perubahan tersimpan otomatis.
+  1241→           </span>
+  1242→         </div>
+  1243→       )}
+  1244→
+  1245→       {activeHabits.length === 0 ? (
+  1246→         <div className="premium-card premium-empty rounded-2xl">
+  1247→           <div className="premium-empty-orb">
+  1248→             <ClipboardList className="h-8 w-8 text-primary" />
+  1249→           </div>
+  1250→           <p className="text-sm font-medium text-muted-foreground">
+  1251→             Belum ada habit aktif
+  1252→           </p>
+  1253→           <p className="text-xs text-muted-foreground/70 -mt-0.5">
+  1254→             Buka Habit Master untuk membuatnya!
+  1255→           </p>
+  1256→           {/* ONE-CLICK-5: empty state is no longer a dead end — the CTA
+  1257→               opens the add-habit dialog directly (same flow as the FAB
+  1258→               "Habit Baru"): trigger the quick-add action + jump to the
+  1259→               settings tab, where the HabitMaster auto-opens its form. */}
+  1260→           <Button
+  1261→             size="sm"
+  1262→             className="btn-primary-gradient anim-press"
+  1263→             onClick={() => { triggerQuickAdd('habit'); setActiveTab('settings'); }}
+  1264→           >
+  1265→             <Plus className="h-4 w-4" />
+  1266→             Buat Habit Pertama
+  1267→           </Button>
+  1268→         </div>
+  1269→       ) : !dragMode && filteredHabits.length === 0 ? (
+  1270→         <div className="premium-card premium-empty rounded-2xl">
+  1271→           <div className="premium-empty-orb">
+  1272→             {viewFilter === 'completed' ? (
+  1273→               <Flag className="h-8 w-8 text-primary" />
+  1274→             ) : (
+  1275→               <CheckCircle2 className="h-8 w-8 text-primary" />
+  1276→             )}
+  1277→           </div>
+  1278→           <p className="text-sm text-muted-foreground">
+  1279→             {viewFilter === 'completed'
+  1280→               ? 'Belum ada habit yang selesai.'
+  1281→               : viewFilter === 'incomplete'
+  1282→                 ? 'Semua habit selesai — kerja bagus!'
+  1283→                 : 'Tidak ada habit yang cocok dengan filter ini.'}
+  1284→           </p>
+  1285→         </div>
+  1286→       ) : dragMode ? (
+  1287→         // ── Drag mode: wrap the grid in DndContext + SortableContext ──
+  1288→         // Drag mode ignores the viewFilter (always shows ALL active habits
+  1289→         // so every reorderable item is visible). SortableHabitCard adds
+  1290→         // the grip handle + DnD listeners; outside drag mode it would be a
+  1291→         // transparent wrapper, but we only render it inside this branch.
+  1292→         <DndContext
+  1293→           sensors={sensors}
+  1294→           collisionDetection={closestCenter}
+  1295→           onDragEnd={handleDragEnd}
+  1296→         >
+  1297→           <SortableContext
+  1298→             items={activeHabits.map((h) => h.id)}
+  1299→             strategy={rectSortingStrategy}
+  1300→           >
+  1301→             <div className="habit-grid">
+  1302→               {activeHabits.map((habit, idx) => {
+  1303→                 const isDone = !!(completionMap[habit.id] ?? false);
+  1304→                 const isToggling = togglingIds.has(habit.id);
+  1305→                 const justCompleted = recentlyCompleted.has(habit.id);
+  1306→                 const doneTime = isDone ? completedAtMap[habit.id] : null;
+  1307→
+  1308→                 return (
+  1309→                   <SortableHabitCard
+  1310→                     key={habit.id}
+  1311→                     habit={habit}
+  1312→                     idx={idx}
+  1313→                     isDone={isDone}
+  1314→                     isToggling={isToggling}
+  1315→                     justCompleted={justCompleted}
+  1316→                     doneTime={doneTime ?? null}
+  1317→                     monthLogs={monthLogsCache?.[habit.id]}
+  1318→                     selectedDate={selectedDate}
+  1319→                     todayStr={todayStr}
+  1320→                     categoryColor={categoryMap[habit.category]?.color || 'slate'}
+  1321→                     primaryColor={primaryColor}
+  1322→                     amountValue={amountValueMap[habit.id] ?? 0}
+  1323→                     onToggleHabit={handleHabitCheck}
+  1324→                     onAmountDelta={handleAmountDelta}
+  1325→                     onSetConfettiEl={handleSetConfettiEl}
+  1326→                     onOpenAnalysis={handleOpenAnalysis}
+  1327→                     dragMode={dragMode}
+  1328→                   />
+  1329→                 );
+  1330→               })}
+  1331→             </div>
+  1332→           </SortableContext>
+  1333→         </DndContext>
+  1334→       ) : (
+  1335→         <div className="habit-grid">
+  1336→           {filteredHabits.map((habit, idx) => {
+  1337→             const isDone = !!(completionMap[habit.id] ?? false);
+  1338→             const isToggling = togglingIds.has(habit.id);
+  1339→             const justCompleted = recentlyCompleted.has(habit.id);
+  1340→             const doneTime = isDone ? completedAtMap[habit.id] : null;
+  1341→
+  1342→             return (
+  1343→               <HabitCard
+  1344→                 key={habit.id}
+  1345→                 habit={habit}
+  1346→                 idx={idx}
+  1347→                 isDone={isDone}
+  1348→                 isToggling={isToggling}
+  1349→                 justCompleted={justCompleted}
+  1350→                 doneTime={doneTime ?? null}
+  1351→                 monthLogs={monthLogsCache?.[habit.id]}
+  1352→                 selectedDate={selectedDate}
+  1353→                 todayStr={todayStr}
+  1354→                 categoryColor={categoryMap[habit.category]?.color || 'slate'}
+  1355→                 primaryColor={primaryColor}
+  1356→                 amountValue={amountValueMap[habit.id] ?? 0}
+  1357→                 onToggleHabit={handleHabitCheck}
+  1358→                 onAmountDelta={handleAmountDelta}
+  1359→                 onSetConfettiEl={handleSetConfettiEl}
+  1360→                 onOpenAnalysis={handleOpenAnalysis}
+  1361→               />
+  1362→             );
+  1363→           })}
+  1364→         </div>
+  1365→       )}
+  1366→     </section>
+  1367→
+  1368→     {/* ── Time Confirmation Dialog ── */}
+  1369→     <Dialog
+  1370→       open={!!timeDialogHabit}
+  1371→       onOpenChange={(open) => !open && setTimeDialogHabit(null)}
+  1372→     >
+  1373→       <DialogContent className="max-w-[95vw] sm:max-w-md">
+  1374→         <DialogHeader>
+  1375→           <DialogTitle className="flex items-center gap-2">
+  1376→             <span>{timeDialogHabit?.emoji}</span>
+  1377→             {timeDialogHabit?.name}
+  1378→           </DialogTitle>
+  1379→         </DialogHeader>
+  1380→         <div className="space-y-4 pt-2">
+  1381→           <p className="text-sm text-muted-foreground">
+  1382→             Kapan kamu melakukannya?
+  1383→           </p>
+  1384→
+  1385→           <button
+  1386→             type="button"
+  1387→             onClick={() => handleTimeDialogSubmit(true)}
+  1388→             disabled={timeSubmitting}
+  1389→             className="w-full flex items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-3 text-left hover:border-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+  1390→           >
+  1391→             <Clock className="h-5 w-5 text-primary shrink-0" />
+  1392→             <div>
+  1393→               <p className="text-sm font-medium">Sekarang</p>
+  1394→               <p className="text-xs text-muted-foreground">
+  1395→                 {new Date().toLocaleTimeString('id-ID', {
+  1396→                   timeZone: 'Asia/Jakarta',
+  1397→                   hour: '2-digit',
+  1398→                   minute: '2-digit',
+  1399→                 })}
+  1400→               </p>
+  1401→             </div>
+  1402→           </button>
+  1403→
+  1404→           <div className="relative flex items-center justify-center">
+  1405→             <span className="text-xs text-muted-foreground bg-background px-2 z-10">
+  1406→               atau isi manual
+  1407→             </span>
+  1408→             <div className="absolute inset-0 flex items-center">
+  1409→               <div className="w-full border-t" />
+  1410→             </div>
+  1411→           </div>
+  1412→
+  1413→           <div className="space-y-3">
+  1414→             <div className="grid grid-cols-2 gap-3">
+  1415→               <div className="space-y-1.5">
+  1416→                 <label className="text-xs font-medium text-muted-foreground">
+  1417→                   Tanggal
+  1418→                 </label>
+  1419→                 <Input
+  1420→                   type="date"
+  1421→                   value={manualDate}
+  1422→                   onChange={(e) => setManualDate(e.target.value)}
+  1423→                   max={jakartaDateString()}
+  1424→                 />
+  1425→               </div>
+  1426→               <div className="space-y-1.5">
+  1427→                 <label className="text-xs font-medium text-muted-foreground">
+  1428→                   Jam
+  1429→                 </label>
+  1430→                 <TimePicker
+  1431→                   value={manualTime}
+  1432→                   onChange={(v) => setManualTime(v)}
+  1433→                 />
+  1434→               </div>
+  1435→             </div>
+  1436→             <Button
+  1437→               onClick={() => handleTimeDialogSubmit(false)}
+  1438→               disabled={timeSubmitting || !manualTime || !manualDate}
+  1439→               className="w-full"
+  1440→             >
+  1441→               {timeSubmitting ? 'Menyimpan...' : 'Simpan Waktu'}
+  1442→             </Button>
+  1443→           </div>
+  1444→
+  1445→           {timeDialogHabit?.reminder && (
+  1446→             <p className="text-xs text-center text-muted-foreground">
+  1447→               Pengingat: {timeDialogHabit.reminder}
+  1448→             </p>
+  1449→           )}
+  1450→         </div>
+  1451→       </DialogContent>
+  1452→     </Dialog>
+  1453→
+  1454→     {/* ── Time Analysis Dialog ── */}
+  1455→     <TimeAnalysisDialog
+  1456→       habitId={analysisHabitId}
+  1457→       open={!!analysisHabitId}
+  1458→       onOpenChange={(open) => !open && setAnalysisHabitId(null)}
+  1459→     />
+  1460→       </>
+  1461→     )}
+  1462→   </div>
+  1463→ );
+  1464→}
+  1465→
+  1466→
