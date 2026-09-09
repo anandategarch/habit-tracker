@@ -1,8 +1,7 @@
 // Seed data Rutina — data demo realistis (bahasa Indonesia, zona Jakarta).
 // Jalankan: bun scripts/seed.ts
-import { PrismaClient } from '@prisma/client';
-
-const db = new PrismaClient();
+// Pakai klien bersama (adapter libsql — file: lokal / libsql:// Turso).
+import { db } from '../src/lib/db';
 
 const JST = 7 * 60; // offset Jakarta menit
 function jakartaYmd(date = new Date()): string {
