@@ -1535,132 +1535,155 @@
  transform-origin: 50% 50%;
 }
 
-/* ── SproutGrow — Opsi B: Sprout + Leaf Detail (match Rutina logo) ─────
-  Sprout muda dengan S-curved stem + 2 oval leaves + vein lines + bud.
-  Match logo: flat, minimal, bright green, rounded rectangle soil base.
-  Timeline (4s loop):
-  0.0s - 0.6s:  stem draws (S-curve grow, stroke-dashoffset 1 → 0)
-  0.5s - 1.0s:  left leaf blooms (scale 0 → 1.1 → 1, bounce)
-  0.7s - 1.2s:  right leaf blooms (stagger 0.2s)
-  1.0s - 1.4s:  vein lines draw di daun
-  1.2s - 1.6s:  bud pop at peak (scale 0 → 1.2 → 1)
-  1.6s - 4.0s:  gentle sway loop (±1.5deg, wind)
-  0.0s - ∞:     soil glow pulse */
-@keyframes css-sprout-draw-stem {
- 0%   { stroke-dashoffset: 1; }
- 15%  { stroke-dashoffset: 0; }
- /* BUGFIX DESIGN-3: Add fade-out 85-95% supaya loop boundary tidak snap */
- 85%  { stroke-dashoffset: 0; }
- 95%  { stroke-dashoffset: 1; }
- 100% { stroke-dashoffset: 1; }
+/* ── TreeGrow — Opsi A: Pohon Ilustrasi Premium (Task 28) ──────────────
+  Pohon 3 lapis tajuk (teal→emerald) + batang + mound + glow + daun.
+  Menggantikan eksperimen css-sprout lama (Opsi B) yang tidak terpakai.
+  Timeline varian 'splash' (one-shot, fill-mode both/forwards):
+  0.05s - 0.55s: mound fade-in
+  0.12s - 0.62s: batang tumbuh (scaleY 0→1 dari pangkal)
+  0.45s - 0.90s: tajuk 1 mekar (scale 0→1.06→1, bounce)
+  0.62s - 1.07s: tajuk 2 mekar (stagger 0.17s)
+  0.78s - 1.23s: tajuk 3 (puncak) mekar
+  1.20s - ∞:     3 daun melayang (drift 4s, stagger 0.3s)
+  1.40s - ∞:     sway lembut ±1.5° (siklus 5s — kecepatan moderat,
+                  "sweet spot" riset Stanford/Babson)
+  0.08s - 1.58s: progress ring MENGAKSELERASI (ease-in — riset CMU:
+                  terasa lebih cepat daripada kecepatan konstan)
+  0.00s - ∞:     glow "bernapas" (opacity 0.55↔1, 3s)
+  Varian 'inline' (.tree-instant): pohon langsung utuh — untuk tab
+  loading yang bisa selesai ~300ms (sekuens tumbuh yang terpotong di
+  tengah justru terlihat rusak). */
+
+/* Warna — flat fills, adaptif light/dark */
+.tree-mound-fill { fill: hsl(var(--primary) / 0.12); }
+.tree-grass {
+  stroke: hsl(var(--primary) / 0.45);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
-@keyframes css-sprout-leaf-bloom {
- 0%   { opacity: 0; transform: scale(0); }
- 12%  { opacity: 0; transform: scale(0); }
- 25%  { opacity: 1; transform: scale(1.1); }
- 30%  { opacity: 1; transform: scale(1); }
- /* BUGFIX POST-2 #6: Add fade-out 90-100% supaya loop boundary tidak
-    snap (visible blink reset every 4s). Sebelumnya 90%→100% opacity 1→1
-    lalu 100%→0% opacity 1→0 snap. */
- 85%  { opacity: 1; transform: scale(1); }
- 95%  { opacity: 0; transform: scale(0.8); }
- 100% { opacity: 0; transform: scale(0); }
+.tree-trunk { stroke: #8f5f3f; }
+.dark .tree-trunk { stroke: #a97a52; }
+.tree-blob-btm { fill: #059669; }
+.tree-blob-mid { fill: #14b8a6; }
+.tree-blob-top { fill: #5eead4; }
+.dark .tree-blob-btm { fill: #065f46; }
+.dark .tree-blob-mid { fill: #0d9488; }
+.dark .tree-blob-top { fill: #2dd4bf; }
+.tree-dot { fill: #ffffff; fill-opacity: 0.4; }
+.dark .tree-dot { fill: #ffffff; fill-opacity: 0.3; }
+.tree-leaf { fill: #2dd4bf; fill-opacity: 0.85; }
+
+/* Mound — fade-in duluan */
+@keyframes tree-mound-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-@keyframes css-sprout-draw-vein {
- 0%   { stroke-dashoffset: 1; }
- 25%  { stroke-dashoffset: 1; }
- 35%  { stroke-dashoffset: 0; }
- 90%  { stroke-dashoffset: 0; }
- 100% { stroke-dashoffset: 0; }
+.tree-mound { animation: tree-mound-in 0.5s ease-out 0.05s both; }
+
+/* Batang — tumbuh dari pangkal (transform-origin user-space, default
+  transform-box: view-box — pelajaran BUGFIX POST-1 #8) */
+@keyframes tree-trunk-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
 }
-@keyframes css-sprout-bud-pop {
- 0%   { opacity: 0; transform: scale(0); }
- 30%  { opacity: 0; transform: scale(0); }
- 40%  { opacity: 1; transform: scale(1.2); }
- 45%  { opacity: 1; transform: scale(0.95); }
- 50%  { opacity: 1; transform: scale(1); }
- /* BUGFIX DESIGN-4: Add fade-out 85-95% supaya loop boundary tidak snap */
- 85%  { opacity: 1; transform: scale(1); }
- 95%  { opacity: 0; transform: scale(0.8); }
- 100% { opacity: 0; transform: scale(0); }
+.tree-trunk {
+  transform-origin: 100px 168px;
+  will-change: transform;
+  animation: tree-trunk-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
 }
-@keyframes css-sprout-sway {
- 0%   { transform: rotate(0deg); }
- 40%  { transform: rotate(0deg); }
- 50%  { transform: rotate(1.5deg); }
- 65%  { transform: rotate(-1.5deg); }
- 80%  { transform: rotate(0deg); }
- 100% { transform: rotate(0deg); }
+
+/* Tajuk — mekar bertahap dengan bounce (spring) */
+@keyframes tree-blob-bloom {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
-@keyframes css-sprout-glow {
- 0%, 100% { opacity: 0.15; }
- 50%      { opacity: 0.35; }
+.tree-blob-btm {
+  transform-origin: 100px 126px;
+  will-change: transform, opacity;
+  animation: tree-blob-bloom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s both;
 }
-.css-sprout-stem {
- stroke-dasharray: 1;
- stroke-dashoffset: 1;
- /* BUGFIX POST-2 #7: will-change untuk stroke-dashoffset animation */
- will-change: stroke-dashoffset;
- animation: css-sprout-draw-stem 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+.tree-blob-mid {
+  transform-origin: 102px 106px;
+  will-change: transform, opacity;
+  animation: tree-blob-bloom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.62s both;
 }
-/* Leaves — bloom sequential (left first, then right with 0.2s delay)
-  BUGFIX POST-1 #8: Hapus transform-box: fill-box — dengan fill-box,
-  transform-origin lengths di-resolve relative ke element's bounding box,
-  bukan user-space. 50px 48px places origin OUTSIDE the leaf → bloom
-  looks like slide-in, bukan centered pop. Default (view-box) uses
-  user-space coords where 50px 48px is correct. */
-.css-sprout-leaf-l {
- transform-origin: 50px 48px;
- will-change: opacity, transform;
- animation: css-sprout-leaf-bloom 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+.tree-top {
+  transform-origin: 100px 74px;
+  will-change: transform, opacity;
+  animation: tree-blob-bloom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.78s both;
 }
-.css-sprout-leaf-r {
- transform-origin: 50px 36px;
- will-change: opacity, transform;
- animation: css-sprout-leaf-bloom 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
- animation-delay: 0.2s;
+
+/* Sway — bergoyang lembut dari pangkal (delay menunggu sekuens tumbuh) */
+@keyframes tree-sway {
+  0%, 100% { transform: rotate(0deg); }
+  30%      { transform: rotate(1.6deg); }
+  60%      { transform: rotate(-1.4deg); }
 }
-/* Vein lines — draw after leaf blooms */
-.css-sprout-vein-l {
- stroke-dasharray: 1;
- stroke-dashoffset: 1;
- will-change: stroke-dashoffset;
- animation: css-sprout-draw-vein 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+.tree-sway {
+  transform-origin: 100px 168px;
+  will-change: transform;
+  animation: tree-sway 5s ease-in-out 1.4s infinite;
 }
-.css-sprout-vein-r {
- stroke-dasharray: 1;
- stroke-dashoffset: 1;
- will-change: stroke-dashoffset;
- animation: css-sprout-draw-vein 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
- animation-delay: 0.2s;
+
+/* Glow — bernapas */
+@keyframes tree-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
 }
-/* Bud — pops last with bounce */
-.css-sprout-bud {
- transform-origin: 50px 14px;
- will-change: opacity, transform;
- animation: css-sprout-bud-pop 4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+.tree-glow {
+  will-change: opacity;
+  animation: tree-glow-pulse 3s ease-in-out infinite;
 }
-/* Sway group — wraps stem + leaves + bud */
-.css-sprout-sway {
- transform-origin: 50px 88px;
- animation: css-sprout-sway 4s ease-in-out infinite;
+
+/* Daun melayang — drift (transform) + fade-in (opacity), 2 animasi terpisah
+  supaya loop drift tidak reset opacity. */
+@keyframes tree-leaf-drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-6px) rotate(14deg); }
 }
-.css-sprout-glow {
- will-change: opacity;
- animation: css-sprout-glow 2s ease-in-out infinite;
+@keyframes tree-leaf-drift-alt {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-6px) rotate(-12deg); }
 }
-/* BUGFIX POST-2 #4: Hapus will-change: opacity dari .css-sprout-svg —
-  SVG root tidak animate opacity, hanya children do. Wasted compositor layer. */
-.css-sprout-svg {
- /* no will-change needed — children handle their own */
+@keyframes tree-leaf-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-@keyframes css-sprout-pulse {
- 0%, 100% { opacity: 0.55; }
- 50%      { opacity: 1; }
+.tree-leaf-f1 { opacity: 0; animation: tree-leaf-drift 4s ease-in-out 1.2s infinite, tree-leaf-in 0.4s ease-out 1.2s forwards; }
+.tree-leaf-f2 { opacity: 0; animation: tree-leaf-drift-alt 4.4s ease-in-out 1.5s infinite, tree-leaf-in 0.4s ease-out 1.5s forwards; }
+.tree-leaf-f3 { opacity: 0; animation: tree-leaf-drift 4.8s ease-in-out 1.8s infinite, tree-leaf-in 0.4s ease-out 1.8s forwards; }
+
+/* Progress ring — arc mengakselerasi (ease-in: lambat lalu makin cepat).
+  r=88 → keliling 2πr ≈ 553. */
+@keyframes tree-ring-draw {
+  to { stroke-dashoffset: 0; }
 }
-.css-sprout-static {
- animation: css-sprout-pulse 2.4s ease-in-out infinite;
+.tree-ring-track { stroke: hsl(var(--primary) / 0.12); }
+.tree-ring-arc {
+  stroke: hsl(var(--primary));
+  stroke-dasharray: 553;
+  stroke-dashoffset: 553;
+  will-change: stroke-dashoffset;
+  animation: tree-ring-draw 1.5s cubic-bezier(0.42, 0, 1, 1) 0.08s forwards;
 }
+
+/* Varian inline — pohon langsung utuh, sway jalan tanpa delay */
+.tree-instant .tree-mound,
+.tree-instant .tree-trunk,
+.tree-instant .tree-blob-btm,
+.tree-instant .tree-blob-mid,
+.tree-instant .tree-top {
+  animation: none;
+  opacity: 1;
+}
+.tree-instant .tree-sway {
+  animation: tree-sway 5s ease-in-out infinite;
+}
+.tree-instant .tree-leaf-f1 { opacity: 1; animation: tree-leaf-drift 4s ease-in-out infinite; }
+.tree-instant .tree-leaf-f2 { opacity: 1; animation: tree-leaf-drift-alt 4.4s ease-in-out 0.5s infinite; }
+.tree-instant .tree-leaf-f3 { opacity: 1; animation: tree-leaf-drift 4.8s ease-in-out 1s infinite; }
 
 /* ── FEAT-SPLASH-REVEAL: Splash enter + exit + content reveal animations ─
   Inspired by motion-splash repo. Smooth transition dari splash → app
