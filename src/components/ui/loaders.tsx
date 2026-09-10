@@ -88,8 +88,12 @@ export function TreeGrow({
       >
         <defs>
           <radialGradient id="tree-glow-grad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+            {/* TASK-28 FIX: stop-color harus via CSS class — presentation
+                attribute tidak mendukung var(), dan var(--primary) di app ini
+                adalah warna oklch() penuh (bukan triplet HSL) sehingga
+                hsl(var(--primary)) invalid → warna jatuh ke hitam. */}
+            <stop className="tree-glow-stop-a" offset="0%" />
+            <stop className="tree-glow-stop-b" offset="100%" />
           </radialGradient>
         </defs>
 

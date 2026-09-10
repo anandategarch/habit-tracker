@@ -1554,10 +1554,17 @@
   loading yang bisa selesai ~300ms (sekuens tumbuh yang terpotong di
   tengah justru terlihat rusak). */
 
-/* Warna — flat fills, adaptif light/dark */
-.tree-mound-fill { fill: hsl(var(--primary) / 0.12); }
+/* Warna — flat fills, adaptif light/dark.
+  TASK-28 FIX: --primary di app ini adalah warna oklch() PENUH (bukan triplet
+  HSL shadcn lama), jadi hsl(var(--primary)) invalid → warna jatuh ke hitam/
+  tidak tergambar. Solusi: var(--primary) langsung + fill-opacity /
+  stroke-opacity (opacity SVG klasik, terpisah dari warna). */
+.tree-glow-stop-a { stop-color: var(--primary); stop-opacity: 0.14; }
+.tree-glow-stop-b { stop-color: var(--primary); stop-opacity: 0; }
+.tree-mound-fill { fill: var(--primary); fill-opacity: 0.12; }
 .tree-grass {
-  stroke: hsl(var(--primary) / 0.45);
+  stroke: var(--primary);
+  stroke-opacity: 0.45;
   fill: none;
   stroke-width: 2;
   stroke-linecap: round;
@@ -1660,9 +1667,9 @@
 @keyframes tree-ring-draw {
   to { stroke-dashoffset: 0; }
 }
-.tree-ring-track { stroke: hsl(var(--primary) / 0.12); }
+.tree-ring-track { stroke: var(--primary); stroke-opacity: 0.12; }
 .tree-ring-arc {
-  stroke: hsl(var(--primary));
+  stroke: var(--primary);
   stroke-dasharray: 553;
   stroke-dashoffset: 553;
   will-change: stroke-dashoffset;
@@ -1691,7 +1698,9 @@
   - anim-splash-enter: splash fades in on mount (opacity 0 → 1)
   - anim-splash-exit: splash fades out + scales up + slides up (reveal)
   - anim-content-reveal: content fades in + slides up (entrance)
-  Total transition: 600ms (synced dengan splashExiting delay di page.tsx) */
+  Total transition: 400ms (synced dengan splashExiting delay di page.tsx).
+  TASK-28: dipercepat dari 600ms — riset Task 27: splash idealnya singkat,
+  exit reveal cukup 400ms agar tetap terasa mulus. */
 @keyframes anim-splash-enter {
  0%   { opacity: 0; transform: scale(0.95); }
  100% { opacity: 1; transform: scale(1); }
@@ -1708,7 +1717,7 @@
  animation: anim-splash-enter 0.4s ease-out forwards;
 }
 .anim-splash-exit {
- animation: anim-splash-exit 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+ animation: anim-splash-exit 0.4s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 .anim-content-reveal {
  /* BUGFIX POST-2 #9: Add will-change untuk smoother first frame */
@@ -1819,16 +1828,6 @@
  .css-breathing-ripple,
  .css-breathing-sprout,
  .css-liquid-spin,
- .css-sprout-stem,
- .css-sprout-leaf-l,
- .css-sprout-leaf-r,
- .css-sprout-vein-l,
- .css-sprout-vein-r,
- .css-sprout-bud,
- .css-sprout-sway,
- .css-sprout-glow,
- .css-sprout-svg,
- .css-sprout-static,
  .css-aurora-arc,
  .css-aurora-rotate,
  .css-aurora-sprout,
@@ -1837,22 +1836,35 @@
  .css-morph-rotate,
  .css-morph-path-1,
  .css-morph-path-2,
- .css-morph-path-3 {
+ .css-morph-path-3,
+ /* TASK-28: TreeGrow — matikan semua animasi pohon */
+ .tree-glow,
+ .tree-sway,
+ .tree-trunk,
+ .tree-blob-btm,
+ .tree-blob-mid,
+ .tree-top,
+ .tree-mound,
+ .tree-leaf-f1,
+ .tree-leaf-f2,
+ .tree-leaf-f3,
+ .tree-ring-arc {
    animation: none !important;
+   transform: none !important;
  }
- /* In reduced motion, force sprout paths to fully-drawn (dashoffset 0)
-    so the static sprout is visible. */
- .css-sprout-stem,
- .css-sprout-vein-l,
- .css-sprout-vein-r {
-   stroke-dashoffset: 0 !important;
+ /* TASK-28: pohon statis tetap tampil UTUH — bagian tumbuh sudah
+    di-set visible by default; daun perlu opacity eksplisit karena
+    base style-nya opacity 0 (fade-in keyframe yang di-nonaktifkan). */
+ .tree-leaf-f1,
+ .tree-leaf-f2,
+ .tree-leaf-f3 {
+   opacity: 0.85 !important;
  }
- /* In reduced motion, show leaves + bud at full opacity + scale */
- .css-sprout-leaf-l,
- .css-sprout-leaf-r,
- .css-sprout-bud {
-   opacity: 1 !important;
-   transform: scale(1) !important;
+ /* Progress ring tidak digambar (arc mengandalkan animasi) — sembunyikan
+    supaya tidak tampak lingkaran track kosong tanpa progres. */
+ .tree-ring-arc,
+ .tree-ring-track {
+   opacity: 0 !important;
  }
 }
 
