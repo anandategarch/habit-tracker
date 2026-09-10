@@ -1,13 +1,17 @@
 // ---------------------------------------------------------------------------
-// src/components/work/work-notes.tsx — sub-tab "Catatan" (Task 17-a):
-// pencarian kilat (debounce 400ms) + chip tag + kartu catatan warna lembut.
+// src/components/work/work-notes.tsx — sub-tab "Catatan" (Task 17-a, upgrade
+// Task 26 Fase 1+2 hasil riset aplikasi catatan profesional):
+//   - Catatan kilat 1 baris (tetap) + tombol "Catatan panjang".
+//   - Dialog dua mode: BACA (render bullet/centang/nomor, centang interaktif)
+//     dan UBAH (editor pintar + simpan otomatis saat jeda mengetik).
+//   - Kartu: judul + pratinjau bullet/centang + progres centang + "diedit".
+//   - Pencarian kilat (debounce 400ms) + chip tag + kartu warna lembut.
 // ---------------------------------------------------------------------------
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -16,25 +20,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, Pin, PinOff, Search, StickyNote, Trash2, X, Zap } from 'lucide-react';
+import { Check, NotebookPen, Pencil, Pin, PinOff, Plus, Search, StickyNote, Trash2, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useDeleteNote, useSaveNote, useToggleNotePin, useWorkSearch } from './use-work-api';
-import type { WorkNoteItem, WorkPayload, WorkTaskItem } from './work-types';
+import { useDeleteNote, useSaveNote, useToggleNoteCheck, useToggleNotePin, useWorkSearch } from './use-work-api';
+import { NOTE_CONTENT_MAX, type WorkNoteItem, type WorkPayload, type WorkTaskItem } from './work-types';
 import { EmptyHint, GroupLabel, MiniSpinner } from './work-shared';
+import {
+  NoteCheckBox,
+  NoteMarkdown,
+  notePlainPreview,
+  notePreviewLines,
+  noteStats,
+  noteTitleOf,
+  renderNoteInline,
+  toggleNoteCheck,
+} from './note-markdown';
+import { NoteEditor } from './note-editor';
 
 /** Warna kartu: pin = kuning lembut; selain itu rotasi mint/rose/sky stabil per id. */
 function noteCardClass(note: WorkNoteItem, index: number): string {
   if (note.pinned) return 'work-note-card-pin';
   const palette = ['work-note-card-mint', 'work-note-card-rose', 'work-note-card-sky'];
   return palette[index % palette.length];
-}
-
-/** Judul kartu = baris pertama konten (dipotong); pratinjau = sisanya. */
-function splitNote(content: string): { title: string; preview: string | null } {
-  const [first, ...rest] = content.split('\n');
-  const title = first.length > 60 ? `${first.slice(0, 57)}…` : first;
-  const preview = rest.join('\n').trim();
-  return { title, preview: preview || null };
 }
 
 function formatRelative(iso: string): string {
@@ -92,7 +99,7 @@ function KilatInput({ date }: { date: string }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="Tulis catatan kilat, tekan Enter…"
+          placeholder="Catatan kilat 1 baris, tekan Enter…"
           aria-label="Tulis catatan kilat"
           maxLength={200}
           className="pl-9"
@@ -111,19 +118,26 @@ function KilatInput({ date }: { date: string }) {
     </div>
   );
 }
+
 function NoteCard({
   note,
   index,
   date,
-  onEdit,
+  onOpen,
+  onToggleCheck,
 }: {
   note: WorkNoteItem;
   index: number;
   date: string;
-  onEdit: (note: WorkNoteItem) => void;
+  onOpen: (note: WorkNoteItem) => void;
+  onToggleCheck: (note: WorkNoteItem, lineIndex: number) => void;
 }) {
   const togglePin = useToggleNotePin(date);
-  const { title, preview } = splitNote(note.content);
+  const title = noteTitleOf(note.content);
+  const preview = notePreviewLines(note.content, 2);
+  const stats = noteStats(note.content);
+  const openLabel = `Buka catatan ${title}`;
+
   return (
     <article
       className={cn(
@@ -133,20 +147,72 @@ function NoteCard({
     >
       <button
         type="button"
-        onClick={() => onEdit(note)}
-        aria-label={`Buka catatan ${title}`}
+        onClick={() => onOpen(note)}
+        aria-label={openLabel}
         className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:rounded-2xl"
       >
         <h3 className="pr-9 text-[13.5px] font-bold text-foreground">{title}</h3>
-        {preview && (
-          <p className="work-serif mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-foreground/70">{preview}</p>
-        )}
-        <p className="mt-2 text-[10.5px] tracking-[0.03em] text-muted-foreground">
-          {note.tag ? `#${note.tag} · ` : ''}
-          {note.pinned ? 'Disematkan · ' : ''}
-          {formatRelative(note.updatedAt)}
-        </p>
       </button>
+
+      {preview.map((line) =>
+        line.kind === 'check' ? (
+          <div key={line.lineIndex} className="mt-1 flex items-start gap-1.5">
+            <NoteCheckBox
+              checked={!!line.checked}
+              label={line.text}
+              onToggle={() => onToggleCheck(note, line.lineIndex)}
+            />
+            <button
+              type="button"
+              onClick={() => onOpen(note)}
+              aria-label={openLabel}
+              className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:rounded-lg"
+            >
+              <span
+                className={cn(
+                  'work-serif block text-[13px] leading-relaxed line-clamp-1',
+                  line.checked ? 'text-foreground/50 line-through' : 'text-foreground/70'
+                )}
+              >
+                {renderNoteInline(line.text)}
+              </span>
+            </button>
+          </div>
+        ) : (
+          <button
+            key={line.lineIndex}
+            type="button"
+            onClick={() => onOpen(note)}
+            aria-label={openLabel}
+            className="mt-1 flex w-full items-start gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:rounded-lg"
+          >
+            {line.kind === 'bullet' && (
+              <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/30" aria-hidden="true" />
+            )}
+            {line.kind === 'number' && (
+              <span className="w-4 shrink-0 pt-[1px] text-right text-[12px] font-bold tabular-nums text-foreground/40">
+                {line.order}.
+              </span>
+            )}
+            <span
+              className={cn(
+                'work-serif min-w-0 flex-1 text-[13px] leading-relaxed line-clamp-1 text-foreground/70',
+                line.kind === 'heading' && 'font-bold text-foreground/80'
+              )}
+            >
+              {renderNoteInline(line.text)}
+            </span>
+          </button>
+        )
+      )}
+
+      <p className="mt-2 text-[10.5px] tracking-[0.03em] text-muted-foreground">
+        {note.tag ? `#${note.tag} · ` : ''}
+        {note.pinned ? 'Disematkan · ' : ''}
+        {stats.checks > 0 ? `✓ ${stats.checksDone}/${stats.checks} · ` : ''}
+        {`diedit ${formatRelative(note.updatedAt)}`}
+      </p>
+
       <button
         type="button"
         onClick={() => togglePin.mutate({ id: note.id, pinned: !note.pinned })}
@@ -238,10 +304,10 @@ function SearchResults({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="work-serif block truncate text-[13.5px] text-foreground">
-                      <Highlight text={note.content} needle={q} />
+                      <Highlight text={notePlainPreview(note.content)} needle={q} />
                     </span>
                     <span className="block text-[11px] text-muted-foreground">
-                      Catatan{note.tag ? ` · #${note.tag}` : ''} · {formatRelative(note.updatedAt)}
+                      Catatan{note.tag ? ` · #${note.tag}` : ''} · diedit {formatRelative(note.updatedAt)}
                     </span>
                   </span>
                 </button>
@@ -253,6 +319,187 @@ function SearchResults({
     </div>
   );
 }
+
+// ── Dialog catatan: mode BACA + UBAH ───────────────────────────────────────
+
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
+interface NoteDraft {
+  id: string | null;
+  content: string;
+  tag: string;
+}
+
+function SaveStatusChip({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
+  if (state === 'idle') return null;
+  if (state === 'dirty') {
+    return (
+      <p className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground" aria-live="polite">
+        <span className="h-1.5 w-1.5 rounded-full bg-warning/80" aria-hidden="true" />
+        Belum tersimpan — otomatis sebentar lagi
+      </p>
+    );
+  }
+  if (state === 'saving') {
+    return (
+      <p className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground" aria-live="polite">
+        <MiniSpinner className="h-3 w-3" />
+        Menyimpan…
+      </p>
+    );
+  }
+  if (state === 'saved') {
+    return (
+      <p className="flex items-center gap-1 text-[10.5px] font-semibold text-emerald-600 dark:text-emerald-400" aria-live="polite">
+        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+        Tersimpan
+      </p>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      className="text-[10.5px] font-bold text-destructive underline underline-offset-2"
+    >
+      Gagal menyimpan — ketuk untuk coba lagi
+    </button>
+  );
+}
+
+function NoteDialog({
+  draft,
+  mode,
+  saveState,
+  confirmDelete,
+  data,
+  onModeChange,
+  onDraftChange,
+  onToggleCheck,
+  onRetrySave,
+  onDelete,
+  onClose,
+  deletePending,
+}: {
+  draft: NoteDraft;
+  mode: 'read' | 'edit';
+  saveState: SaveState;
+  confirmDelete: boolean;
+  data: WorkPayload | undefined;
+  onModeChange: (mode: 'read' | 'edit') => void;
+  onDraftChange: (draft: NoteDraft) => void;
+  onToggleCheck: (lineIndex: number) => void;
+  onRetrySave: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+  deletePending: boolean;
+}) {
+  const stats = noteStats(draft.content);
+  const note = data?.notes.find((n) => n.id === draft.id);
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="custom-scrollbar max-h-[88dvh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 pr-8">
+            {mode === 'edit' ? (
+              'Tulis Catatan'
+            ) : (
+              <span className="truncate">{noteTitleOf(draft.content)}</span>
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {mode === 'edit'
+              ? 'Ketik minus lalu spasi untuk bullet, angka lalu titik untuk nomor — Enter melanjutkan daftar.'
+              : `diedit ${note ? formatRelative(note.updatedAt) : 'baru saja'}`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-[18px]">
+          <SaveStatusChip state={saveState} onRetry={onRetrySave} />
+        </div>
+
+        {mode === 'read' ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] text-muted-foreground">
+              <span>{stats.words.toLocaleString('id-ID')} kata</span>
+              {stats.checks > 0 && (
+                <span className="rounded-full bg-emerald-500/10 px-2 py-[2px] font-bold text-emerald-600 dark:text-emerald-400">
+                  ✓ {stats.checksDone}/{stats.checks} selesai
+                </span>
+              )}
+              {draft.tag && (
+                <span className="rounded-full bg-warning/10 px-2 py-[2px] font-bold text-warning">
+                  #{draft.tag}
+                </span>
+              )}
+            </div>
+            <NoteMarkdown content={draft.content} onToggleCheck={onToggleCheck} />
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            <NoteEditor
+              key={`${draft.id ?? 'new'}-${mode}`}
+              value={draft.content}
+              onChange={(content) => onDraftChange({ ...draft, content })}
+              maxChars={NOTE_CONTENT_MAX}
+              autoFocus
+            />
+            <Input
+              value={draft.tag}
+              onChange={(e) => onDraftChange({ ...draft, tag: e.target.value })}
+              placeholder="tag (opsional, tanpa #)"
+              maxLength={40}
+              aria-label="Tag catatan"
+            />
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:justify-between">
+          {draft.id ? (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deletePending}
+              onClick={onDelete}
+              aria-label={confirmDelete ? 'Klik lagi untuk hapus permanen' : 'Hapus catatan'}
+              className={cn(
+                'gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive',
+                confirmDelete && 'bg-destructive/10 font-bold'
+              )}
+            >
+              {deletePending ? <MiniSpinner /> : <Trash2 className="h-4 w-4" />}
+              {confirmDelete && 'Yakin hapus?'}
+            </Button>
+          ) : (
+            <span />
+          )}
+          {mode === 'read' ? (
+            <Button
+              type="button"
+              className="btn-primary-gradient gap-1.5"
+              onClick={() => onModeChange('edit')}
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+              Ubah
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className="btn-primary-gradient gap-1.5"
+              onClick={() => onModeChange('read')}
+            >
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Selesai
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Komponen utama ─────────────────────────────────────────────────────────
 
 export function WorkNotes({
   date,
@@ -268,14 +515,21 @@ export function WorkNotes({
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [editing, setEditing] = useState<WorkNoteItem | null>(null);
-  const [editContent, setEditContent] = useState('');
-  const [editTag, setEditTag] = useState('');
+
+  // Dialog catatan.
+  const [draft, setDraft] = useState<NoteDraft | null>(null);
+  const draftRef = useRef<NoteDraft | null>(null);
+  const [mode, setMode] = useState<'read' | 'edit'>('read');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   // Konfirmasi hapus dua langkah: klik 1 = senjatakan, klik 2 = hapus.
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const savedFlash = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   const saveNote = useSaveNote(date);
   const deleteNote = useDeleteNote(date);
+  const noteCheck = useToggleNoteCheck(date);
   const search = useWorkSearch(debounced);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -285,6 +539,16 @@ export function WorkNotes({
     debounceTimer.current = setTimeout(() => setDebounced(query.trim()), 400);
     return () => clearTimeout(debounceTimer.current);
   }, [query]);
+
+  // Bersihkan semua timer saat komponen dilepas.
+  useEffect(
+    () => () => {
+      clearTimeout(saveTimer.current);
+      clearTimeout(savedFlash.current);
+      clearTimeout(confirmTimer.current);
+    },
+    []
+  );
 
   const tags = useMemo(() => {
     const set = new Set<string>();
@@ -300,35 +564,165 @@ export function WorkNotes({
     return activeTag ? data.notes.filter((n) => n.tag === activeTag) : data.notes;
   }, [data, activeTag]);
 
-  const openNoteEditor = (note: WorkNoteItem) => {
-    setEditing(note);
-    setEditContent(note.content);
-    setEditTag(note.tag ?? '');
+  // ── Dialog: simpan otomatis (autosave saat jeda mengetik) ───────────────
+
+  const updateDraft = (next: NoteDraft) => {
+    draftRef.current = next;
+    setDraft(next);
+  };
+
+  const doSave = () => {
+    clearTimeout(saveTimer.current);
+    const current = draftRef.current;
+    if (!current) return;
+    const content = current.content.trim();
+    if (!content) {
+      setSaveState('idle');
+      return;
+    }
+    if (content.length > NOTE_CONTENT_MAX) {
+      setSaveState('error');
+      return;
+    }
+    setSaveState('saving');
+    saveNote.mutate(
+      {
+        id: current.id ?? undefined,
+        content,
+        tag: current.tag.trim() ? current.tag.trim().replace(/^#/, '') : '',
+        quiet: true,
+      },
+      {
+        onSuccess: (note) => {
+          if (!current.id && note && typeof note === 'object' && 'id' in note) {
+            const newId = String((note as { id: unknown }).id);
+            if (draftRef.current) draftRef.current = { ...draftRef.current, id: newId };
+          }
+          setSaveState('saved');
+          clearTimeout(savedFlash.current);
+          savedFlash.current = setTimeout(() => setSaveState('idle'), 1800);
+        },
+        onError: () => setSaveState('error'),
+      }
+    );
+  };
+
+  const scheduleSave = (delay = 900) => {
+    clearTimeout(saveTimer.current);
+    setSaveState('dirty');
+    saveTimer.current = setTimeout(() => doSave(), delay);
+  };
+
+  const openNote = (note: WorkNoteItem) => {
+    clearTimeout(saveTimer.current);
     setConfirmDelete(false);
+    setSaveState('idle');
+    setMode('read');
+    const next: NoteDraft = { id: note.id, content: note.content, tag: note.tag ?? '' };
+    draftRef.current = next;
+    setDraft(next);
+  };
+
+  const openNew = () => {
+    clearTimeout(saveTimer.current);
+    setConfirmDelete(false);
+    setSaveState('idle');
+    setMode('edit');
+    const next: NoteDraft = { id: null, content: '', tag: '' };
+    draftRef.current = next;
+    setDraft(next);
+  };
+
+  const closeDialog = () => {
+    // Ada perubahan yang belum terkirim? Kirim dulu (fire-and-forget).
+    if (saveState === 'dirty') doSave();
+    clearTimeout(saveTimer.current);
+    clearTimeout(confirmTimer.current);
+    setConfirmDelete(false);
+    setSaveState('idle');
+    setMode('read');
+    draftRef.current = null;
+    setDraft(null);
+  };
+
+  // Ubah → Baca ("Selesai"): simpan segera; catatan baru kosong = batal.
+  const handleModeToRead = () => {
+    const current = draftRef.current;
+    if (!current) return;
+    if (!current.content.trim()) {
+      if (!current.id) {
+        closeDialog();
+        return;
+      }
+      const original = data?.notes.find((n) => n.id === current.id);
+      updateDraft({ ...current, content: original?.content ?? current.content });
+      setSaveState('idle');
+      setMode('read');
+      return;
+    }
+    doSave();
+    setMode('read');
   };
 
   // Tombol hapus dua langkah: tekan pertama mengubah jadi "Yakin?", kedua
   // baru benar-benar menghapus; senjatakan ulang otomatis setelah 4 detik.
   const handleDeleteNote = () => {
-    if (!editing) return;
+    const current = draftRef.current;
+    if (!current?.id) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
       clearTimeout(confirmTimer.current);
       confirmTimer.current = setTimeout(() => setConfirmDelete(false), 4000);
       return;
     }
-    deleteNote.mutate(editing.id, {
+    clearTimeout(confirmTimer.current);
+    clearTimeout(saveTimer.current);
+    deleteNote.mutate(current.id, {
       onSuccess: () => {
-        clearTimeout(confirmTimer.current);
         setConfirmDelete(false);
-        setEditing(null);
+        setSaveState('idle');
+        setMode('read');
+        draftRef.current = null;
+        setDraft(null);
       },
     });
+  };
+
+  // Centang interaktif di mode BACA: update lokal + simpan senyap.
+  const handleDialogToggleCheck = (lineIndex: number) => {
+    const current = draftRef.current;
+    if (!current) return;
+    const next = toggleNoteCheck(current.content, lineIndex);
+    updateDraft({ ...current, content: next });
+    if (current.id) {
+      noteCheck.mutate({ id: current.id, content: next });
+    } else {
+      scheduleSave(300);
+    }
+  };
+
+  // Centang interaktif di kartu (optimistik via hook).
+  const handleCardToggleCheck = (note: WorkNoteItem, lineIndex: number) => {
+    noteCheck.mutate({ id: note.id, content: toggleNoteCheck(note.content, lineIndex) });
+  };
+
+  const onDraftChange = (next: NoteDraft) => {
+    updateDraft(next);
+    scheduleSave();
   };
 
   return (
     <div className="pt-1">
       <KilatInput date={date} />
+
+      <button
+        type="button"
+        onClick={openNew}
+        className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/30 bg-primary/5 text-xs font-bold text-primary/80 transition-all hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 active:scale-[0.99]"
+      >
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        Catatan panjang — bullet, centang &amp; format
+      </button>
 
       <div className="relative mt-3">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -361,7 +755,7 @@ export function WorkNotes({
           result={search.data}
           isFetching={search.isFetching}
           onOpenTask={onOpenTask}
-          onOpenNote={openNoteEditor}
+          onOpenNote={openNote}
         />
       ) : (
         <>
@@ -408,85 +802,47 @@ export function WorkNotes({
           ) : visibleNotes.length === 0 ? (
             <div className="mt-3">
               <EmptyHint
-                icon={<StickyNote className="h-5 w-5" aria-hidden="true" />}
+                icon={<NotebookPen className="h-5 w-5" aria-hidden="true" />}
                 title={activeTag ? `Belum ada catatan #${activeTag}` : 'Rak catatan masih kosong'}
-                hint="Tulis hal kecil yang nggak perlu jadi tugas — ide, link, info dari chat. Nanti tinggal dicari satu kata."
+                hint="Tulis hal kecil lewat catatan kilat — atau buka Catatan panjang untuk bullet, kotak centang, dan format tebal."
               />
             </div>
           ) : (
             <div className="mt-3 space-y-2.5">
               {visibleNotes.map((note, index) => (
-                <NoteCard key={note.id} note={note} index={index} date={date} onEdit={openNoteEditor} />
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  index={index}
+                  date={date}
+                  onOpen={openNote}
+                  onToggleCheck={handleCardToggleCheck}
+                />
               ))}
             </div>
           )}
         </>
       )}
 
-      {/* Dialog edit catatan */}
-      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) { setEditing(null); setConfirmDelete(false); clearTimeout(confirmTimer.current); } }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Edit Catatan</DialogTitle>
-            <DialogDescription>Ubah isi, tag, atau hapus kalau sudah nggak kepakai.</DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            rows={5}
-            maxLength={2000}
-            autoFocus
-            aria-label="Isi catatan"
-            className="work-serif"
-          />
-          <Input
-            value={editTag}
-            onChange={(e) => setEditTag(e.target.value)}
-            placeholder="tag (opsional, tanpa #)"
-            maxLength={40}
-            aria-label="Tag catatan"
-          />
-          <DialogFooter className="gap-2 sm:justify-between">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={deleteNote.isPending}
-              onClick={handleDeleteNote}
-              aria-label={confirmDelete ? 'Klik lagi untuk hapus permanen' : 'Hapus catatan'}
-              className={cn(
-                'gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive',
-                confirmDelete && 'bg-destructive/10 font-bold'
-              )}
-            >
-              {deleteNote.isPending ? <MiniSpinner /> : <Trash2 className="h-4 w-4" />}
-              {confirmDelete && 'Yakin hapus?'}
-            </Button>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
-                Batal
-              </Button>
-              <Button
-                type="button"
-                className="btn-primary-gradient"
-                disabled={!editContent.trim() || saveNote.isPending}
-                onClick={() => {
-                  if (!editing || !editContent.trim()) return;
-                  saveNote.mutate(
-                    {
-                      id: editing.id,
-                      content: editContent.trim(),
-                      tag: editTag.trim() ? editTag.trim().replace(/^#/, '') : '',
-                    },
-                    { onSuccess: () => setEditing(null) }
-                  );
-                }}
-              >
-                {saveNote.isPending ? <MiniSpinner className="text-white" /> : 'Simpan'}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {draft && (
+        <NoteDialog
+          draft={draft}
+          mode={mode}
+          saveState={saveState}
+          confirmDelete={confirmDelete}
+          data={data}
+          deletePending={deleteNote.isPending}
+          onModeChange={(next) => {
+            if (next === 'read') handleModeToRead();
+            else setMode('edit');
+          }}
+          onDraftChange={onDraftChange}
+          onToggleCheck={handleDialogToggleCheck}
+          onRetrySave={doSave}
+          onDelete={handleDeleteNote}
+          onClose={closeDialog}
+        />
+      )}
     </div>
   );
 }

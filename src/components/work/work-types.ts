@@ -7,6 +7,9 @@ import { jakartaDateString } from '@/lib/timezone';
 export type WorkTimeOfDay = 'pagi' | 'siang' | 'sore';
 export type WorkTaskStatus = 'todo' | 'jalan' | 'nunggu' | 'selesai';
 
+/** Task 26 (Fase 1+2 riset catatan): kapasitas isi Catatan Meja Kerja. */
+export const NOTE_CONTENT_MAX = 5000;
+
 export const WORK_TIME_OF_DAYS: WorkTimeOfDay[] = ['pagi', 'siang', 'sore'];
 
 export const WORK_TASK_STATUSES: { value: WorkTaskStatus; label: string }[] = [

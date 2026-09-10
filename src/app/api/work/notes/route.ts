@@ -1,9 +1,9 @@
-// POST /api/work/notes — catatan kilat (Task 17-a).
+// POST /api/work/notes — catatan kilat / catatan panjang (Task 17-a, Task 26).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { asBool, badRequest, handleApiError, readJsonBody } from '@/app/api/_lib/api-utils';
 import { ensureWorkTables } from '@/app/api/_lib/work-ensure';
-import { cleanOptionalText, requireTitle } from '@/app/api/_lib/work-fields';
+import { cleanOptionalText, requireNoteContent } from '@/app/api/_lib/work-fields';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     await ensureWorkTables();
     const body = await readJsonBody(req);
 
-    const content = requireTitle(body.content, 'Isi catatan');
+    const content = requireNoteContent(body.content);
     const tag = cleanOptionalText(body.tag, 'Tag catatan');
     const pinned = body.pinned === undefined ? false : asBool(body.pinned);
     if (pinned === null) throw badRequest('Nilai pinned tidak valid');

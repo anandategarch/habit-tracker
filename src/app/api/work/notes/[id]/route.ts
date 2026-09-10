@@ -1,9 +1,10 @@
-// PATCH/DELETE /api/work/notes/[id] — edit / pin / hapus catatan (Task 17-a).
+// PATCH/DELETE /api/work/notes/[id] — edit / pin / hapus catatan (Task 17-a,
+// Task 26: isi kini markdown-lite hingga 5.000 karakter).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { asBool, badRequest, handleApiError, notFound, readJsonBody } from '@/app/api/_lib/api-utils';
 import { ensureWorkTables } from '@/app/api/_lib/work-ensure';
-import { cleanOptionalText, requireTitle } from '@/app/api/_lib/work-fields';
+import { cleanOptionalText, requireNoteContent } from '@/app/api/_lib/work-fields';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const body = await readJsonBody(req);
     const data: Record<string, unknown> = {};
 
-    if ('content' in body) data.content = requireTitle(body.content, 'Isi catatan');
+    if ('content' in body) data.content = requireNoteContent(body.content);
     if ('tag' in body) {
       // tag '' → hapus tag (null); string apa pun dibersihkan.
       if (body.tag === null || body.tag === '') data.tag = null;

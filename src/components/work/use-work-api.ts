@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import type {
   AiParsedPayload,
   WorkBoardPayload,
+  WorkNoteItem,
   WorkPayload,
   WorkSearchResult,
   WorkTaskItem,
@@ -355,10 +356,19 @@ export function useDeleteTask(date: string) {
 
 // ── Catatan ────────────────────────────────────────────────────────────────
 
+export interface SaveNoteInput {
+  id?: string;
+  content: string;
+  tag?: string | null;
+  pinned?: boolean;
+  /** Task 26: autosave dialog — tanpa toast agar tidak berisik tiap jeda ketik. */
+  quiet?: boolean;
+}
+
 export function useSaveNote(date: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id?: string; content: string; tag?: string | null; pinned?: boolean }) =>
+    mutationFn: (input: SaveNoteInput) =>
       input.id
         ? jsonFetch(`/api/work/notes/${input.id}`, {
             method: 'PATCH',
@@ -368,15 +378,46 @@ export function useSaveNote(date: string) {
               ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
             }),
           })
-        : jsonFetch('/api/work/notes', {
+        : jsonFetch<WorkNoteItem>('/api/work/notes', {
             method: 'POST',
             body: JSON.stringify({ content: input.content, tag: input.tag ?? null }),
           }),
     onSuccess: (_data, input) => {
       qc.invalidateQueries({ queryKey: ['work'] });
-      toast.success(input.id ? 'Catatan diperbarui' : 'Catatan kilat tersimpan');
+      if (!input.quiet) toast.success(input.id ? 'Catatan diperbarui' : 'Catatan kilat tersimpan');
     },
     onError: (error: Error) => toast.error(error.message),
+  });
+}
+
+/** Task 26: toggle kotak centang dari kartu/mode baca — optimistik di cache
+ *  supaya centangan melompat seketika tanpa menunggu server. */
+export function useToggleNoteCheck(date: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) =>
+      jsonFetch(`/api/work/notes/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      }),
+    onMutate: async ({ id, content }) => {
+      await qc.cancelQueries({ queryKey: ['work', date] });
+      const prev = qc.getQueryData<WorkPayload>(['work', date]);
+      if (prev) {
+        qc.setQueryData<WorkPayload>(['work', date], {
+          ...prev,
+          notes: prev.notes.map((n) => (n.id === id ? { ...n, content } : n)),
+        });
+      }
+      return { prev };
+    },
+    onError: (_error, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['work', date], ctx.prev);
+      toast.error('Gagal menyimpan centangan catatan');
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['work'] });
+    },
   });
 }
 

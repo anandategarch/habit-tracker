@@ -1,5 +1,6 @@
 // Validasi field Meja Kerja (dipakai route /api/work/* — Task 17-a).
 import { badRequest } from './api-utils';
+import { NOTE_CONTENT_MAX } from '@/components/work/work-types';
 
 export const WORK_TIME_OF_DAY = ['pagi', 'siang', 'sore'] as const;
 export const WORK_TASK_STATUS = ['todo', 'jalan', 'nunggu', 'selesai'] as const;
@@ -31,6 +32,17 @@ export function requireTitle(v: unknown, label: string): string {
   const trimmed = v.trim();
   if (trimmed.length > WORK_TITLE_MAX) {
     throw badRequest(`${label} terlalu panjang (maks ${WORK_TITLE_MAX} karakter)`);
+  }
+  return trimmed;
+}
+
+/** Isi Catatan Meja Kerja (Task 26): multiline + markdown-lite, 5.000 karakter.
+ *  Selama ini dibatasi requireTitle (200) — akar keluhan catatan tak bisa panjang. */
+export function requireNoteContent(v: unknown, label = 'Isi catatan'): string {
+  if (typeof v !== 'string' || !v.trim()) throw badRequest(`${label} wajib diisi`);
+  const trimmed = v.trim();
+  if (trimmed.length > NOTE_CONTENT_MAX) {
+    throw badRequest(`${label} terlalu panjang (maks ${NOTE_CONTENT_MAX.toLocaleString('id-ID')} karakter)`);
   }
   return trimmed;
 }
