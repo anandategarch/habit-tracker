@@ -1,9 +1,14 @@
-// Rutina Service Worker — v18 (Meja Kerja Fase 2 + fix jarak kartu habit).
+// Rutina Service Worker — v19 (Papan: rutinitas tampil + perbaikan arsip).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v18';
+const CACHE_NAME = 'habit-tracker-v19';
 // Riwayat versi:
+//  v19 — Bug hunt Papan ronde 2 (Task 21): rutinitas hari ini tampil di tab
+//        Papan (fix "papan kosong padahal rutinitas sudah diisi"), kolom
+//        Selesai & Arsip kini berbasis completedAt (tugas kapan-saja/target
+//        depan yang diselesaikan hari ini tidak lagi hilang/masuk arsip
+//        duluan), tombol Tugas baru + tampilan error + retry di papan.
 //  v18 — Meja Kerja Fase 2 (Task 19): Papan Tugas kanban (drag & drop 4
 //        kolom), Arsip tugas selesai, Mode Libur per-hari; FIX-HABIT-GRID-GAP
 //        (wajah belakang kartu flip kini benar-benar absolute — jarak antar

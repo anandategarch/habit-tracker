@@ -186,6 +186,12 @@ export default function WorkDesk() {
             date={today}
             board={boardQuery.data}
             isLoading={boardQuery.isLoading}
+            boardError={boardQuery.isError}
+            onRetryBoard={() => {
+              void boardQuery.refetch();
+            }}
+            routines={data?.routines}
+            holiday={holiday}
             onEditTask={openTaskEditor}
           />
         </TabsContent>

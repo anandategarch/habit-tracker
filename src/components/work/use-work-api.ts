@@ -90,7 +90,10 @@ export function useSetDayFlag(date: string) {
 }
 
 /** Pindah status tugas (drag & drop kanban / tombol geser cepat) — optimistik
- *  di cache papan biar kartu melompat kolom seketika tanpa menungg server. */
+ *  di cache papan biar kartu melompat kolom seketika tanpa menunggu server.
+ *  Task 21 (bug hunt ronde 2): keluar dari kolom Selesai kini benar-benar
+ *  memindahkan kartu ke kolom terbuka di cache optimistik (dulu kartu tetap
+ *  nempel di Selesai dengan status basi sampai refetch selesai). */
 export function useSetTaskStatus(date: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -103,38 +106,40 @@ export function useSetTaskStatus(date: string) {
       await qc.cancelQueries({ queryKey: ['work', 'board', date] });
       const prev = qc.getQueryData<WorkBoardPayload>(['work', 'board', date]);
       if (prev) {
-        const moveIn = (list: WorkTaskItem[]) =>
-          list.some((t) => t.id === task.id) ? list.filter((t) => t.id !== task.id) : list;
-        const patch = (t: WorkTaskItem) =>
-          t.id === task.id
-            ? {
-                ...t,
-                status,
-                completedAt: status === 'selesai' ? new Date().toISOString() : null,
-                overdue: status === 'selesai' ? false : t.overdue,
-              }
-            : t;
-        const fromDone = prev.doneToday.some((t) => t.id === task.id);
+        const patched: WorkTaskItem = {
+          ...task,
+          status,
+          completedAt: status === 'selesai' ? new Date().toISOString() : null,
+          overdue: status === 'selesai' ? false : task.overdue,
+        };
+        const inTasks = prev.tasks.some((t) => t.id === task.id);
+        const inDone = prev.doneToday.some((t) => t.id === task.id);
+
+        let nextTasks: WorkTaskItem[];
+        let nextDone: WorkTaskItem[];
+        if (status === 'selesai') {
+          // Masuk kolom Selesai: keluar dari daftar terbuka, nempel paling atas.
+          nextTasks = prev.tasks.filter((t) => t.id !== task.id);
+          nextDone = inDone ? prev.doneToday : [patched, ...prev.doneToday];
+        } else {
+          // Keluar dari Selesai / pindah antar kolom terbuka: pastikan kartu
+          // BENAR-BENAR berada di daftar terbuka (bug lama: tetap di doneToday).
+          nextDone = prev.doneToday.filter((t) => t.id !== task.id);
+          nextTasks = inTasks
+            ? prev.tasks.map((t) => (t.id === task.id ? patched : t))
+            : [patched, ...prev.tasks];
+        }
+
         qc.setQueryData<WorkBoardPayload>(['work', 'board', date], {
           ...prev,
-          // Kolom terbuka: kartu pindah status di dalam `tasks`; kalau jadi
-          // selesai, ia pindah ke doneToday.
-          tasks: status === 'selesai' ? moveIn(prev.tasks) : prev.tasks.map(patch),
-          doneToday:
-            status === 'selesai'
-              ? [patch(prev.tasks.find((t) => t.id === task.id) ?? prev.doneToday.find((t) => t.id === task.id) ?? task), ...moveIn(prev.doneToday)]
-              : fromDone
-                ? [task, ...prev.doneToday.filter((t) => t.id !== task.id)] // keluar dari selesai → jadi terbuka lagi
-                : prev.doneToday.map(patch),
+          tasks: nextTasks,
+          doneToday: nextDone,
           stats: {
             ...prev.stats,
-            todo: prev.tasks.filter((t) => (t.id === task.id ? status : t.status) === 'todo').length,
-            jalan: prev.tasks.filter((t) => (t.id === task.id ? status : t.status) === 'jalan').length,
-            nunggu: prev.tasks.filter((t) => (t.id === task.id ? status : t.status) === 'nunggu').length,
-            selesaiHariIni:
-              prev.doneToday.length +
-              (status === 'selesai' && !fromDone ? 1 : 0) +
-              (status !== 'selesai' && fromDone ? -1 : 0),
+            todo: nextTasks.filter((t) => t.status === 'todo').length,
+            jalan: nextTasks.filter((t) => t.status === 'jalan').length,
+            nunggu: nextTasks.filter((t) => t.status === 'nunggu').length,
+            selesaiHariIni: nextDone.length,
           },
         });
       }

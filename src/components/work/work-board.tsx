@@ -23,11 +23,27 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Archive, ChevronDown, ChevronRight, GripVertical, Inbox } from 'lucide-react';
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  CloudOff,
+  GripVertical,
+  Inbox,
+  Plus,
+  RotateCw,
+  Umbrella,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSetTaskStatus, useSaveTask } from './use-work-api';
-import { isTaskNew, type WorkBoardPayload, type WorkTaskItem, type WorkTaskStatus } from './work-types';
-import { EmptyHint, MiniSpinner, WorkBadge, formatLongIndoDate } from './work-shared';
+import { useSetTaskStatus, useSaveTask, useToggleRoutineLog } from './use-work-api';
+import {
+  isTaskNew,
+  type WorkBoardPayload,
+  type WorkRoutineItem,
+  type WorkTaskItem,
+  type WorkTaskStatus,
+} from './work-types';
+import { EmptyHint, MiniSpinner, RoutineTick, WorkBadge, formatLongIndoDate } from './work-shared';
 
 // Urutan kolom papan (status penyimpanan DB, bukan urutan visual bebas).
 const COLUMN_DEFS: { id: WorkTaskStatus; label: string; tone: string; dot: string }[] = [
@@ -50,6 +66,113 @@ const QUICK_LABEL: Record<string, string> = {
   todo: 'Belum',
   nunggu: 'Nunggu',
 };
+
+// ── Rutinitas di papan (Task 21) ─────────────────────────────────────────────
+// Bug "Papan kosong padahal Rutinitas sudah diisi": rutinitas kini tampil di
+// tab Papan sebagai seksi tersendiri di atas kanban — tap lingkaran untuk
+// centang. Data diambil dari query /api/work (payload yang sama dengan tab
+// Hari Ini) supaya toggle-nya optimistik di cache yang sama.
+
+const ROUTINE_TIME_ORDER: Record<string, number> = { pagi: 0, siang: 1, sore: 2 };
+const ROUTINE_TIME_META: Record<string, { label: string; dot: string; text: string }> = {
+  pagi: { label: 'Pagi', dot: 'bg-amber-400', text: 'text-amber-600 dark:text-amber-400' },
+  siang: { label: 'Siang', dot: 'bg-primary', text: 'text-primary' },
+  sore: { label: 'Sore', dot: 'bg-rose-400', text: 'text-rose-500 dark:text-rose-400' },
+};
+
+function RoutineBoardRow({ routine, date }: { routine: WorkRoutineItem; date: string }) {
+  const toggle = useToggleRoutineLog(date);
+  const meta = ROUTINE_TIME_META[routine.timeOfDay] ?? ROUTINE_TIME_META.siang;
+  return (
+    <div className={cn('premium-card flex items-center gap-2 rounded-xl p-2', routine.doneToday && 'opacity-70')}>
+      <RoutineTick
+        done={routine.doneToday}
+        label={`${routine.doneToday ? 'Batalkan' : 'Tandai selesai'}: ${routine.title}`}
+        onClick={() => toggle.mutate({ routineId: routine.id, done: !routine.doneToday })}
+      />
+      <p
+        className={cn(
+          'min-w-0 flex-1 truncate text-[13px] font-semibold',
+          routine.doneToday
+            ? 'text-muted-foreground/80 line-through decoration-muted-foreground/50'
+            : 'text-foreground'
+        )}
+      >
+        {routine.title}
+      </p>
+      <span className={cn('flex shrink-0 items-center gap-1 text-[10px] font-extrabold', meta.text)}>
+        <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden="true" />
+        {meta.label}
+      </span>
+    </div>
+  );
+}
+
+function BoardRoutines({
+  date,
+  routines,
+  holiday,
+}: {
+  date: string;
+  routines: WorkRoutineItem[] | undefined;
+  holiday: boolean;
+}) {
+  if (holiday) {
+    return (
+      <div className="flex items-start gap-2.5 rounded-2xl border border-warning/25 bg-warning/5 p-3 dark:bg-warning/10">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-warning/15 text-warning">
+          <Umbrella className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-foreground">Mode Libur aktif</p>
+          <p className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">
+            Rutinitas hari ini diliburkan dan tidak ditampilkan. Matikan Mode Libur di atas untuk kembali bekerja.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (routines === undefined) {
+    return (
+      <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/60" style={{ animationDelay: `${i * 60}ms` }} />
+        ))}
+      </div>
+    );
+  }
+  const active = routines.filter((r) => r.active);
+  if (active.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-border/70 px-3 py-3 text-center text-[11.5px] leading-relaxed text-muted-foreground/80">
+        Belum ada rutinitas aktif — atur tugas berulangmu di tab Rutinitas, nanti muncul di sini tiap hari.
+      </p>
+    );
+  }
+  const done = active.filter((r) => r.doneToday).length;
+  const sorted = [...active].sort(
+    (a, b) =>
+      (ROUTINE_TIME_ORDER[a.timeOfDay] ?? 9) - (ROUTINE_TIME_ORDER[b.timeOfDay] ?? 9) ||
+      a.sortOrder - b.sortOrder ||
+      a.createdAt.localeCompare(b.createdAt)
+  );
+  return (
+    <section aria-label="Rutinitas hari ini di papan">
+      <div className="flex items-center gap-2 px-1">
+        <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Rutinitas Hari Ini</h4>
+        <span className="rounded-full bg-primary/10 px-2 py-px text-[10.5px] font-bold tabular-nums text-primary dark:bg-primary/15">
+          {done}/{active.length}
+        </span>
+        <span className="hidden text-[10.5px] text-muted-foreground/70 sm:inline">— tap untuk centang</span>
+      </div>
+      <div className="mt-2 grid max-h-72 gap-1.5 overflow-y-auto pr-0.5 custom-scrollbar sm:grid-cols-2 xl:grid-cols-3">
+        {sorted.map((routine) => (
+          <RoutineBoardRow key={routine.id} routine={routine} date={date} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function boardMetaLabel(task: WorkTaskItem, today: string): string | null {
   if (task.overdue) return 'lewat tenggat';
@@ -231,11 +354,22 @@ export function WorkBoard({
   date,
   board,
   isLoading,
+  boardError,
+  onRetryBoard,
+  routines,
+  holiday,
   onEditTask,
 }: {
   date: string;
   board: WorkBoardPayload | undefined;
   isLoading: boolean;
+  /** True kalau query /api/work/board gagal dan tidak ada data cache —
+   *  menampilkan kartu error + tombol coba lagi (bukan skeleton abadi). */
+  boardError: boolean;
+  onRetryBoard: () => void;
+  /** Rutinitas aktif hari ini (dari payload /api/work, tab apa adanya). */
+  routines: WorkRoutineItem[] | undefined;
+  holiday: boolean;
   onEditTask: (task: WorkTaskItem | null, draftTitle?: string) => void;
 }) {
   const setTaskStatus = useSetTaskStatus(date);
@@ -301,10 +435,11 @@ export function WorkBoard({
     saveTask.mutate({ id: task.id, title: task.title, status: 'todo', dayKey: date });
   };
 
-  if (isLoading || !board) {
+  if (isLoading && !board) {
     return (
-      <div className="pt-3">
-        <div className="flex gap-3 overflow-hidden lg:grid lg:grid-cols-4">
+      <div className="pt-1">
+        <BoardRoutines date={date} routines={routines} holiday={holiday} />
+        <div className="mt-3 flex gap-3 overflow-hidden lg:grid lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="w-[78vw] shrink-0 rounded-2xl border border-border/70 bg-card/40 p-3 sm:w-[46%] lg:w-auto">
               <div className="h-4 w-20 animate-pulse rounded-full bg-muted" />
@@ -319,22 +454,67 @@ export function WorkBoard({
     );
   }
 
+  const showBoardError = boardError && !board;
   const totalOpen = board.stats.todo + board.stats.jalan + board.stats.nunggu;
+  const activeRoutines = holiday ? [] : (routines ?? []).filter((r) => r.active);
+  const routineLeft = activeRoutines.filter((r) => !r.doneToday).length;
+
+  const summaryText =
+    totalOpen > 0
+      ? `${totalOpen} tugas terbuka · ${board.stats.selesaiHariIni} selesai hari ini`
+      : board.stats.selesaiHariIni > 0
+        ? 'Semua tugas beres hari ini'
+        : routineLeft > 0
+          ? 'Belum ada tugas lepas — tinggal rutinitas di atas'
+          : activeRoutines.length > 0
+            ? 'Meja bersih — tugas & rutinitas semua beres'
+            : 'Papan masih kosong — buat tugas lewat tombol di kanan';
 
   return (
     <div className="pt-1">
+      {/* ── Rutinitas Hari Ini (Task 21 — fix "Papan kosong padahal rutinitas
+          sudah diisi") ── */}
+      <BoardRoutines date={date} routines={routines} holiday={holiday} />
+
+      {/* ── Error papan: pernah skeleton abadi kalau API gagal ── */}
+      {showBoardError && (
+        <div className="mt-3">
+          <EmptyHint
+            icon={<CloudOff className="h-5 w-5" aria-hidden="true" />}
+            title="Papan gagal dimuat"
+            hint="Koneksi ke server terputus saat mengambil tugas. Rutinitas di atas tetap bisa dipakai."
+            action={
+              <Button
+                type="button"
+                size="sm"
+                className="btn-primary-gradient mt-1 gap-1"
+                onClick={onRetryBoard}
+              >
+                <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
+                Coba lagi
+              </Button>
+            }
+          />
+        </div>
+      )}
+
+      {board && (
+        <>
       {/* ── Ringkasan papan ── */}
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        <span className="text-[11.5px] font-semibold text-muted-foreground">
-          {totalOpen > 0
-            ? `${totalOpen} tugas terbuka · ${board.stats.selesaiHariIni} selesai hari ini`
-            : board.stats.selesaiHariIni > 0
-              ? 'Semua tugas beres hari ini'
-              : 'Papan masih kosong'}
-        </span>
+      <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
+        <span className="text-[11.5px] font-semibold text-muted-foreground">{summaryText}</span>
         <span className="hidden text-[11px] text-muted-foreground/70 sm:inline">
           · geser kartu antar kolom untuk ubah status
         </span>
+        <button
+          type="button"
+          onClick={() => onEditTask(null, '')}
+          className="ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-border/70 px-3.5 text-[11.5px] font-bold text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          aria-label="Buat tugas baru di papan"
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+          Tugas baru
+        </button>
       </div>
 
       {/* ── Papan kanban ── */}
@@ -422,11 +602,7 @@ export function WorkBoard({
           ) : (
             <ul className="mt-2 max-h-96 space-y-2 overflow-y-auto pr-1 custom-scrollbar" role="list">
               {archive.map((task) => {
-                const dayLabel = task.dayKey
-                  ? task.dayKey < date
-                    ? formatLongIndoDate(task.dayKey)
-                    : 'kapan saja'
-                  : 'kapan saja';
+                const dayLabel = task.dayKey ? formatLongIndoDate(task.dayKey) : 'kapan saja';
                 return (
                   <li
                     key={task.id}
@@ -464,6 +640,8 @@ export function WorkBoard({
           )}
         </CollapsibleContent>
       </Collapsible>
+        </>
+      )}
     </div>
   );
 }

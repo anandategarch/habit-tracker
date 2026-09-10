@@ -113,3 +113,11 @@ export function monthRangeYMD(ym: string): { start: Date; end: Date } {
   const end = new Date(Date.UTC(y, m, 0)); // hari terakhir bulan
   return { start, end };
 }
+
+/** Timestamp UTC dari tengah malam Jakarta (00:00+07:00) untuk YMD tertentu.
+ *  Dipakai untuk membedakan "selesai HARI INI" vs "selesai hari sebelumnya"
+ *  berdasarkan completedAt — apa pun dayKey-nya (kapan saja / target depan). */
+export function jakartaDayStart(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - JAKARTA_OFFSET_MINUTES * 60_000);
+}

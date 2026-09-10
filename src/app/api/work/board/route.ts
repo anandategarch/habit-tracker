@@ -2,10 +2,17 @@
 // Task 19). Beda dengan /api/work: papan mengambil SEMUA tugas terbuka (hari
 // ini + lewat tenggat + kapan saja + tanggal depan) plus yang selesai HARI
 // INI untuk kolom Selesai; arsip = tugas selesai dari hari-hari sebelumnya.
+//
+// Task 21 (bug hunt ronde 2): definisi "Selesai hari ini" dan "Arsip" kini
+// berbasis completedAt (tengah malam Jakarta) — BUKAN dayKey. Alasan: tugas
+// "kapan saja" (dayKey null) yang diselesaikan hari ini sebelumnya masuk
+// arsip langsung, dan tugas ber-target masa depan yang diselesaikan hari ini
+// hilang total (tidak cocok tiga-tiga query). Dengan completedAt: semua yang
+// selesai hari ini tampil di kolom Selesai, sisanya masuk arsip.
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { badRequest, handleApiError } from '@/app/api/_lib/api-utils';
-import { isValidYMD, jakartaDateString } from '@/lib/timezone';
+import { isValidYMD, jakartaDateString, jakartaDayStart } from '@/lib/timezone';
 import { ensureWorkTables } from '@/app/api/_lib/work-ensure';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +54,8 @@ export async function GET(req: Request) {
       throw badRequest('Parameter date tidak valid (format yyyy-MM-dd)');
     }
     const date = dateParam ?? jakartaDateString();
+    // Tengah malam Jakarta hari payload — batas "selesai hari ini" vs arsip.
+    const dayStart = jakartaDayStart(date);
 
     const [openTasks, todayDone, archive, flag] = await Promise.all([
       // Semua tugas terbuka apa pun tanggalnya (hari ini / lewat tenggat /
@@ -56,14 +65,19 @@ export async function GET(req: Request) {
         where: { status: { not: 'selesai' } },
         orderBy: [{ createdAt: 'desc' }],
       }),
+      // Selesai HARI INI (kolom Selesai): berdasarkan completedAt >= tengah
+      // malam Jakarta, apa pun dayKey-nya — kapan saja & target depan ikut
+      // terhitung saat kamu menuntaskannya hari ini.
       db.workTask.findMany({
-        where: { status: 'selesai', dayKey: date },
+        where: { status: 'selesai', completedAt: { gte: dayStart } },
         orderBy: [{ completedAt: 'desc' }],
       }),
+      // Arsip: selesai sebelum hari ini (completedAt lama, atau null untuk
+      // baris warisan lama yang tidak pernah menyimpan completedAt).
       db.workTask.findMany({
         where: {
           status: 'selesai',
-          OR: [{ dayKey: { lt: date } }, { dayKey: null }],
+          OR: [{ completedAt: { lt: dayStart } }, { completedAt: null }],
         },
         orderBy: [{ completedAt: 'desc' }],
         take: ARCHIVE_PAGE,
