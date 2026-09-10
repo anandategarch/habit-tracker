@@ -1,9 +1,15 @@
-// Rutina Service Worker — v19 (Papan: rutinitas tampil + perbaikan arsip).
+// Rutina Service Worker — v20 (Papan: rutinitas jadi kartu kanban).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v19';
+const CACHE_NAME = 'habit-tracker-v20';
 // Riwayat versi:
+//  v20 — Bug hunt Papan ronde 3 (Task 22): rutinitas kini jadi KARTU kanban
+//        kelas satu — belum dicentang → kolom Belum, dicentang hari ini →
+//        kolom Selesai (fix "tugas selesai/menggantung kok tidak muncul");
+//        kartu rutinitas bisa di-tap, digeser Belum↔Selesai, tombol geser
+//        cepat mobile; drop rutinitas ke Jalan/Nunggu ditolak dengan toast;
+//        seksi checklist rutinitas lama dihapus (digantikan kartu).
 //  v19 — Bug hunt Papan ronde 2 (Task 21): rutinitas hari ini tampil di tab
 //        Papan (fix "papan kosong padahal rutinitas sudah diisi"), kolom
 //        Selesai & Arsip kini berbasis completedAt (tugas kapan-saja/target
