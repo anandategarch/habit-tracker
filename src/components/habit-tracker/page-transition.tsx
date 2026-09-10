@@ -18,8 +18,18 @@ interface PageTransitionProps {
 }
 
 export function PageTransition({ tabId, children }: PageTransitionProps) {
+  // BUGFIX MOBILE-CLIP-1 (Task 29): was `h-full` — the wrapper was pinned to
+  // exactly the scroll container's content-box height (viewport − header −
+  // bottom padding), so taller tab content OVERFLOWED the wrapper. In that
+  // state the browser buries the container's pb-[calc(88px+safe-area)] under
+  // the overflowing content (scrollable overflow = content edge, padding is
+  // NOT appended after it) — at max scroll the last card ended up ~55px
+  // behind the floating bottom dock ("terpotong" on mobile, Riwayat view).
+  // `min-h-full` keeps the full-height baseline for tabs that fit while
+  // letting the wrapper GROW with the content, so the 88px dock-clearing
+  // padding always sits after the last card on every tab.
   return (
-    <div key={tabId} className="anim-tab-fade-up h-full">
+    <div key={tabId} className="anim-tab-fade-up min-h-full">
       {children}
     </div>
   );

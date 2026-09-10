@@ -142,27 +142,33 @@ export default function WorkDesk() {
       </div>
 
       {/* ── Sub-tab internal ── */}
+      {/* BUGFIX MOBILE-CLIP-2 (Task 29): on 390px the 5 triggers' intrinsic
+          width (~397px) exceeded the bar — "Asisten AI" was sliced mid-word
+          at the right edge with no affordance. Mobile now uses compact
+          padding/gap + a shorter label ("Asisten" — peran AI sudah jelas
+          dari ikon Sparkles), so all 5 pills fit without horizontal scroll
+          down to 360px. */}
       <Tabs value={subTab} onValueChange={setSubTab} className="gap-4">
         <TabsList className="flex w-full overflow-x-auto">
-          <TabsTrigger value="today" className="flex-1 gap-1 whitespace-nowrap text-xs sm:text-sm">
+          <TabsTrigger value="today" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
             Hari Ini
           </TabsTrigger>
-          <TabsTrigger value="routines" className="flex-1 gap-1 whitespace-nowrap text-xs sm:text-sm">
+          <TabsTrigger value="routines" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
             <Repeat className="h-3.5 w-3.5" aria-hidden="true" />
             Rutinitas
           </TabsTrigger>
-          <TabsTrigger value="notes" className="flex-1 gap-1 whitespace-nowrap text-xs sm:text-sm">
+          <TabsTrigger value="notes" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
             <NotebookPen className="h-3.5 w-3.5" aria-hidden="true" />
             Catatan
           </TabsTrigger>
-          <TabsTrigger value="board" className="flex-1 gap-1 whitespace-nowrap text-xs sm:text-sm">
+          <TabsTrigger value="board" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
             <Columns3 className="h-3.5 w-3.5" aria-hidden="true" />
             Papan
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex-1 gap-1 whitespace-nowrap text-xs sm:text-sm">
+          <TabsTrigger value="ai" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            Asisten AI
+            Asisten
           </TabsTrigger>
         </TabsList>
 
