@@ -337,6 +337,14 @@
  display: inline-flex;
  align-items: center;
  gap: 0.375rem;
+ /* FIX-AUDIT-23 (#4): tanggal + total masuk/keluar dalam satu pill inline-flex
+    bisa mencapai ~299px ("9 Sep, Rabu −Rp 1.250.000 +Rp 500.000") → lebih
+    lebar dari container 288px di layar 320px dan TERPOTONG (27px tak
+    terjangkau). flex-wrap + max-width membuat nominal wrap ke baris kedua —
+    semua angka tetap tampil, virtualizer mengukur tinggi baris dinamis
+    (measureElement/ResizeObserver) jadi baris tidak bertumpuk. */
+ flex-wrap: wrap;
+ max-width: 100%;
  padding: 0.25rem 0.75rem;
  border-radius: 9999px;
  background: oklch(0.96 0.005 120);
@@ -414,18 +422,28 @@
 /* Habit grid — 1 col mobile · 2 col tablet · 3 col desktop */
 .habit-grid {
  display: grid;
- grid-template-columns: 1fr;
+ /* FIX-AUDIT-23 (#3): minmax(0,1fr) — track boleh menyusut di bawah
+    min-content kartu. Sebelumnya `1fr` (= minmax(auto,1fr)) membuat track
+    minimal selebar min-content kartu (~262px): di 768px (sidebar aktif,
+    konten 512px) 2 kolom = 526px → 54px TERPOTONG; di 1024px 3 kolom =
+    829px > 768px → 85px terpotong (kolom ke-3 kartu tak terlihat).
+    minmax(0,1fr) + `> * { min-width: 0 }` membuat kartu menyusut rapi
+    dan teks di dalamnya wrap — murni layout, logika/konten tak berubah. */
+ grid-template-columns: minmax(0, 1fr);
  gap: 0.75rem;
+}
+.habit-grid > * {
+ min-width: 0;
 }
 @media (min-width: 640px) {
  .habit-grid {
-   grid-template-columns: repeat(2, 1fr);
+   grid-template-columns: repeat(2, minmax(0, 1fr));
    gap: 1rem;
  }
 }
 @media (min-width: 1024px) {
  .habit-grid {
-   grid-template-columns: repeat(3, 1fr);
+   grid-template-columns: repeat(3, minmax(0, 1fr));
    gap: 1.25rem;
  }
 }
@@ -2243,6 +2261,14 @@
   font-weight: 600;
   color: hsl(160 8% 40%);
   transition: color 0.18s ease, background 0.18s ease;
+}
+/* FIX-AUDIT-23 (#1): di layar sempit (<640px) padding horizontal item
+   dirapatkan 14px → 8px supaya 3 item filter transaksi muat di 320px.
+   Murni spacing — label & logika filter tidak berubah. */
+@media (max-width: 639px) {
+  .premium-segment-item {
+    padding-inline: 0.5rem;
+  }
 }
 .dark .premium-segment-item {
   color: hsl(165 8% 62%);

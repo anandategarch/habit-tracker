@@ -1292,7 +1292,13 @@ export default function DailyTracker() {
      <section>
        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
          <h3 className="premium-label">Habits</h3>
-         <div className="flex items-center gap-2">
+         {/* FIX-AUDIT-23 (#2): div kontrol diberi flex-wrap + segmen dibuat
+             w-full <sm — dulu "Atur Urutan" (114px) + segmen (239px) = 361px
+             di kotak 288px → 57px terpotong di 320–375px. Sekarang di layar
+             sempit segmen ambil baris sendiri (pill sama lebar, target sentuh
+             lebih besar); ≥sm kembali 1 baris seperti semula. Logika filter/
+             dragMode tidak berubah. */}
+         <div className="flex flex-wrap items-center justify-end gap-2">
            <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">
              {completedCount}/{totalCount}
            </span>
@@ -1313,7 +1319,7 @@ export default function DailyTracker() {
            )}
            {!dragMode && (
              <div
-               className="premium-segment"
+               className="premium-segment w-full sm:w-auto min-w-0"
                role="group"
                aria-label="Filter habit"
              >
@@ -1329,7 +1335,7 @@ export default function DailyTracker() {
                    onClick={() => setViewFilter(key)}
                    data-active={viewFilter === key}
                    aria-pressed={viewFilter === key}
-                   className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+                   className="premium-segment-item flex-1 min-w-0 data-[active=true]:bg-primary data-[active=true]:shadow-sm"
                  >
                    {label}
                  </button>

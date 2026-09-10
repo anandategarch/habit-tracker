@@ -89,10 +89,13 @@ type FlatRow =
 // PREMIUM-UI ("Rutina Aurora"): opsi filter tipe transaksi untuk segmented
 // control premium (menggantikan tombol chip merah/hijau generik). Label &
 // value dipetakan 1:1 ke txFilter.type — logika onFilterChange tidak berubah.
+// FIX-AUDIT-23 (#1): panah arah (↑/↓) dipisah ke field `arrow` sendiri —
+// di layar <400px panah disembunyikan (aria-hidden, dekoratif) supaya 3 item
+// muat di 320px. Teks label & value SAMA persis — murni presentasi.
 const TYPE_OPTIONS = [
- { value: 'all', label: 'Semua' },
- { value: 'income', label: '↑ Pemasukan' },
- { value: 'expense', label: '↓ Pengeluaran' },
+ { value: 'all', label: 'Semua', arrow: '' },
+ { value: 'income', label: 'Pemasukan', arrow: '↑' },
+ { value: 'expense', label: 'Pengeluaran', arrow: '↓' },
 ] as const;
 
 // PERF-FIX: estimateSize callbacks must be stable (not re-created each
@@ -237,7 +240,7 @@ export default function FinanceTransactions({
          Logika onFilterChange/txFilter.type TIDAK berubah. */}
      <div className="flex flex-wrap items-center gap-2">
        <div
-         className="premium-segment w-full sm:w-auto"
+         className="premium-segment w-full sm:w-auto min-w-0 overflow-x-auto scrollbar-hide"
          role="group"
          aria-label="Filter tipe transaksi"
        >
@@ -247,7 +250,7 @@ export default function FinanceTransactions({
              <button
                key={opt.value}
                type="button"
-               className="premium-segment-item relative h-9 flex-1 whitespace-nowrap cursor-pointer"
+               className="premium-segment-item relative h-9 flex-1 min-w-0 whitespace-nowrap cursor-pointer"
                data-active={isActive ? 'true' : 'false'}
                aria-pressed={isActive}
                onClick={() => onFilterChange({ ...txFilter, type: opt.value })}
@@ -263,6 +266,11 @@ export default function FinanceTransactions({
                        '0 2px 8px -2px color-mix(in oklch, var(--primary) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.28)',
                    }}
                  />
+               )}
+               {opt.arrow && (
+                 <span aria-hidden="true" className="hidden min-[400px]:inline">
+                   {opt.arrow}&nbsp;
+                 </span>
                )}
                {opt.label}
              </button>
