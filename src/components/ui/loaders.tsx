@@ -43,21 +43,59 @@ export function SproutGrow({ className, size = 64 }: { className?: string; size?
   );
 }
 
+/** Path daun — basis di (0,0), ujung di (0,-13). Dipakai kipas daun di
+ *  ujung ranting dan daun melayang. */
+const TREE_LEAF_D = 'M0 0 C4.5 -3.5 4.5 -9 0 -13 C-4.5 -9 -4.5 -3.5 0 0 Z';
+
+/** Kipas 3 daun yang mekar dari ujung ranting (scale 0→1, spring).
+ *  Struktur 2 lapis <g>: outer = translate/scale statis (SVG transform
+ *  attribute), inner = kelas animasi (CSS transform). Kenapa dipisah?
+ *  CSS property `transform` MENIMPA transform attribute SVG pada elemen
+ *  yang sama — kalau digabung, animasi scale akan menghapus translate/scale
+ *  statisnya (pelajaran desain Task 28 v2). */
+function LeafFan({ x, y, scale = 1, cls }: { x: number; y: number; scale?: number; cls: string }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <g className={`tree-leaves ${cls}`}>
+        <path className="tree-leafp tree-leafp-a" transform="rotate(-40)" d={TREE_LEAF_D} />
+        <path className="tree-leafp tree-leafp-b" d={TREE_LEAF_D} />
+        <path className="tree-leafp tree-leafp-c" transform="rotate(40)" d={TREE_LEAF_D} />
+      </g>
+    </g>
+  );
+}
+
+/** Daun tunggal kecil di tengah ranting — mengisi siluet supaya pohon
+ *  terlihat rimbun tanpa menutupi struktur cabang. */
+function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; rotate?: number; scale?: number; cls: string }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <g className={`tree-leaves ${cls}`}>
+        <path className="tree-leafp tree-leafp-b" transform={`rotate(${rotate})`} d={TREE_LEAF_D} />
+      </g>
+    </g>
+  );
+}
+
 /**
- * TreeGrow — Opsi A "Pohon Ilustrasi Premium" (Task 28).
+ * TreeGrow v2 — Opsi A "Root-to-Leaf Growth" (Task 28, revisi user).
  *
- * Pohon flat-vector 3 lapis tajuk (gradien teal→emerald) + batang + gundukan
- * tanah + glow bernapas + daun melayang. Desain mengikuti riset UX Task 27:
- * - Durasi animasi moderat (siklus 4-5 detik) — "sweet spot" riset Stanford.
+ * Pohon organic yang benar-benar TUMBUH berurutan, seperti ilustrasi
+ * professional: garis tanah → AKAR menggaris ke bawah → batang naik →
+ * 5 ranting bercabang → 7 kipas daun mekar di ujung ranting + glow
+ * bernapas + daun melayang. Struktur cabang terlihat (bukan blob tajuk).
+ *
+ * Prinsip riset UX Task 27 yang dipertahankan:
  * - Progress ring MENGAKSELERASI (ease-in) — terasa lebih cepat (riset CMU).
- * - Sway lembut ±1.5° — sinyal "hidup" tanpa mengganggu.
+ * - Sway lembut ±1.5° dari pangkal — akar TIDAK ikut goyang (realistis).
+ * - Total sekuens ~1.5s — sinkron dengan splash exit 1.6s.
  *
  * Varian:
- * - 'splash' : sekuens tumbuh sekali jalan (mound → batang → 3 tajuk mekar
- *   bertahap → daun melayang) + progress ring. Untuk layar pembuka.
- * - 'inline' : pohon langsung tampil UTUH (tanpa sekuens tumbuh, tanpa ring)
- *   + sway. Untuk tab-loading yang bisa selesai dalam ~300ms — sekuens tumbuh
- *   yang terpotong di tengah justru terlihat rusak.
+ * - 'splash' : sekuens tumbuh sekali jalan (ground → akar → batang →
+ *   ranting → daun) + progress ring. Untuk layar pembuka.
+ * - 'inline' : pohon langsung tampil UTUH (tanpa sekuens tumbuh, tanpa
+ *   ring) + sway. Untuk tab-loading yang bisa selesai dalam ~300ms —
+ *   sekuens tumbuh yang terpotong di tengah justru terlihat rusak.
  *
  * Warna lewat kelas CSS (globals.css) supaya adaptif light/dark mode.
  * Semua animasi dimatikan oleh prefers-reduced-motion (rule global).
@@ -113,57 +151,56 @@ export function TreeGrow({
           </g>
         )}
 
-        {/* Glow lembut di belakang pohon — "bernapas" */}
-        <circle className="tree-glow" cx="100" cy="95" r="80" fill="url(#tree-glow-grad)" />
+        {/* Glow lembut di belakang tajuk — "bernapas" */}
+        <circle className="tree-glow" cx="100" cy="88" r="62" fill="url(#tree-glow-grad)" />
 
-        {/* Gundukan tanah + rumput */}
-        <g className="tree-mound">
-          <ellipse className="tree-mound-fill" cx="100" cy="171" rx="50" ry="11" />
-          <path className="tree-grass" d="M64 167 C63 162 61 160 58 158" />
-          <path className="tree-grass" d="M136 167 C137 162 139 160 142 158" />
+        {/* Garis tanah — panggung sebelum tumbuh (akar tumbuh DI BAWAHNYA) */}
+        <path className="tree-ground" d="M36 150 H164" pathLength={1} />
+
+        {/* Gundukan tanah di pangkal */}
+        <ellipse className="tree-mound" cx="100" cy="150" rx="32" ry="7" />
+
+        {/* Akar — 4 garis menggaris ke bawah tanah (stagger kiri→kanan→dalam) */}
+        <g>
+          <path className="tree-root tree-root-1" d="M100 150 C92 156 80 160 64 159" pathLength={1} />
+          <path className="tree-root tree-root-2" d="M100 150 C108 156 120 160 136 159" pathLength={1} />
+          <path className="tree-root tree-root-3" d="M100 150 C97 161 96 169 95 178" pathLength={1} />
+          <path className="tree-root tree-root-4" d="M100 150 C104 162 110 168 119 175" pathLength={1} />
         </g>
 
-        {/* Grup sway: batang + tajuk bergoyang bersama dari pangkal */}
+        {/* Grup sway: batang + ranting + daun bergoyang dari pangkal
+            (akar & tanah DI LUAR grup — akar tidak ikut goyang). */}
         <g className="tree-sway">
-          <path
-            className="tree-trunk"
-            d="M100 169 C 97.5 146, 96.5 132, 100.5 117"
-            fill="none"
-            strokeWidth="8"
-            strokeLinecap="round"
-          />
-          {/* Tajuk lapis 1 (paling bawah, paling gelap) */}
-          <path
-            className="tree-blob-btm"
-            d="M50 116 C50 92 66 74 92 74 C96 74 104 74 108 74 C134 74 150 92 150 116 C150 122 145 126 139 126 L61 126 C55 126 50 122 50 116 Z"
-          />
-          {/* Tajuk lapis 2 */}
-          <path
-            className="tree-blob-mid"
-            d="M63 96 C63 76 76 60 98 60 C101 60 107 60 110 60 C132 60 141 78 141 96 C141 102 136 106 130 106 L74 106 C68 106 63 102 63 96 Z"
-          />
-          {/* Tajuk lapis 3 (puncak, paling terang) + titik highlight */}
-          <g className="tree-top">
-            <path
-              className="tree-blob-top"
-              d="M72 64 C72 48 82 36 100 36 C118 36 128 48 128 64 C128 70 124 74 118 74 L82 74 C76 74 72 70 72 64 Z"
-            />
-            <circle className="tree-dot" cx="88" cy="52" r="3" />
-            <circle className="tree-dot" cx="106" cy="60" r="2.5" />
-            <circle className="tree-dot" cx="96" cy="44" r="2" />
-          </g>
+          {/* Batang */}
+          <path className="tree-trunk" d="M100 150 C99.5 135 99 122 100 108" pathLength={1} />
+          {/* Ranting: leader tengah + 2 cabang samping panjang + 2 diagonal */}
+          <path className="tree-branch tree-branch-c" d="M100 108 C99 98 101 90 100 79" pathLength={1} />
+          <path className="tree-branch tree-branch-l1" d="M100 108 C91 101 79 99 66 97" pathLength={1} />
+          <path className="tree-branch tree-branch-r1" d="M100 108 C109 101 121 99 134 97" pathLength={1} />
+          <path className="tree-branch tree-branch-l2" d="M100 108 C96 100 89 94 82 86" pathLength={1} />
+          <path className="tree-branch tree-branch-r2" d="M100 108 C104 100 111 94 118 86" pathLength={1} />
+
+          {/* Kipas daun di ujung ranting — mekar tengah→luar */}
+          <LeafFan x={100} y={79} scale={1.05} cls="tree-leaves-c" />
+          <LeafFan x={82} y={86} scale={0.82} cls="tree-leaves-l2" />
+          <LeafFan x={118} y={86} scale={0.82} cls="tree-leaves-r2" />
+          <LeafFan x={66} y={97} scale={0.88} cls="tree-leaves-l1" />
+          <LeafFan x={134} y={97} scale={0.88} cls="tree-leaves-r1" />
+          {/* Daun pengisi di tengah cabang */}
+          <StemLeaf x={92} y={98} rotate={-18} scale={0.6} cls="tree-leaves-m1" />
+          <StemLeaf x={108} y={98} rotate={18} scale={0.6} cls="tree-leaves-m2" />
         </g>
 
-        {/* Daun melayang — tiap daun di posisikan lewat translate statis parent,
+        {/* Daun melayang — tiap daun diposisikan lewat translate statis parent,
             animasi drift jalan di path anak (transform lokal di sekitar 0,0). */}
-        <g transform="translate(30 84)">
-          <path className="tree-leaf tree-leaf-f1" d="M0 6 C5 2 5 -4 0 -7 C-5 -4 -5 2 0 6 Z" />
+        <g transform="translate(24 92)">
+          <path className="tree-leaf tree-leaf-f1" d={TREE_LEAF_D} />
         </g>
-        <g transform="translate(166 70)">
-          <path className="tree-leaf tree-leaf-f2" d="M0 6 C5 2 5 -4 0 -7 C-5 -4 -5 2 0 6 Z" />
+        <g transform="translate(176 82)">
+          <path className="tree-leaf tree-leaf-f2" d={TREE_LEAF_D} />
         </g>
-        <g transform="translate(140 26)">
-          <path className="tree-leaf tree-leaf-f3" d="M0 6 C5 2 5 -4 0 -7 C-5 -4 -5 2 0 6 Z" />
+        <g transform="translate(146 24)">
+          <path className="tree-leaf tree-leaf-f3" d={TREE_LEAF_D} />
         </g>
       </svg>
     </div>

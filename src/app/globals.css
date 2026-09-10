@@ -1535,18 +1535,19 @@
  transform-origin: 50% 50%;
 }
 
-/* ── TreeGrow — Opsi A: Pohon Ilustrasi Premium (Task 28) ──────────────
-  Pohon 3 lapis tajuk (teal→emerald) + batang + mound + glow + daun.
-  Menggantikan eksperimen css-sprout lama (Opsi B) yang tidak terpakai.
+/* ── TreeGrow — Opsi A: "Root-to-Leaf Growth" (Task 28, rev. user) ──────────────
+  Pohon organic: garis tanah → AKAR menggaris ke bawah → batang naik →
+  5 ranting bercabang → 7 kipas daun mekar di ujung ranting + glow +
+  daun melayang. Struktur cabang TERLIHAT (bukan blob tajuk) — sesuai
+  permintaan user: "tumbuh dari akar, ranting, sampai daun".
   Timeline varian 'splash' (one-shot, fill-mode both/forwards):
-  0.05s - 0.55s: mound fade-in
-  0.12s - 0.62s: batang tumbuh (scaleY 0→1 dari pangkal)
-  0.45s - 0.90s: tajuk 1 mekar (scale 0→1.06→1, bounce)
-  0.62s - 1.07s: tajuk 2 mekar (stagger 0.17s)
-  0.78s - 1.23s: tajuk 3 (puncak) mekar
+  0.02s - 0.42s: garis tanah + gundukan fade-in
+  0.10s - 0.73s: 4 akar menggaris ke bawah tanah (stagger 0.06s)
+  0.42s - 0.92s: batang tumbuh ke atas (stroke-draw, ease-out kuat)
+  0.78s - 1.32s: 5 ranting menggaris dari percabangan (stagger)
+  1.00s - 1.51s: 7 kipas daun mekar (spring, tengah→luar)
   1.20s - ∞:     3 daun melayang (drift 4s, stagger 0.3s)
-  1.40s - ∞:     sway lembut ±1.5° (siklus 5s — kecepatan moderat,
-                  "sweet spot" riset Stanford/Babson)
+  1.40s - ∞:     sway lembut ±1.5° dari pangkal (akar diam — realistis)
   0.08s - 1.58s: progress ring MENGAKSELERASI (ease-in — riset CMU:
                   terasa lebih cepat daripada kecepatan konstan)
   0.00s - ∞:     glow "bernapas" (opacity 0.55↔1, 3s)
@@ -1554,82 +1555,119 @@
   loading yang bisa selesai ~300ms (sekuens tumbuh yang terpotong di
   tengah justru terlihat rusak). */
 
-/* Warna — flat fills, adaptif light/dark.
+/* Warna & stroke — adaptif light/dark.
   TASK-28 FIX: --primary di app ini adalah warna oklch() PENUH (bukan triplet
   HSL shadcn lama), jadi hsl(var(--primary)) invalid → warna jatuh ke hitam/
   tidak tergambar. Solusi: var(--primary) langsung + fill-opacity /
   stroke-opacity (opacity SVG klasik, terpisah dari warna). */
 .tree-glow-stop-a { stop-color: var(--primary); stop-opacity: 0.14; }
 .tree-glow-stop-b { stop-color: var(--primary); stop-opacity: 0; }
-.tree-mound-fill { fill: var(--primary); fill-opacity: 0.12; }
-.tree-grass {
+.tree-ground {
   stroke: var(--primary);
-  stroke-opacity: 0.45;
+  stroke-opacity: 0.3;
+  stroke-width: 3;
+  stroke-linecap: round;
   fill: none;
-  stroke-width: 2;
+}
+.tree-mound { fill: var(--primary); fill-opacity: 0.12; }
+.tree-root {
+  stroke: #8f5f3f;
+  stroke-opacity: 0.75;
+  fill: none;
+  stroke-width: 3.2;
   stroke-linecap: round;
 }
-.tree-trunk { stroke: #8f5f3f; }
-.dark .tree-trunk { stroke: #a97a52; }
-.tree-blob-btm { fill: #059669; }
-.tree-blob-mid { fill: #14b8a6; }
-.tree-blob-top { fill: #5eead4; }
-.dark .tree-blob-btm { fill: #065f46; }
-.dark .tree-blob-mid { fill: #0d9488; }
-.dark .tree-blob-top { fill: #2dd4bf; }
-.tree-dot { fill: #ffffff; fill-opacity: 0.4; }
-.dark .tree-dot { fill: #ffffff; fill-opacity: 0.3; }
+.dark .tree-root { stroke: #a97a52; }
+.tree-trunk,
+.tree-branch {
+  stroke: #8f5f3f;
+  fill: none;
+  stroke-linecap: round;
+}
+.dark .tree-trunk,
+.dark .tree-branch { stroke: #a97a52; }
+.tree-trunk { stroke-width: 9; }
+.tree-branch-c { stroke-width: 6; }
+.tree-branch-l1,
+.tree-branch-r1 { stroke-width: 5; }
+.tree-branch-l2,
+.tree-branch-r2 { stroke-width: 4; }
+.tree-leafp-a { fill: #059669; }
+.tree-leafp-b { fill: #14b8a6; }
+.tree-leafp-c { fill: #5eead4; }
+.dark .tree-leafp-a { fill: #065f46; }
+.dark .tree-leafp-b { fill: #0d9488; }
+.dark .tree-leafp-c { fill: #2dd4bf; }
 .tree-leaf { fill: #2dd4bf; fill-opacity: 0.85; }
 
-/* Mound — fade-in duluan */
-@keyframes tree-mound-in {
+/* Garis tanah + gundukan — fade-in duluan (panggung sebelum tumbuh) */
+@keyframes tree-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.tree-mound { animation: tree-mound-in 0.5s ease-out 0.05s both; }
+.tree-ground { animation: tree-fade-in 0.4s ease-out 0.02s both; }
+.tree-mound { animation: tree-fade-in 0.5s ease-out 0.08s both; }
 
-/* Batang — tumbuh dari pangkal (transform-origin user-space, default
-  transform-box: view-box — pelajaran BUGFIX POST-1 #8) */
-@keyframes tree-trunk-grow {
-  from { transform: scaleY(0); }
-  to   { transform: scaleY(1); }
+/* Gambar garis (stroke-draw) — teknik ilustrasi professional: garis
+  "digambar" dari pangkal ke ujung seperti diretas pena. pathLength="1"
+  di SVG menormalkan panjang path, jadi dasharray 1 = sepanjang path.
+  Titik round-cap kecil yang muncul saat delay terbaca sebagai
+  "biji/bud" di pangkal — disengaja. Urutan: akar → batang → ranting. */
+.tree-root,
+.tree-trunk,
+.tree-branch {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  will-change: stroke-dashoffset;
 }
-.tree-trunk {
-  transform-origin: 100px 168px;
-  will-change: transform;
-  animation: tree-trunk-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+@keyframes tree-draw {
+  to { stroke-dashoffset: 0; }
 }
+.tree-root-1 { animation: tree-draw 0.45s ease-out 0.10s both; }
+.tree-root-2 { animation: tree-draw 0.45s ease-out 0.16s both; }
+.tree-root-3 { animation: tree-draw 0.45s ease-out 0.22s both; }
+.tree-root-4 { animation: tree-draw 0.45s ease-out 0.28s both; }
+.tree-trunk { animation: tree-draw 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.42s both; }
+.tree-branch-c { animation: tree-draw 0.38s ease-out 0.78s both; }
+.tree-branch-l1 { animation: tree-draw 0.38s ease-out 0.86s both; }
+.tree-branch-r1 { animation: tree-draw 0.38s ease-out 0.86s both; }
+.tree-branch-l2 { animation: tree-draw 0.38s ease-out 0.94s both; }
+.tree-branch-r2 { animation: tree-draw 0.38s ease-out 0.94s both; }
 
-/* Tajuk — mekar bertahap dengan bounce (spring) */
-@keyframes tree-blob-bloom {
+/* Daun — mekar dari ujung ranting (scale 0→1.08→1, spring).
+  transform-box: fill-box → origin persis di dasar kipas daun (= ujung
+  ranting). PENTING: origin persentase TANPA fill-box dihitung terhadap
+  viewBox — arah mekar salah (pelajaran BUGFIX POST-1 #8). */
+@keyframes tree-leaf-bloom {
   0%   { transform: scale(0); opacity: 0; }
-  60%  { transform: scale(1.06); opacity: 1; }
+  60%  { transform: scale(1.08); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
-.tree-blob-btm {
-  transform-origin: 100px 126px;
+.tree-leaves {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
   will-change: transform, opacity;
-  animation: tree-blob-bloom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s both;
+  animation: tree-leaf-bloom 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-.tree-blob-mid {
-  transform-origin: 102px 106px;
-  will-change: transform, opacity;
-  animation: tree-blob-bloom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.62s both;
-}
-.tree-top {
-  transform-origin: 100px 74px;
-  will-change: transform, opacity;
-  animation: tree-blob-bloom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.78s both;
-}
+.tree-leaves-m1,
+.tree-leaves-m2 { animation-delay: 1.00s; }
+.tree-leaves-c { animation-delay: 1.03s; }
+.tree-leaves-l2,
+.tree-leaves-r2 { animation-delay: 1.09s; }
+.tree-leaves-l1,
+.tree-leaves-r1 { animation-delay: 1.15s; }
 
-/* Sway — bergoyang lembut dari pangkal (delay menunggu sekuens tumbuh) */
+/* Sway — bergoyang lembut dari pangkal (delay menunggu sekuens tumbuh).
+  Origin (100,150) = pangkal batang di garis tanah. Akar & tanah ada di
+  LUAR grup sway — akar tidak ikut goyang (realistis). Origin px
+  user-space + default transform-box: view-box — pelajaran BUGFIX #8. */
 @keyframes tree-sway {
   0%, 100% { transform: rotate(0deg); }
   30%      { transform: rotate(1.6deg); }
   60%      { transform: rotate(-1.4deg); }
 }
 .tree-sway {
-  transform-origin: 100px 168px;
+  transform-origin: 100px 150px;
   will-change: transform;
   animation: tree-sway 5s ease-in-out 1.4s infinite;
 }
@@ -1676,14 +1714,20 @@
   animation: tree-ring-draw 1.5s cubic-bezier(0.42, 0, 1, 1) 0.08s forwards;
 }
 
-/* Varian inline — pohon langsung utuh, sway jalan tanpa delay */
+/* Varian inline — pohon langsung utuh, sway jalan tanpa delay.
+  CRITICAL: stroke-dashoffset: 0 eksplisit — offset dasar (= 1, untuk
+  sekuens draw) menyembunyikan seluruh garis kalau animasinya mati. */
+.tree-instant .tree-ground,
 .tree-instant .tree-mound,
-.tree-instant .tree-trunk,
-.tree-instant .tree-blob-btm,
-.tree-instant .tree-blob-mid,
-.tree-instant .tree-top {
+.tree-instant .tree-leaves {
   animation: none;
   opacity: 1;
+}
+.tree-instant .tree-root,
+.tree-instant .tree-trunk,
+.tree-instant .tree-branch {
+  animation: none;
+  stroke-dashoffset: 0;
 }
 .tree-instant .tree-sway {
   animation: tree-sway 5s ease-in-out infinite;
@@ -1837,14 +1881,15 @@
  .css-morph-path-1,
  .css-morph-path-2,
  .css-morph-path-3,
- /* TASK-28: TreeGrow — matikan semua animasi pohon */
+ /* TASK-28 (v2): TreeGrow — matikan semua animasi pohon */
  .tree-glow,
  .tree-sway,
- .tree-trunk,
- .tree-blob-btm,
- .tree-blob-mid,
- .tree-top,
+ .tree-ground,
  .tree-mound,
+ .tree-root,
+ .tree-trunk,
+ .tree-branch,
+ .tree-leaves,
  .tree-leaf-f1,
  .tree-leaf-f2,
  .tree-leaf-f3,
@@ -1852,9 +1897,16 @@
    animation: none !important;
    transform: none !important;
  }
- /* TASK-28: pohon statis tetap tampil UTUH — bagian tumbuh sudah
-    di-set visible by default; daun perlu opacity eksplisit karena
-    base style-nya opacity 0 (fade-in keyframe yang di-nonaktifkan). */
+ /* v2: akar/batang/ranting digambar via stroke-draw — tanpa animasi,
+    offset dasar (=1) menyembunyikan garis. Wajib reset ke 0 supaya
+    pohon statis tetap tampil UTUH. */
+ .tree-root,
+ .tree-trunk,
+ .tree-branch {
+   stroke-dashoffset: 0 !important;
+ }
+ /* Daun melayang perlu opacity eksplisit karena base style-nya
+    opacity 0 (fade-in keyframe yang di-nonaktifkan). */
  .tree-leaf-f1,
  .tree-leaf-f2,
  .tree-leaf-f3 {
