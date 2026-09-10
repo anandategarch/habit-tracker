@@ -57,6 +57,15 @@ const DDL_STATEMENTS: string[] = [
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 )`,
+  // Fase 2 (Task 19): Mode Libur — penanda per-hari untuk Meja Kerja.
+  `CREATE TABLE IF NOT EXISTS "WorkDayFlag" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "dayKey" TEXT NOT NULL,
+    "holiday" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "WorkDayFlag_dayKey_key" ON "WorkDayFlag"("dayKey")`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "WorkRoutineLog_routineId_dayKey_key" ON "WorkRoutineLog"("routineId", "dayKey")`,
 ];
 

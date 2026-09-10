@@ -1909,6 +1909,20 @@
   );
   opacity: 0.7;
 }
+
+/* FIX-HABIT-GRID-GAP (Task 18): wajah belakang kartu flip habit ("7 Hari
+   Terakhir") memakai kelas Tailwind `absolute inset-0`, tapi .premium-card
+   di file ini adalah CSS TAK BERLAYER — sedangkan utilitas Tailwind 4 hidup
+   di @layer utilities, dan CSS tak berlayer SELALU menang dari CSS berlayer.
+   Akibatnya position back face jatuh ke `relative` dari .premium-card: ia
+   ikut in-flow di bawah wajah depan, menambah ±150px tinggi kartu → tampak
+   seperti "jarak antar card terlalu jauh" di grid Tracker Harian.
+   Kelas ini (tak berlayer, ditulis SETELAH .premium-card → menang via urutan
+   sumber) memaksa wajah yang sedang tidak aktif menjadi overlay absolute. */
+.habit-flip-overlay {
+  position: absolute;
+  inset: 0;
+}
 .dark .premium-card-sheen::after {
   background: linear-gradient(
     115deg,

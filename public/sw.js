@@ -1,9 +1,13 @@
-// Rutina Service Worker — v17 (Meja Kerja: bugfix round 1).
+// Rutina Service Worker — v18 (Meja Kerja Fase 2 + fix jarak kartu habit).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v17';
+const CACHE_NAME = 'habit-tracker-v18';
 // Riwayat versi:
+//  v18 — Meja Kerja Fase 2 (Task 19): Papan Tugas kanban (drag & drop 4
+//        kolom), Arsip tugas selesai, Mode Libur per-hari; FIX-HABIT-GRID-GAP
+//        (wajah belakang kartu flip kini benar-benar absolute — jarak antar
+//        kartu habit kembali rapat).
 //  v17 — Meja Kerja bugfix (Task 18): badge BARU zona waktu Jakarta, AI
 //        rapikan lebih tahan banting (parser toleran + retry + gagal terlihat
 //        di chat), konfirmasi hapus 2 langkah (catatan & tugas), Catatan

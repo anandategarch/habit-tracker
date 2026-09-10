@@ -262,3 +262,13 @@ model WorkNote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Fase 2 (Task 19): penanda hari untuk Meja Kerja — terutama Mode Libur
+// (rutinitas diliburkan untuk hari itu tanpa memutus aktif/i-nya rutinitas).
+model WorkDayFlag {
+  id        String   @id @default(cuid())
+  dayKey    String   @unique // yyyy-MM-dd (Jakarta)
+  holiday   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

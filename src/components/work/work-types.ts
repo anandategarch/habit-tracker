@@ -72,12 +72,33 @@ export interface WorkPayload {
   tasks: WorkTaskItem[];
   notes: WorkNoteItem[];
   stats: WorkStats;
+  /** Fase 2: Mode Libur aktif untuk tanggal payload ini. */
+  holiday: boolean;
 }
 
 export interface WorkSearchResult {
   q: string;
   tasks: WorkTaskItem[];
   notes: WorkNoteItem[];
+}
+
+/** Fase 2 (Task 19): payload Papan Tugas + Arsip dari /api/work/board. */
+export interface WorkBoardPayload {
+  date: string;
+  /** Semua tugas terbuka (overdue / kapan saja / hari ini / depan). */
+  tasks: WorkTaskItem[];
+  /** Tugas selesai HARI INI (kolom Selesai di papan). */
+  doneToday: WorkTaskItem[];
+  /** Tugas selesai dari hari sebelumnya (maks 30 terbaru). */
+  archive: WorkTaskItem[];
+  stats: {
+    todo: number;
+    jalan: number;
+    nunggu: number;
+    selesaiHariIni: number;
+    arsip: number;
+  };
+  holiday: boolean;
 }
 
 export interface AiParsedPayload {

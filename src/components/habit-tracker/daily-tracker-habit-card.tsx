@@ -185,7 +185,13 @@ function HabitCardInner({
           onClick={handleCardClick}
           className={cn(
             'premium-card premium-card-hover premium-card-sheen rounded-2xl [backface-visibility:hidden]',
-            !flipped ? 'cursor-pointer' : 'pointer-events-none',
+            // FIX-HABIT-GRID-GAP: saat kartu dibalik, wajah depan jadi overlay
+            // absolute (bukan in-flow) supaya tinggi container mengikuti wajah
+            // belakang yang lebih tinggi (riwayat 7 hari) — tidak ada konten
+            // yang meluber. Saat normal, wajah depan tetap in-flow.
+            flipped
+              ? 'habit-flip-overlay pointer-events-none'
+              : 'cursor-pointer',
             isToggling && 'opacity-70',
           )}
         >
@@ -372,8 +378,14 @@ function HabitCardInner({
         {/* ─────────────── BACK (7 hari terakhir) ─────────────── */}
         <div
           className={cn(
-            'absolute inset-0 rounded-2xl premium-card premium-card-sheen [backface-visibility:hidden] [transform:rotateY(180deg)]',
-            flipped ? '' : 'pointer-events-none',
+            'rounded-2xl premium-card premium-card-sheen [backface-visibility:hidden] [transform:rotateY(180deg)]',
+            // FIX-HABIT-GRID-GAP: back face HANYA absolute saat tidak dibalik.
+            // (Sebelumnya selalu `absolute inset-0`, tapi .premium-card yang tak
+            // berlayer mengalahkan utilitas Tailwind — posisinya jadi relative
+            // dan menambah ±150px tinggi tiap kartu = celah palsu antar baris
+            // grid. Kini: normal → overlay tersembunyi; dibalik → in-flow, jadi
+            // container membesar pas dengan konten riwayat.)
+            flipped ? 'pointer-events-auto' : 'habit-flip-overlay pointer-events-none',
           )}
           aria-hidden={!flipped}
         >

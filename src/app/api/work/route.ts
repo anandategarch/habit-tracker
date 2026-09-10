@@ -1,6 +1,7 @@
 // GET /api/work?date=YYYY-MM-DD — payload utama Meja Kerja (Task 17-a).
 // Return: routines (+doneToday/doneAt), tasks (hari ini + overdue + kapan saja),
-// notes (pin dulu, max 50), dan stats ringkas untuk pil header.
+// notes (pin dulu, max 50), stats ringkas untuk pil header, dan dayFlag
+// (Fase 2: Mode Libur hari itu).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { badRequest, handleApiError } from '@/app/api/_lib/api-utils';
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
     }
     const date = dateParam ?? jakartaDateString();
 
-    const [routines, tasks, notes] = await Promise.all([
+    const [routines, tasks, notes, dayFlag] = await Promise.all([
       db.workRoutine.findMany({
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         include: {
@@ -40,6 +41,7 @@ export async function GET(req: Request) {
         orderBy: [{ pinned: 'desc' }, { updatedAt: 'desc' }],
         take: 50,
       }),
+      db.workDayFlag.findUnique({ where: { dayKey: date } }),
     ]);
 
     // Serialisasi rutinitas + status hari ini.
@@ -112,7 +114,14 @@ export async function GET(req: Request) {
       tugasSelesai: taskPayload.filter((t) => t.status === 'selesai').length,
     };
 
-    return NextResponse.json({ date, routines: routinePayload, tasks: taskPayload, notes: notePayload, stats });
+    return NextResponse.json({
+      date,
+      routines: routinePayload,
+      tasks: taskPayload,
+      notes: notePayload,
+      stats,
+      holiday: dayFlag?.holiday ?? false,
+    });
   } catch (error) {
     return handleApiError(error, 'work:GET');
   }

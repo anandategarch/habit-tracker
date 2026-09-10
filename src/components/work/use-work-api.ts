@@ -7,7 +7,13 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { AiParsedPayload, WorkPayload, WorkSearchResult, WorkTaskItem } from './work-types';
+import type {
+  AiParsedPayload,
+  WorkBoardPayload,
+  WorkPayload,
+  WorkSearchResult,
+  WorkTaskItem,
+} from './work-types';
 
 /** fetch JSON kecil dengan pesan error Indonesia dari server. */
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
@@ -40,14 +46,107 @@ export function useWorkData(date: string) {
   });
 }
 
-/** Pencarian tugas & catatan (dipanggil dengan debounce oleh UI). */
+/** Pencarian tugas & catatan (dipanggil dengan debounce oleh UI).
+ *  Key ["work", "search", …] — elemen pertama "work" supaya mutasi yang
+ *  meng-invalidasi prefix ["work"] ikut me-refresh hasil pencarian. */
 export function useWorkSearch(q: string) {
   const enabled = q.trim().length >= 2;
   return useQuery<WorkSearchResult>({
-    queryKey: ['work-search', q.trim()],
+    queryKey: ['work', 'search', q.trim()],
     queryFn: () => jsonFetch<WorkSearchResult>(`/api/work/search?q=${encodeURIComponent(q.trim())}`),
     enabled,
     placeholderData: (prev) => prev,
+  });
+}
+
+// ── Papan Tugas + Mode Libur (Fase 2, Task 19) ─────────────────────────────────
+
+/** Payload papan: semua tugas terbuka + selesai hari ini + arsip.
+ *  Key ["work", "board", …] — prefix "work" supaya invalidasi lintas-mutasi
+ *  (qc.invalidateQueries(['work'])) ikut me-refresh papan. */
+export function useWorkBoard(date: string) {
+  return useQuery<WorkBoardPayload>({
+    queryKey: ['work', 'board', date],
+    queryFn: () => jsonFetch<WorkBoardPayload>(`/api/work/board?date=${date}`),
+    staleTime: 30_000,
+  });
+}
+
+/** Toggle Mode Libur untuk satu tanggal — invalidasi seluruh prefix ['work']. */
+export function useSetDayFlag(date: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ holiday }: { holiday: boolean }) =>
+      jsonFetch('/api/work/day-flag', {
+        method: 'POST',
+        body: JSON.stringify({ date, holiday }),
+      }),
+    onSuccess: (_d, { holiday }) => {
+      qc.invalidateQueries({ queryKey: ['work'] });
+      toast.success(holiday ? 'Mode Libur aktif — rutinitas hari ini diliburkan' : 'Mode Libur dimatikan — selamat bekerja lagi');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+}
+
+/** Pindah status tugas (drag & drop kanban / tombol geser cepat) — optimistik
+ *  di cache papan biar kartu melompat kolom seketika tanpa menungg server. */
+export function useSetTaskStatus(date: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ task, status }: { task: WorkTaskItem; status: string }) =>
+      jsonFetch(`/api/work/tasks/${task.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    onMutate: async ({ task, status }) => {
+      await qc.cancelQueries({ queryKey: ['work', 'board', date] });
+      const prev = qc.getQueryData<WorkBoardPayload>(['work', 'board', date]);
+      if (prev) {
+        const moveIn = (list: WorkTaskItem[]) =>
+          list.some((t) => t.id === task.id) ? list.filter((t) => t.id !== task.id) : list;
+        const patch = (t: WorkTaskItem) =>
+          t.id === task.id
+            ? {
+                ...t,
+                status,
+                completedAt: status === 'selesai' ? new Date().toISOString() : null,
+                overdue: status === 'selesai' ? false : t.overdue,
+              }
+            : t;
+        const fromDone = prev.doneToday.some((t) => t.id === task.id);
+        qc.setQueryData<WorkBoardPayload>(['work', 'board', date], {
+          ...prev,
+          // Kolom terbuka: kartu pindah status di dalam `tasks`; kalau jadi
+          // selesai, ia pindah ke doneToday.
+          tasks: status === 'selesai' ? moveIn(prev.tasks) : prev.tasks.map(patch),
+          doneToday:
+            status === 'selesai'
+              ? [patch(prev.tasks.find((t) => t.id === task.id) ?? prev.doneToday.find((t) => t.id === task.id) ?? task), ...moveIn(prev.doneToday)]
+              : fromDone
+                ? [task, ...prev.doneToday.filter((t) => t.id !== task.id)] // keluar dari selesai → jadi terbuka lagi
+                : prev.doneToday.map(patch),
+          stats: {
+            ...prev.stats,
+            todo: prev.tasks.filter((t) => (t.id === task.id ? status : t.status) === 'todo').length,
+            jalan: prev.tasks.filter((t) => (t.id === task.id ? status : t.status) === 'jalan').length,
+            nunggu: prev.tasks.filter((t) => (t.id === task.id ? status : t.status) === 'nunggu').length,
+            selesaiHariIni:
+              prev.doneToday.length +
+              (status === 'selesai' && !fromDone ? 1 : 0) +
+              (status !== 'selesai' && fromDone ? -1 : 0),
+          },
+        });
+      }
+      return { prev };
+    },
+    onError: (_error, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['work', 'board', date], ctx.prev);
+      toast.error('Gagal memindahkan tugas');
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['work'] });
+    },
   });
 }
 

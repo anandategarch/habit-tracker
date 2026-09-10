@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Repeat, Sparkles, StickyNote, Zap } from 'lucide-react';
+import { Plus, Repeat, Sparkles, StickyNote, Umbrella, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useSaveNote,
@@ -205,6 +205,7 @@ export function WorkToday({
 
   const activeRoutines = data.routines.filter((r) => r.active);
   const tasks = data.tasks;
+  const holiday = data.holiday ?? false;
 
   const submitQuickTask = () => {
     const trimmed = quickDraft.trim();
@@ -216,7 +217,19 @@ export function WorkToday({
   return (
     <div className="pt-1">
       {/* ── Rutinitas hari ini ── */}
-      {activeRoutines.length === 0 ? (
+      {holiday ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/25 bg-warning/5 p-4 dark:bg-warning/10">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-warning/15 text-warning">
+            <Umbrella className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-bold text-foreground">Mode Libur aktif</p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+              Rutinitas hari ini diliburkan dan tidak dihitung. Matikan Mode Libur di atas kalau mau balik kerja.
+            </p>
+          </div>
+        </div>
+      ) : activeRoutines.length === 0 ? (
         <EmptyHint
           icon={<Repeat className="h-5 w-5" aria-hidden="true" />}
           title="Belum ada rutinitas kerjaan"
