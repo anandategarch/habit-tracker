@@ -139,6 +139,16 @@ function KilatCard({ date, notes }: { date: string; notes: WorkPayload['notes'] 
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
+          // BUG-UX-WORK-1 (Task 30): di layar pendek komposer ini berakhir DI
+          // BELAKANG dock bawah — klik "Simpan catatan kilat" jatuh ke tab
+          // dock (mis. Pengaturan) dan user "aneh kok malah pindah tab".
+          // Saat input fokus, gulir baris ini ke area terlihat (di atas dock).
+          onFocus={(e) => {
+            // 'center' (bukan 'nearest'): elemen masih "terlihat" oleh scrollport
+            // sehingga nearest tidak menggulir apa-apa meski tertutup dock.
+            const row = e.currentTarget.parentElement;
+            row?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }}
           placeholder="Ketik apa aja, 3 detik — nanti dirapikan…"
           aria-label="Tulis catatan kilat"
           maxLength={200}

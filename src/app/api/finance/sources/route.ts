@@ -15,8 +15,47 @@ export const dynamic = 'force-dynamic';
 
 const SOURCE_TYPES = new Set(['cash', 'bank', 'ewallet']);
 
+// SEED-FRESH-SOURCES (Task 30, BUG-FIN-1): pada instalasi baru (belum ada
+// FundSource DAN belum ada Transaction) UI transaksi menampilkan FALLBACK_SOURCES
+// (Kas/Bank/E-Wallet) — tapi backend menolaknya: POST transaksi resolve sumber
+// by-ID/by-name terhadap tabel → 400 "Sumber dana tidak ditemukan". Opsi yang
+// ditawarkan UI harus selalu bisa disimpan, jadi seed trio default SEKALI saat
+// GET pertama pada app yang benar-benar baru. App dengan transaksi existing
+// tidak di-seed (hormati kondisi user yang menghapus semua sumbernya).
+const DEFAULT_SOURCES = [
+  { name: 'Kas', emoji: '👛', type: 'cash', sortOrder: 0 },
+  { name: 'Bank', emoji: '🏦', type: 'bank', sortOrder: 1 },
+  { name: 'E-Wallet', emoji: '📱', type: 'ewallet', sortOrder: 2 },
+] as const;
+
+let seedInFlight: Promise<unknown> | null = null;
+
+async function seedDefaultSourcesIfFresh(): Promise<void> {
+  if (seedInFlight) return seedInFlight as Promise<void>;
+  seedInFlight = (async () => {
+    const [sourceCount, txCount] = await Promise.all([
+      db.fundSource.count(),
+      db.transaction.count(),
+    ]);
+    if (sourceCount > 0 || txCount > 0) return;
+    // createMany + skipDuplicates tidak didukung konsisten di SQLite; 3 create
+    // sekuensial cukup (terlindung seedInFlight per-instance + cek count di
+    // atas; duplikat ekstrem masih bisa dihapus user lewat manajemen sumber).
+    for (const s of DEFAULT_SOURCES) {
+      await db.fundSource.create({ data: { ...s } });
+    }
+  })();
+  try {
+    await seedInFlight;
+  } catch (error) {
+    seedInFlight = null; // boleh dicoba lagi pada request berikutnya
+    throw error;
+  }
+}
+
 export async function GET() {
   try {
+    await seedDefaultSourcesIfFresh();
     const [sources, allTx] = await Promise.all([
       db.fundSource.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
       db.transaction.findMany({

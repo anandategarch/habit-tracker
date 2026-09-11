@@ -262,10 +262,13 @@ export default function Finance() {
    staleTime: 30_000,
  });
 
- const getActiveSources = useCallback(() => {
-   if (sources.length > 0) return sources;
-   return FALLBACK_SOURCES.map(s => ({ id: '', name: s.value, emoji: s.emoji, balance: 0, order: 0 }));
- }, [sources]);
+ // BUG-FIN-1 (Task 30): fallback FALLBACK_SOURCES (id: '') DIHAPUS — opsi
+ // "palsu" ini membuat dialog transaksi menawarkan sumber yang pasti ditolak
+ // API (400 "Sumber dana tidak ditemukan") saat DB belum punya sumber.
+ // Instalasi baru kini di-seed sumber default oleh GET /api/finance/sources,
+ // dan kondisi "tanpa sumber" jujur menampilkan daftar kosong (transaksi
+ // tetap bisa disimpan tanpa sumber; sumber bisa ditambah di Sumber Dana).
+ const getActiveSources = useCallback(() => sources, [sources]);
 
  // ── Mutations hook (SPLIT-PHASE2-UI) ──
  // All dialog/form state + CRUD handlers live in this hook.

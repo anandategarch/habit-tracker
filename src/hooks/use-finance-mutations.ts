@@ -119,7 +119,10 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
  const [deletingSource, setDeletingSource] = useState<FundSource | null>(null);
 
  // ── Form states ──
- const [txForm, setTxForm] = useState<TxFormState>({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: 'Kas', tags: [] });
+ // BUG-FIN-1 (Task 30): initial state 'Kas' → '' — state awal hanya
+ // placeholder; nilai riil selalu di-set openNewTx (prefill sumber aktif)
+ // atau openEditTx. 'Kas' hardcoded berisiko 400 bila tidak ada sumber itu.
+ const [txForm, setTxForm] = useState<TxFormState>({ type: 'expense', amount: '', category: '', description: '', date: '', time: '', notes: '', source: '', tags: [] });
  // Split-mode state. Only used when adding a new transaction (not editing —
  // split children are standalone transactions and are edited individually
  // via the regular single-category form).
@@ -213,7 +216,7 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
      getActiveSources().find((s) => s.id === tx.sourceId)?.name ??
      tx.sourceName ??
      tx.source ??
-     'Kas';
+     '';
    setTxForm({
      type: tx.type, amount: formatNominalInput(String(tx.amount)), category: tx.category,
      description: tx.description || '', date: txDate, time: txTime,
