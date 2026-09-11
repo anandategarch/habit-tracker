@@ -439,7 +439,10 @@ function NoteDialog({
         ) : (
           <div className="space-y-2.5">
             <NoteEditor
-              key={`${draft.id ?? 'new'}-${mode}`}
+              // key TANPA draft.id: id catatan baru bisa datang di tengah sesi
+              // mengetik (autosave pertama) — memasukkan id ke key akan
+              // me-remount textarea dan mencuri fokus + posisi kursor user.
+              key={mode}
               value={draft.content}
               onChange={(content) => onDraftChange({ ...draft, content })}
               maxChars={NOTE_CONTENT_MAX}
@@ -596,7 +599,13 @@ export function WorkNotes({
         onSuccess: (note) => {
           if (!current.id && note && typeof note === 'object' && 'id' in note) {
             const newId = String((note as { id: unknown }).id);
+            // Task 30 (bug: catatan ganda saat edit): id catatan baru HARUS
+            // disinkronkan ke STATE juga, bukan hanya draftRef. Tanpa ini,
+            // ketukan berikutnya menyusun draft dari state yang masih id:null
+            // → menimpa draftRef → autosave berikutnya POST lagi → muncul
+            // catatan duplikat pada tiap jeda ketik ("edit malah tambah baru").
             if (draftRef.current) draftRef.current = { ...draftRef.current, id: newId };
+            setDraft((prev) => (prev && !prev.id ? { ...prev, id: newId } : prev));
           }
           setSaveState('saved');
           clearTimeout(savedFlash.current);
