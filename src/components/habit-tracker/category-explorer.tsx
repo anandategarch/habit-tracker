@@ -27,7 +27,9 @@ interface CategoryExplorerProps {
 
 function shiftMonth(ym: string, delta: number): string {
   const [y, m] = ym.split('-').map(Number);
-  return format(new Date(y, m - 1 + delta, 1), 'yyyy-MM');
+  // Task 31: Date.UTC — format() membaca komponen UTC; build lokal
+  // menggeser −1 bulan bagi pengguna UTC+ (Jakarta).
+  return format(new Date(Date.UTC(y, m - 1 + delta, 1)), 'yyyy-MM');
 }
 
 export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerProps) {
@@ -43,7 +45,10 @@ export default function CategoryExplorer({ getCategoryMeta }: CategoryExplorerPr
     const opts: Array<{ value: string; label: string }> = [];
     const [cy, cm] = selectedMonth.split('-').map(Number);
     for (let i = -24; i <= 24; i++) {
-      const ym = format(new Date(cy, cm - 1 + i, 1), 'yyyy-MM');
+      // Task 31: Date.UTC — nilai opsi dulu dibangun lokal lalu dibaca UTC
+      // oleh format() → bergeser −1 bulan bagi pengguna UTC+ (Jakarta):
+      // dropdown "September" ternyata memilih Oktober/November → kosong.
+      const ym = format(new Date(Date.UTC(cy, cm - 1 + i, 1)), 'yyyy-MM');
       opts.push({ value: ym, label: monthOptionLabel(ym) });
     }
     return opts;

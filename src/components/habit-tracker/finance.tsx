@@ -457,15 +457,22 @@ export default function Finance() {
 
  // ── Month Navigation ──────────────────────────────────────────────────────
 
- const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m - 2, 1), 'yyyy-MM')); };
- const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(y, m, 1), 'yyyy-MM')); };
+ // Task 31 (bug bulan UTC): panah bulan dulu membangun tanggal LOKAL lalu
+ // dibaca komponen UTC oleh format() — bagi pengguna UTC+ (Jakarta +7)
+ // tgl-1 lokal = akhir bulan lalu di UTC: "berikutnya" tidak berpindah
+ // sama sekali dan "sebelumnya" melompat 2 bulan. Bangun Date.UTC.
+ const goToPrevMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(Date.UTC(y, m - 2, 1)), 'yyyy-MM')); };
+ const goToNextMonth = () => { const [y, m] = selectedMonth.split('-').map(Number); setSelectedMonth(format(new Date(Date.UTC(y, m, 1)), 'yyyy-MM')); };
  const goToThisMonth = () => { setSelectedMonth(jakartaMonthString()); };
 
  const monthOptions = useMemo(() => {
-   const now = new Date();
+   // Task 31: pusatkan daftar pada bulan berjalan JAKARTA (konsisten dengan
+   // default store) dan bangun via Date.UTC — format() membaca komponen UTC;
+   // build lokal membuat label/value bergeser −1 bulan bagi pengguna UTC+.
+   const [ny, nm] = jakartaMonthString().split('-').map(Number);
    const opts: { value: string; label: string }[] = [];
    for (let i = -24; i <= 24; i++) {
-     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+     const d = new Date(Date.UTC(ny, nm - 1 + i, 1));
      opts.push({ value: format(d, 'yyyy-MM'), label: format(d, 'MMMM yyyy', { locale: idLocale }) });
    }
    return opts;
