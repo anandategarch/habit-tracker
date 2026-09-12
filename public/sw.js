@@ -1,9 +1,14 @@
-// Rutina Service Worker — v20 (Papan: rutinitas jadi kartu kanban).
+// Rutina Service Worker — v21 (Opsi L1: paket ikon PWA dari logo existing).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v20';
+const CACHE_NAME = 'habit-tracker-v21';
 // Riwayat versi:
+//  v21 — Opsi L1 (Task 33): paket ikon PWA — manifest kini punya PNG 192/512
+//        purpose any + maskable (safe-zone 66/108dp, bg full-bleed #2D2D2D,
+//        glyph Z skala 0.72) + apple-touch-icon.png 180 opaque (iOS tolak SVG).
+//        Fix "logo jadi besar sekali" di Android: mask launcher kini memotong
+//        background, bukan glyph. Semua ikon di-precache untuk install offline.
 //  v20 — Bug hunt Papan ronde 3 (Task 22): rutinitas kini jadi KARTU kanban
 //        kelas satu — belum dicentang → kolom Belum, dicentang hari ini →
 //        kolom Selesai (fix "tugas selesai/menggantung kok tidak muncul");
@@ -35,6 +40,11 @@ const CACHE_NAME = 'habit-tracker-v20';
 const PRECACHE = [
   '/logo.svg',
   '/manifest.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-192-maskable.png',
+  '/icon-512-maskable.png',
+  '/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
