@@ -22,7 +22,6 @@ import {
  CalendarDays,
  Compass,
  BarChart3,
- PieChart,
  PiggyBank,
  Repeat,
  Wand2,
@@ -102,28 +101,22 @@ const FinanceBudgets = dynamic(() => import('./finance-budgets'), {
  ),
 });
 
-// Lazy load explorer — drill-down analytics workspace
-const FinanceExplorer = dynamic(() => import('./finance-explorer'), {
+// Lazy load Analysis — MERGE Task 32 (Opsi A): sub-tab "Analisis" = gabungan
+// sub-tab lama Eksplorasi + Kategori (70% kembar — pemilih bulan, daftar
+// kategori, total, drill-down). Level 1 warisan Eksplorasi (4 kartu bulan +
+// Auto-Suggest/Split + daftar kategori), level 2 warisan Kategori
+// (CategoryDetailView — analisis per-kategori terkaya) + transplant: baris
+// transaksi editable & ringkasan mingguan. Skeleton menyamai tata letak
+// level-1 (baris pemilih bulan + kartu + daftar).
+const FinanceAnalysis = dynamic(() => import('./finance-analysis'), {
  ssr: false,
  loading: () => (
    <div className="space-y-4">
-     <Skeleton className="h-[300px] rounded-xl" />
+     <Skeleton className="h-9 w-44 rounded-md" />
      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
        {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
      </div>
-   </div>
- ),
-});
-
-// Lazy load category explorer — per-category drill-down with charts
-const CategoryExplorer = dynamic(() => import('./category-explorer'), {
- ssr: false,
- loading: () => (
-   <div className="space-y-4">
      <Skeleton className="h-[300px] rounded-xl" />
-     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-       {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-     </div>
    </div>
  ),
 });
@@ -623,8 +616,7 @@ export default function Finance() {
          <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
          <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
          <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
-         <TabsTrigger value="explorer" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Eksplorasi</span></TabsTrigger>
-         <TabsTrigger value="categories" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PieChart className="h-3.5 w-3.5" /><span className="hidden sm:inline">Kategori</span></TabsTrigger>
+         <TabsTrigger value="analysis" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Analisis</span></TabsTrigger>
          <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Recurring</span></TabsTrigger>
          <TabsTrigger value="rules" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wand2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Aturan</span></TabsTrigger>
          <TabsTrigger value="savings" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PiggyBank className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tabungan</span></TabsTrigger>
@@ -677,15 +669,11 @@ export default function Finance() {
          />
        </TabsContent>
 
-       <TabsContent value="explorer" className="mt-4 anim-tab-fade-up">
-         {/* Task 4-b A.5: pass the shared edit-tx handler down so explorer
-             drill-down tx rows are no longer a dead-end — tapping a row
-             opens the FinanceTxDialog mounted at this component's root. */}
-         <FinanceExplorer getCategoryMeta={getCategoryMeta} onEditTx={mutations.openEditTx} />
-       </TabsContent>
-
-       <TabsContent value="categories" className="mt-4 anim-tab-fade-up">
-         <CategoryExplorer getCategoryMeta={getCategoryMeta} />
+       <TabsContent value="analysis" className="mt-4 anim-tab-fade-up">
+         {/* Task 4-b A.5 (warisan Eksplorasi): drill-down bukan jalan buntu —
+             baris transaksi di detail kategori membuka dialog edit yang
+             ter-mount di root finance.tsx. */}
+         <FinanceAnalysis getCategoryMeta={getCategoryMeta} onEditTx={mutations.openEditTx} />
        </TabsContent>
 
        <TabsContent value="recurring" className="mt-4 anim-tab-fade-up">

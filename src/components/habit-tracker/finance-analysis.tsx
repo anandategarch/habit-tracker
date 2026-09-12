@@ -1,40 +1,36 @@
 'use client';
 
-// components/habit-tracker/finance-explorer.tsx — sub-tab "Explorer" Finance:
-// workspace drill-down analitik pengeluaran.
+// components/habit-tracker/finance-analysis.tsx — sub-tab "Analisis" Finance
+// (MERGE Task 32, Opsi A): penggabungan sub-tab lama "Eksplorasi"
+// (finance-explorer.tsx) dan "Kategori" (category-explorer.tsx) yang 70%-nya
+// kembar — pemilih bulan, daftar kategori, total pengeluaran, konsep
+// drill-down. Kini satu pintu, tab Finance 8 → 7 sub-tab.
 //
-// Alur: pilih bulan (default dari store selectedMonth) → ringkasan bulan
-// (kartu statistik premium-card) → daftar kategori (premium-list-item + mini
-// insight share/count) → klik kategori → detail per-hari (chart batang
-// harian) + ringkasan mingguan → daftar transaksi (premium-list-item, klik →
-// onEditTx(tx) membuka dialog edit di root finance.tsx — Task 4-b A.5).
+// LEVEL 1 (warisan Eksplorasi): 4 kartu statistik bulan + insight + tombol
+//   Auto-Suggest & Split Target Mingguan (buat budget dari pola belanja) +
+//   daftar kategori (progress bar + persen).
+// LEVEL 2 (warisan Kategori — analisis paling kaya): CategoryDetailView —
+//   grafik harian + rata² 7 hari, banding bulan lalu, pola jam/hari, sumber
+//   dana, histogram nominal, deteksi anomali, kepribadian kategori; PLUS 2
+//   transplant dari Eksplorasi: ringkasan mingguan M1–M5 dan baris transaksi
+//   yang bisa di-tap untuk membuka dialog edit.
 //
-// Tombol aksi:
-//  - "Auto-Suggest" — POST /api/finance/budgets untuk ≤4 kategori teratas
-//    yang belum punya budget (nominal = total belanja bulan itu).
-//  - "Split Target Mingguan" — sama, tetapi nominal = total/4 sebagai patokan
-//    mingguan (period 'weekly').
-//  Keduanya mengecek `res.ok` PER POST (6-b FIX-4 — toast sukses palsu saat
-//  server-side error dilarang; error API ditampilkan toast Indonesia).
+// Bulan: GLOBAL store selectedMonth (bukan useState lokal) — memperbaiki bug
+// "bulan nyangkut": dulu mengganti bulan di header saat berada di
+// Eksplorasi/Kategori tidak mengubah daftar (state lokal tidak mengikuti
+// store), dan 2 sub-tab bisa menampilkan 2 bulan berbeda sekaligus.
 //
-// Data: GET /api/finance/transactions?month= + /api/finance/dashboard?month=
-// + /api/finance/budgets?month= (dedupe kategori yang sudah ber-budget).
+// Query key sengaja MENIRU kunci query finance.tsx (transaksi bulan dengan
+// filter default, dashboard, budgets) supaya cache React Query terbagi:
+// pindah Transaksi ↔ Analisis tidak mem-fetch ulang data yang sama (dulu
+// explorer + category-explorer masing-masing fetch sendiri = 2× jaringan
+// untuk data identik).
 
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
   AlertTriangle,
-  ChevronLeft,
   ChevronRight,
   Clock,
   Compass,
@@ -55,26 +51,18 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/store/app-store';
-import { formatRupiah, compactRupiahSafe, monthLabel } from './finance-types';
+import { formatRupiah, compactRupiahSafe } from './finance-types';
 import { monthOptionLabel } from './category-explorer-helpers';
-import { tintFromColor, formatDateShort, formatTxTime } from '@/lib/finance-helpers';
-import { dateFromYMD } from '@/lib/timezone';
+import { tintFromColor } from '@/lib/finance-helpers';
 import { cn } from '@/lib/utils';
 import type { CSSProperties } from 'react';
 import type { Transaction, BudgetItem, DashboardData } from './finance-types';
+import type { CategoryTotal } from './category-explorer-types';
+import { CategoryDetailView } from './category-explorer-detail-view';
 
-interface FinanceExplorerProps {
+interface FinanceAnalysisProps {
   getCategoryMeta: (cat: string) => { emoji: string; color: string };
   onEditTx: (tx: Transaction) => void;
-}
-
-interface CategoryTotalRow {
-  name: string;
-  emoji: string;
-  color: string;
-  total: number;
-  count: number;
-  pct: number;
 }
 
 const MIN_SUGGEST_AMOUNT = 1000;
@@ -82,19 +70,21 @@ const MAX_SUGGEST_CATEGORIES = 4;
 
 function shiftMonth(ym: string, delta: number): string {
   const [y, m] = ym.split('-').map(Number);
-  // Task 31: Date.UTC — konsisten konvensi UTC (aman lintas zona pengguna).
+  // Date.UTC — konsisten konvensi UTC (aman lintas zona pengguna).
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceExplorerProps) {
+export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAnalysisProps) {
   const queryClient = useQueryClient();
-  // Bulan default dari month picker global (store), dikelola lokal supaya
-  // drill-down explorer tidak menggeser sub-tab lain (pola category-explorer).
-  const storeMonth = useAppStore(s => s.selectedMonth);
-  const [selectedMonth, setSelectedMonth] = useState(storeMonth);
+  // Bulan GLOBAL (lihat komentar file atas): 1 sumber kebenaran — pemilih
+  // bulan di sini dan di header finance.tsx saling sinkron dua arah.
+  const selectedMonth = useAppStore(s => s.selectedMonth);
+  const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [busy, setBusy] = useState<'auto' | 'split' | null>(null);
+
+  const prevMonth = useMemo(() => shiftMonth(selectedMonth, -1), [selectedMonth]);
 
   const monthOptions = useMemo(() => {
     const opts: Array<{ value: string; label: string }> = [];
@@ -105,8 +95,13 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
     return opts;
   }, [selectedMonth]);
 
+  // ── Queries — kunci MIRROR finance.tsx supaya cache terbagi ─────────────
+  // Bentuk kunci (termasuk urutan field objek filter default) HARUS identik
+  // dengan query transaksi di finance.tsx agar React Query menganggapnya
+  // query yang sama → satu fetch untuk banyak sub-tab.
+
   const monthQuery = useQuery<Transaction[]>({
-    queryKey: ['finance', 'transactions', 'explorer', selectedMonth],
+    queryKey: ['finance', 'transactions', selectedMonth, { type: 'all', category: 'all', source: 'all', search: '' }, ''],
     queryFn: async () => {
       const res = await fetch(`/api/finance/transactions?month=${selectedMonth}`);
       if (!res.ok) throw new Error('Gagal memuat transaksi');
@@ -116,8 +111,19 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
     retry: 1,
   });
 
+  // Bulan sebelumnya — bahan chip "vs bulan lalu" di detail kategori.
+  const prevMonthQuery = useQuery<Transaction[]>({
+    queryKey: ['finance', 'transactions', prevMonth, { type: 'all', category: 'all', source: 'all', search: '' }, ''],
+    queryFn: async () => {
+      const res = await fetch(`/api/finance/transactions?month=${prevMonth}`);
+      if (!res.ok) return [];
+      return (await res.json()).transactions ?? [];
+    },
+    staleTime: 15_000,
+  });
+
   const dashboardQuery = useQuery<DashboardData>({
-    queryKey: ['finance', 'dashboard', 'explorer', selectedMonth],
+    queryKey: ['finance', 'dashboard', selectedMonth],
     queryFn: async () => {
       const res = await fetch(`/api/finance/dashboard?month=${selectedMonth}`);
       if (!res.ok) throw new Error('Gagal memuat ringkasan');
@@ -128,7 +134,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
   });
 
   const budgetsQuery = useQuery<BudgetItem[]>({
-    queryKey: ['finance', 'budgets', 'explorer', selectedMonth],
+    queryKey: ['finance', 'budgets', selectedMonth],
     queryFn: async () => {
       const res = await fetch(`/api/finance/budgets?month=${selectedMonth}`);
       if (!res.ok) return [];
@@ -141,14 +147,19 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
     () => (Array.isArray(monthQuery.data) ? monthQuery.data : []),
     [monthQuery.data]
   );
+  const prevTransactions = useMemo(
+    () => (Array.isArray(prevMonthQuery.data) ? prevMonthQuery.data : []),
+    [prevMonthQuery.data]
+  );
   const dashboardData = dashboardQuery.data ?? null;
   const budgetList = useMemo(
     () => (Array.isArray(budgetsQuery.data) ? budgetsQuery.data : []),
     [budgetsQuery.data]
   );
 
-  // ── Agregasi per kategori (pengeluaran) ─────────────────────────────────
-  const categoryTotals = useMemo<CategoryTotalRow[]>(() => {
+  // ── Agregasi per kategori (pengeluaran) — bentuk CategoryTotal ─────────
+
+  const categoryTotals = useMemo<CategoryTotal[]>(() => {
     const map = new Map<string, { total: number; count: number }>();
     let grand = 0;
     for (const tx of transactions) {
@@ -168,7 +179,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
           color: meta.color,
           total: v.total,
           count: v.count,
-          pct: grand > 0 ? Math.round((v.total / grand) * 100) : 0,
+          percentage: grand > 0 ? Math.round((v.total / grand) * 100) : 0,
         };
       })
       .sort((a, b) => b.total - a.total);
@@ -188,6 +199,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
   }, [categoryTotals, budgetList]);
 
   // ── Aksi: Auto-Suggest & Split Target Mingguan (6-b FIX-4) ─────────────
+
   const postBudgets = async (
     kind: 'auto' | 'split',
     rows: Array<{ category: string; amount: number }>,
@@ -213,7 +225,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
         errMessage = err?.error || 'Gagal membuat budget';
       }
     }
-    return { created, errMessage };
+    return { created, errMessage, kind };
   };
 
   const handleAutoSuggest = async () => {
@@ -270,73 +282,10 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
     }
   };
 
-  // ── Detail kategori terpilih ─────────────────────────────────────────────
-  const detail = useMemo(() => {
-    if (!activeCat) return null;
-    const catTx = transactions
-      .filter((t) => t.category === activeCat)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const meta = getCategoryMeta(activeCat);
-
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const byDay = new Map<number, { total: number; count: number }>();
-    for (const tx of catTx) {
-      // H3: YMD dari komponen UTC ISO (slice) — konvensi storage = jam dinding
-      // Jakarta; jakartaDateKey lama menggeser +7 (bucket hari salah).
-      const day = parseInt(tx.date.slice(8, 10), 10);
-      const cur = byDay.get(day) ?? { total: 0, count: 0 };
-      cur.total += tx.amount || 0;
-      cur.count += 1;
-      byDay.set(day, cur);
-    }
-
-    const daily = Array.from({ length: daysInMonth }, (_, i) => {
-      const d = i + 1;
-      return {
-        day: d,
-        label: d === 1 || d % 5 === 0 ? String(d) : '',
-        total: byDay.get(d)?.total ?? 0,
-        count: byDay.get(d)?.count ?? 0,
-      };
-    });
-
-    // Bucket mingguan (kolom Senin-awal, konsisten heatmap).
-    const firstDow = (dateFromYMD(`${selectedMonth}-01`).getUTCDay() + 6) % 7;
-    const weekCount = Math.ceil((firstDow + daysInMonth) / 7);
-    const weekly = Array.from({ length: weekCount }, (_, w) => {
-      let total = 0;
-      let count = 0;
-      for (const [day, v] of byDay) {
-        if (Math.floor((firstDow + day - 1) / 7) === w) {
-          total += v.total;
-          count += v.count;
-        }
-      }
-      return { label: `M${w + 1}`, name: `Minggu ${w + 1}`, total, count };
-    });
-
-    const total = catTx.reduce((s, t) => s + (t.amount || 0), 0);
-    return {
-      meta,
-      catTx,
-      daily,
-      weekly,
-      total,
-      count: catTx.length,
-      avgPerTx: catTx.length > 0 ? Math.round(total / catTx.length) : 0,
-      activeDays: byDay.size,
-      topDay: Array.from(byDay.entries()).reduce(
-        (max, [day, v]) => (v.total > max.total ? { day, total: v.total } : max),
-        { day: 0, total: 0 }
-      ),
-    };
-  }, [activeCat, transactions, selectedMonth, getCategoryMeta]);
-
-  // ── Month picker (dipakai di kedua level) ────────────────────────────────
+  // ── Month picker (dipakai di kedua level; menulis ke store GLOBAL) ──────
   const monthPicker = (
     <Select value={selectedMonth} onValueChange={(v) => { setSelectedMonth(v); }}>
-      <SelectTrigger className="w-full sm:w-[180px] h-9" aria-label="Pilih bulan explorer">
+      <SelectTrigger className="w-full sm:w-[180px] h-9" aria-label="Pilih bulan analisis">
         <SelectValue />
       </SelectTrigger>
       <SelectContent className="max-h-64">
@@ -357,7 +306,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
           <div className="premium-empty-orb" aria-hidden="true">
             <AlertTriangle className="h-7 w-7" />
           </div>
-          <p className="text-sm font-semibold">Gagal memuat data explorer</p>
+          <p className="text-sm font-semibold">Gagal memuat data analisis</p>
           <p className="text-xs text-muted-foreground">Coba lagi dalam sejenak</p>
           <Button
             size="sm"
@@ -385,180 +334,20 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
     );
   }
 
-  // ── LEVEL 2: detail kategori ────────────────────────────────────────────
-  if (activeCat && detail) {
+  // ── LEVEL 2: detail kategori (analisis kaya warisan Kategori) ────────────
+  const activeCategory = activeCat ? categoryTotals.find(c => c.name === activeCat) : null;
+  if (activeCat && activeCategory) {
     return (
-      <div className="space-y-3 mt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => setActiveCat(null)}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" /> Kembali
-          </Button>
-          {monthPicker}
-        </div>
-
-        {/* Header kategori */}
-        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger">
-          <div className="flex items-center gap-3">
-            <span
-              className="h-12 w-12 rounded-2xl grid place-items-center text-xl shrink-0 ring-1 ring-black/5 dark:ring-white/10"
-              style={{ backgroundColor: tintFromColor(detail.meta.color) }}
-              aria-hidden="true"
-            >
-              {detail.meta.emoji}
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-base font-bold truncate">{activeCat}</h3>
-              <p className="text-[11px] text-muted-foreground">
-                {monthLabel(selectedMonth)} · {detail.count} transaksi · {detail.activeDays} hari aktif
-              </p>
-            </div>
-            <p className="ml-auto premium-stat text-lg shrink-0 text-rose-600 dark:text-rose-400">
-              {compactRupiahSafe(detail.total)}
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            <div className="chip-soft chip-soft-teal px-3 py-2 min-w-0">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Rata²/tx</p>
-                <p className="text-sm font-bold tabular-nums">{compactRupiahSafe(detail.avgPerTx)}</p>
-              </div>
-            </div>
-            <div className="chip-soft chip-soft-amber px-3 py-2 min-w-0">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Hari Teratas</p>
-                <p className="text-sm font-bold tabular-nums">
-                  {detail.topDay.day > 0 ? `Tgl ${detail.topDay.day}` : '—'}
-                </p>
-              </div>
-            </div>
-            <div className="chip-soft chip-soft-violet px-3 py-2 min-w-0">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Tertinggi</p>
-                <p className="text-sm font-bold tabular-nums">{compactRupiahSafe(detail.topDay.total)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Chart per-hari */}
-        <div className="premium-card rounded-2xl p-4 sm:p-5">
-          <h3 className="text-sm font-semibold flex items-center gap-1.5 mb-3">
-            <TrendingDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-            Pengeluaran Harian
-          </h3>
-          <div className="w-full min-w-0 overflow-hidden">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={detail.daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v: number) => compactRupiahSafe(v)}
-                />
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                  formatter={(value) => [formatRupiah(Number(value)), 'Pengeluaran']}
-                  labelFormatter={() => `${activeCat} · ${monthLabel(selectedMonth)}`}
-                />
-                <Bar dataKey="total" fill={detail.meta.color} radius={[3, 3, 0, 0]} maxBarSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Ringkasan mingguan */}
-          <div className="mt-4">
-            <p className="premium-label mb-2">Ringkasan Mingguan</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-              {detail.weekly.map((w, i) => {
-                const maxWeek = Math.max(...detail.weekly.map((x) => x.total), 1);
-                return (
-                  <div key={w.name} className="premium-list-item flex-col! items-stretch! px-3! py-2.5!" style={{ '--stagger': i } as CSSProperties}>
-                    <p className="text-[11px] font-semibold text-muted-foreground">{w.name}</p>
-                    <p className="text-sm font-bold tabular-nums">{compactRupiahSafe(w.total)}</p>
-                    <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden mt-1.5" aria-hidden="true">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${(w.total / maxWeek) * 100}%`, backgroundColor: detail.meta.color }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">{w.count} transaksi</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Daftar transaksi (klik → edit) */}
-        <div className="premium-card rounded-2xl p-2 sm:p-3">
-          <h3 className="text-sm font-semibold flex items-center gap-1.5 px-2 py-1.5">
-            <Wallet className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-            Rincian Transaksi
-          </h3>
-          {detail.catTx.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">
-              Belum ada transaksi {detail.meta.emoji} {activeCat} di {monthLabel(selectedMonth)}
-            </p>
-          ) : (
-            <div className="space-y-1.5">
-              {detail.catTx.map((tx, idx) => (
-                <button
-                  key={tx.id}
-                  type="button"
-                  className="premium-list-item w-full px-3! py-2.5! text-left cursor-pointer active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  style={{ '--stagger': idx } as CSSProperties}
-                  onClick={() => onEditTx(tx)}
-                  aria-label={`Edit transaksi ${tx.description || tx.category}`}
-                >
-                  <span
-                    className="h-9 w-9 rounded-xl grid place-items-center text-base shrink-0 ring-1 ring-black/5 dark:ring-white/10"
-                    style={{ backgroundColor: tintFromColor(detail.meta.color) }}
-                    aria-hidden="true"
-                  >
-                    {detail.meta.emoji}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium truncate">
-                      {tx.description || tx.category}
-                    </span>
-                    <span className="block text-[11px] text-muted-foreground truncate">
-                      {formatDateShort(tx.date)} · {formatTxTime(tx.date)}
-                      {tx.sourceName ? ` · ${tx.sourceName}` : ''}
-                    </span>
-                  </span>
-                  <span
-                    className={cn(
-                      'text-sm font-semibold tabular-nums shrink-0',
-                      tx.type === 'income'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-rose-600 dark:text-rose-400'
-                    )}
-                  >
-                    {tx.type === 'income' ? '+' : '−'}{formatRupiah(tx.amount)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <CategoryDetailView
+        cat={activeCategory}
+        transactions={transactions}
+        prevTransactions={prevTransactions}
+        selectedMonth={selectedMonth}
+        monthOptions={monthOptions}
+        onBack={() => setActiveCat(null)}
+        onSelectMonth={setSelectedMonth}
+        onEditTx={onEditTx}
+      />
     );
   }
 
@@ -574,7 +363,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
             </div>
             <p className="text-sm font-semibold">Belum ada transaksi bulan ini</p>
             <p className="text-xs text-muted-foreground">
-              Catat transaksi untuk mulai mengeksplorasi pola belanjamu.
+              Catat transaksi untuk mulai menganalisis pola belanjamu.
             </p>
           </div>
         </div>
@@ -695,11 +484,11 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
               </span>
               <span className="flex items-center gap-2 mt-1">
                 <Progress
-                  value={cat.pct}
+                  value={cat.percentage}
                   className="h-1.5 flex-1 anim-progress-fill"
                 />
                 <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                  {cat.pct}% · {cat.count}×
+                  {cat.percentage}% · {cat.count}×
                 </span>
               </span>
             </span>
@@ -707,6 +496,7 @@ export default function FinanceExplorer({ getCategoryMeta, onEditTx }: FinanceEx
           </button>
         ))}
       </div>
+
     </div>
   );
 }

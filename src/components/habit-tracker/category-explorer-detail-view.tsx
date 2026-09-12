@@ -2,6 +2,12 @@
 // CategoryDetailView — drill-down view for a single category.
 // Extracted from category-explorer.tsx during SPLIT-PHASE3.
 //
+// MERGE Task 32 (Opsi A): kini satu-satunya konsumen adalah sub-tab
+// "Analisis" (finance-analysis.tsx) — penggabungan Eksplorasi + Kategori.
+// Dua transplant dari Eksplorasi lama: (1) ringkasan mingguan M1–M5 di bawah
+// stats grid; (2) baris transaksi jadi tombol — tap membuka dialog edit di
+// root finance.tsx (lewat prop onEditTx, pola Task 4-b A.5).
+//
 // This is the "big one" — encapsulates ALL of the per-category analytics:
 //   - daily chart (bars + 7-day moving average + avg reference line)
 //   - stats grid (avg/tx, avg/day, max tx, max day)
@@ -155,6 +161,9 @@ export interface CategoryDetailViewProps {
  monthOptions: { value: string; label: string }[];
  onBack: () => void;
  onSelectMonth: (m: string) => void;
+ /** MERGE Task 32 (transplant Eksplorasi): tap baris transaksi → buka dialog
+  * edit di root finance.tsx (mutasi.openEditTx). */
+ onEditTx: (tx: Transaction) => void;
 }
 
 export function CategoryDetailView({
@@ -165,16 +174,15 @@ export function CategoryDetailView({
  monthOptions,
  onBack,
  onSelectMonth,
+ onEditTx,
 }: CategoryDetailViewProps) {
  // ONE-CLICK-8 (Task 4-b A.7): 1-tap jump from a category's analytics
  // detail to the Transactions sub-tab with this category's filter applied
- // (openFinanceFocus). The explorer's month is mirrored to the global month
- // picker first so the filtered list shows the same period being explored.
- const setStoreMonth = useAppStore(s => s.setSelectedMonth);
+ // (openFinanceFocus). Sejak MERGE Task 32 bulan sudah global — mirroring
+ // bulan ke store tidak lagi diperlukan.
  const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
 
  const handleViewTransactions = () => {
-   setStoreMonth(selectedMonth);
    openFinanceFocus({ category: cat.name });
  };
 
@@ -474,6 +482,26 @@ export function CategoryDetailView({
    // for the rare case.
  }, [transactions, prevTransactions, cat, selectedMonth]);
 
+ // MERGE Task 32 (Opsi A): ringkasan mingguan M1–M5 — transplant dari
+ // drill-down Eksplorasi lama. Dihitung dari chartData (sudah berisi total
+ // harian kategori ini) + offset hari-ke-1 (kolom Senin-awal, konsisten
+ // dengan heatmap & explorer lama).
+ const weekly = useMemo(() => {
+   const [yy, mm] = selectedMonth.split('-').map(Number);
+   const daysInMonth = new Date(yy, mm, 0).getDate();
+   const firstDow = (new Date(Date.UTC(yy, mm - 1, 1)).getUTCDay() + 6) % 7;
+   const weekCount = Math.ceil((firstDow + daysInMonth) / 7);
+   const buckets = Array.from({ length: weekCount }, () => ({ total: 0, count: 0 }));
+   for (const row of chartData) {
+     const w = Math.floor((firstDow + row.day - 1) / 7);
+     if (w >= 0 && w < weekCount) {
+       buckets[w].total += row.total;
+       buckets[w].count += row.count;
+     }
+   }
+   return buckets.map((b, i) => ({ name: `Minggu ${i + 1}`, ...b }));
+ }, [chartData, selectedMonth]);
+
  return (
    <div className="space-y-4 overflow-x-hidden">
      {/* Breadcrumb + back + 1-click tx link */}
@@ -660,6 +688,34 @@ export function CategoryDetailView({
          <p className="text-sm font-bold tabular-nums mt-0.5">{maxDay.day > 0 ? `Tgl ${maxDay.day}` : '—'}</p>
        </Card>
      </div>
+
+     {/* MERGE Task 32: Ringkasan mingguan M1–M5 (transplant Eksplorasi) */}
+     {weekly.length > 0 && (
+       <Card className="p-3">
+         <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+           <Calendar className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+           Ringkasan Mingguan
+         </h3>
+         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+           {weekly.map((w) => {
+             const maxWeek = Math.max(...weekly.map((x) => x.total), 1);
+             return (
+               <div key={w.name} className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2 min-w-0">
+                 <p className="text-[11px] font-semibold text-muted-foreground">{w.name}</p>
+                 <p className="text-sm font-bold tabular-nums">{compactRupiahSafe(w.total)}</p>
+                 <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden mt-1.5" aria-hidden="true">
+                   <div
+                     className="h-full rounded-full transition-all duration-500"
+                     style={{ width: `${Math.min(100, (w.total / maxWeek) * 100)}%`, backgroundColor: primaryColor }}
+                   />
+                 </div>
+                 <p className="text-[10px] text-muted-foreground mt-1">{w.count} transaksi</p>
+               </div>
+             );
+           })}
+         </div>
+       </Card>
+     )}
 
      {/* Pattern insights */}
      {peakHour.count > 0 && (
@@ -885,9 +941,15 @@ export function CategoryDetailView({
            </p>
          ) : (
            catTx.map((tx) => (
-             <div
+             // MERGE Task 32 (transplant Eksplorasi): baris jadi tombol — tap
+             // membuka dialog edit transaksi di root finance.tsx (bukan lagi
+             // daftar baca-saja).
+             <button
                key={tx.id}
-               className="flex items-center gap-3 px-4 py-2 sm:px-6 border-b border-border/40 last:border-b-0"
+               type="button"
+               onClick={() => onEditTx(tx)}
+               className="flex items-center gap-3 w-full text-left px-4 py-2 sm:px-6 border-b border-border/40 last:border-b-0 cursor-pointer hover:bg-muted/40 active:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+               aria-label={`Edit transaksi ${tx.description || tx.category}`}
              >
                <div className="flex-1 min-w-0">
                  <p className="text-xs font-medium truncate">
@@ -901,7 +963,7 @@ export function CategoryDetailView({
                <span className="text-xs font-semibold tabular-nums shrink-0 text-destructive">
                  −{compactRupiahSafe(tx.amount)}
                </span>
-             </div>
+             </button>
            ))
          )}
        </div>

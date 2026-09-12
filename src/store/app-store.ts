@@ -17,15 +17,24 @@ import { create } from 'zustand';
 import { jakartaDateString } from '@/lib/timezone';
 
 export type TabId = 'dashboard' | 'tracker' | 'work' | 'finance' | 'goals' | 'settings';
+// MERGE Task 32 (Opsi A): sub-tab 'explorer' (Eksplorasi) dan 'categories'
+// (Kategori) digabung menjadi satu sub-tab 'analysis' (Analisis) — keduanya
+// 70% kembar. Nilai lama bisa tersisa sesaat pada hot-reload (state module
+// lama); dinormalisasi di kedua setter sebagai asuransi.
 export type FinanceSubTab =
   | 'overview'
   | 'transactions'
   | 'budgets'
-  | 'explorer'
-  | 'categories'
+  | 'analysis'
   | 'recurring'
   | 'rules'
   | 'savings';
+const LEGACY_FINANCE_SUB_TAB: Record<string, FinanceSubTab> = {
+  explorer: 'analysis',
+  categories: 'analysis',
+};
+const normalizeFinanceSubTab = (sub: FinanceSubTab): FinanceSubTab =>
+  LEGACY_FINANCE_SUB_TAB[sub] ?? sub;
 export type FinanceFocus = { category?: string; sourceId?: string };
 export type QuickAddAction = 'expense' | 'income' | 'habit' | 'transfer';
 export type TrackerViewMode = 'today' | 'history';
@@ -90,8 +99,8 @@ export const useAppStore = create<AppState>((set) => ({
   clearHabitFocus: () => set({ focusHabitId: null }),
 
   financeSubTab: 'overview',
-  setFinanceSubTab: (sub) => set({ financeSubTab: sub }),
-  openFinanceSubTab: (sub) => set({ activeTab: 'finance', financeSubTab: sub }),
+  setFinanceSubTab: (sub) => set({ financeSubTab: normalizeFinanceSubTab(sub) }),
+  openFinanceSubTab: (sub) => set({ activeTab: 'finance', financeSubTab: normalizeFinanceSubTab(sub) }),
   selectedMonth: jakartaDateString().slice(0, 7),
   setSelectedMonth: (month) => set({ selectedMonth: month }),
   financeFocus: null,
