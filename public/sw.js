@@ -1,9 +1,16 @@
-// Rutina Service Worker — v21 (Opsi L1: paket ikon PWA dari logo existing).
+// Rutina Service Worker — v22 (R2: logo tunas teal dipulihkan).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v21';
+const CACHE_NAME = 'habit-tracker-v22';
 // Riwayat versi:
+//  v22 — Opsi R2 (Task 34): SEMUA file ikon berganti konten — logo Rutina asli
+//        (tunas Lucide, teal #3eb59e = --primary yang dirender aplikasi)
+//        dipulihkan dari sejarah git, menggantikan logo template Z.AI yang
+//        tak sengaja terpasang sejak rebuild d9ef4e4. Maskable kini aman
+//        safe-zone 66/108 yang benar (0 pelanggaran piksel). favicon.ico baru
+//        (16/32/48) + theme_color manifest disamakan ke #3eb59e. Bump cache
+//        WAJIB karena v21 masih menyimpan ikon Z.AI lama di HP user.
 //  v21 — Opsi L1 (Task 33): paket ikon PWA — manifest kini punya PNG 192/512
 //        purpose any + maskable (safe-zone 66/108dp, bg full-bleed #2D2D2D,
 //        glyph Z skala 0.72) + apple-touch-icon.png 180 opaque (iOS tolak SVG).
@@ -40,6 +47,7 @@ const CACHE_NAME = 'habit-tracker-v21';
 const PRECACHE = [
   '/logo.svg',
   '/manifest.webmanifest',
+  '/favicon.ico',
   '/icon-192.png',
   '/icon-512.png',
   '/icon-192-maskable.png',
