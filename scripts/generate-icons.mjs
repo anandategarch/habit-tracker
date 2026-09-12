@@ -135,4 +135,14 @@ const anyCorner = await pixel(`${PUBLIC}/icon-512.png`, 2, 2);
 console.log(`  ✓ any sudut alpha: ${anyCorner[3]} (0 = transparan)`);
 const glyph = await pixel(`${PUBLIC}/icon-512-maskable.png`, 256, 256);
 console.log(`  ✓ maskable pusat: rgb(${glyph.slice(0, 3)}) (putih = tunas ada)`);
+
+// REGRESI-GUARD: logo.svg HARUS SVG valid yang bisa dirender (XML komentar
+// tidak boleh mengandung minus ganda — bug Task 35 yang sempat merusak
+// installability PWA karena Chrome gagal parse ikon manifest).
+try {
+  const md = await sharp(`${PUBLIC}/logo.svg`).metadata();
+  console.log(`  ✓ logo.svg valid & ter-render (${md.format}, ${md.width}x${md.height})`);
+} catch (e) {
+  throw new Error(`logo.svg RUSAK — Chrome akan gagal parse: ${e.message}`);
+}
 console.log('Selesai — 6 file ikon tunas teal.');

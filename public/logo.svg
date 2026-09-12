@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#3eb59e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <!-- Rutina — tunas (sprout) Lucide, teal #3eb59e senada --primary aplikasi.
+  <!-- Rutina: tunas (sprout) Lucide, teal #3eb59e senada warna primary aplikasi.
        Menggantikan logo bawaan template (Z putih + z-breathe) yang terbukti
-       bukan brand Rutina — lihat Task 34 di worklog. -->
+       bukan brand Rutina, lihat Task 34 di worklog.
+       CATATAN XML: komentar tidak boleh mengandung tanda minus ganda. -->
   <path d="M7 20h10"/>
   <path d="M10 20c5.5-2.5.8-6.4 3-10"/>
   <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/>
