@@ -4,11 +4,15 @@
 // isArchived, vacationUntil — TIDAK ada icon/color/status/order/endDate).
 
 import { jakartaDateString } from '@/lib/timezone';
+import { parseSchedule } from '@/lib/habit-schedule';
 
 export type { Habit, HabitGroup } from './daily-tracker-types';
 
 /** Tipe target (kolom disiapkan; UI hanya mendukung 'daily' — BUG-14). */
 export const TARGET_TYPES = ['daily', 'weekly', 'monthly'] as const;
+
+/** Task 37 — jenis jadwal tampil habit. */
+export type ScheduleKind = 'daily' | 'weekly' | 'monthly';
 
 /** Status form habit: aktif / dijeda (arsip lewat tombol baris). */
 export const STATUSES = ['active', 'paused'] as const;
@@ -30,6 +34,13 @@ export interface HabitFormData {
   target: number;
   /** Task 36 — Target Lulus (jumlah hari menuju wisuda; null = selamanya). */
   targetDays: number | null;
+  /** Task 37 — Jadwal Tampil: habit mingguan/bulanan hanya muncul di hari
+   * terjadwalnya (disimpan sebagai JSON di kolom Habit.scheduleJson). */
+  scheduleKind: ScheduleKind;
+  /** Hari terpilih untuk jadwal mingguan (0=Minggu..6=Sabtu). */
+  scheduleDays: number[];
+  /** Tanggal terpilih untuk jadwal bulanan (1..31). */
+  scheduleDates: number[];
   targetType: string;
   groupId: string | null;
   reminder: string | null;
@@ -64,6 +75,9 @@ export function emptyForm(): HabitFormData {
     habitType: 'normal',
     target: 1,
     targetDays: null,
+    scheduleKind: 'daily',
+    scheduleDays: [],
+    scheduleDates: [],
     targetType: 'daily',
     groupId: null,
     reminder: null,
@@ -86,6 +100,7 @@ export function habitToForm(h: {
   target: number;
   targetDays?: number | null;
   graduatedAt?: string | null;
+  scheduleJson?: string | null;
   targetType?: string | null;
   groupId?: string | null;
   reminder?: string | null;
@@ -106,6 +121,15 @@ export function habitToForm(h: {
     target: h.target ?? 1,
     // Task 36: habit 'avoid' tidak punya garis finis — form memaksa null.
     targetDays: h.habitType === 'avoid' ? null : h.targetDays ?? null,
+    // Task 37: jadwal tampil → field form (parse toleran; rusak = daily).
+    ...((): { scheduleKind: ScheduleKind; scheduleDays: number[]; scheduleDates: number[] } => {
+      const sched = parseSchedule(h.scheduleJson);
+      return {
+        scheduleKind: sched.kind,
+        scheduleDays: sched.kind === 'weekly' ? sched.days : [],
+        scheduleDates: sched.kind === 'monthly' ? sched.dates : [],
+      };
+    })(),
     targetType: h.targetType ?? 'daily',
     groupId: h.groupId ?? null,
     reminder: h.reminder ?? null,

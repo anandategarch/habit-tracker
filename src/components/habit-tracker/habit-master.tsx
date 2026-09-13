@@ -41,6 +41,7 @@ import {
  Ban,
  Gauge,
  Sprout,
+ CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,12 +49,14 @@ import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { jakartaDateString } from '@/lib/jakarta-date';
+// Task 37 — Jadwal Tampil: konstanta hari (0=Minggu..6=Sabtu, urut Senin dulu).
+import { WEEKDAY_LABELS, WEEKDAY_ORDER } from '@/lib/habit-schedule';
 
 // ── Types & Constants (imported from habit-master-types) ──────────────────
 import {
  type Habit, type HabitGroup, type HabitFormData,
  TARGET_DAYS_OPTIONS,
- TARGET_TYPES, STATUSES, DEFAULT_EMOJIS,
+ STATUSES, DEFAULT_EMOJIS,
  emptyForm, habitToForm, habitStatus,
 } from './habit-master-types';
 // Sub-components
@@ -239,6 +242,15 @@ export default function HabitMaster() {
      toast.error('Nama habit wajib diisi');
      return;
    }
+   // Task 37 — validasi jadwal: pilih minimal satu hari/tanggal.
+   if (form.scheduleKind === 'weekly' && form.scheduleDays.length === 0) {
+     toast.error('Pilih minimal satu hari untuk jadwal mingguan');
+     return;
+   }
+   if (form.scheduleKind === 'monthly' && form.scheduleDates.length === 0) {
+     toast.error('Pilih minimal satu tanggal untuk jadwal bulanan');
+     return;
+   }
    setSubmitting(true);
    try {
      // Payload mengikuti schema Prisma (emoji, isActive, isArchived,
@@ -261,6 +273,15 @@ export default function HabitMaster() {
        // kelulusan hanya lewat tombol wisuda (tracker) supaya edit biasa
        // tidak kebetulan menghapus status lulus.
        targetDays: form.habitType === 'avoid' ? null : form.targetDays ?? null,
+       // Task 37 — Jadwal Tampil: serialisasi jadwal ke kolom scheduleJson
+       // (null = setiap hari). Dikirim sebagai string JSON — API menormalkan
+       // (dedup + urut) dan menolak jadwal kosong.
+       scheduleJson:
+         form.scheduleKind === 'daily'
+           ? null
+           : form.scheduleKind === 'weekly'
+             ? JSON.stringify({ kind: 'weekly', days: [...form.scheduleDays].sort((a, b) => a - b) })
+             : JSON.stringify({ kind: 'monthly', dates: [...form.scheduleDates].sort((a, b) => a - b) }),
        // targetType is preserved from the form (default 'daily' for new
        // habits; existing habits keep their value). Non-daily options are
        // disabled in the dropdown so users can't pick an unsupported mode,
@@ -439,6 +460,24 @@ export default function HabitMaster() {
    setForm((prev) => ({ ...prev, [key]: value }));
  }
 
+ // Task 37 — toggle hari/tanggal jadwal (chip multi-pilih di form).
+ function toggleScheduleDay(d: number) {
+   setForm((prev) => ({
+     ...prev,
+     scheduleDays: prev.scheduleDays.includes(d)
+       ? prev.scheduleDays.filter((x) => x !== d)
+       : [...prev.scheduleDays, d],
+   }));
+ }
+ function toggleScheduleDate(n: number) {
+   setForm((prev) => ({
+     ...prev,
+     scheduleDates: prev.scheduleDates.includes(n)
+       ? prev.scheduleDates.filter((x) => x !== n)
+       : [...prev.scheduleDates, n],
+   }));
+ }
+
  // ── Render ─────────────────────────────────────────────────────────────
 
  return (
@@ -597,8 +636,10 @@ export default function HabitMaster() {
                </div>
              </div>
 
-             {/* Row: Target + Target Type + Color */}
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+             {/* Row: Target + Kesulitan (Tipe Target lama dihapus — digantikan
+                 Jadwal Tampil di bawah; targetType tetap dipertahankan di
+                 payload untuk data lama, BUG-14). */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <div className="space-y-2">
                  <Label>Target</Label>
                  <Input
@@ -631,38 +672,6 @@ export default function HabitMaster() {
                  </p>
                </div>
                <div className="space-y-2">
-                 <Label>Tipe Target</Label>
-                 <Select
-                   value={form.targetType}
-                   onValueChange={(v) => updateForm('targetType', v)}
-                 >
-                   <SelectTrigger className="rounded-xl">
-                     <SelectValue />
-                   </SelectTrigger>
-                   <SelectContent>
-                     {TARGET_TYPES.map((t) => (
-                       <SelectItem
-                         key={t}
-                         value={t}
-                         // BUG-14 fix: weekly/monthly target types are stored
-                         // on the habit but the UI/completion logic treats
-                         // every habit as daily. Disable non-daily options to
-                         // prevent users from selecting an unsupported mode
-                         // (existing habits with targetType=weekly/monthly
-                         // remain editable; the field is preserved on save).
-                         disabled={t !== 'daily'}
-                       >
-                         {t === 'daily' ? 'Harian' : t === 'weekly' ? 'Mingguan' : 'Bulanan'}
-                         {t !== 'daily' ? ' (segera)' : ''}
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                 </Select>
-                 <p className="text-xs text-muted-foreground">
-                   Hanya &lsquo;Harian&rsquo; yang didukung saat ini.
-                 </p>
-               </div>
-               <div className="space-y-2">
                  <Label>Level Kesulitan</Label>
                  <Select
                    value={form.difficulty}
@@ -681,6 +690,104 @@ export default function HabitMaster() {
                  </Select>
                </div>
              </div>
+
+            {/* Task 37 — Jadwal Tampil: habit tidak harus muncul tiap hari. */}
+            {/* Pilihan: setiap hari (default) · hari tertentu dalam seminggu */}
+            {/* (mis. hanya Senin) · tanggal tertentu dalam sebulan (mis. tgl 1 */}
+            {/* & 15). Hari di luar jadwal tidak menghitung bolong — streak & */}
+            {/* hari aman tetap aman. */}
+            <div className="space-y-2">
+              <Label className="inline-flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                Jadwal Tampil
+              </Label>
+              <div className="grid grid-cols-3 gap-2" role="group" aria-label="Jenis jadwal tampil">
+                {([
+                  { value: 'daily', label: 'Setiap Hari' },
+                  { value: 'weekly', label: 'Hari Tertentu' },
+                  { value: 'monthly', label: 'Tanggal Tertentu' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateForm('scheduleKind', opt.value)}
+                    aria-pressed={form.scheduleKind === opt.value}
+                    className={cn(
+                      'rounded-xl border p-2.5 text-xs font-semibold text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                      form.scheduleKind === opt.value
+                        ? 'border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/20'
+                        : 'border-border/70 hover:border-teal-500/40 text-muted-foreground',
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {form.scheduleKind === 'weekly' && (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Hari terjadwal">
+                    {WEEKDAY_ORDER.map((d) => {
+                      const active = form.scheduleDays.includes(d);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleScheduleDay(d)}
+                          aria-pressed={active}
+                          className={cn(
+                            'h-9 min-w-11 px-2 rounded-xl border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                            active
+                              ? 'border-teal-500 bg-teal-500/15 text-teal-700 dark:text-teal-300'
+                              : 'border-border/70 text-muted-foreground hover:border-teal-500/40',
+                          )}
+                        >
+                          {WEEKDAY_LABELS[d] ?? String(d)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Habit hanya tampil di hari terpilih — hari lain tidak
+                    menghitung bolong. Pilih minimal satu hari.
+                  </p>
+                </div>
+              )}
+              {form.scheduleKind === 'monthly' && (
+                <div className="space-y-1.5">
+                  <div
+                    className="grid grid-cols-7 sm:grid-cols-10 gap-1.5"
+                    role="group"
+                    aria-label="Tanggal terjadwal"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((n) => {
+                      const active = form.scheduleDates.includes(n);
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => toggleScheduleDate(n)}
+                          aria-pressed={active}
+                          aria-label={`Tanggal ${n}`}
+                          className={cn(
+                            'h-9 rounded-xl border text-xs font-semibold tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                            active
+                              ? 'border-teal-500 bg-teal-500/15 text-teal-700 dark:text-teal-300'
+                              : 'border-border/70 text-muted-foreground hover:border-teal-500/40',
+                          )}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Habit tampil di tanggal terpilih tiap bulan — bulan tanpa
+                    tanggal tsb. (mis. tgl 31 di bulan pendek) otomatis
+                    dilewati. Pilih minimal satu tanggal.
+                  </p>
+                </div>
+              )}
+            </div>
             {/* Task 36: Target Lulus — garis finis habit. Orang yang senang */}
             {/* memulai tapi susah menyelesaikan butuh ENDING yang bisa */}
             {/* dirayakan; tanpa ini semua habit berjalan selamanya dan */}

@@ -16,6 +16,7 @@
 import { memo, useState, type CSSProperties } from 'react';
 import {
   BarChart3,
+  CalendarDays,
   Check,
   Clock3,
   GraduationCap,
@@ -29,6 +30,11 @@ import type { Habit, HabitLog } from './daily-tracker-types';
 import { computeStreakDetail, shiftYmdKey, toDateString } from './daily-tracker-helpers';
 import { dateFromYMD } from '@/lib/timezone';
 import { eeeIdFormatter } from '@/lib/date-utils';
+import {
+  isScheduledOn,
+  parseSchedule,
+  scheduleLabel,
+} from '@/lib/habit-schedule';
 import { cn } from '@/lib/utils';
 
 export interface HabitCardProps {
@@ -94,7 +100,8 @@ interface DayCell {
   ymd: string;
   label: string;
   dayNum: number;
-  state: 'done' | 'miss' | 'relapse' | 'clean' | 'future';
+  // 'off' = Task 37: hari di luar jadwal habit (bukan miss, bahan bolong).
+  state: 'done' | 'miss' | 'relapse' | 'clean' | 'future' | 'off';
   isSelected: boolean;
 }
 
@@ -128,16 +135,23 @@ function HabitCardInner({
   const catTintStyle = catTint ? undefined : hexTintStyle(catRawColor) ?? undefined;
   const catTintClass = catTint || (catTintStyle ? '' : 'cat-slate');
 
+  // ── Task 37: jadwal tampil habit (null = setiap hari) ──
+  const schedule = parseSchedule(habit.scheduleJson);
+  const isScheduledDaily = schedule.kind === 'daily';
+
   // ── Back face: 7 hari terakhir (selectedDate-6 … selectedDate) ──
   const days: DayCell[] = Array.from({ length: 7 }, (_, i) => {
     const ymd = shiftYmdKey(selectedDate, i - 6);
     const d = dateFromYMD(ymd);
     const log = monthLogs?.find((l) => toDateString(l.date) === ymd);
     const done = !!log?.completed;
+    const off = !isScheduledDaily && !isScheduledOn(schedule, ymd);
     let state: DayCell['state'];
     if (ymd > todayStr) state = 'future';
-    else if (isAvoid) state = done ? 'relapse' : 'clean';
-    else state = done ? 'done' : 'miss';
+    else if (done) state = isAvoid ? 'relapse' : 'done';
+    else if (off) state = 'off';
+    else if (isAvoid) state = 'clean';
+    else state = 'miss';
     return {
       ymd,
       label: eeeIdFormatter(d),
@@ -149,10 +163,12 @@ function HabitCardInner({
   // ── Task 36: streak + info hari aman (🛡) dalam SATU hitungan — selalu
   // sepakat dengan bestStreak tracker, dashboard, dan insight AI (helper
   // bersama; hari kosong mengonsumsi kuota 2 hari aman/bulan).
+  // Task 37: hari di luar jadwal tidak memutus rantai.
   const streakInfo = computeStreakDetail(monthLogs ?? [], selectedDate, {
     invert: isAvoid,
     startDate: habit.startDate,
     onVacation: !!habit.vacationMode,
+    schedule,
   });
   const streak = streakInfo.streak;
 
@@ -272,6 +288,16 @@ function HabitCardInner({
                   {habit.vacationMode && (
                     <span className="inline-flex items-center rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider">
                       🏖 Libur
+                    </span>
+                  )}
+                  {/* Task 37 — chip jadwal: hari/tanggal tempat habit tampil. */}
+                  {!isScheduledDaily && (
+                    <span
+                      title={`Jadwal: ${scheduleLabel(schedule)}`}
+                      className="inline-flex items-center gap-0.5 rounded-full bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider max-w-[7.5rem]"
+                    >
+                      <CalendarDays className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate normal-case">{scheduleLabel(schedule)}</span>
                     </span>
                   )}
                   {doneTime && (
@@ -496,13 +522,15 @@ function HabitCardInner({
                 <div
                   key={day.ymd}
                   title={`${day.ymd}${
-                    isShielded
-                      ? ' — hari aman (streak tetap jalan)'
-                      : day.state === 'relapse'
-                        ? ' — kambuh'
-                        : day.state === 'done'
-                          ? ' — selesai'
-                          : ''
+                    day.state === 'off'
+                      ? ' — di luar jadwal'
+                      : isShielded
+                        ? ' — hari aman (streak tetap jalan)'
+                        : day.state === 'relapse'
+                          ? ' — kambuh'
+                          : day.state === 'done'
+                            ? ' — selesai'
+                            : ''
                   }`}
                   className={cn(
                     'rounded-lg flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[52px]',
@@ -511,6 +539,7 @@ function HabitCardInner({
                     day.state === 'clean' && 'bg-emerald-500/15 dark:bg-emerald-500/20',
                     day.state === 'relapse' && 'bg-rose-500/20 dark:bg-rose-500/25',
                     isShielded && 'bg-teal-500/15 dark:bg-teal-400/15',
+                    day.state === 'off' && 'opacity-45 bg-muted/30',
                     !isShielded &&
                       (day.state === 'miss' || day.state === 'future') &&
                       'bg-muted/60',
@@ -538,6 +567,9 @@ function HabitCardInner({
                     {day.state === 'miss' && !isShielded && (
                       <span className="block h-3 w-[3px] rounded-full bg-muted-foreground/40" />
                     )}
+                    {day.state === 'off' && (
+                      <Minus className="h-3 w-3 text-muted-foreground/50" aria-hidden="true" />
+                    )}
                     {day.state === 'future' && (
                       <span className="block h-1 w-1 rounded-full bg-muted-foreground/30" />
                     )}
@@ -551,6 +583,7 @@ function HabitCardInner({
               {isAvoid
                 ? 'Hijau = hari bersih tanpa kambuh · merah = kambuh'
                 : 'Teal = selesai · 🛡 = hari aman · abu = terlewat'}
+              {!isAvoid && !isScheduledDaily && ' · ─ = di luar jadwal'}
             </p>
           </div>
         </div>

@@ -17,6 +17,11 @@ import { handleApiError, pickDailyQuote, round1, xpForDifficulty, ymdOf } from '
 import { calcLevel, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
+import {
+  isScheduledOn,
+  parseSchedule,
+  type HabitSchedule,
+} from '@/lib/habit-schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,9 +111,21 @@ export async function GET(req: Request) {
 
     const activeToday = [...todayCompleted].filter((id) => trackingIds.has(id)).length;
     const totalHabits = tracking.length;
-    const successToday = totalHabits > 0 ? Math.round((activeToday / totalHabits) * 100) : 0;
 
-    // ── Rate penyelesaian (denominator = habit aktif per hari) ──
+    // ── Rate penyelesaian (denominator = habit aktif TERJADWAL per hari) ──
+    // Task 37: habit mingguan/bulanan hanya menagih hari terjadwalnya —
+    // denominator & numerator dihitung dari hari terjadwal saja supaya
+    // "rate" habit 1×/minggu tidak terlihat 14% padahal konsisten.
+    const schedByHabit = new Map<string, HabitSchedule>(
+      tracking.map((h) => [h.id, parseSchedule(h.scheduleJson)]),
+    );
+    const scheduledCountBetween = (sched: HabitSchedule, fromYmd: string, toYmd: string): number => {
+      let n = 0;
+      for (let c = fromYmd; c <= toYmd; c = shiftYmd(c, 1)) {
+        if (isScheduledOn(sched, c)) n += 1;
+      }
+      return n;
+    };
     const rateBetween = (fromYmd: string, toYmd: string): number => {
       let denominator = 0;
       let completed = 0;
@@ -116,7 +133,7 @@ export async function GET(req: Request) {
         const startYmdHabit = ymdOf(h.startDate as Date);
         const effStart = startYmdHabit > fromYmd ? startYmdHabit : fromYmd;
         if (effStart > toYmd) continue;
-        denominator += daysBetween(effStart, toYmd);
+        denominator += scheduledCountBetween(schedByHabit.get(h.id) ?? { kind: 'daily' }, effStart, toYmd);
         const days = logsByHabit.get(h.id) ?? [];
         completed += days.filter((d) => d.ymd >= effStart && d.ymd <= toYmd).length;
       }
@@ -124,6 +141,18 @@ export async function GET(req: Request) {
     };
 
     const monthStart = currentMonth + '-01';
+    // Task 37: KPI "hari ini" hanya menagih habit yang jadwalnya hari ini
+    // (habit mingguan tidak mengecilkan persentase hari ini). Clamp 100%
+    // untuk completion di luar jadwal (jarang, tapi jujur ditampilkan penuh).
+    const scheduledTodayCount = tracking.filter(
+      (h) =>
+        ymdOf(h.startDate as Date) <= todayYmd &&
+        isScheduledOn(schedByHabit.get(h.id) ?? { kind: 'daily' }, todayYmd),
+    ).length;
+    const successToday =
+      scheduledTodayCount > 0
+        ? Math.min(100, Math.round((activeToday / scheduledTodayCount) * 100))
+        : 0;
     const weeklyRate = rateBetween(weekStartOf(todayYmd, weekStart), todayYmd);
     const monthlyRate = rateBetween(monthStart, todayYmd);
     const consistencyScore = rateBetween(startYmd, todayYmd);
@@ -168,13 +197,15 @@ export async function GET(req: Request) {
     const sleepAvg = avgOf((d) => d.sleep);
 
     // ── Habit terbaik / terburuk (rate periode) ──
+    // Task 37: denominator = hari TERJADWAL dalam periode (habit mingguan
+    // dihitung jujur — 1×/minggu konsisten = rate tinggi, bukan 14%).
     type HabitRate = { id: string; name: string; emoji: string; rate: number; done: number; days: number };
     const rates: HabitRate[] = [];
     for (const h of tracking) {
       const startYmdHabit = ymdOf(h.startDate as Date);
       const effStart = startYmdHabit > startYmd ? startYmdHabit : startYmd;
       if (effStart > todayYmd) continue;
-      const days = daysBetween(effStart, todayYmd);
+      const days = scheduledCountBetween(schedByHabit.get(h.id) ?? { kind: 'daily' }, effStart, todayYmd);
       if (days <= 0) continue;
       const done = (logsByHabit.get(h.id) ?? []).filter((l) => l.ymd >= startYmd && l.ymd <= todayYmd).length;
       rates.push({ id: h.id, name: h.name, emoji: h.emoji, rate: Math.round((done / days) * 100), done, days });
@@ -198,7 +229,12 @@ export async function GET(req: Request) {
     const buildDailyChart = (fromYmd: string, toYmd: string): ChartDay[] => {
       const chart: ChartDay[] = [];
       for (let cursor = fromYmd; cursor <= toYmd; cursor = shiftYmd(cursor, 1)) {
-        const due = tracking.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
+        // Task 37: due = habit yang jadwalnya memang hari itu.
+        const due = tracking.filter(
+          (h) =>
+            ymdOf(h.startDate as Date) <= cursor &&
+            isScheduledOn(schedByHabit.get(h.id) ?? { kind: 'daily' }, cursor),
+        ).length;
         const completed = completedByDate.get(cursor) ?? 0;
         chart.push({ date: cursor, completed, missed: Math.max(0, due - completed) });
       }
@@ -211,7 +247,12 @@ export async function GET(req: Request) {
       for (let cursor = fromYmd; cursor <= toYmd; cursor = shiftYmd(cursor, 1)) {
         const wk = weekStartOf(cursor, weekStart);
         const b = buckets.get(wk) ?? { completed: 0, missed: 0 };
-        const due = tracking.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
+        // Task 37: due = habit yang jadwalnya memang hari itu.
+        const due = tracking.filter(
+          (h) =>
+            ymdOf(h.startDate as Date) <= cursor &&
+            isScheduledOn(schedByHabit.get(h.id) ?? { kind: 'daily' }, cursor),
+        ).length;
         const completed = completedByDate.get(cursor) ?? 0;
         b.completed += completed;
         b.missed += Math.max(0, due - completed);
@@ -251,19 +292,32 @@ export async function GET(req: Request) {
       .sort((a, b) => b.count - a.count || (a.category < b.category ? -1 : 1));
 
     // ── Fokus hari ini (L-8: priority dari habit) ──
-    const focusToday = tracking.map((h) => ({
-      id: h.id,
-      name: h.name,
-      emoji: h.emoji,
-      priority: h.priority,
-      completed: todayCompleted.has(h.id),
-    }));
+    // Task 37: hanya habit yang JADWALNYA hari ini (habit mingguan tidak
+    // ikut menagih di hari kosongnya).
+    const focusToday = tracking
+      .filter(
+        (h) =>
+          ymdOf(h.startDate as Date) <= todayYmd &&
+          isScheduledOn(schedByHabit.get(h.id) ?? { kind: 'daily' }, todayYmd),
+      )
+      .map((h) => ({
+        id: h.id,
+        name: h.name,
+        emoji: h.emoji,
+        priority: h.priority,
+        completed: todayCompleted.has(h.id),
+      }));
 
     // ── Terakhir dikerjakan + streak ──
     const lastDone = tracking.map((h) => {
       const logs = logsByHabit.get(h.id) ?? [];
       const lastDate = logs.length ? logs.map((l) => l.ymd).sort().at(-1) ?? null : null;
-      const streak = computeStreakFromSet(new Set(logs.map((l) => l.ymd)), todayYmd);
+      // Task 37: streak per-habit sadar jadwal (hari di luar jadwal tidak putus).
+      const streak = computeStreakFromSet(
+        new Set(logs.map((l) => l.ymd)),
+        todayYmd,
+        schedByHabit.get(h.id),
+      );
       return { id: h.id, name: h.name, emoji: h.emoji, lastDate, streak };
     });
 

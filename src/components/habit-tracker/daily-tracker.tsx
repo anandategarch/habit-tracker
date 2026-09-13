@@ -49,7 +49,7 @@ import {
 // utility module. Output is identical for the patterns and helpers used
 // here — verified via test script in worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
-import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag, Plus, Sprout, X } from 'lucide-react';
+import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag, Plus, Sprout, X, CalendarDays } from 'lucide-react';
 
 import type { Habit, HabitLog } from './daily-tracker-types';
 import {
@@ -68,6 +68,14 @@ import { HabitCard } from './daily-tracker-habit-card';
 import { SortableHabitCard } from './daily-tracker-sortable-card';
 import { LoadingSkeleton } from './daily-tracker-skeleton';
 import { DailyCheckInCard } from './daily-check-in-card';
+// Task 37 — Jadwal Tampil: habit mingguan/bulanan hanya muncul di hari
+// terjadwalnya (grid, KPI harian, streak, banner kembali mengikuti).
+import {
+  isScheduledOn,
+  nextScheduledYmd,
+  nextOccurrenceLabel,
+  parseSchedule,
+} from '@/lib/habit-schedule';
 
 // Calendar merged into Tracker as sub-tab (nav 6 → 5)
 const CalendarView = dynamic(() => import('./calendar-view'), { ssr: false });
@@ -347,8 +355,35 @@ export default function DailyTracker() {
    [habits],
  );
 
+ // Task 37 — Jadwal Tampil: habit hanya muncul di hari terjadwalnya.
+ // `activeHabits` tetap memuat SEMUA habit aktif (semesta XP & batas
+ // kandidat); grid + KPI harian (X/Y, persentase) memakai `scheduledHabits`
+ // supaya "4/10" tidak dihitung dari habit yang memang tidak dijadwalkan
+ // hari ini.
+ const scheduledHabits = useMemo(
+   () => activeHabits.filter((h) => isScheduledOn(parseSchedule(h.scheduleJson), selectedDate)),
+   [activeHabits, selectedDate],
+ );
+
+ // Info "kapan habit tersembunyi muncul lagi" untuk empty-state hari tanpa
+ // jadwal (dihitung dari habit aktif yang TIDAK terjadwal hari ini).
+ const nextOccurrences = useMemo(() => {
+   const out: { id: string; name: string; emoji: string; label: string }[] = [];
+   for (const h of activeHabits) {
+     const sched = parseSchedule(h.scheduleJson);
+     if (sched.kind === 'daily') continue;
+     if (isScheduledOn(sched, selectedDate)) continue;
+     const next = nextScheduledYmd(sched, selectedDate);
+     if (!next) continue;
+     const lbl = nextOccurrenceLabel(sched, next);
+     if (!lbl) continue;
+     out.push({ id: h.id, name: h.name, emoji: h.emoji, label: lbl });
+   }
+   return out.slice(0, 3);
+ }, [activeHabits, selectedDate]);
+
  const filteredHabits = useMemo(() => {
-   let list = activeHabits;
+   let list = scheduledHabits;
    if (viewFilter === 'completed')
      // PHASE3-HABIT: "Selesai" filter shows habits where the user succeeded
      // today. For avoid habits, success = NOT checked (no relapse).
@@ -370,16 +405,18 @@ export default function DailyTracker() {
        return !success && !h.vacationMode;
      });
    return list;
- }, [activeHabits, completionMap, viewFilter]);
+ }, [scheduledHabits, completionMap, viewFilter]);
 
  // PHASE1-HABIT: vacation habits don't count toward today's completion stats.
  // They're excluded from both completedCount and totalCount so the daily
  // summary's X/Y and percentage reflect only the habits the user is actually
  // expected to do today. Vacation habits still appear in the grid (with a
  // 🏖️ badge) when the "Semua" filter is active.
+ // Task 37: semesta trackable = habit TERJADWAL tanggal itu (habit mingguan
+ // tidak dijadwalkan hari ini tidak mengecilkan/membebani X/Y harian).
  const trackableHabits = useMemo(
-   () => activeHabits.filter((h) => !h.vacationMode),
-   [activeHabits],
+   () => scheduledHabits.filter((h) => !h.vacationMode),
+   [scheduledHabits],
  );
 
  // ── PHASE4-POLISH: drag-to-reorder (@dnd-kit) ──────────────────────────
@@ -403,11 +440,11 @@ export default function DailyTracker() {
    async (event: DragEndEvent) => {
      const { active, over } = event;
      if (!over || active.id === over.id) return;
-     const oldIndex = activeHabits.findIndex((h) => h.id === active.id);
-     const newIndex = activeHabits.findIndex((h) => h.id === over.id);
+     const oldIndex = scheduledHabits.findIndex((h) => h.id === active.id);
+     const newIndex = scheduledHabits.findIndex((h) => h.id === over.id);
      if (oldIndex < 0 || newIndex < 0) return;
 
-     const reordered = arrayMove(activeHabits, oldIndex, newIndex);
+     const reordered = arrayMove(scheduledHabits, oldIndex, newIndex);
      // Re-assign `order` so the new array position matches the DB order
      // (0..N-1 across active habits). Collect only the diffs to PUT.
      const updates: { id: string; sortOrder: number }[] = [];
@@ -450,7 +487,7 @@ export default function DailyTracker() {
        setLocalHabitsOverride(null);
      }
    },
-   [activeHabits, habits, queryClient],
+   [scheduledHabits, habits, queryClient],
  );
 
  /** Toggle drag mode. When enabling, force viewFilter to "all" so every
@@ -557,17 +594,20 @@ export default function DailyTracker() {
      ? Math.round((dateFromYMD(todayStr).getTime() - dateFromYMD(last).getTime()) / 86_400_000)
      : 99; // tidak ketemu di 2 bulan → gap panjang, tetap sambut
    if (gapDays < 2) return null;
-   // Saran mulai: habit normal/amount belum selesai & tidak libur —
-   // prioritas kesulitan paling ringan (Easy/Mudah). Habit 'avoid' TIDAK
-   // ditawarkan (tombolnya menandai kambuh, bukan kemenangan).
-   const candidates = activeHabits.filter(
+   // Saran mulai: habit normal/amount TERJADWAL hari ini yang belum
+   // selesai & tidak libur — prioritas kesulitan paling ringan (Easy/Mudah).
+   // Habit 'avoid' TIDAK ditawarkan (tombolnya menandai kambuh, bukan
+   // kemenangan). Task 37: kandidat hanya habit yang memang jadwalnya hari
+   // ini — hari tanpa jadwal apa pun tidak menawarkan apa pun (banner
+   // otomatis tidak muncul karena candidates kosong).
+   const candidates = scheduledHabits.filter(
      (h) => h.habitType !== 'avoid' && !h.vacationMode && !(completionMap[h.id] ?? false),
    );
    if (candidates.length === 0) return null;
    const easy = candidates.filter((h) => h.difficulty === 'Easy' || h.difficulty === 'Mudah');
    const pick = (easy.length > 0 ? easy : candidates)[0];
    return { gapDays, pick };
- }, [selectedDate, todayStr, trackableHabits, activeHabits, habits, completionMap]);
+ }, [selectedDate, todayStr, trackableHabits, scheduledHabits, habits, completionMap]);
 
  // Best current streak across all active habits
  const bestStreak = useMemo(() => {
@@ -581,10 +621,12 @@ export default function DailyTracker() {
      // break during the pause.
      // PHASE3-HABIT: pass invert + startDate for "avoid" habits so the
      // streak counts consecutive days WITHOUT a relapse.
+     // Task 37: pass schedule so non-scheduled days don't break the chain.
      const s = computeStreak(logs, selectedDate, {
        onVacation: !!h.vacationMode,
        invert: h.habitType === 'avoid',
        startDate: h.startDate,
+       schedule: parseSchedule(h.scheduleJson),
      });
      if (s > best) best = s;
    }
@@ -917,6 +959,7 @@ export default function DailyTracker() {
                  invert: isAvoid,
                  startDate: habit.startDate,
                  onVacation: !!habit.vacationMode,
+                 schedule: parseSchedule(habit.scheduleJson),
                })
              : 0;
            const newStreak = currentStreak;
@@ -1068,6 +1111,7 @@ export default function DailyTracker() {
            ? computeStreak(cache[habitId] || [], selectedDate, {
                startDate: habit.startDate,
                onVacation: !!habit.vacationMode,
+               schedule: parseSchedule(habit.scheduleJson),
              })
            : 0;
          const milestone = milestoneForStreak(currentStreak);
@@ -1526,6 +1570,9 @@ export default function DailyTracker() {
          </div>
        )}
 
+       {/* Task 37: hari tanpa habit terjadwal — bukan error, cuma jadwal.
+           Tampilkan kapan habit terdekat muncul lagi supaya tidak terasa
+           "kehilangan" habit (kecemasan tipe pemula-rajin). */}
        {activeHabits.length === 0 ? (
          <div className="premium-card premium-empty rounded-2xl">
            <div className="premium-empty-orb">
@@ -1549,6 +1596,27 @@ export default function DailyTracker() {
              <Plus className="h-4 w-4" />
              Buat Habit Pertama
            </Button>
+         </div>
+       ) : scheduledHabits.length === 0 ? (
+         <div className="premium-card premium-empty rounded-2xl">
+           <div className="premium-empty-orb">
+             <CalendarDays className="h-8 w-8 text-primary" />
+           </div>
+           <p className="text-sm font-medium text-muted-foreground">
+             Tidak ada habit terjadwal hari ini
+           </p>
+           <p className="text-xs text-muted-foreground/70 -mt-0.5 max-w-xs text-center leading-relaxed">
+             Beberapa habit hanya tampil di hari tertentu — hari tanpa jadwal
+             tidak menghitung bolong, jadi santai saja.
+             {nextOccurrences.length > 0 && (
+               <span className="block mt-1.5">
+                 Berikutnya:{' '}
+                 {nextOccurrences
+                   .map((o) => `${o.emoji} ${o.name} (${o.label})`)
+                   .join(' · ')}
+               </span>
+             )}
+           </p>
          </div>
        ) : !dragMode && filteredHabits.length === 0 ? (
          <div className="premium-card premium-empty rounded-2xl">
@@ -1579,11 +1647,11 @@ export default function DailyTracker() {
            onDragEnd={handleDragEnd}
          >
            <SortableContext
-             items={activeHabits.map((h) => h.id)}
+             items={scheduledHabits.map((h) => h.id)}
              strategy={rectSortingStrategy}
            >
              <div className="habit-grid">
-               {activeHabits.map((habit, idx) => {
+               {scheduledHabits.map((habit, idx) => {
                  const isDone = !!(completionMap[habit.id] ?? false);
                  const isToggling = togglingIds.has(habit.id);
                  const justCompleted = recentlyCompleted.has(habit.id);

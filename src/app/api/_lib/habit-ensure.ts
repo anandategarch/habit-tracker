@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
-// src/app/api/_lib/habit-ensure.ts — ensure-DDL runtime kolom Target Lulus (Task 36).
+// src/app/api/_lib/habit-ensure.ts — ensure-DDL runtime kolom Habit baru
+// (Task 36: targetDays/graduatedAt · Task 37: scheduleJson).
 //
 // Kenapa ada file ini? Token Turso produksi TIDAK tersedia di sandbox, jadi
-// kolom baru Habit (targetDays, graduatedAt) tidak bisa di-push ke DB produksi
-// lewat CLI (`turso:push`). Solusi sama seperti work-ensure.ts (Task 17-a):
+// kolom baru Habit tidak bisa di-push ke DB produksi lewat CLI
+// (`turso:push`). Solusi sama seperti work-ensure.ts (Task 17-a):
 // setiap route yang menyentuh tabel Habit memanggil ensureHabitGraduation()
 // SEBELUM query Prisma. Fungsi ini memeriksa PRAGMA table_info lalu menjalankan
 // ALTER TABLE ADD COLUMN hanya bila kolom belum ada — idempoten, aman lokal
@@ -27,6 +28,10 @@ const NEW_COLUMNS: { name: string; ddl: string }[] = [
     name: 'graduatedAt',
     ddl: `ALTER TABLE "Habit" ADD COLUMN "graduatedAt" DATETIME`,
   },
+  {
+    name: 'scheduleJson',
+    ddl: `ALTER TABLE "Habit" ADD COLUMN "scheduleJson" TEXT`,
+  },
 ];
 
 const globalForHabitDdl = globalThis as unknown as {
@@ -48,7 +53,7 @@ async function runHabitDdl(): Promise<void> {
   }
 }
 
-/** Pastikan kolom targetDays/graduatedAt ada (idempotent, di-cache per proses). */
+/** Pastikan kolom targetDays/graduatedAt/scheduleJson ada (idempotent, di-cache per proses). */
 export function ensureHabitGraduation(): Promise<void> {
   if (!globalForHabitDdl.__habitEnsureGraduationPromise) {
     globalForHabitDdl.__habitEnsureGraduationPromise = runHabitDdl().catch((error) => {

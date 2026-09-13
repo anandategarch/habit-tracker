@@ -1,6 +1,11 @@
 // lib/dashboard-helpers.ts — XP, level, streak, agregasi dashboard/tracker.
 // Level memakai XP TOTAL all-time (fix Gelombang 1 — dulu todayXP reset harian).
 import type { Habit, HabitLog } from '@/components/habit-tracker/daily-tracker-types';
+import {
+  isScheduledOn,
+  parseSchedule,
+  type HabitSchedule,
+} from '@/lib/habit-schedule';
 
 /** Bobot XP per difficulty habit.
  *
@@ -73,7 +78,19 @@ export function computeStreakWithShields(
   doneDays: Set<string>,
   endYmd: string,
   shieldsPerMonth: number = SHIELDS_PER_MONTH,
+  /** Task 37 — jadwal habit: hari tidak terjadwal dilewati (tidak putus,
+   *  tidak konsumsi hari aman, tidak dihitung). Menerima objek atau JSON mentah. */
+  schedule?: HabitSchedule | string | null,
 ): StreakShieldInfo {
+  const sched =
+    schedule === undefined || schedule === null
+      ? null
+      : typeof schedule === 'string'
+        ? parseSchedule(schedule)
+        : schedule;
+  const notScheduled = (ymd: string): boolean =>
+    !!sched && sched.kind !== 'daily' && !isScheduledOn(sched, ymd);
+
   const usedByMonth = new Map<string, number>();
   const shieldedDays: string[] = [];
 
@@ -86,6 +103,13 @@ export function computeStreakWithShields(
   let streak = 0;
   let guard = 0;
   while (guard < STREAK_HARD_CAP) {
+    // Task 37: hari tidak terjadwal → lewati (habit mingguan tidak putus
+    // oleh hari Selasa bila jadwalnya hanya Senin).
+    if (notScheduled(cursor)) {
+      cursor = shiftYmd(cursor, -1);
+      guard += 1;
+      continue;
+    }
     if (doneDays.has(cursor)) {
       streak += 1;
       cursor = shiftYmd(cursor, -1);
@@ -105,8 +129,12 @@ export function computeStreakWithShields(
   return { streak, shieldedDays, usedThisMonth: usedByMonth.get(endYmd.slice(0, 7)) ?? 0 };
 }
 
-export function computeStreakFromSet(doneDays: Set<string>, endYmd: string): number {
-  return computeStreakWithShields(doneDays, endYmd).streak;
+export function computeStreakFromSet(
+  doneDays: Set<string>,
+  endYmd: string,
+  schedule?: HabitSchedule | string | null,
+): number {
+  return computeStreakWithShields(doneDays, endYmd, SHIELDS_PER_MONTH, schedule).streak;
 }
 
 /** Aritmetika YMD string UTC-safe (tidak lewat Date lokal). */

@@ -16,6 +16,8 @@ export interface Habit {
   targetDays?: number | null;
   /** Task 36 — tanggal lulus ISO (null = belum lulus). */
   graduatedAt?: string | null;
+  /** Task 37 — Jadwal Tampil (JSON {kind:'weekly',days}|{kind:'monthly',dates}; null = setiap hari). */
+  scheduleJson?: string | null;
   reminder?: string | null;
   notes?: string | null;
   trackTime: boolean;

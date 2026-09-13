@@ -30,6 +30,7 @@ import {
   HABIT_TYPE_LABELS,
   type Habit,
 } from './habit-master-types';
+import { parseSchedule, scheduleLabel } from '@/lib/habit-schedule';
 
 export interface HabitTableProps {
   habits: Habit[];
@@ -90,6 +91,10 @@ export function HabitTable({
             const status = habitStatus(h);
             const archived = status === 'archived';
             const graduated = status === 'graduated';
+            // Task 37 — badge jadwal tampil (tidak render untuk harian).
+            const sched = parseSchedule(h.scheduleJson);
+            const schedBadge =
+              sched.kind !== 'daily' ? scheduleLabel(sched) : null;
             return (
               <TableRow
                 key={h.id}
@@ -135,6 +140,12 @@ export function HabitTable({
                             <span aria-hidden="true">·</span>
                             <span className="truncate">{h.category}</span>
                           </>
+                        )}
+                        {schedBadge && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-teal-500/10 dark:bg-teal-400/10 px-1.5 py-px text-[10px] font-bold text-teal-600 dark:text-teal-300 max-w-[8rem]">
+                            <span aria-hidden="true">📅</span>
+                            <span className="truncate">{schedBadge}</span>
+                          </span>
                         )}
                       </p>
                     </div>

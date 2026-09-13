@@ -10,6 +10,7 @@ import type { HabitLog } from './daily-tracker-types';
 // Aritmetika YMD string UTC-safe + kuota hari aman dari lib (implementasi
 // bersama — dipakai juga oleh /api/dashboard & lencana milestone).
 import { shiftYmd, SHIELDS_PER_MONTH } from '@/lib/dashboard-helpers';
+import { isScheduledOn, type HabitSchedule } from '@/lib/habit-schedule';
 
 /** Kunci YMD 'yyyy-MM-dd' dari tanggal log (ISO string UTC-midnight atau Date). */
 export function toDateString(date: string | Date): string {
@@ -81,6 +82,8 @@ export function formatJakartaTime(iso: string): string {
 //  - startDate: YMD/ISO mulai habit — batas bawah hitungan.
 //  - onVacation: habit sedang libur → ekor hari tanpa log TIDAK memutus
 //               streak (jalan mundur sampai log selesai terakhir).
+//  - schedule (Task 37): jadwal tampil habit — hari TIDAK terjadwal dilewati
+//               (tidak putus, tidak konsumsi hari aman, tidak dihitung).
 // Hari ini belum selesai tidak memutus streak (konvensi lama).
 //
 // Task 36 — HARI AMAN (streak shield): untuk habit normal/amount, hari kosong
@@ -94,6 +97,8 @@ export interface ComputeStreakOptions {
   invert?: boolean;
   startDate?: string | null;
   onVacation?: boolean;
+  /** Task 37 — Jadwal Tampil: hari tidak terjadwal dilewati dalam walk. */
+  schedule?: HabitSchedule;
 }
 
 const STREAK_HARD_CAP = 4_000; // pengaman loop (± 11 tahun)
@@ -117,6 +122,10 @@ export function computeStreakDetail(
     if (log?.completed) marks.add(toDateString(log.date));
   }
   const floor = opts.startDate ? toDateString(opts.startDate) : null;
+  // Task 37: hari di luar jadwal → bukan bolong (dilewati, tanpa kuota).
+  const sched = opts.schedule;
+  const notScheduled = (ymd: string): boolean =>
+    !!sched && sched.kind !== 'daily' && !isScheduledOn(sched, ymd);
 
   // Habit 'avoid': hari tanpa kambuh dihitung berturut sejak habit mulai.
   if (opts.invert) {
@@ -126,7 +135,7 @@ export function computeStreakDetail(
     let guard = 0;
     while (!marks.has(cursor) && guard < STREAK_HARD_CAP) {
       if (floor && cursor < floor) break; // sebelum habit ada
-      streak += 1;
+      if (!notScheduled(cursor)) streak += 1; // hari tak terjadwal tidak dihitung
       cursor = shiftYmd(cursor, -1);
       guard += 1;
     }
@@ -157,6 +166,13 @@ export function computeStreakDetail(
   let streak = 0;
   let guard = 0;
   while (guard < STREAK_HARD_CAP) {
+    // Task 37: hari tidak terjadwal → lewati total (habit mingguan tidak
+    // putus oleh hari-hari kosong di luar jadwalnya).
+    if (notScheduled(cursor)) {
+      cursor = shiftYmd(cursor, -1);
+      guard += 1;
+      continue;
+    }
     if (marks.has(cursor)) {
       streak += 1;
       cursor = shiftYmd(cursor, -1);

@@ -46,6 +46,11 @@ model Habit {
   // Task 36 — tanggal kelulusan (ISO). null = belum lulus. Habit lulus
   // keluar dari rotasi harian & tampil berstatus 🎓 Lulus di Habit Master.
   graduatedAt  DateTime?
+  // Task 37 — Jadwal Tampil: habit tidak harus muncul setiap hari.
+  // JSON {kind:'weekly',days:[1,3]} (0=Minggu..6=Sabtu) atau
+  // {kind:'monthly',dates:[1,15]} (tanggal dalam bulan). null = setiap hari
+  // (default; kompatibel mundur dengan semua habit lama).
+  scheduleJson String?
   reminder     String? // string bebas "misal 08:00"
   notes        String?
   trackTime    Boolean     @default(false)

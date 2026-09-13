@@ -34,7 +34,7 @@ export const IMPORT_TABLES: TableSpec[] = [
   },
   {
     key: 'habits',
-    columns: ['id', 'name', 'emoji', 'category', 'priority', 'difficulty', 'habitType', 'target', 'unit', 'targetType', 'targetDays', 'graduatedAt', 'reminder', 'notes', 'trackTime', 'groupId', 'sortOrder', 'isActive', 'isArchived', 'vacationMode', 'vacationUntil', 'startDate', 'createdAt', 'updatedAt'],
+    columns: ['id', 'name', 'emoji', 'category', 'priority', 'difficulty', 'habitType', 'target', 'unit', 'targetType', 'targetDays', 'graduatedAt', 'scheduleJson', 'reminder', 'notes', 'trackTime', 'groupId', 'sortOrder', 'isActive', 'isArchived', 'vacationMode', 'vacationUntil', 'startDate', 'createdAt', 'updatedAt'],
     dateColumns: ['vacationUntil', 'graduatedAt', 'startDate', 'createdAt', 'updatedAt'],
   },
   {

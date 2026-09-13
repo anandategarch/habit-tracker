@@ -8,6 +8,7 @@ import {
   clamp,
 } from '@/app/api/_lib/api-utils';
 import { dateFromYMD, isValidYMD } from '@/lib/timezone';
+import { normalizeSchedule, serializeSchedule } from '@/lib/habit-schedule';
 
 const HABIT_TYPES = new Set(['normal', 'amount', 'avoid']);
 const DIFFICULTIES = new Set(['Easy', 'Medium', 'Hard', 'Mudah', 'Sedang', 'Sulit']);
@@ -121,6 +122,30 @@ export async function parseHabitFields(
       } else {
         throw badRequest('Tanggal lulus tidak valid');
       }
+    }
+  }
+  // Task 37 — Jadwal Tampil: habit mingguan/bulanan hanya muncul di hari
+  // terjadwalnya. Menerima objek {kind,days|dates}, string JSON, atau
+  // null/'' (→ setiap hari). Weekly butuh ≥1 hari (0-6, 0=Minggu), monthly
+  // butuh ≥1 tanggal (1-31); duplikat dinormalisasi & diurutkan.
+  if ('scheduleJson' in body || 'schedule' in body) {
+    const raw = 'schedule' in body ? body.schedule : body.scheduleJson;
+    if (raw === null || raw === undefined || raw === '') {
+      data.scheduleJson = null;
+    } else {
+      let parsed: unknown = raw;
+      if (typeof raw === 'string') {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          throw badRequest('Jadwal habit tidak valid');
+        }
+      }
+      const sched = normalizeSchedule(parsed);
+      if (!sched) {
+        throw badRequest('Jadwal tidak valid — pilih minimal satu hari/tanggal');
+      }
+      data.scheduleJson = serializeSchedule(sched);
     }
   }
   if ('reminder' in body) {

@@ -34,6 +34,9 @@ import {
   eeeeIdFormatter,
   mmmDdIdFormatter,
 } from '@/lib/date-utils';
+// Task 37 — Jadwal Tampil: heatmap kalender hanya menghitung habit yang
+// jadwalnya hari itu.
+import { isScheduledOn, parseSchedule } from '@/lib/habit-schedule';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -270,12 +273,14 @@ export default function CalendarView() {
     const today = new Date();
     // Habit aktif pada hari tsb: tidak diarsipkan & sudah mulai (perbandingan
     // YMD string — TZ-safe, tanpa parse lokal).
+    // Task 37: hanya habit yang JADWALNYA hari itu (habit mingguan tidak
+    // dihitung "due" di hari kosongnya — heatmap % jadi jujur).
     const activeHabitCountOnDay = (dayStr: string): number =>
       habits.filter((h) => {
         if (h.isArchived) return false;
         const start = h.startDate?.slice(0, 10);
         if (start && start > dayStr) return false;
-        return true;
+        return isScheduledOn(parseSchedule(h.scheduleJson), dayStr);
       }).length;
 
     return days.map((d) => {

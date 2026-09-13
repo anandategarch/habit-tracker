@@ -65,7 +65,7 @@ export async function GET() {
       db.appSettings.findUnique({ where: { id: 'singleton' }, select: { userName: true } }),
       db.habit.findMany({
         where: { isActive: true, isArchived: false },
-        select: { id: true, name: true, emoji: true, category: true, difficulty: true, trackTime: true },
+        select: { id: true, name: true, emoji: true, category: true, difficulty: true, trackTime: true, scheduleJson: true },
         orderBy: { sortOrder: 'asc' },
       }),
       db.habitLog.findMany({
@@ -135,7 +135,8 @@ export async function GET() {
       // Task 36: pakai helper bersama (hari aman) supaya insight streak
       // selalu sepakat dengan kartu habit & dashboard — dulu loop manual
       // di sini bisa menilai "streak putus" padahal kartu bilang masih hidup.
-      return { id: h.id, name: h.name, streak: computeStreakFromSet(days, todayYmd) };
+      // Task 37: streak sadar jadwal (hari di luar jadwal tidak putus).
+      return { id: h.id, name: h.name, streak: computeStreakFromSet(days, todayYmd, h.scheduleJson) };
     });
     const topStreak: HabitStreak | null = streaks.reduce<HabitStreak | null>(
       (best, s) => (best === null || s.streak > best.streak ? s : best),
