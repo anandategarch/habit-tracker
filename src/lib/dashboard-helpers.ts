@@ -101,6 +101,7 @@ export function computeStreakWithShields(
   }
 
   let streak = 0;
+  let consecutiveMissed = 0;
   let guard = 0;
   while (guard < STREAK_HARD_CAP) {
     // Task 37: hari tidak terjadwal → lewati (habit mingguan tidak putus
@@ -112,12 +113,23 @@ export function computeStreakWithShields(
     }
     if (doneDays.has(cursor)) {
       streak += 1;
+      consecutiveMissed = 0;
       cursor = shiftYmd(cursor, -1);
     } else if (shieldsPerMonth > 0) {
       // Hari kosong → coba hari aman (kuota per bulan kalender hari itu).
       const month = cursor.slice(0, 7);
       const used = usedByMonth.get(month) ?? 0;
       if (used >= shieldsPerMonth) break; // kuota bulan habis → putus
+      // Task 39 (#1): kuota per bulan kalender tak pernah habis untuk habit
+      // berjadwal jarang (bulanan 1-2 tanggal → maks 1-2 hari terjadwal per
+      // bulan), sehingga streak tidak pernah putus walau bolong berbulan-
+      // bulan (done Jan 2024 → bolong 11 bulan → done Jan 2025 = "streak 2").
+      // Aturan tambahan: maksimal `shieldsPerMonth` hari terjadwal kosong
+      // BERTURUT-TURUT — miss ke-(N+1) berturut memutus rantai. Habit harian
+      // tidak berubah (2 bolong berurutan tetap diampuni, ke-3 tetap putus);
+      // habit mingguan/bulanan kini putus setelah 3 kemunculan kosong berurut.
+      if (consecutiveMissed >= shieldsPerMonth) break;
+      consecutiveMissed += 1;
       usedByMonth.set(month, used + 1);
       shieldedDays.push(cursor);
       cursor = shiftYmd(cursor, -1);

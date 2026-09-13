@@ -37,6 +37,7 @@ import {
 // Task 37 — Jadwal Tampil: heatmap kalender hanya menghitung habit yang
 // jadwalnya hari itu.
 import { isScheduledOn, parseSchedule } from '@/lib/habit-schedule';
+import { jakartaYmdOf } from './daily-tracker-helpers';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -278,7 +279,14 @@ export default function CalendarView() {
     const activeHabitCountOnDay = (dayStr: string): number =>
       habits.filter((h) => {
         if (h.isArchived) return false;
-        const start = h.startDate?.slice(0, 10);
+        // Task 39 (#3): habit lulus (graduatedAt) tidak lagi "due" — tanpa
+        // ini heatmap kalender menurun permanen setelah wisuda (3/4 padahal
+        // semua habit berjalan selesai 3/3). Tracker & dashboard sudah
+        // memfilter; kalender tertinggal.
+        if (h.graduatedAt) return false;
+        // Task 39 (#9): konversi Jakarta (bukan slice UTC) — startDate
+        // adalah momen nyata; kejadian 00:00–06:59 Jakarta salah hari di UTC.
+        const start = h.startDate ? jakartaYmdOf(h.startDate) : null;
         if (start && start > dayStr) return false;
         return isScheduledOn(parseSchedule(h.scheduleJson), dayStr);
       }).length;
@@ -296,7 +304,10 @@ export default function CalendarView() {
       if (!inMonth || isFuture) {
         completionRate = null;
       } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay > 0) {
-        completionRate = Math.round((hLogs.completed / totalHabitsOnDay) * 100);
+        // Task 39 (#3 lanjutan): clamp 100 — log habit yang wisuda di hari
+        // terakhirnya bisa membuat numerator > denominator (habit keluar
+        // semesta due, lognya masih terhitung).
+        completionRate = Math.min(100, Math.round((hLogs.completed / totalHabitsOnDay) * 100));
       } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay === 0) {
         completionRate = 100;
       } else {

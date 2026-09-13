@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, round1, ymdOf } from '@/app/api/_lib/api-utils';
 import { computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
+import { isScheduledOn, parseSchedule } from '@/lib/habit-schedule';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import ZAI from 'z-ai-web-dev-sdk';
 
@@ -61,15 +62,20 @@ export async function GET() {
     const startYmd14 = shiftYmd(todayYmd, -13);
     const month = jakartaMonthString();
 
-    const [settings, habits, logs30, daily14, monthTx] = await Promise.all([
+    const [settings, habits, allLogs, daily14, monthTx] = await Promise.all([
       db.appSettings.findUnique({ where: { id: 'singleton' }, select: { userName: true } }),
+      // Task 39 (#8): habit LULUS keluar dari pool insight — dulu masih
+      // dibandingkan dengan habit berjalan (rate/streak campur).
       db.habit.findMany({
-        where: { isActive: true, isArchived: false },
+        where: { isActive: true, isArchived: false, graduatedAt: null },
         select: { id: true, name: true, emoji: true, category: true, difficulty: true, trackTime: true, scheduleJson: true },
         orderBy: { sortOrder: 'asc' },
       }),
+      // Task 39 (#8): log TANPA batas 30 hari — window 30 hari tetap
+      // diterapkan per keperluan (doneLast30), tapi streak perlu riwayat
+      // penuh supaya sepakat dengan dashboard/kartu (dulu terpotong 30).
       db.habitLog.findMany({
-        where: { completed: true, date: { gte: dateFromYMD(startYmd30), lte: dateFromYMD(todayYmd) } },
+        where: { completed: true },
         select: { habitId: true, date: true, value: true },
       }),
       db.dailyLog.findMany({
@@ -86,7 +92,7 @@ export async function GET() {
 
     // ── Ringkasan data untuk LLM & fallback ──
     const doneByHabit = new Map<string, number>();
-    for (const log of logs30) {
+    for (const log of allLogs) {
       const ymd = ymdOf(log.date as Date);
       if (ymd < startYmd30 || ymd > todayYmd) continue;
       doneByHabit.set(log.habitId, (doneByHabit.get(log.habitId) ?? 0) + 1);
@@ -95,14 +101,25 @@ export async function GET() {
     // (payload ringkas, tahan nama panjang/aneh — output tetap divalidasi;
     // fallback statis memakai nama penuh).
     const llmName = (name: string): string => (name.length > 40 ? `${name.slice(0, 40)}…` : name);
-    const habitStats = habits.map((h) => ({
-      id: h.id,
-      name: h.name,
-      category: h.category,
-      difficulty: h.difficulty,
-      doneLast30: doneByHabit.get(h.id) ?? 0,
-      rate30: Math.round(((doneByHabit.get(h.id) ?? 0) / 30) * 100),
-    }));
+    const habitStats = habits.map((h) => {
+      // Task 39 (#8): denominator rate30 = hari TERJADWAL dalam 30 hari
+      // (bukan 30 mentah) — habit 1×/minggu yang konsisten dinilai 23%
+      // padahal sebenarnya 100%. Clamp 100 seperti dashboard.
+      const sched = parseSchedule(h.scheduleJson);
+      let scheduledDays = 0;
+      for (let c = startYmd30; c <= todayYmd; c = shiftYmd(c, 1)) {
+        if (isScheduledOn(sched, c)) scheduledDays += 1;
+      }
+      const done = doneByHabit.get(h.id) ?? 0;
+      return {
+        id: h.id,
+        name: h.name,
+        category: h.category,
+        difficulty: h.difficulty,
+        doneLast30: done,
+        rate30: scheduledDays > 0 ? Math.min(100, Math.round((done / scheduledDays) * 100)) : 0,
+      };
+    });
 
     const moodAvg = daily14.length ? round1(daily14.reduce((s, d) => s + (d.mood ?? 3), 0) / daily14.length) : null;
     const sleepAvg = daily14.length ? round1(daily14.reduce((s, d) => s + (d.sleep ?? 7), 0) / daily14.length) : null;
@@ -118,9 +135,9 @@ export async function GET() {
     const monthNet = monthIncome - monthExpense;
     const savingRate = monthIncome > 0 ? Math.round((monthNet / monthIncome) * 100) : null;
 
-    // Streak berjalan per habit (dari log 30 hari).
+    // Streak berjalan per habit (riwayat penuh — Task 39 #8).
     const habitLogsYmd = new Map<string, Set<string>>();
-    for (const log of logs30) {
+    for (const log of allLogs) {
       const ymd = ymdOf(log.date as Date);
       if (!habitLogsYmd.has(log.habitId)) habitLogsYmd.set(log.habitId, new Set());
       habitLogsYmd.get(log.habitId)!.add(ymd);

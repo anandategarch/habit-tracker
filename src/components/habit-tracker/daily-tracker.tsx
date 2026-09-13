@@ -42,6 +42,7 @@ import type { Habit } from './daily-tracker-types';
 import {
   toDateString,
   computeStreak,
+  jakartaYmdOf,
   shiftYmdKey,
   saveDailyLog,
   htmlToPlainText,
@@ -421,20 +422,39 @@ export default function DailyTracker() {
       const newIndex = scheduledHabits.findIndex((h) => h.id === over.id);
       if (oldIndex < 0 || newIndex < 0) return;
 
-      const reordered = arrayMove(scheduledHabits, oldIndex, newIndex);
-      // Re-assign `order` so the new array position matches the DB order
-      // (0..N-1 across active habits). Collect only the diffs to PUT.
+      const reorderedSubset = arrayMove(scheduledHabits, oldIndex, newIndex);
+
+      // Task 39 (#2): sisipkan hasil reorder kembali ke daftar habit aktif
+      // PENUH sebelum menomori ulang. Dulu sortOrder di-assign dari index
+      // SUBSET terjadwal — habit mingguan/bulanan yang tersembunyi hari itu
+      // mempertahankan nomor lama → dua habit bisa ber-sortOrder sama →
+      // urutan global kacau permanen setelah refresh (tie-break createdAt).
+      const subsetIds = new Set(reorderedSubset.map((h) => h.id));
+      const reorderedActive: Habit[] = [];
+      let k = 0;
+      for (const h of activeHabits) {
+        if (subsetIds.has(h.id) && k < reorderedSubset.length) {
+          reorderedActive.push(reorderedSubset[k]);
+          k += 1;
+        } else {
+          reorderedActive.push(h);
+        }
+      }
+
+      // Re-assign `sortOrder` so the new array position matches the DB order
+      // (0..N-1 across ALL active habits — scheduled or not). Collect only
+      // the diffs to PUT.
       const updates: { id: string; sortOrder: number }[] = [];
-      reordered.forEach((h, idx) => {
+      reorderedActive.forEach((h, idx) => {
         if (h.sortOrder !== idx) updates.push({ id: h.id, sortOrder: idx });
       });
 
       // Optimistic local override: reordered active habits (with new order
       // field) followed by the unchanged paused/archived habits.
-      const activeIds = new Set(reordered.map((h) => h.id));
+      const activeIds = new Set(reorderedActive.map((h) => h.id));
       const nonActive = habits.filter((h) => !activeIds.has(h.id));
       const reorderedAll: Habit[] = [
-        ...reordered.map((h, idx) => ({ ...h, sortOrder: idx })),
+        ...reorderedActive.map((h, idx) => ({ ...h, sortOrder: idx })),
         ...nonActive,
       ];
       setLocalHabitsOverride(reorderedAll);
@@ -464,7 +484,7 @@ export default function DailyTracker() {
         setLocalHabitsOverride(null);
       }
     },
-    [scheduledHabits, habits, queryClient],
+    [scheduledHabits, activeHabits, habits, queryClient],
   );
 
   /** Toggle drag mode. When enabling, force viewFilter to "all" so every
@@ -552,6 +572,15 @@ export default function DailyTracker() {
           if (ymd <= todayStr && ymd > last) last = ymd;
         }
       }
+    }
+    // Task 39 (#7): tanggal WISUDA = tanggal kemenangan terakhir habit lulus.
+    // Cache log bulanan hanya berisi habit yang BELUM lulus, jadi tanpa ini
+    // pengguna yang kemarin menyelesaikan habit terakhirnya lalu hari ini
+    // membuka app disambut "sudah lama tidak mampir" (gap 99 palsu).
+    for (const h of habits) {
+      if (!h.graduatedAt) continue;
+      const gy = jakartaYmdOf(h.graduatedAt);
+      if (gy <= todayStr && gy > last) last = gy;
     }
     const gapDays = last
       ? Math.round((dateFromYMD(todayStr).getTime() - dateFromYMD(last).getTime()) / 86_400_000)

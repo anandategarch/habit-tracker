@@ -11,11 +11,23 @@ import type { HabitLog } from './daily-tracker-types';
 // bersama — dipakai juga oleh /api/dashboard & lencana milestone).
 import { shiftYmd, SHIELDS_PER_MONTH } from '@/lib/dashboard-helpers';
 import { isScheduledOn, type HabitSchedule } from '@/lib/habit-schedule';
+import { jakartaDateString } from '@/lib/timezone';
 
 /** Kunci YMD 'yyyy-MM-dd' dari tanggal log (ISO string UTC-midnight atau Date). */
 export function toDateString(date: string | Date): string {
   if (date instanceof Date) return date.toISOString().slice(0, 10);
   return String(date).slice(0, 10);
+}
+
+/** YMD JAKARTA dari timestamp asli (string ISO / Date) — BEDA dengan
+ *  `toDateString` (potong UTC) yang dipakai untuk kolom `date` log yang
+ *  memang dijangkar UTC-noon. startDate/graduatedAt adalah momen NYATA:
+ *  kejadian jam 00:00–06:59 Jakarta (17:00–23:59 UTC hari sebelumnya) akan
+ *  jatuh ke hari yang salah bila dipotong UTC (kelas bug STREAK-TZ).
+ *  Task 39 (#9). */
+export function jakartaYmdOf(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  return jakartaDateString(d);
 }
 
 /** Alias kontrak parent: geser YMD sebanyak `delta` hari (string-safe, TZ-proof). */
@@ -121,7 +133,7 @@ export function computeStreakDetail(
   for (const log of logs) {
     if (log?.completed) marks.add(toDateString(log.date));
   }
-  const floor = opts.startDate ? toDateString(opts.startDate) : null;
+  const floor = opts.startDate ? jakartaYmdOf(opts.startDate) : null;
   // Task 37: hari di luar jadwal → bukan bolong (dilewati, tanpa kuota).
   const sched = opts.schedule;
   const notScheduled = (ymd: string): boolean =>
@@ -164,6 +176,7 @@ export function computeStreakDetail(
   }
 
   let streak = 0;
+  let consecutiveMissed = 0;
   let guard = 0;
   while (guard < STREAK_HARD_CAP) {
     // Task 37: hari tidak terjadwal → lewati total (habit mingguan tidak
@@ -175,6 +188,7 @@ export function computeStreakDetail(
     }
     if (marks.has(cursor)) {
       streak += 1;
+      consecutiveMissed = 0;
       cursor = shiftYmd(cursor, -1);
     } else {
       // Batas bawah: hari sebelum habit ada bukan "bolong" — jangan pakai
@@ -183,6 +197,12 @@ export function computeStreakDetail(
       const month = cursor.slice(0, 7);
       const used = usedByMonth.get(month) ?? 0;
       if (used >= SHIELDS_PER_MONTH) break; // kuota bulan habis → putus
+      // Task 39 (#1): sama seperti lib/dashboard-helpers — kuota kalender
+      // tak pernah habis utk habit jarang terjadwal (bulanan 1-2 tgl/bulan)
+      // → streak tak pernah putus. Batasi bolong terjadwal BERTURUT-TURUT
+      // maksimal SHIELDS_PER_MONTH; miss ke-3 berturut memutus.
+      if (consecutiveMissed >= SHIELDS_PER_MONTH) break;
+      consecutiveMissed += 1;
       usedByMonth.set(month, used + 1);
       shieldedDays.push(cursor);
       cursor = shiftYmd(cursor, -1);
