@@ -16,6 +16,7 @@ import {
 import {
  Dialog,
  DialogContent,
+ DialogDescription,
  DialogHeader,
  DialogTitle,
  DialogTrigger,
@@ -51,6 +52,7 @@ import { jakartaDateString } from '@/lib/jakarta-date';
 // ── Types & Constants (imported from habit-master-types) ──────────────────
 import {
  type Habit, type HabitGroup, type HabitFormData,
+ TARGET_DAYS_OPTIONS,
  TARGET_TYPES, STATUSES, DEFAULT_EMOJIS,
  emptyForm, habitToForm, habitStatus,
 } from './habit-master-types';
@@ -254,6 +256,11 @@ export default function HabitMaster() {
        // PHASE3-HABIT: for "amount" habits (daily goal with numeric target),
        // allow target > 1 (up to 1000 — see the form's max attribute).
        target: form.habitType === 'amount' ? Math.min(1000, Math.max(1, form.target || 1)) : 1,
+       // Task 36 — Target Lulus: null = habit selamanya; habit 'avoid'
+       // tidak punya garis finis. graduatedAt TIDAK dikirim dari form —
+       // kelulusan hanya lewat tombol wisuda (tracker) supaya edit biasa
+       // tidak kebetulan menghapus status lulus.
+       targetDays: form.habitType === 'avoid' ? null : form.targetDays ?? null,
        // targetType is preserved from the form (default 'daily' for new
        // habits; existing habits keep their value). Non-daily options are
        // disabled in the dropdown so users can't pick an unsupported mode,
@@ -468,6 +475,12 @@ export default function HabitMaster() {
                  </div>
                </div>
              </DialogTitle>
+             {/* a11y (Task 36): deskripsi ter-taut — radix tidak lagi
+                 memperingatkan "Description missing" saat dialog dibuka. */}
+             <DialogDescription className="sr-only">
+               {editingId ? 'Perbarui detail habit' : 'Isi detail habit baru'}
+               — termasuk Target Lulus (garis finis habit).
+             </DialogDescription>
            </DialogHeader>
            <div className="grid gap-5 py-2">
              {/* Row: Name + Icon */}
@@ -668,6 +681,37 @@ export default function HabitMaster() {
                  </Select>
                </div>
              </div>
+            {/* Task 36: Target Lulus — garis finis habit. Orang yang senang */}
+            {/* memulai tapi susah menyelesaikan butuh ENDING yang bisa */}
+            {/* dirayakan; tanpa ini semua habit berjalan selamanya dan */}
+            {/* tidak pernah "selesai". Habit 'avoid' tidak punya target */}
+            {/* lulus (hari tanpa log = bersih, bukan progres). */}
+            {form.habitType !== 'avoid' && (
+              <div className="space-y-2">
+                <Label>Target Lulus 🎓</Label>
+                <Select
+                  value={form.targetDays === null || form.targetDays === undefined ? '__none__' : String(form.targetDays)}
+                  onValueChange={(v) => updateForm('targetDays', v === '__none__' ? null : Number(v))}
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TARGET_DAYS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value === null ? 'none' : String(o.value)} value={o.value === null ? '__none__' : String(o.value)}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Setelah jumlah hari selesai mencapai target, kartu habit
+                  menawarkan tombol <span className="font-semibold">Lulus</span> —
+                  perayaan wisuda + habit keluar dari rutinitas harian. Tanpa
+                  target = habit selamanya.
+                </p>
+              </div>
+            )}
 
              {/* PHASE3-HABIT: Habit type selector (Normal / Avoid / Amount).
                  Controls how the daily-tracker interprets the checkbox and

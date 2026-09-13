@@ -22,6 +22,8 @@ const STATUS_OPTIONS: { id: string; label: string }[] = [
   { id: 'all', label: 'Semua' },
   { id: 'active', label: 'Aktif' },
   { id: 'paused', label: 'Dijeda' },
+  // Task 36 — tabir kemenangan: lihat habit yang sudah diwisuda (🎓).
+  { id: 'graduated', label: 'Lulus' },
   { id: 'archived', label: 'Arsip' },
 ];
 

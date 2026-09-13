@@ -12,6 +12,10 @@ export interface Habit {
   target: number;
   unit?: string | null;
   targetType?: string | null;
+  /** Task 36 — Target Lulus: jumlah hari selesai menuju wisuda (null = tanpa target). */
+  targetDays?: number | null;
+  /** Task 36 — tanggal lulus ISO (null = belum lulus). */
+  graduatedAt?: string | null;
   reminder?: string | null;
   notes?: string | null;
   trackTime: boolean;

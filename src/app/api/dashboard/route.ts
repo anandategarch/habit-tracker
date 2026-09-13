@@ -16,6 +16,7 @@ import { db } from '@/lib/db';
 import { handleApiError, pickDailyQuote, round1, xpForDifficulty, ymdOf } from '@/app/api/_lib/api-utils';
 import { calcLevel, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,8 @@ type ChartDay = { date: string; completed: number; missed: number };
 
 export async function GET(req: Request) {
   try {
+    // Task 36: query habit default-select memuat targetDays/graduatedAt.
+    await ensureHabitGraduation();
     const periodParam = new URL(req.url).searchParams.get('period');
     const validPeriods = new Set(['7', '30', '90', 'all']);
     if (periodParam !== null && !validPeriods.has(periodParam)) {
@@ -79,6 +82,14 @@ export async function GET(req: Request) {
 
     const weekStart = settings?.weekStart === 0 ? 0 : 1;
 
+    // Task 36 — habit yang sudah LULUS (graduatedAt) keluar dari rotasi harian
+    // (KPI, rate, fokus, last-done), TAPI tetap dihitung dalam XP: habit lulus
+    // = kemenangan yang sudah dibayar penuh — level tidak boleh turun saat
+    // habit diwisuda. `habits` (semua aktif non-arsip) dipakai untuk XP &
+    // kategori historis; `tracking` untuk semuanya yang "masih berjalan".
+    const tracking = habits.filter((h) => !h.graduatedAt);
+    const trackingIds = new Set(tracking.map((h) => h.id));
+
     // ── Log completed dikelompokkan per habit ──
     const logsByHabit = new Map<string, Array<{ ymd: string; value: number }>>();
     const todayCompleted = new Set<string>();
@@ -93,15 +104,15 @@ export async function GET(req: Request) {
       if (ymd === todayYmd) todayCompleted.add(log.habitId);
     }
 
-    const activeToday = todayCompleted.size;
-    const totalHabits = habits.length;
+    const activeToday = [...todayCompleted].filter((id) => trackingIds.has(id)).length;
+    const totalHabits = tracking.length;
     const successToday = totalHabits > 0 ? Math.round((activeToday / totalHabits) * 100) : 0;
 
     // ── Rate penyelesaian (denominator = habit aktif per hari) ──
     const rateBetween = (fromYmd: string, toYmd: string): number => {
       let denominator = 0;
       let completed = 0;
-      for (const h of habits) {
+      for (const h of tracking) {
         const startYmdHabit = ymdOf(h.startDate as Date);
         const effStart = startYmdHabit > fromYmd ? startYmdHabit : fromYmd;
         if (effStart > toYmd) continue;
@@ -120,6 +131,8 @@ export async function GET(req: Request) {
     const completion30d = rateBetween(shiftYmd(todayYmd, -29), todayYmd);
 
     // ── XP & level (all-time) ──
+    // Task 36: iterasi `habits` (termasuk yang lulus) — XP habit lulus tidak
+    // pernah dicabut; level = kenangan kemenangan, bukan sewa bulanan.
     let totalXp = 0;
     let todayXp = 0;
     for (const h of habits) {
@@ -157,7 +170,7 @@ export async function GET(req: Request) {
     // ── Habit terbaik / terburuk (rate periode) ──
     type HabitRate = { id: string; name: string; emoji: string; rate: number; done: number; days: number };
     const rates: HabitRate[] = [];
-    for (const h of habits) {
+    for (const h of tracking) {
       const startYmdHabit = ymdOf(h.startDate as Date);
       const effStart = startYmdHabit > startYmd ? startYmdHabit : startYmd;
       if (effStart > todayYmd) continue;
@@ -185,7 +198,7 @@ export async function GET(req: Request) {
     const buildDailyChart = (fromYmd: string, toYmd: string): ChartDay[] => {
       const chart: ChartDay[] = [];
       for (let cursor = fromYmd; cursor <= toYmd; cursor = shiftYmd(cursor, 1)) {
-        const due = habits.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
+        const due = tracking.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
         const completed = completedByDate.get(cursor) ?? 0;
         chart.push({ date: cursor, completed, missed: Math.max(0, due - completed) });
       }
@@ -198,7 +211,7 @@ export async function GET(req: Request) {
       for (let cursor = fromYmd; cursor <= toYmd; cursor = shiftYmd(cursor, 1)) {
         const wk = weekStartOf(cursor, weekStart);
         const b = buckets.get(wk) ?? { completed: 0, missed: 0 };
-        const due = habits.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
+        const due = tracking.filter((h) => ymdOf(h.startDate as Date) <= cursor).length;
         const completed = completedByDate.get(cursor) ?? 0;
         b.completed += completed;
         b.missed += Math.max(0, due - completed);
@@ -238,7 +251,7 @@ export async function GET(req: Request) {
       .sort((a, b) => b.count - a.count || (a.category < b.category ? -1 : 1));
 
     // ── Fokus hari ini (L-8: priority dari habit) ──
-    const focusToday = habits.map((h) => ({
+    const focusToday = tracking.map((h) => ({
       id: h.id,
       name: h.name,
       emoji: h.emoji,
@@ -247,7 +260,7 @@ export async function GET(req: Request) {
     }));
 
     // ── Terakhir dikerjakan + streak ──
-    const lastDone = habits.map((h) => {
+    const lastDone = tracking.map((h) => {
       const logs = logsByHabit.get(h.id) ?? [];
       const lastDate = logs.length ? logs.map((l) => l.ymd).sort().at(-1) ?? null : null;
       const streak = computeStreakFromSet(new Set(logs.map((l) => l.ymd)), todayYmd);
@@ -255,7 +268,7 @@ export async function GET(req: Request) {
     });
 
     // ── Waktu terlacak (habit trackTime, menit = Σ value periode) ──
-    const timeTracked = habits
+    const timeTracked = tracking
       .filter((h) => h.trackTime)
       .map((h) => {
         const logs = (logsByHabit.get(h.id) ?? []).filter((l) => l.ymd >= startYmd && l.ymd <= todayYmd);
@@ -283,6 +296,9 @@ export async function GET(req: Request) {
       greeting: { userName: settings?.userName ?? 'User' },
       kpi: {
         totalHabits,
+        // Task 36 — jumlah habit yang sudah diwisuda (graduatedAt terisi).
+        // Dipakai KPI Total Habit: "🎓 N lulus" — bukti pernah menyelesaikan.
+        graduatedCount: habits.filter((h) => h.graduatedAt).length,
         activeToday,
         successToday,
         weeklyRate,

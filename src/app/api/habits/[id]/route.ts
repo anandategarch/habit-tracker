@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { badRequest, handleApiError, notFound, readJsonBody } from '@/app/api/_lib/api-utils';
 import { parseHabitFields } from '@/app/api/_lib/habit-fields';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
 // data habit" selamanya.
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    await ensureHabitGraduation();
     const { id } = await ctx.params;
     const habit = await db.habit.findUnique({ where: { id } });
     if (!habit) throw notFound('Habit tidak ditemukan');
@@ -23,6 +25,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    await ensureHabitGraduation();
     const { id } = await ctx.params;
     const habit = await db.habit.findUnique({ where: { id } });
     if (!habit) throw notFound('Habit tidak ditemukan');

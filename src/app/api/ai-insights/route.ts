@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, round1, ymdOf } from '@/app/api/_lib/api-utils';
-import { shiftYmd } from '@/lib/dashboard-helpers';
+import { computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import ZAI from 'z-ai-web-dev-sdk';
 
@@ -132,14 +132,10 @@ export async function GET() {
     }
     const streaks: HabitStreak[] = habits.map((h) => {
       const days = habitLogsYmd.get(h.id) ?? new Set<string>();
-      let streak = 0;
-      let cursor = todayYmd;
-      if (!days.has(cursor)) cursor = shiftYmd(cursor, -1);
-      while (days.has(cursor)) {
-        streak += 1;
-        cursor = shiftYmd(cursor, -1);
-      }
-      return { id: h.id, name: h.name, streak };
+      // Task 36: pakai helper bersama (hari aman) supaya insight streak
+      // selalu sepakat dengan kartu habit & dashboard — dulu loop manual
+      // di sini bisa menilai "streak putus" padahal kartu bilang masih hidup.
+      return { id: h.id, name: h.name, streak: computeStreakFromSet(days, todayYmd) };
     });
     const topStreak: HabitStreak | null = streaks.reduce<HabitStreak | null>(
       (best, s) => (best === null || s.streak > best.streak ? s : best),

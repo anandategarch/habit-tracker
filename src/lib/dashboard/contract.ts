@@ -197,6 +197,8 @@ export function toDashboardData(payload: DashboardApiPayload, period: Period): D
     // cincin "Minggu/Bulan Ini" = weekToDateRate/monthToDateRate
     // (calendar-to-date — jatuh ke rolling bila API tidak mengirim).
     totalHabits: num(kpi.totalHabits),
+    // Task 36 — jumlah habit lulus (default 0 bila API lama tidak mengirim).
+    graduatedCount: num(kpi.graduatedCount),
     completionRate: num(kpi.consistencyScore),
     currentStreak,
     longestStreak: num(kpi.bestStreak),

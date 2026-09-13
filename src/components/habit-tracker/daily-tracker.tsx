@@ -49,7 +49,7 @@ import {
 // utility module. Output is identical for the patterns and helpers used
 // here — verified via test script in worklog FIX-TIER3 entry.
 import { toast } from 'sonner';
-import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag, Plus } from 'lucide-react';
+import { Clock, GripVertical, NotebookPen, ClipboardList, CheckCircle2, Flag, Plus, Sprout, X } from 'lucide-react';
 
 import type { Habit, HabitLog } from './daily-tracker-types';
 import {
@@ -107,6 +107,9 @@ export default function DailyTracker() {
  // to open the add-habit dialog directly, same flow as the FAB.
  const setActiveTab = useAppStore((s) => s.setActiveTab);
  const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
+ // Task 36: dipakai handler wisuda (graduation) untuk memaksa refresh
+ // tracker + dashboard setelah habit resmi lulus.
+ const triggerRefresh = useAppStore((s) => s.triggerRefresh);
  const queryClient = useQueryClient();
  // Opsi label habit (kategori/prioritas/difficulty) — query tunggal; peta
  // kategori diturunkan lokal (bobot XP langsung dari lib/dashboard-helpers).
@@ -338,7 +341,9 @@ export default function DailyTracker() {
  const todayStr = jakartaDateString();
 
  const activeHabits = useMemo(
-   () => habits.filter((h) => h.isActive && !h.isArchived),
+   // Task 36: habit yang sudah LULUS keluar dari rotasi harian — tugasnya
+   // selesai, bukan dihapus (masih terlihat di Habit Master + XP tetap).
+   () => habits.filter((h) => h.isActive && !h.isArchived && !h.graduatedAt),
    [habits],
  );
 
@@ -500,6 +505,70 @@ export default function DailyTracker() {
    [habits],
  );
 
+ // ── Task 36: Banner Kembali (anti-nunda) ─────────────────────────────
+ // Tipe "sering nunda" paling rapuh justru di hari KEMBALI: rasa bersalah
+ // membuat menghindari aplikasi. Banner menyambut TANPA menghukum +
+ // menawarkan SATU habit paling ringan untuk dicentang sekarang (tombol
+ // 1-ketuk, confetti dari tombol). Syarat: sedang melihat hari ini, belum
+ // ada kemenangan hari ini, dan selesai terakhir ≥ 2 hari lalu — atau
+ // tidak ketemu di jendela cache 2 bulan padahal totalnya pernah ada.
+ const [comebackHidden, setComebackHidden] = useState(false);
+ useEffect(() => {
+   try {
+     setComebackHidden(window.sessionStorage.getItem('rutina-comeback') === todayStr);
+   } catch {
+     /* mode privat — anggap belum disembunyikan */
+   }
+ }, [todayStr]);
+ const hideComeback = useCallback(() => {
+   setComebackHidden(true);
+   try {
+     window.sessionStorage.setItem('rutina-comeback', todayStr);
+   } catch {
+     /* mode privat — cukup sembunyikan di state */
+   }
+ }, [todayStr]);
+ const comeback = useMemo(() => {
+   if (selectedDate !== todayStr) return null;
+   // Menang pasif TIDAK menutup banner: habit 'avoid' bersih hari ini tidak
+   // butuh usaha apa pun — kalau tidak ada habit normal/amount yang dicentang
+   // hari ini, orangnya belum MELAKUKAN apa-apa → sapaan tetap relevan.
+   const hasActiveWinToday = trackableHabits.some(
+     (h) => h.habitType !== 'avoid' && !!(completionMap[h.id] ?? false),
+   );
+   if (hasActiveWinToday) return null;
+   if (activeHabits.length === 0) return null;
+   const everDone = habits.some((h) => (h.completedLogCount ?? 0) > 0);
+   if (!everDone) return null; // pemula — belum ada "kembali"
+   // Selesai terakhir dalam jendela cache ±2 bulan (cache bulan berjalan
+   // menyimpan gabungan prev+current — lihat M4-fix di fetchCompletions).
+   const cache = monthLogsCacheRef.current[todayStr.slice(0, 7)];
+   let last = '';
+   if (cache) {
+     for (const logs of Object.values(cache)) {
+       for (const l of logs) {
+         if (!l.completed) continue;
+         const ymd = toDateString(l.date);
+         if (ymd <= todayStr && ymd > last) last = ymd;
+       }
+     }
+   }
+   const gapDays = last
+     ? Math.round((dateFromYMD(todayStr).getTime() - dateFromYMD(last).getTime()) / 86_400_000)
+     : 99; // tidak ketemu di 2 bulan → gap panjang, tetap sambut
+   if (gapDays < 2) return null;
+   // Saran mulai: habit normal/amount belum selesai & tidak libur —
+   // prioritas kesulitan paling ringan (Easy/Mudah). Habit 'avoid' TIDAK
+   // ditawarkan (tombolnya menandai kambuh, bukan kemenangan).
+   const candidates = activeHabits.filter(
+     (h) => h.habitType !== 'avoid' && !h.vacationMode && !(completionMap[h.id] ?? false),
+   );
+   if (candidates.length === 0) return null;
+   const easy = candidates.filter((h) => h.difficulty === 'Easy' || h.difficulty === 'Mudah');
+   const pick = (easy.length > 0 ? easy : candidates)[0];
+   return { gapDays, pick };
+ }, [selectedDate, todayStr, trackableHabits, activeHabits, habits, completionMap]);
+
  // Best current streak across all active habits
  const bestStreak = useMemo(() => {
    const month = selectedDate.slice(0, 7);
@@ -549,7 +618,8 @@ export default function DailyTracker() {
      const atMap: Record<string, string> = {};
      const valueMap: Record<string, number> = {};
      habitList
-       .filter((h) => h.isActive && !h.isArchived)
+       // Task 36: habit lulus tidak diambil/tidak masuk peta completion.
+      .filter((h) => h.isActive && !h.isArchived && !h.graduatedAt)
        .forEach((h) => {
          const logs = cache[h.id] || [];
          const dayLog = logs.find((l) => toDateString(l.date) === date);
@@ -565,7 +635,8 @@ export default function DailyTracker() {
      return;
    }
 
-   const active = habitList.filter((h) => h.isActive && !h.isArchived);
+   // Task 36: habit lulus keluar dari batch fetch log (tidak dipakai UI).
+  const active = habitList.filter((h) => h.isActive && !h.isArchived && !h.graduatedAt);
    const ids = active.map((h) => h.id);
 
    // M4-fix (streak & flip-card terpotong batas bulan): cache hanya bulan
@@ -1141,6 +1212,44 @@ export default function DailyTracker() {
    setAnalysisHabitId(habitId);
  }, []);
 
+ // ── Task 36: wisudakan habit (Target Lulus) ─────────────────────────
+ // Dipanggil kartu habit saat completedLogCount >= targetDays. Optimistik:
+ // graduatedAt diisi di cache ['habits'] → kartu langsung keluar dari grid
+ // (filter activeHabits) tanpa menunggu round-trip. Confetti rainbow besar —
+ // momen "menyelesaikan sesuatu" adalah perayaan utama aplikasi ini.
+ const handleGraduate = useCallback(
+   async (habit: Habit, el: HTMLElement | null) => {
+     const iso = jakartaNowIso();
+     queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
+       prev.map((h) => (h.id === habit.id ? { ...h, graduatedAt: iso } : h)),
+     );
+     try {
+       const res = await fetch(`/api/habits/${habit.id}`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ graduatedAt: iso }),
+       });
+       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+       burstFromElement(el, { count: 80, spread: 120, rainbow: true });
+       toast.success(
+         `🎓 ${habit.name} resmi lulus! Target ${habit.targetDays ?? '?'} hari tuntas — kerja bagus!`,
+       );
+       queryClient.invalidateQueries({ queryKey: ['habits'] });
+       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+       queryClient.invalidateQueries({ queryKey: ['dashboard', 'all'] });
+       triggerRefresh();
+     } catch {
+       // Rollback optimistik — pulihkan cache lalu refetch jujur.
+       queryClient.setQueryData<Habit[]>(['habits'], (prev = []) =>
+         prev.map((h) => (h.id === habit.id ? { ...h, graduatedAt: null } : h)),
+       );
+       queryClient.invalidateQueries({ queryKey: ['habits'] });
+       toast.error('Gagal menyimpan kelulusan — coba lagi');
+     }
+   },
+   [queryClient, triggerRefresh],
+ );
+
  // ---- date navigation ----
  // UTC-safe YMD arithmetic (shiftYmdKey) — ms-based subDays/addDays on a
  // local-midnight Date would read the local TZ again when formatted (see
@@ -1253,6 +1362,63 @@ export default function DailyTracker() {
        bestStreak={bestStreak}
        totalXp={totalXp}
      />
+
+     {/* Task 36: Banner Kembali (anti-nunda) — hanya saat butuh: bolong
+         >=2 hari + belum ada kemenangan hari ini; bisa ditutup per hari. */}
+     {comeback && !comebackHidden && (
+       <section
+         aria-label="Sambutan kembali"
+         className="premium-card premium-card-sheen rounded-2xl p-4 relative overflow-hidden"
+       >
+         <div
+           className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent pointer-events-none"
+           aria-hidden="true"
+         />
+         <button
+           type="button"
+           onClick={hideComeback}
+           aria-label="Tutup sambutan kembali"
+           className="absolute right-2.5 top-2.5 h-7 w-7 rounded-full grid place-items-center text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 z-10"
+         >
+           <X className="h-3.5 w-3.5" />
+         </button>
+         <div className="relative flex items-start gap-3 pr-8">
+           <span className="chip-soft chip-soft-teal h-10 w-10 shrink-0">
+             <Sprout className="h-5 w-5" aria-hidden="true" />
+           </span>
+           <div className="min-w-0 flex-1">
+             <p className="text-sm font-semibold leading-snug">
+               Senang kamu kembali 🌱
+             </p>
+             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+               {comeback.gapDays >= 99
+                 ? 'Sudah lama tidak mampir — dan tidak apa-apa. Nunda itu manusiawi; yang penting kamu kembali sekarang.'
+                 : `Cuma berhenti ${comeback.gapDays} hari — bukan gagal, cuma jeda. Mulai dari satu yang paling ringan dulu:`}
+             </p>
+             {comeback.gapDays < 99 && (
+               <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-semibold min-w-0 max-w-full">
+                   <span aria-hidden="true">{comeback.pick.emoji}</span>
+                   <span className="truncate">{comeback.pick.name}</span>
+                 </span>
+                 <Button
+                   size="sm"
+                   className="btn-primary-gradient anim-press h-8"
+                   onClick={(e) => {
+                     // Confetti dari tombol ini (pola BUG-5: set ref dulu).
+                     handleSetConfettiEl(e.currentTarget);
+                     handleHabitCheck(comeback.pick);
+                   }}
+                 >
+                   <CheckCircle2 className="h-3.5 w-3.5" />
+                   Tandai Selesai
+                 </Button>
+               </div>
+             )}
+           </div>
+         </div>
+       </section>
+     )}
 
      {/* ───────────── Daily Check-in (GELOMBANG 1) ─────── */}
      {/* Mood / energi / tidur — di atas daftar habit; optimistic +
@@ -1442,6 +1608,7 @@ export default function DailyTracker() {
                      onAmountDelta={handleAmountDelta}
                      onSetConfettiEl={handleSetConfettiEl}
                      onOpenAnalysis={handleOpenAnalysis}
+                     onGraduate={handleGraduate}
                      dragMode={dragMode}
                    />
                  );
@@ -1476,6 +1643,7 @@ export default function DailyTracker() {
                  onAmountDelta={handleAmountDelta}
                  onSetConfettiEl={handleSetConfettiEl}
                  onOpenAnalysis={handleOpenAnalysis}
+                 onGraduate={handleGraduate}
                />
              );
            })}

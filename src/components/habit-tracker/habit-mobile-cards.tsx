@@ -62,6 +62,7 @@ export function HabitMobileCards({
       {habits.map((h, i) => {
         const status = habitStatus(h);
         const archived = status === 'archived';
+        const graduated = status === 'graduated';
         return (
           <div
             key={h.id}
@@ -100,10 +101,12 @@ export function HabitMobileCards({
                         ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
                         : status === 'paused'
                           ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                          : 'bg-slate-400/10 text-slate-600 dark:text-slate-400',
+                          : status === 'graduated'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-slate-400/10 text-slate-600 dark:text-slate-400',
                     )}
                   >
-                    {HABIT_STATUS_LABELS[status]}
+                    {graduated ? `🎓 ${HABIT_STATUS_LABELS[status]}${h.targetDays ? ` · ${h.completedLogCount ?? 0}/${h.targetDays}` : ''}` : HABIT_STATUS_LABELS[status]}
                   </span>
                   <BadgeDot option={priorityMap.get(h.priority)} fallback={h.priority} />
                   <span aria-hidden="true">·</span>

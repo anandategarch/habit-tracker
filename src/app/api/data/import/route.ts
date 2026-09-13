@@ -12,11 +12,15 @@ import {
   IMPORT_TABLES,
   sanitizeRow,
 } from '@/app/api/_lib/import-utils';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    // Task 36: INSERT habit bisa memuat kolom targetDays/graduatedAt dari
+    // backup baru — pastikan kolom ada sebelum transaksi.
+    await ensureHabitGraduation();
     const body = await readJsonBody(req);
     const data = body.data;
     if (data === null || typeof data !== 'object' || Array.isArray(data)) {

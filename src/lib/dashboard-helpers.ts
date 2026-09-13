@@ -48,19 +48,65 @@ export function levelProgress(totalXp: number): { level: number; current: number
  * Streak hari berturut-turut hingga (termasuk) `endYmd`.
  * Log diberikan sebagai Set YMD 'yyyy-MM-dd' (konvensi UTC-midnight slice(0,10)).
  * Hari ini belum selesai tidak memutus streak.
+ *
+ * Task 36 — HARI AMAN (streak shield): hari kosong TIDAK langsung memutus
+ * streak. Setiap bulan kalender ada kuota `SHIELDS_PER_MONTH` hari aman;
+ * hari kosong mengonsumsi satu kuota bulan-nya (hari aman tidak menambah
+ * hitungan streak, hanya menjaga rantai tetap nyambung). Kuota habis atau
+ * hari kosong sebelum habit ada → streak putus. Penilaian deterministik
+ * dari kumpulan log (tanpa penulisan ledger) sehingga semua konsumen
+ * (dashboard global, kartu habit, lencana milestone) selalu sepakat.
  */
-export function computeStreakFromSet(doneDays: Set<string>, endYmd: string): number {
-  let streak = 0;
+export const SHIELDS_PER_MONTH = 2;
+
+const STREAK_HARD_CAP = 4_000; // pengaman loop (± 11 tahun)
+
+export interface StreakShieldInfo {
+  streak: number;
+  /** YMD hari kosong yang diampuni hari aman (urut walk mundur, terbaru dulu). */
+  shieldedDays: string[];
+  /** Hari aman terpakai pada bulan kalender `endYmd`. */
+  usedThisMonth: number;
+}
+
+export function computeStreakWithShields(
+  doneDays: Set<string>,
+  endYmd: string,
+  shieldsPerMonth: number = SHIELDS_PER_MONTH,
+): StreakShieldInfo {
+  const usedByMonth = new Map<string, number>();
+  const shieldedDays: string[] = [];
+
   let cursor = endYmd;
   // Jika hari ini belum ada, mulai dari kemarin (streak belum putus).
   if (!doneDays.has(cursor)) {
     cursor = shiftYmd(cursor, -1);
   }
-  while (doneDays.has(cursor)) {
-    streak += 1;
-    cursor = shiftYmd(cursor, -1);
+
+  let streak = 0;
+  let guard = 0;
+  while (guard < STREAK_HARD_CAP) {
+    if (doneDays.has(cursor)) {
+      streak += 1;
+      cursor = shiftYmd(cursor, -1);
+    } else if (shieldsPerMonth > 0) {
+      // Hari kosong → coba hari aman (kuota per bulan kalender hari itu).
+      const month = cursor.slice(0, 7);
+      const used = usedByMonth.get(month) ?? 0;
+      if (used >= shieldsPerMonth) break; // kuota bulan habis → putus
+      usedByMonth.set(month, used + 1);
+      shieldedDays.push(cursor);
+      cursor = shiftYmd(cursor, -1);
+    } else {
+      break;
+    }
+    guard += 1;
   }
-  return streak;
+  return { streak, shieldedDays, usedThisMonth: usedByMonth.get(endYmd.slice(0, 7)) ?? 0 };
+}
+
+export function computeStreakFromSet(doneDays: Set<string>, endYmd: string): number {
+  return computeStreakWithShields(doneDays, endYmd).streak;
 }
 
 /** Aritmetika YMD string UTC-safe (tidak lewat Date lokal). */

@@ -7,8 +7,9 @@
 // ---------------------------------------------------------------------------
 
 import type { HabitLog } from './daily-tracker-types';
-// Aritmetika YMD string UTC-safe dari lib (satu implementasi bersama).
-import { shiftYmd } from '@/lib/dashboard-helpers';
+// Aritmetika YMD string UTC-safe + kuota hari aman dari lib (implementasi
+// bersama — dipakai juga oleh /api/dashboard & lencana milestone).
+import { shiftYmd, SHIELDS_PER_MONTH } from '@/lib/dashboard-helpers';
 
 /** Kunci YMD 'yyyy-MM-dd' dari tanggal log (ISO string UTC-midnight atau Date). */
 export function toDateString(date: string | Date): string {
@@ -81,6 +82,13 @@ export function formatJakartaTime(iso: string): string {
 //  - onVacation: habit sedang libur → ekor hari tanpa log TIDAK memutus
 //               streak (jalan mundur sampai log selesai terakhir).
 // Hari ini belum selesai tidak memutus streak (konvensi lama).
+//
+// Task 36 — HARI AMAN (streak shield): untuk habit normal/amount, hari kosong
+// mengonsumsi kuota SHIELDS_PER_MONTH (per bulan kalender, dari
+// lib/dashboard-helpers) dan TIDAK memutus rantai. Hari aman tidak menambah
+// hitungan streak. Hari sebelum startDate tidak dihitung miss → tidak
+// mengonsumsi kuota. Habit 'avoid' tidak memakai hari aman (hari tanpa log
+// = hari bersih, bukan bolong).
 // ---------------------------------------------------------------------------
 export interface ComputeStreakOptions {
   invert?: boolean;
@@ -90,11 +98,20 @@ export interface ComputeStreakOptions {
 
 const STREAK_HARD_CAP = 4_000; // pengaman loop (± 11 tahun)
 
-export function computeStreak(
+/** Hasil detail streak + info hari aman (dipakai kartu habit). */
+export interface StreakDetail {
+  streak: number;
+  /** YMD hari kosong yang diampuni hari aman (urut walk mundur). */
+  shieldedDays: string[];
+  /** Sisa hari aman bulan `endYmd` (untuk chip 🛡 di kartu). */
+  shieldsLeftThisMonth: number;
+}
+
+export function computeStreakDetail(
   logs: HabitLog[],
   endYmd: string,
   opts: ComputeStreakOptions = {},
-): number {
+): StreakDetail {
   const marks = new Set<string>();
   for (const log of logs) {
     if (log?.completed) marks.add(toDateString(log.date));
@@ -103,7 +120,7 @@ export function computeStreak(
 
   // Habit 'avoid': hari tanpa kambuh dihitung berturut sejak habit mulai.
   if (opts.invert) {
-    if (marks.has(endYmd)) return 0; // kambuh hari ini → streak putus
+    if (marks.has(endYmd)) return { streak: 0, shieldedDays: [], shieldsLeftThisMonth: SHIELDS_PER_MONTH };
     let cursor = shiftYmd(endYmd, -1);
     let streak = 0;
     let guard = 0;
@@ -113,17 +130,21 @@ export function computeStreak(
       cursor = shiftYmd(cursor, -1);
       guard += 1;
     }
-    return streak;
+    return { streak, shieldedDays: [], shieldsLeftThisMonth: SHIELDS_PER_MONTH };
   }
 
-  // Habit normal/amount: hari selesai berturut-turut.
+  // Habit normal/amount: hari selesai berturut-turut + hari aman.
+  const usedByMonth = new Map<string, number>();
+  const shieldedDays: string[] = [];
+  const endMonth = endYmd.slice(0, 7);
+
   let cursor = endYmd;
   if (!marks.has(cursor)) {
     if (opts.onVacation) {
       // Mode libur: lompati ekor hari kosong sampai log selesai terakhir.
       let guard = 0;
       while (!marks.has(cursor) && guard < STREAK_HARD_CAP) {
-        if (floor && cursor < floor) return 0;
+        if (floor && cursor < floor) return { streak: 0, shieldedDays: [], shieldsLeftThisMonth: SHIELDS_PER_MONTH - (usedByMonth.get(endMonth) ?? 0) };
         cursor = shiftYmd(cursor, -1);
         guard += 1;
       }
@@ -132,14 +153,39 @@ export function computeStreak(
       cursor = shiftYmd(cursor, -1);
     }
   }
+
   let streak = 0;
   let guard = 0;
-  while (marks.has(cursor) && guard < STREAK_HARD_CAP) {
-    streak += 1;
-    cursor = shiftYmd(cursor, -1);
+  while (guard < STREAK_HARD_CAP) {
+    if (marks.has(cursor)) {
+      streak += 1;
+      cursor = shiftYmd(cursor, -1);
+    } else {
+      // Batas bawah: hari sebelum habit ada bukan "bolong" — jangan pakai
+      // hari aman untuk hari sebelum mulai.
+      if (floor && cursor < floor) break;
+      const month = cursor.slice(0, 7);
+      const used = usedByMonth.get(month) ?? 0;
+      if (used >= SHIELDS_PER_MONTH) break; // kuota bulan habis → putus
+      usedByMonth.set(month, used + 1);
+      shieldedDays.push(cursor);
+      cursor = shiftYmd(cursor, -1);
+    }
     guard += 1;
   }
-  return streak;
+  return {
+    streak,
+    shieldedDays,
+    shieldsLeftThisMonth: SHIELDS_PER_MONTH - (usedByMonth.get(endMonth) ?? 0),
+  };
+}
+
+export function computeStreak(
+  logs: HabitLog[],
+  endYmd: string,
+  opts: ComputeStreakOptions = {},
+): number {
+  return computeStreakDetail(logs, endYmd, opts).streak;
 }
 
 // ---------------------------------------------------------------------------

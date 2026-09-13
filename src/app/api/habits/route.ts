@@ -3,11 +3,15 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, readJsonBody } from '@/app/api/_lib/api-utils';
 import { parseHabitFields } from '@/app/api/_lib/habit-fields';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // Task 36: pastikan kolom targetDays/graduatedAt ada (DDL idempotent —
+    // no-op lokal, ALTER TABLE saat pertama di Turso produksi).
+    await ensureHabitGraduation();
     const [habits, counts] = await Promise.all([
       db.habit.findMany({
         where: { isActive: true, isArchived: false },
@@ -33,6 +37,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    await ensureHabitGraduation();
     const body = await readJsonBody(req);
     const { data } = await parseHabitFields(body, 'create');
     const habit = await db.habit.create({

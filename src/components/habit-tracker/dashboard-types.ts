@@ -27,6 +27,8 @@ export interface MotivationalQuote {
 
 export interface DashboardApiKpi {
   totalHabits?: number;
+  /** Task 36 — jumlah habit lulus (graduatedAt terisi). */
+  graduatedCount?: number;
   activeToday?: number;
   successToday?: number;
   weeklyRate?: number;
@@ -168,6 +170,8 @@ export interface HabitDetailStat {
 export interface DashboardData {
   // KPI
   totalHabits: number;
+  /** Task 36 — jumlah habit yang sudah lulus (🎓 KPI Total Habit). */
+  graduatedCount: number;
   completionRate: number;
   currentStreak: number;
   longestStreak: number;

@@ -12,6 +12,7 @@ import {
   readJsonBody,
 } from '@/app/api/_lib/api-utils';
 import { dateFromYMD, isValidMonth, isValidYMD, jakartaDateString, monthRangeYMD } from '@/lib/timezone';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    // Task 36: findUnique tanpa select → memuat semua kolom scalar (termasuk
+    // targetDays/graduatedAt) → pastikan kolom ada dulu di produksi.
+    await ensureHabitGraduation();
     const { id } = await ctx.params;
     const habit = await db.habit.findUnique({ where: { id } });
     if (!habit) throw notFound('Habit tidak ditemukan');

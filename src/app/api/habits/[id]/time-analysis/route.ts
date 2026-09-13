@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { badRequest, handleApiError, notFound, ymdOf } from '@/app/api/_lib/api-utils';
 import { shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,9 @@ function weekStartYmd(ymd: string, weekStart: number): string {
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    // Task 36: findUnique default select → semua kolom scalar (kolom baru
+    // harus ada dulu di Turso produksi sebelum dibaca).
+    await ensureHabitGraduation();
     const { id } = await ctx.params;
     const habit = await db.habit.findUnique({ where: { id } });
     if (!habit) throw notFound('Habit tidak ditemukan');

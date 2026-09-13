@@ -40,6 +40,12 @@ model Habit {
   target       Int         @default(1) // amount: target harian (mis. 8 gelas)
   unit         String?
   targetType   String? // daily | weekly | monthly (kolom disiapkan)
+  // Task 36 — Target Lulus (garis finis habit): jumlah hari selesai yang
+  // dituju sebelum habit "diwisuda". null = tanpa target (habit selamanya).
+  targetDays   Int?
+  // Task 36 — tanggal kelulusan (ISO). null = belum lulus. Habit lulus
+  // keluar dari rotasi harian & tampil berstatus 🎓 Lulus di Habit Master.
+  graduatedAt  DateTime?
   reminder     String? // string bebas "misal 08:00"
   notes        String?
   trackTime    Boolean     @default(false)

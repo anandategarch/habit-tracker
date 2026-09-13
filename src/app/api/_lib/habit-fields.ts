@@ -85,6 +85,44 @@ export async function parseHabitFields(
     if (targetType !== null && targetType.length > 20) throw badRequest('Jenis target tidak valid');
     data.targetType = targetType && targetType.trim() ? targetType.trim() : null;
   }
+  // Task 36 — Target Lulus: jumlah hari selesai yang dituju sebelum habit
+  // lulus. null/kosong = tanpa target. Habit 'avoid' tidak punya garis
+  // finis (hari tanpa log = bersih) → dipaksa null.
+  if ('targetDays' in body) {
+    const raw = body.targetDays;
+    if (raw === null || raw === '' || raw === 0) {
+      data.targetDays = null;
+    } else {
+      const targetDays = asNumber(raw);
+      if (targetDays === null || !Number.isFinite(targetDays)) {
+        throw badRequest('Target lulus tidak valid');
+      }
+      data.targetDays = Math.round(clamp(targetDays, 1, 1000));
+    }
+    if (data.habitType === 'avoid' || body.habitType === 'avoid') {
+      data.targetDays = null;
+    }
+  }
+  // Task 36 — kelulusan: kirim ISO/YMD untuk luluskan, null untuk batalkan.
+  // Dikirim eksplisit (bukan dari form biasa) supaya edit habit tidak
+  // kebetulan menghapus status lulus.
+  if ('graduatedAt' in body) {
+    const raw = body.graduatedAt;
+    if (raw === null || raw === '' || raw === false) {
+      data.graduatedAt = null;
+    } else if (raw === true) {
+      data.graduatedAt = new Date();
+    } else {
+      const str = asString(raw);
+      if (str !== null && isValidYMD(str)) {
+        data.graduatedAt = dateFromYMD(str);
+      } else if (str !== null && !Number.isNaN(new Date(str).getTime())) {
+        data.graduatedAt = new Date(str);
+      } else {
+        throw badRequest('Tanggal lulus tidak valid');
+      }
+    }
+  }
   if ('reminder' in body) {
     const reminder = asString(body.reminder);
     if (reminder !== null && reminder.length > 60) throw badRequest('Pengingat tidak valid');

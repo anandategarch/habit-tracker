@@ -18,13 +18,15 @@ import {
   BarChart3,
   Check,
   Clock3,
+  GraduationCap,
   History,
   Minus,
   Plus,
+  Shield,
   X,
 } from 'lucide-react';
 import type { Habit, HabitLog } from './daily-tracker-types';
-import { computeStreak, shiftYmdKey, toDateString } from './daily-tracker-helpers';
+import { computeStreakDetail, shiftYmdKey, toDateString } from './daily-tracker-helpers';
 import { dateFromYMD } from '@/lib/timezone';
 import { eeeIdFormatter } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
@@ -52,6 +54,8 @@ export interface HabitCardProps {
   onAmountDelta?: (habit: Habit, delta: number, event?: React.MouseEvent) => void;
   onSetConfettiEl?: (el: HTMLElement | null) => void;
   onOpenAnalysis?: (habitId: string) => void;
+  /** Task 36 — wisudakan habit (tombol muncul saat progres target tercapai). */
+  onGraduate?: (habit: Habit, el: HTMLElement | null) => void;
 }
 
 // Map nama warna opsi kategori → kelas tint yang ada di globals.css
@@ -110,6 +114,7 @@ function HabitCardInner({
   onAmountDelta,
   onSetConfettiEl,
   onOpenAnalysis,
+  onGraduate,
 }: HabitCardProps) {
   const [flipped, setFlipped] = useState(false);
   const isAvoid = habit.habitType === 'avoid';
@@ -141,11 +146,27 @@ function HabitCardInner({
       isSelected: ymd === selectedDate,
     };
   });
-  const streak = computeStreak(monthLogs ?? [], selectedDate, {
+  // ── Task 36: streak + info hari aman (🛡) dalam SATU hitungan — selalu
+  // sepakat dengan bestStreak tracker, dashboard, dan insight AI (helper
+  // bersama; hari kosong mengonsumsi kuota 2 hari aman/bulan).
+  const streakInfo = computeStreakDetail(monthLogs ?? [], selectedDate, {
     invert: isAvoid,
     startDate: habit.startDate,
     onVacation: !!habit.vacationMode,
   });
+  const streak = streakInfo.streak;
+
+  // ── Task 36: Target Lulus — progres menuju garis finis habit. Habit lulus
+  // sudah tidak dirender tracker (difilter parent), jadi di sini hanya dua
+  // keadaan: masih mengejar target, atau SIAP diwisuda.
+  const hasGraduationTarget = !isAvoid && !!habit.targetDays && !habit.graduatedAt;
+  const gradTarget = Math.max(1, habit.targetDays ?? 1);
+  const gradDone = habit.completedLogCount ?? 0;
+  const gradPct = Math.min(100, Math.round((gradDone / gradTarget) * 100));
+  const readyToGraduate = hasGraduationTarget && gradDone >= gradTarget;
+
+  // ── Task 36: lookup hari aman untuk sel riwayat 7 hari ──
+  const shieldedSet = new Set(streakInfo.shieldedDays);
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (dragMode) return;
@@ -237,6 +258,17 @@ function HabitCardInner({
                   <span className="inline-flex items-center rounded-full border border-border/70 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                     {habit.category}
                   </span>
+                  {/* Task 36 — chip Hari Aman: sisa kuota bolong yang diampuni */}
+                  {/* bulan ini (2/bulan). Tooltip menjelaskan aturannya. */}
+                  {!isAvoid && (
+                    <span
+                      title={`Hari Aman: 2 hari kosong per bulan tidak memutus streak — sisa bulan ini ${streakInfo.shieldsLeftThisMonth}.`}
+                      className="inline-flex items-center gap-0.5 rounded-full bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider tabular-nums"
+                    >
+                      <Shield className="h-2.5 w-2.5" aria-hidden="true" />
+                      {streakInfo.shieldsLeftThisMonth}
+                    </span>
+                  )}
                   {habit.vacationMode && (
                     <span className="inline-flex items-center rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider">
                       🏖 Libur
@@ -372,6 +404,53 @@ function HabitCardInner({
                 </div>
               </div>
             )}
+
+            {/* ── Task 36: Target Lulus — garis finis habit ── */}
+            {/* Habit tipe "senang memulai, susah menyelesaikan" butuh garis */}
+            {/* finis yang bisa DISELESAIKAN: progres menuju wisuda, lalu */}
+            {/* tombol Lulus (confetti dari elemen tombol). */}
+            {hasGraduationTarget &&
+              (readyToGraduate ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (dragMode) return;
+                    onGraduate?.(habit, e.currentTarget);
+                  }}
+                  disabled={isToggling || dragMode}
+                  aria-label={`Luluskan habit ${habit.name} — target ${gradTarget} hari tercapai`}
+                  className="w-full h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-semibold text-xs sm:text-sm grid place-items-center gap-1.5 grid-flow-col shadow-[0_6px_18px_-6px_rgba(245,158,11,0.55)] hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 anim-micro-pulse"
+                >
+                  <GraduationCap className="h-4.5 w-4.5" aria-hidden="true" />
+                  Target {gradTarget} hari tercapai — Luluskan!
+                </button>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground tabular-nums inline-flex items-center gap-1">
+                      <GraduationCap className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                      {gradDone}/{gradTarget} hari menuju lulus
+                    </p>
+                    <span className="text-[10px] font-semibold text-muted-foreground/80 tabular-nums">
+                      {gradPct}%
+                    </span>
+                  </div>
+                  <div
+                    className="h-1.5 rounded-full bg-muted overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={gradDone}
+                    aria-valuemin={0}
+                    aria-valuemax={gradTarget}
+                    aria-label={`Progres lulus ${habit.name}`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500"
+                      style={{ width: `${gradPct}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
           </div>
         </article>
 
@@ -409,15 +488,21 @@ function HabitCardInner({
             </div>
 
             <div className="grid grid-cols-7 gap-1 flex-1">
-              {days.map((day) => (
+              {days.map((day) => {
+                // Task 36: hari 'miss' yang diampuni hari aman → tampak 🛡
+                // (streak tetap nyambung lewat hari itu).
+                const isShielded = !isAvoid && day.state === 'miss' && shieldedSet.has(day.ymd);
+                return (
                 <div
                   key={day.ymd}
                   title={`${day.ymd}${
-                    day.state === 'relapse'
-                      ? ' — kambuh'
-                      : day.state === 'done'
-                        ? ' — selesai'
-                        : ''
+                    isShielded
+                      ? ' — hari aman (streak tetap jalan)'
+                      : day.state === 'relapse'
+                        ? ' — kambuh'
+                        : day.state === 'done'
+                          ? ' — selesai'
+                          : ''
                   }`}
                   className={cn(
                     'rounded-lg flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[52px]',
@@ -425,7 +510,10 @@ function HabitCardInner({
                     day.state === 'done' && 'bg-teal-500/20 dark:bg-teal-500/25',
                     day.state === 'clean' && 'bg-emerald-500/15 dark:bg-emerald-500/20',
                     day.state === 'relapse' && 'bg-rose-500/20 dark:bg-rose-500/25',
-                    (day.state === 'miss' || day.state === 'future') && 'bg-muted/60',
+                    isShielded && 'bg-teal-500/15 dark:bg-teal-400/15',
+                    !isShielded &&
+                      (day.state === 'miss' || day.state === 'future') &&
+                      'bg-muted/60',
                   )}
                 >
                   <span className="text-[9px] font-semibold text-muted-foreground uppercase">
@@ -444,7 +532,10 @@ function HabitCardInner({
                     {day.state === 'relapse' && (
                       <X className="h-3 w-3 text-rose-600 dark:text-rose-400" />
                     )}
-                    {day.state === 'miss' && (
+                    {isShielded && (
+                      <Shield className="h-3 w-3 text-teal-600 dark:text-teal-300" />
+                    )}
+                    {day.state === 'miss' && !isShielded && (
                       <span className="block h-3 w-[3px] rounded-full bg-muted-foreground/40" />
                     )}
                     {day.state === 'future' && (
@@ -452,13 +543,14 @@ function HabitCardInner({
                     )}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <p className="text-[10px] text-muted-foreground/80 mt-2">
               {isAvoid
                 ? 'Hijau = hari bersih tanpa kambuh · merah = kambuh'
-                : 'Teal = selesai · abu = belum/terlewat'}
+                : 'Teal = selesai · 🛡 = hari aman · abu = terlewat'}
             </p>
           </div>
         </div>

@@ -2,11 +2,14 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError } from '@/app/api/_lib/api-utils';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // Task 36: dump habit membaca semua kolom scalar (targetDays/graduatedAt).
+    await ensureHabitGraduation();
     const [
       habits,
       habitLogs,

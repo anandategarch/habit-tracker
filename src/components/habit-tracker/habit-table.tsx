@@ -89,6 +89,7 @@ export function HabitTable({
           {habits.map((h) => {
             const status = habitStatus(h);
             const archived = status === 'archived';
+            const graduated = status === 'graduated';
             return (
               <TableRow
                 key={h.id}
@@ -104,7 +105,7 @@ export function HabitTable({
                 }}
                 className={cn(
                   'cursor-pointer border-border/60 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none',
-                  status !== 'active' && 'opacity-60',
+                  status !== 'active' && !graduated && 'opacity-60',
                 )}
               >
                 <TableCell className="pl-4 sm:pl-5">
@@ -119,7 +120,16 @@ export function HabitTable({
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{h.name}</p>
                       <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {HABIT_STATUS_LABELS[status]}
+                        {graduated ? (
+                          // Task 36: lulus = kemenangan — badge emerald + 🎓,
+                          // bukan abu-abu "diarsipkan".
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-px text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            🎓 {HABIT_STATUS_LABELS[status]}
+                            {h.targetDays ? ` · ${h.completedLogCount ?? 0}/${h.targetDays} hari` : ''}
+                          </span>
+                        ) : (
+                          HABIT_STATUS_LABELS[status]
+                        )}
                         {h.category && (
                           <>
                             <span aria-hidden="true">·</span>
