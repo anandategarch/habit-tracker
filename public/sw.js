@@ -1,9 +1,17 @@
-// Rutina Service Worker — v23 (POHON: 7 artwork SVG pertumbuhan di-precache).
+// Rutina Service Worker — v25 (TASK 56: ikon aplikasi = artwork tunas pengguna).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v24';
+const CACHE_NAME = 'habit-tracker-v25';
 // Riwayat versi:
+//  v25 — TASK 56 (samakan ikon dgn pohon terbaru): splash + tab loading
+//        kini TreeMark (artwork tunas botanical pengguna — komponen baru di
+//        loaders.tsx, TreeGrow vektor lama dihapus). SELURUH paket ikon PWA
+//        (icon-192/512 any + maskable, apple-touch-icon, favicon.ico,
+//        logo.svg) diregenerasi dari tunas.svg: any = full-bleed square;
+//        maskable = konten 62% dalam safe-zone 66/108 (0 pelanggaran
+//        piksel, 72 sampel). Bump cache WAJIB — v24 masih menyimpan ikon
+//        tunas-Lucide lama di HP user.
 //  v23 — POHON RUTINA (Task 53): fitur pohon bertumbuh (Beranda "Pohonmu"
 //        + Progres "Jalan Pertumbuhan"). 7 artwork SVG botanical pengguna
 //        (benih/tunas/pohon-muda/pohon-dewasa/berbunga/daun-kuning/dorman)

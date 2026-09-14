@@ -1,55 +1,55 @@
-// Generate paket ikon PWA Rutina — desain TUNAS (sprout) Lucide, warna teal.
-// Opsi R2 (Task 34): logo asli Rutina dipulihkan dari sejarah git, di-recolor
-// dari hijau #22c55e → teal #3eb59e agar senada tema Aurora saat ini (warna
-// --primary yang benar-benar dirender browser, diverifikasi via canvas).
+// Generate paket ikon PWA Rutina — Task 56: artwork pohon botanical pengguna.
+// Sumber kebenaran: public/tree/tunas.svg (tahap "Tunas" — identitas "tumbuh"
+// aplikasi; artwork yang SAMA dengan kartu Pohonmu Beranda, tab Pohon, dan
+// splash screen TreeMark — satu suara dari launcher → splash → dalam app).
 //
-// Matematika safe-zone maskable (standar Android adaptive icon):
-//   lingkaran aman = radius 33/108 dari kanvas (diameter 66/108 ≈ 61%).
-//   Glyph tunas: bbox 24-space ≈ x[4.5..19.5], y[1.5..20] (+stroke 1) → titik
-//   terjauh dari pusat glyph ≈ 12.5 unit / 24. Skala k (24×k dari 100 kanvas):
-//   jarak maks = 12.5k/100 kanvas → aman bila ≤ 33/108 → k ≤ 2.44.
-//   Maskable pakai k=2.4 → verifikasi piksel otomatis di bawah (harus 0
-//   pelanggaran). Generator lama (125af1f) memakai k=3 dengan asumsi
-//   "safe zone 80%" yang keliru — daun bisa terpotong launcher lingkaran.
+// Turunan:
+//   1) "any" (icon-192/512.png + logo.svg): artwork full-bleed — rx=44 sudut
+//      dilepas supaya tile gelap memenuhi kanvas (sudut transparan akan
+//      terlihat "lubang" di launcher/ikon tab).
+//   2) maskable (icon-192/512-maskable.png): bg gradien tetap full-bleed,
+//      seluruh konten (grid + glow + pohon) dikecilkan ke safe-zone 66/108
+//      Android. Matematika: titik konten terjauh dari pusat = ujung ellipse
+//      tanah (512±355, 865) → 500.4 unit; skala maks = 313/500.4 = 0.625 →
+//      dipakai 0.62 (margin ~3 unit). Verifikasi piksel 72 sampel ring.
+//   3) apple-touch-icon.png 180: full-bleed square (iOS memotong sendiri).
+//   4) favicon.ico 16/32/48: full-bleed square — tile gelap + tunas hijau
+//      terbaca di tab bar terang maupun gelap.
 //
-// Output (nama file sama dengan yang dipakai manifest/layout — tanpa perubahan
-// referensi): icon-192.png, icon-512.png (any), icon-192-maskable.png,
-// icon-512-maskable.png, apple-touch-icon.png, favicon.ico (16/32/48).
-// logo.svg ditulis terpisah sebagai file statis.
+// Filter SVG: tunas.svg hanya memakai feGaussianBlur (#xglow) — didukung
+// librsvg sharp; TIDAK ada feDropShadow (yang notorius tidak didukung).
+//
+// REGRESI-GUARD (pelajaran Task 35): logo.svg wajib bisa dirender sharp —
+// ikon manifest yang gagal parse XML membuat Chrome menolak install PWA.
 
 import sharp from 'sharp';
+import { readFileSync, writeFileSync } from 'fs';
 
 const PUBLIC = 'public';
-// teal persis seperti --primary yang dirender aplikasi (oklch 0.7 0.11 178)
-const TEAL = '#3eb59e';
-const WHITE = '#ffffff';
 
-// Lucide "sprout" — ikon yang sampai hari ini dipakai di sidebar aplikasi.
-const SPROUT_PATHS = [
-  'M7 20h10',
-  'M10 20c5.5-2.5.8-6.4 3-10',
-  'M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z',
-  'M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z',
-];
+const ART = readFileSync(`${PUBLIC}/tree/tunas.svg`, 'utf8');
 
-// k = faktor skala: 24×k unit di kanvas 100 (k=3 → glyph 72% kanvas).
-function buildSvg({ bg, stroke, k, sw }) {
-  const size = 24 * k;
-  const offset = (100 - size) / 2;
-  const bgRect = bg ? `<rect width="100" height="100" fill="${bg}"/>` : '';
-  const paths = SPROUT_PATHS.map((d) => `<path d="${d}"/>`).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  ${bgRect}
-  <g transform="translate(${offset},${offset}) scale(${k})" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">
-    ${paths}
-  </g>
-</svg>`;
+// Surgery string — bg rect persis dari generator artwork (fail-fast kalau
+// aset berubah struktur, jangan diam-diam render ikon rusak).
+const BG_RECT_RX = '<rect width="1024" height="1024" rx="44" fill="url(#xbg)"/>';
+const BG_RECT_FULL = '<rect width="1024" height="1024" fill="url(#xbg)"/>';
+if (!ART.includes(BG_RECT_RX)) {
+  throw new Error('tunas.svg berubah struktur (bg rect rx=44 tidak ketemu) — perbarui surgery string generate-icons.mjs!');
 }
 
-async function renderPng(svg, size, file) {
-  await sharp(Buffer.from(svg), { density: (size / 100) * 72 })
-    .png({ compressionLevel: 9 })
-    .toFile(file);
+// 1) Square full-bleed — sudut rx dilepas, sisanya identik.
+const squareSvg = ART.replace(BG_RECT_RX, BG_RECT_FULL);
+
+// 2) Maskable — konten dalam safe-zone, bg gradien tetap full kanvas.
+const SAFE_SCALE = 0.62;
+const translate = (512 * (1 - SAFE_SCALE)).toFixed(2); // 194.56
+const maskableSvg = squareSvg
+  .replace(BG_RECT_FULL, `${BG_RECT_FULL}<g transform="translate(${translate} ${translate}) scale(${SAFE_SCALE})">`)
+  .replace(/<\/svg>\s*$/, '</g></svg>');
+
+// Render artwork SVG (intrinsik 1024×1024) → PNG ukuran berapa pun.
+async function renderArt(svg, size, file) {
+  await sharp(Buffer.from(svg)).resize(size, size, { fit: 'fill' }).png({ compressionLevel: 9 }).toFile(file);
   const meta = await sharp(file).metadata();
   if (meta.width !== size || meta.height !== size) {
     throw new Error(`${file}: expected ${size}x${size}, got ${meta.width}x${meta.height}`);
@@ -87,54 +87,74 @@ async function pixel(file, x, y) {
   return [data[i], data[i + 1], data[i + 2], data[i + 3]];
 }
 
+// Safe-zone maskable: 72 sampel pada lingkaran r=33/108. Sampel boleh berupa
+// bg gelap/gradien/grid samar (toleransi 25/255 per kanal vs referensi sudut)
+// — grid hanya ~5.5% opacity, glow 7%; yang DILARANG: konten terang (daun,
+// batang, stroke tanah #2A241B) menembus ring.
 async function verifyMaskableSafeZone(file, size) {
   const R = (33 / 108) * size;
   const c = size / 2;
+  const bg = await pixel(file, 2, 2);
   let violations = 0;
   for (let a = 0; a < 360; a += 5) {
     const rad = (a * Math.PI) / 180;
     const p = await pixel(file, Math.round(c + R * Math.cos(rad)), Math.round(c + R * Math.sin(rad)));
-    if (p[3] > 200 && Math.abs(p[0] - 62) > 25) violations++; // bukan bg teal → glyph
+    if (p[3] > 200 && (Math.abs(p[0] - bg[0]) > 25 || Math.abs(p[1] - bg[1]) > 25 || Math.abs(p[2] - bg[2]) > 25)) {
+      violations++;
+    }
   }
   if (violations > 0) {
-    throw new Error(`${file}: ${violations} sampel glyph di luar lingkaran safe-zone 66/108!`);
+    throw new Error(`${file}: ${violations} sampel konten menembus lingkaran safe-zone 66/108!`);
   }
-  console.log(`  ✓ ${file}: 0 piksel glyph di luar lingkaran safe-zone (72 sampel)`);
+  console.log(`  ✓ ${file}: 0 konten di luar safe-zone (72 sampel, bg ref rgb(${bg.slice(0, 3)}))`);
 }
 
-console.log('Generasi ikon Rutina — tunas teal #3eb59e (Opsi R2)...');
+console.log('Generasi ikon Rutina — artwork tunas botanical pengguna (Task 56)...');
 
-// "any": transparan + tunas teal (tab browser, desktop, splash).
-const anySvg = buildSvg({ bg: null, stroke: TEAL, k: 3.4, sw: 1.9 });
-await renderPng(anySvg, 192, `${PUBLIC}/icon-192.png`);
-await renderPng(anySvg, 512, `${PUBLIC}/icon-512.png`);
+// "any" + logo.svg: full-bleed square.
+await renderArt(squareSvg, 192, `${PUBLIC}/icon-192.png`);
+await renderArt(squareSvg, 512, `${PUBLIC}/icon-512.png`);
+writeFileSync(`${PUBLIC}/logo.svg`, squareSvg);
+console.log('  ✓ public/logo.svg (square full-bleed, ditulis statis)');
 
-// "maskable": bg teal full-bleed + tunas putih, k=2.4 (safe-zone 66/108 benar).
-const maskSvg = buildSvg({ bg: TEAL, stroke: WHITE, k: 2.4, sw: 2 });
-await renderPng(maskSvg, 192, `${PUBLIC}/icon-192-maskable.png`);
-await renderPng(maskSvg, 512, `${PUBLIC}/icon-512-maskable.png`);
+// maskable: bg full + konten 62% dalam safe-zone.
+await renderArt(maskableSvg, 192, `${PUBLIC}/icon-192-maskable.png`);
+await renderArt(maskableSvg, 512, `${PUBLIC}/icon-512-maskable.png`);
 
-// apple-touch-icon: bg teal full-bleed opaque + tunas putih (iOS potong sendiri).
-await renderPng(buildSvg({ bg: TEAL, stroke: WHITE, k: 2.7, sw: 2 }), 180, `${PUBLIC}/apple-touch-icon.png`);
+// apple-touch-icon: 180 opaque full-bleed (iOS memotong sudut sendiri).
+await renderArt(squareSvg, 180, `${PUBLIC}/apple-touch-icon.png`);
 
-// favicon.ico: 16/32/48 transparan + tunas teal bold.
-const favSvg = buildSvg({ bg: null, stroke: TEAL, k: 3.6, sw: 2.4 });
+// favicon.ico: 16/32/48.
 const favPngs = [];
 for (const s of [16, 32, 48]) {
-  favPngs.push(await sharp(Buffer.from(favSvg), { density: (s / 100) * 72 }).png().toBuffer());
+  favPngs.push(await sharp(Buffer.from(squareSvg)).resize(s, s, { fit: 'fill' }).png().toBuffer());
 }
-const { writeFileSync } = await import('fs');
 writeFileSync(`${PUBLIC}/favicon.ico`, buildIco(favPngs));
 console.log('  ✓ public/favicon.ico (16/32/48)');
 
-// Verifikasi piksel: maskable safe-zone + sudut + glyph ada.
+// ── Verifikasi piksel ────────────────────────────────────────────────────
 await verifyMaskableSafeZone(`${PUBLIC}/icon-512-maskable.png`, 512);
+
 const corner = await pixel(`${PUBLIC}/icon-512-maskable.png`, 2, 2);
 console.log(`  ✓ maskable sudut: rgb(${corner.slice(0, 3)}) ${corner[3] === 255 ? 'opaque' : 'TRANSPARAN?!'}`);
-const anyCorner = await pixel(`${PUBLIC}/icon-512.png`, 2, 2);
-console.log(`  ✓ any sudut alpha: ${anyCorner[3]} (0 = transparan)`);
-const glyph = await pixel(`${PUBLIC}/icon-512-maskable.png`, 256, 256);
-console.log(`  ✓ maskable pusat: rgb(${glyph.slice(0, 3)}) (putih = tunas ada)`);
+
+// Konten pohon benar-benar ter-render: batang artwork (x≈515, y≈720, stroke
+// xwood coklat lebar 16) → maskable scaled 0.62 di 512 raster ≈ (257, 320).
+// Guard anti "bg polos tanpa pohon" (mis. filter gagal → render kosong).
+const bgRef = await pixel(`${PUBLIC}/icon-512-maskable.png`, 2, 2);
+const trunkM = await pixel(`${PUBLIC}/icon-512-maskable.png`, 257, 320);
+const deltaM = Math.abs(trunkM[0] - bgRef[0]) + Math.abs(trunkM[1] - bgRef[1]) + Math.abs(trunkM[2] - bgRef[2]);
+if (deltaM < 60) {
+  throw new Error(`pohon tidak terdeteksi di maskable (delta rgb ${deltaM}) — artwork mungkin gagal render!`);
+}
+console.log(`  ✓ maskable batang terdeteksi (delta rgb ${deltaM} vs bg)`);
+
+const trunkAny = await pixel(`${PUBLIC}/icon-512.png`, 258, 360);
+const deltaAny = Math.abs(trunkAny[0] - bgRef[0]) + Math.abs(trunkAny[1] - bgRef[1]) + Math.abs(trunkAny[2] - bgRef[2]);
+if (deltaAny < 60) {
+  throw new Error(`pohon tidak terdeteksi di icon-512 (delta rgb ${deltaAny}) — artwork mungkin gagal render!`);
+}
+console.log(`  ✓ any batang terdeteksi (delta rgb ${deltaAny} — coklat kayu = tunas ada)`);
 
 // REGRESI-GUARD: logo.svg HARUS SVG valid yang bisa dirender (XML komentar
 // tidak boleh mengandung minus ganda — bug Task 35 yang sempat merusak
@@ -145,4 +165,4 @@ try {
 } catch (e) {
   throw new Error(`logo.svg RUSAK — Chrome akan gagal parse: ${e.message}`);
 }
-console.log('Selesai — 6 file ikon tunas teal.');
+console.log('Selesai — 6 file ikon artwork tunas pengguna.');

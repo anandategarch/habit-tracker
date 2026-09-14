@@ -78,40 +78,42 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
 }
 
 /**
- * TreeGrow v2 — Opsi A "Root-to-Leaf Growth" (Task 28, revisi user).
+ * TreeMark (Task 56) — ikon aplikasi Rutina: artwork pohon botanical
+ * milik pengguna (public/tree/tunas.svg, tahap "Tunas").
  *
- * Pohon organic yang benar-benar TUMBUH berurutan, seperti ilustrasi
- * professional: garis tanah → AKAR menggaris ke bawah → batang naik →
- * 5 ranting bercabang → 7 kipas daun mekar di ujung ranting + glow
- * bernapas + daun melayang. Struktur cabang terlihat (bukan blob tajuk).
- *
- * Prinsip riset UX Task 27 yang dipertahankan:
- * - Progress ring MENGAKSELERASI (ease-in) — terasa lebih cepat (riset CMU).
- * - Sway lembut ±1.5° dari pangkal — akar TIDAK ikut goyang (realistis).
- * - Total sekuens ~1.5s — sinkron dengan splash exit 1.6s.
+ * TASK 56: splash + tab loading disamakan dengan pohon terbaru — mengganti
+ * TreeGrow (pohon garis vektor lama, Task 28). Artwork yang sama dipakai
+ * kartu "Pohonmu" Beranda, tab Pohon, dan paket ikon PWA/favicon — identitas
+ * visual satu suara dari launcher → splash → dalam aplikasi.
  *
  * Varian:
- * - 'splash' : sekuens tumbuh sekali jalan (ground → akar → batang →
- *   ranting → daun) + progress ring. Untuk layar pembuka.
- * - 'inline' : pohon langsung tampil UTUH (tanpa sekuens tumbuh, tanpa
- *   ring) + sway. Untuk tab-loading yang bisa selesai dalam ~300ms —
- *   sekuens tumbuh yang terpotong di tengah justru terlihat rusak.
+ * - 'splash' : tile masuk dengan settle-spring + halo teal bernapas +
+ *   progress ring MENGAKSELERASI (ease-in — riset CMU: terasa lebih cepat).
+ *   Untuk layar pembuka (1.6s, sinkron anim-splash-exit di page.tsx).
+ * - 'inline' : tile tampil langsung + goyang lembut dari pangkal (tanpa
+ *   ring/sekuens) — untuk tab-loading yang selesai dalam ~300ms.
  *
- * Warna lewat kelas CSS (globals.css) supaya adaptif light/dark mode.
- * Semua animasi dimatikan oleh prefers-reduced-motion (rule global).
+ * Kenapa <img> dan bukan inline-SVG: aset punya gradient id (xbg/xleaf…)
+ * yang akan bertabrakan kalau dua instance ter-render bersamaan (splash +
+ * tab loading saat transisi). Sebagai dokumen terpisah, id aman.
+ * Goyang/bernafas lewat kelas CSS (globals.css §TreeMark) — adaptif
+ * prefers-reduced-motion.
  */
-export function TreeGrow({
+export function TreeMark({
   className,
-  size = 84,
+  size = 64,
   variant = 'inline',
   ring = false,
 }: {
   className?: string;
   size?: number;
   variant?: 'splash' | 'inline';
-  /** Tampilkan progress ring yang mengakselerasi (hanya bermakna di varian splash). */
+  /** Tampilkan progress ring yang mengakselerasi (varian splash). */
   ring?: boolean;
 }) {
+  // Padding supaya ring (r≈47% dari size) melingkar DI LUAR tile artwork.
+  const pad = Math.max(3, Math.round(size * 0.085));
+  const tile = Math.max(24, size - pad * 2);
   return (
     <div
       className={cn('relative flex items-center justify-center', className)}
@@ -119,90 +121,47 @@ export function TreeGrow({
       role="status"
       aria-label="Memuat"
     >
-      <svg
-        viewBox="0 0 200 200"
-        className={cn('css-tree-svg h-full w-full', variant === 'inline' && 'tree-instant')}
-        aria-hidden="true"
-      >
-        <defs>
-          <radialGradient id="tree-glow-grad" cx="50%" cy="50%" r="50%">
-            {/* TASK-28 FIX: stop-color harus via CSS class — presentation
-                attribute tidak mendukung var(), dan var(--primary) di app ini
-                adalah warna oklch() penuh (bukan triplet HSL) sehingga
-                hsl(var(--primary)) invalid → warna jatuh ke hitam. */}
-            <stop className="tree-glow-stop-a" offset="0%" />
-            <stop className="tree-glow-stop-b" offset="100%" />
-          </radialGradient>
-        </defs>
+      {/* Halo teal "bernapas" di belakang tile — hanya splash (tenang, bukan
+          strobo). Static samar di bawah prefers-reduced-motion. */}
+      {variant === 'splash' && <div className="treemark-halo treemark-halo-on" aria-hidden="true" />}
 
-        {/* Progress ring — mulai dari pukul 12, arc mengakselerasi penuh 1 putaran */}
-        {ring && (
-          <g transform="rotate(-90 100 100)">
-            <circle className="tree-ring-track" cx="100" cy="100" r="88" fill="none" strokeWidth="3" />
+      {/* Progress ring — mulai pukul 12, arc mengakselerasi 1 putaran.
+          pathLength=1 menormalkan keliling → dasharray 1 = sepanjang path. */}
+      {ring && (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
+          <g transform="rotate(-90 50 50)">
+            <circle className="treemark-ring-track" cx="50" cy="50" r="47" fill="none" strokeWidth="2.6" />
             <circle
-              className="tree-ring-arc"
-              cx="100"
-              cy="100"
-              r="88"
+              className="treemark-ring-arc"
+              cx="50"
+              cy="50"
+              r="47"
               fill="none"
-              strokeWidth="3"
+              strokeWidth="2.6"
               strokeLinecap="round"
+              pathLength={1}
             />
           </g>
-        )}
+        </svg>
+      )}
 
-        {/* Glow lembut di belakang tajuk — "bernapas" */}
-        <circle className="tree-glow" cx="100" cy="88" r="62" fill="url(#tree-glow-grad)" />
-
-        {/* Garis tanah — panggung sebelum tumbuh (akar tumbuh DI BAWAHNYA) */}
-        <path className="tree-ground" d="M36 150 H164" pathLength={1} />
-
-        {/* Gundukan tanah di pangkal */}
-        <ellipse className="tree-mound" cx="100" cy="150" rx="32" ry="7" />
-
-        {/* Akar — 4 garis menggaris ke bawah tanah (stagger kiri→kanan→dalam) */}
-        <g>
-          <path className="tree-root tree-root-1" d="M100 150 C92 156 80 160 64 159" pathLength={1} />
-          <path className="tree-root tree-root-2" d="M100 150 C108 156 120 160 136 159" pathLength={1} />
-          <path className="tree-root tree-root-3" d="M100 150 C97 161 96 169 95 178" pathLength={1} />
-          <path className="tree-root tree-root-4" d="M100 150 C104 162 110 168 119 175" pathLength={1} />
-        </g>
-
-        {/* Grup sway: batang + ranting + daun bergoyang dari pangkal
-            (akar & tanah DI LUAR grup — akar tidak ikut goyang). */}
-        <g className="tree-sway">
-          {/* Batang */}
-          <path className="tree-trunk" d="M100 150 C99.5 135 99 122 100 108" pathLength={1} />
-          {/* Ranting: leader tengah + 2 cabang samping panjang + 2 diagonal */}
-          <path className="tree-branch tree-branch-c" d="M100 108 C99 98 101 90 100 79" pathLength={1} />
-          <path className="tree-branch tree-branch-l1" d="M100 108 C91 101 79 99 66 97" pathLength={1} />
-          <path className="tree-branch tree-branch-r1" d="M100 108 C109 101 121 99 134 97" pathLength={1} />
-          <path className="tree-branch tree-branch-l2" d="M100 108 C96 100 89 94 82 86" pathLength={1} />
-          <path className="tree-branch tree-branch-r2" d="M100 108 C104 100 111 94 118 86" pathLength={1} />
-
-          {/* Kipas daun di ujung ranting — mekar tengah→luar */}
-          <LeafFan x={100} y={79} scale={1.05} cls="tree-leaves-c" />
-          <LeafFan x={82} y={86} scale={0.82} cls="tree-leaves-l2" />
-          <LeafFan x={118} y={86} scale={0.82} cls="tree-leaves-r2" />
-          <LeafFan x={66} y={97} scale={0.88} cls="tree-leaves-l1" />
-          <LeafFan x={134} y={97} scale={0.88} cls="tree-leaves-r1" />
-          {/* Daun pengisi di tengah cabang */}
-          <StemLeaf x={92} y={98} rotate={-18} scale={0.6} cls="tree-leaves-m1" />
-          <StemLeaf x={108} y={98} rotate={18} scale={0.6} cls="tree-leaves-m2" />
-        </g>
-
-        {/* Daun melayang — tiap daun diposisikan lewat translate statis parent,
-            animasi drift jalan di path anak (transform lokal di sekitar 0,0). */}
-        <g transform="translate(24 92)">
-          <path className="tree-leaf tree-leaf-f1" d={TREE_LEAF_D} />
-        </g>
-        <g transform="translate(176 82)">
-          <path className="tree-leaf tree-leaf-f2" d={TREE_LEAF_D} />
-        </g>
-        <g transform="translate(146 24)">
-          <path className="tree-leaf tree-leaf-f3" d={TREE_LEAF_D} />
-        </g>
-      </svg>
+      {/* Tile artwork — enter (splash) di wrapper, sway di <img> supaya dua
+          animasi tidak bertabrakan di elemen yang sama. */}
+      <div
+        className={cn('treemark-tile', variant === 'splash' && 'treemark-enter')}
+        style={{ width: tile, height: tile }}
+      >
+        <img
+          src="/tree/tunas.svg"
+          alt=""
+          width={1024}
+          height={1024}
+          decoding="async"
+          draggable={false}
+          fetchPriority={variant === 'splash' ? 'high' : 'auto'}
+          className="treemark-art treemark-sway h-full w-full select-none"
+        />
+      </div>
     </div>
   );
 }

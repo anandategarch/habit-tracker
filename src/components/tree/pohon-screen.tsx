@@ -48,7 +48,7 @@ import { toDashboardData } from '@/lib/dashboard/contract';
 import { jakartaDateString } from '@/lib/timezone';
 import { PageHeader } from '@/components/ui/page-header';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
-import { TreeGrow } from '@/components/ui/loaders';
+import { TreeMark } from '@/components/ui/loaders';
 import { cn } from '@/lib/utils';
 
 // ── Data types (bentuk field minimal yang dipakai layar ini) ────────────
@@ -363,7 +363,9 @@ export default function PohonScreen() {
   if (isLoading && !dash) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <TreeGrow variant="inline" />
+        {/* TASK 56: TreeMark — artwork pohon botanical (sama dgn splash).
+            Dulu TreeGrow vektor lama. */}
+        <TreeMark size={72} variant="inline" />
       </div>
     );
   }

@@ -37,7 +37,7 @@ import { AppLockGate } from '@/components/app-lock-gate';
 import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
-import { TreeGrow } from '@/components/ui/loaders';
+import { TreeMark } from '@/components/ui/loaders';
 
 // FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
 // initial bundle small + avoid SSR for components that use browser-only APIs.
@@ -46,19 +46,16 @@ import { TreeGrow } from '@/components/ui/loaders';
 // during the ~300ms chunk-fetch/parse window, producing a blank white screen
 // ("transisi antar tab hanya putih aja").
 //
-// Now each dynamic() provides a `loading` render-prop that shows TreeGrow
-// (same pohon premium as splash screen) for consistent branding across
-// app load + tab transitions. The loader mounts immediately when the dynamic
-// wrapper renders, then swaps out atomically once the chunk resolves — no
-// blank frame in between. The PageTransition's motion.div still animates the
+// Now each dynamic() provides a `loading` render-prop that shows TreeMark
+// (TASK 56: artwork pohon botanical pengguna — sama dengan splash screen,
+// kartu "Pohonmu", dan ikon PWA) for consistent branding across app load +
+// tab transitions. The loader mounts immediately when the dynamic wrapper
+// renders, then swaps out atomically once the chunk resolves — no blank
+// frame in between. The PageTransition's motion.div still animates the
 // surrounding fade, so the loader itself enters with the same fade-in.
-//
-// FEAT-TREE-NAV (Task 28): TreeGrow varian 'inline' — pohon langsung tampil
-// utuh + sway, tanpa sekuens tumbuh. Tab loading bisa selesai dalam ~300ms;
-// sekuens tumbuh yang terpotong di tengah justru terlihat rusak.
 const tabLoading = () => (
  <div className="flex flex-col items-center justify-center gap-3 py-8">
-   <TreeGrow size={80} variant="inline" />
+   <TreeMark size={64} variant="inline" />
    <p className="text-xs text-muted-foreground">Memuat...</p>
  </div>
 );
@@ -73,7 +70,7 @@ const ProgressTab = dynamic(() => import('@/components/habit-tracker/progress'),
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
 
 // TAB MESA KERJA (Task 17-a): catatan kerjaan — rutinitas berulang + tugas
-// lepas + catatan kilat + Asisten AI. Loader sama (TreeGrow) seperti tab lain.
+// lepas + catatan kilat + Asisten AI. Loader sama (TreeMark) seperti tab lain.
 const WorkDesk = dynamic(() => import('@/components/work/work-desk'), { ssr: false, loading: tabLoading });
 
 // TASK 55 (POHON TAB): tab pohon interaktif — rumah baru pohon Rutina
@@ -255,10 +252,12 @@ export default function Home() {
  const triggerQuickAdd = useAppStore(s => s.triggerQuickAdd);
  const queryClient = useQueryClient();
 
- // Splash screen on initial app load — shows TreeGrow (Opsi A, Task 28) for
-// 1.6s while dynamic imports + React Query fetch data. Makes first load feel
-// premium + branded (pohon premium + progress ring mengakselerasi) instead
-// of blank white flash.
+ // Splash screen on initial app load — TASK 56: TreeMark (artwork pohon
+// botanical pengguna, tahap "Tunas") — ikon disamakan dengan pohon
+// terbaru: tile gelap + halo teal bernapas + goyang lembut + progress
+// ring mengakselerasi, selama 1.6s while dynamic imports + React Query
+// fetch data. Makes first load feel premium + branded — pengganti pohon
+// garis vektor TreeGrow (Task 28).
 // TASK-28 timing (riset Task 27): 2600ms → 1600ms. Riset UX: splash idealnya
 // <1.5-2s; ring selesai tepat saat splash exit (efek "selesai!" psikologis).
 // FEAT-SPLASH-REVEAL: Exit animation (fade + scale + slide up, 400ms)
@@ -456,11 +455,12 @@ const [showSplash, setShowSplash] = useState(true);
  const ActiveComponent = TAB_COMPONENTS[activeTab];
 
  return (
-   <TooltipProvider delayDuration={300}>     {/* Splash screen — TreeGrow (Opsi A, Task 28) on initial app load (1.6s).
-         Premium branded loading: pohon 3 lapis tajuk tumbuh + progress ring
-         mengakselerasi (riset CMU: terasa lebih cepat) — pengganti ikon
-         sprout sederhana. FEAT-SPLASH-REVEAL: exit animation (fade + scale +
-         slide up) instead of hard cut; content entrance (fade + slide up). */}
+   <TooltipProvider delayDuration={300}>     {/* Splash screen — TASK 56: TreeMark (artwork pohon botanical pengguna
+         tahap "Tunas") on initial app load (1.6s). Premium branded loading:
+         tile artwork + halo bernapas + goyang lembut + progress ring
+         mengakselerasi (riset CMU: terasa lebih cepat). FEAT-SPLASH-REVEAL:
+         exit animation (fade + scale + slide up) instead of hard cut;
+         content entrance (fade + slide up). */}
      {showSplash && (
        <div
          className={cn(
@@ -469,7 +469,7 @@ const [showSplash, setShowSplash] = useState(true);
          )}
          key="splash"
        >
-         <TreeGrow size={168} variant="splash" ring />
+         <TreeMark size={176} variant="splash" ring />
          <div className="text-center">
            <p className="text-lg font-semibold text-primary tracking-tight">Rutina</p>
            <p className="text-xs text-muted-foreground mt-1">Menumbuhkan habit harian</p>
