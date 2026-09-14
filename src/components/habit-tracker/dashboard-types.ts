@@ -176,6 +176,17 @@ export interface DashboardData {
   currentStreak: number;
   longestStreak: number;
   successToday: number;
+  /** Task 44 — nama user dari /api/dashboard greeting (personalisasi sapaan
+   *  Beranda). String kosong / 'User' / undefined → hero memakai sapaan
+   *  generik tanpa nama. */
+  userName: string;
+  /** Task 44 — SELURUH habit terjadwal hari ini (done + belum) untuk seksi
+   *  "Rutinitas Hari Ini" di Beranda — bukan hanya yang belum selesai
+   *  (todayFocus). */
+  todayHabits: TodayHabitItem[];
+  /** Task 44 — X dari Y hari ini (jumlah selesai / total terjadwal). */
+  todayCompletedCount: number;
+  todayTotalCount: number;
   /** KPI "7 Hari" — completion rolling 7 hari (L-3). */
   weeklyCompletion: number;
   /** KPI "30 Hari" — completion rolling 30 hari (L-3). */
@@ -208,4 +219,16 @@ export interface DashboardData {
   timeTrackedSummary: TimeTrackedHabitSummary[];
   financeOverview: FinanceOverviewData;
   habitDetailStats: HabitDetailStat[];
+}
+
+/** Task 44 — baris habit untuk seksi "Rutinitas Hari Ini" Beranda:
+ *  status done/belum dipisah agar daftar bisa merayakan yang selesai
+ *  (bukan hanya menagih yang belum — prinsip "Fokus Hari Ini" versi lama
+ *  cuma menampilkan sisi negatif). */
+export interface TodayHabitItem {
+  id: string;
+  name: string;
+  icon: string;
+  priority?: string;
+  completed: boolean;
 }

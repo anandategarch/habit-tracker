@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { Habit, HabitLog } from './daily-tracker-types';
 import { computeStreakDetail, shiftYmdKey, toDateString } from './daily-tracker-helpers';
+import { xpForHabit } from '@/lib/dashboard-helpers';
 import { dateFromYMD } from '@/lib/timezone';
 import { eeeIdFormatter } from '@/lib/date-utils';
 import {
@@ -213,7 +214,7 @@ function HabitCardInner({
     <div className="relative [perspective:1200px]">
       <div
         className={cn(
-          'relative transition-transform duration-500 [transform-style:preserve-3d]',
+          'habit-flip-wrap relative transition-transform duration-500 [transform-style:preserve-3d]',
           flipped && '[transform:rotateY(180deg)]',
         )}
       >
@@ -318,7 +319,7 @@ function HabitCardInner({
                   }}
                   aria-label={`Analisis waktu: ${habit.name}`}
                   title="Analisis waktu"
-                  className="h-7 w-7 rounded-full grid place-items-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="h-10 w-10 rounded-full grid place-items-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <BarChart3 className="h-3.5 w-3.5" />
                 </button>
@@ -330,16 +331,18 @@ function HabitCardInner({
                   }}
                   aria-label={`Riwayat 7 hari: ${habit.name}`}
                   title="Riwayat 7 hari"
-                  className="h-7 w-7 rounded-full grid place-items-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="h-10 w-10 rounded-full grid place-items-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <History className="h-3.5 w-3.5" />
                 </button>
 
-                {/* Checkbox binary — habit amount TIDAK punya checkbox */}
+                {/* Checkbox binary — habit amount TIDAK punya checkbox.
+                    Task 44: hit-area 44px (WCAG touch) — lingkaran visual 24px
+                    jadi anak span; + chip "+XP" melayang saat baru selesai. */}
                 {!isAmount && (
                   <span
                     className={cn(
-                      'inline-grid place-items-center',
+                      'relative inline-grid place-items-center',
                       justCompleted && 'anim-nav-icon-pop',
                     )}
                   >
@@ -351,22 +354,42 @@ function HabitCardInner({
                       disabled={isToggling || dragMode}
                       onClick={handleCheckboxClick}
                       className={cn(
-                        'h-6 w-6 rounded-full border-2 grid place-items-center transition-all duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'grid h-11 w-11 shrink-0 place-items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         isToggling && 'animate-pulse',
-                        isDone
-                          ? isAvoid
-                            ? 'border-transparent bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-[0_0_14px_-2px_rgba(244,63,94,0.65)]'
-                            : 'border-transparent bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-[0_0_14px_-2px_rgba(16,185,129,0.65)]'
-                          : cn(
-                              'border-muted-foreground/40 bg-transparent',
-                              isAvoid
-                                ? 'hover:border-rose-500/70'
-                                : 'hover:border-teal-500/70',
-                            ),
                       )}
                     >
-                      {isDone && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
+                      <span
+                        className={cn(
+                          'grid h-6 w-6 place-items-center rounded-full border-2 transition-all duration-200',
+                          isDone
+                            ? isAvoid
+                              ? 'border-transparent bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-[0_0_14px_-2px_rgba(244,63,94,0.65)]'
+                              : 'border-transparent bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-[0_0_14px_-2px_rgba(16,185,129,0.65)]'
+                            : cn(
+                                'border-muted-foreground/40 bg-transparent',
+                                isAvoid
+                                  ? 'hover:border-rose-500/70'
+                                  : 'hover:border-teal-500/70',
+                              ),
+                        )}
+                      >
+                        {isDone && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
+                      </span>
                     </button>
+                    {/* Task 44 — reward XP terlihat: muncul HANYA untuk habit
+                        normal yang baru saja diselesaikan (avoid = kambuh,
+                        tidak berhak XP; amount = tanpa checkbox). Animasi
+                        0.75s naik-lalu-pudar (anim-xp-rise, reduced-motion
+                        aware). aria-hidden: informasi XP sudah dibawa toast. */}
+                    {justCompleted && !isAvoid && isDone && (
+                      <span
+                        key={`xp-${habit.id}`}
+                        aria-hidden="true"
+                        className="anim-xp-rise pointer-events-none absolute -top-1 right-0 whitespace-nowrap text-[11px] font-bold text-emerald-600 dark:text-emerald-400"
+                      >
+                        +{xpForHabit(habit)} XP
+                      </span>
+                    )}
                   </span>
                 )}
               </div>
@@ -396,7 +419,7 @@ function HabitCardInner({
                       }}
                       aria-label={`Kurangi: ${habit.name}`}
                       disabled={value <= 0 || isToggling || dragMode}
-                      className="h-8 w-8 rounded-full border border-border/70 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      className="h-10 w-10 rounded-full border border-border/70 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     >
                       <Minus className="h-3.5 w-3.5" />
                     </button>
@@ -409,7 +432,7 @@ function HabitCardInner({
                       }}
                       aria-label={`Tambah: ${habit.name}`}
                       disabled={isToggling || dragMode}
-                      className="h-8 w-8 rounded-full btn-primary-gradient grid place-items-center text-primary-foreground active:scale-90 transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      className="h-10 w-10 rounded-full btn-primary-gradient grid place-items-center text-primary-foreground active:scale-90 transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -507,7 +530,7 @@ function HabitCardInner({
                   setFlipped(false);
                 }}
                 aria-label="Tutup riwayat 7 hari"
-                className="h-6 w-6 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="h-9 w-9 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

@@ -35,6 +35,7 @@ import type {
   StackedBarDatum,
   TimeTrackedHabitSummary,
   TodayFocusItem,
+  TodayHabitItem,
   WeeklyPatternDatum,
 } from '@/components/habit-tracker/dashboard-types';
 
@@ -153,6 +154,24 @@ export function toDashboardData(payload: DashboardApiPayload, period: Period): D
       : calcLevel(totalXP);
 
   // ── Fokus hari ini: hanya yang belum selesai (ChartInfo section parent) ─
+  // Task 44: payload mentah focusToday memuat SELURUH habit terjadwal hari
+  // ini (dengan flag completed) — dipetakan dua kali: todayHabits (semua,
+  // untuk seksi "Rutinitas Hari Ini" Beranda) + todayFocus (yang belum,
+  // dipakai seksi lama yang dipertahankan).
+  const todayHabits: TodayHabitItem[] = list<
+    NonNullable<DashboardApiPayload['focusToday']>[number]
+  >(raw.focusToday)
+    .filter((h) => h && typeof h === 'object' && h.id && h.name)
+    .map((h) => ({
+      id: h.id as string,
+      name: h.name as string,
+      icon: h.emoji || '✅',
+      priority: typeof h.priority === 'string' ? h.priority : undefined,
+      completed: h.completed === true,
+    }));
+  const todayCompletedCount = todayHabits.filter((h) => h.completed).length;
+  const todayTotalCount = todayHabits.length;
+
   const todayFocus: TodayFocusItem[] = list<NonNullable<DashboardApiPayload['focusToday']>[number]>(
     raw.focusToday,
   )
@@ -203,6 +222,15 @@ export function toDashboardData(payload: DashboardApiPayload, period: Period): D
     currentStreak,
     longestStreak: num(kpi.bestStreak),
     successToday: num(kpi.successToday),
+    // Task 44 — greeting.userName sudah dikirim API sejak kontrak rebuild
+    // tapi tidak pernah dipetakan (sapaan Beranda jadi generik). Nilai
+    // default 'User' dari route diperlakukan sebagai "tanpa nama".
+    userName: typeof raw.greeting?.userName === 'string' && raw.greeting.userName.trim() && raw.greeting.userName !== 'User'
+      ? raw.greeting.userName.trim()
+      : '',
+    todayHabits,
+    todayCompletedCount,
+    todayTotalCount,
     weeklyCompletion: num(kpi.completion7d ?? kpi.weeklyRate),
     monthlyCompletion: num(kpi.completion30d ?? kpi.monthlyRate),
     weekToDateRate: num(kpi.weeklyRate),

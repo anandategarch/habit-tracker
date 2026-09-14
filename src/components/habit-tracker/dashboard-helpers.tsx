@@ -261,7 +261,7 @@ export function QuoteDisplay({ quote, onRefresh }: QuoteDisplayProps) {
         type="button"
         onClick={onRefresh}
         aria-label="Ganti kutipan motivasi"
-        className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:rotate-180 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:rotate-180 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         style={{ transitionDuration: '0.45s' }}
       >
         <RefreshCw className="h-4 w-4" aria-hidden="true" />

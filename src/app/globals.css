@@ -190,77 +190,6 @@
  background: oklch(0.65 0 0);
 }
 
-/* Skeleton shimmer — premium gradient sweep (light + dark mode aware).
-  Uses CSS variables (--muted, --primary) so it adapts to theme.
-  will-change: background-position hints the browser to optimize the
-  animation for compositing (smoother on low-end devices). */
-@keyframes shimmer {
- 0% { background-position: -200% 0; }
- 100% { background-position: 200% 0; }
-}
-/* Aurora Skeleton Upgrade — gradient hijau emerald→teal flowing.
-  Sweeps a soft green tint (--primary at low opacity) across a muted
-  base, matching the app's sprout/nature theme. Adapts to light & dark
-  via CSS variables. Slow 2s linear loop for calm premium feel. */
-.shimmer {
- background: linear-gradient(
-   110deg,
-   hsl(var(--muted)) 25%,
-   hsl(var(--primary) / 0.08) 40%,
-   hsl(var(--primary) / 0.15) 50%,
-   hsl(var(--primary) / 0.08) 60%,
-   hsl(var(--muted)) 75%
- );
- background-size: 200% 100%;
- animation: shimmer 2s linear infinite;
- will-change: background-position;
-}
-
-/* ── Hybrid Skeleton (Opsi 5): content-aware shapes + shimmer + stagger ──
-  Premium skeleton system that matches actual content layout (CLS = 0).
-  - .skel-hybrid: shimmer sweep over content-aware shapes
-  - .skel-stagger: 60ms stagger entrance between sibling skeleton blocks
-  - .skel-circle: circular placeholder (icons, avatars)
-  - .skel-card: full card placeholder with proper aspect ratio */
-.skel-hybrid {
- background: linear-gradient(
-   90deg,
-   hsl(var(--muted)) 25%,
-   hsl(var(--accent) / 0.6) 50%,
-   hsl(var(--muted)) 75%
- );
- background-size: 200% 100%;
- animation: shimmer 1.8s infinite linear;
- will-change: background-position;
- border-radius: 0.5rem;
-}
-.skel-stagger {
- animation: shimmer 1.8s infinite linear,
-            skel-fade-in 0.4s ease-out backwards;
- will-change: background-position, opacity, transform;
-}
-@keyframes skel-fade-in {
- from { opacity: 0; transform: translateY(8px); }
- to   { opacity: 1; transform: translateY(0); }
-}
-.skel-circle { border-radius: 9999px; }
-.skel-card   { border-radius: 0.75rem; }
-
-/* Respect reduced motion — disable shimmer + stagger animation.
-  FIX-TRANSITION-1: was `background: var(--muted)` which sets the raw
-  channel triplet (e.g. `210 40% 96%`) without the `hsl(...)` wrapper —
-  an invalid CSS color, so the browser silently ignored it and the
-  skeleton blocks appeared transparent instead of muted-gray. Wrapping
-  in `hsl(var(--muted))` resolves the channels into a real color. */
-@media (prefers-reduced-motion: reduce) {
- .shimmer,
- .skel-hybrid,
- .skel-stagger {
-   animation: none;
-   background: hsl(var(--muted));
- }
-}
-
 /* Smooth bottom nav transition */
 @media (pointer: coarse) {
  button:active {
@@ -308,31 +237,6 @@
 .dark .tx-node {
  border-color: oklch(0.205 0 0);
  box-shadow: 0 0 0 2px oklch(1 0 0 / 8%);
-}
-
-/* Transaction card — Task 41: disamakan dengan bahasa premium-card
-   (gradient putih hangat + border halus + shadow tinted primary). */
-.tx-card {
- background:
-  linear-gradient(120deg, oklch(1 0 0), oklch(0.985 0.008 165));
- border-radius: 1rem;
- padding: 1rem 1.25rem;
- margin-bottom: 0.75rem;
- border: 1px solid oklch(0.93 0.012 165);
- box-shadow:
-  0 1px 2px color-mix(in oklab, var(--primary) 6%, transparent),
-  0 8px 24px -14px color-mix(in oklab, var(--primary) 22%, transparent);
- transition: transform 0.15s ease, box-shadow 0.15s ease;
- position: relative;
-}
-.dark .tx-card {
- background: linear-gradient(120deg, oklch(0.21 0.004 165), oklch(0.185 0.006 165));
- border-color: oklch(1 0 0 / 7%);
- box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
-}
-.tx-card:active {
- transform: scale(0.98);
- box-shadow: 0 2px 8px oklch(0 0 0 / 0.1);
 }
 
 /* Date pill — sticky rounded badge */
@@ -418,13 +322,6 @@
   PREMIUM HABIT CARD GRID — Linear / Apple Fitness / Habitify / Stripe
   ══════════════════════════════════════════════════════════════════════ */
 
-/* Keyframe: ring / check pop on completion */
-@keyframes ringPop {
- 0%   { transform: scale(0.6); opacity: 0.4; }
- 60%  { transform: scale(1.18); opacity: 1; }
- 100% { transform: scale(1); opacity: 1; }
-}
-
 /* Habit grid — 1 col mobile · 2 col tablet · 3 col desktop */
 .habit-grid {
  display: grid;
@@ -454,52 +351,6 @@
  }
 }
 
-/* Completed state — soft green glow ring + tint
-  (was a modifier on .habit-card; .habit-card base removed in FIX-DESIGN-P7-8 —
-  now applied to shadcn <Card> with equivalent Tailwind utilities). */
-.habit-card-completed {
- border-color: oklch(0.522 0.154 142 / 0.22);
- box-shadow: 0 0 0 1px oklch(0.522 0.154 142 / 0.18),
-             0 6px 16px oklch(0.522 0.154 142 / 0.08);
-}
-.dark .habit-card-completed {
- border-color: oklch(0.622 0.174 142 / 0.22);
- box-shadow: 0 0 0 1px oklch(0.622 0.174 142 / 0.20),
-             0 6px 16px oklch(0.622 0.174 142 / 0.12);
-}
-.habit-card-completed:hover {
- box-shadow: 0 0 0 1px oklch(0.522 0.154 142 / 0.25),
-             0 12px 28px oklch(0.522 0.154 142 / 0.12);
-}
-
-/* PHASE3-HABIT — Avoid habit relapsed state. Mirrors .habit-card-completed
-  but with red hues to signal "this is a relapse, not a success". Used by
-  HabitCard when habitType === 'avoid' AND the checkbox is checked. */
-.habit-card-relapsed {
- border-color: oklch(0.577 0.245 27.325 / 0.22);
- box-shadow: 0 0 0 1px oklch(0.577 0.245 27.325 / 0.18),
-             0 6px 16px oklch(0.577 0.245 27.325 / 0.08);
-}
-.dark .habit-card-relapsed {
- border-color: oklch(0.677 0.245 27.325 / 0.22);
- box-shadow: 0 0 0 1px oklch(0.677 0.245 27.325 / 0.20),
-             0 6px 16px oklch(0.677 0.245 27.325 / 0.12);
-}
-.habit-card-relapsed:hover {
- box-shadow: 0 0 0 1px oklch(0.577 0.245 27.325 / 0.25),
-             0 12px 28px oklch(0.577 0.245 27.325 / 0.12);
-}
-
-/* Pop animation right after completing */
-.habit-card-pop {
- animation: habitPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-@keyframes habitPop {
- 0%   { transform: scale(1); }
- 40%  { transform: scale(1.025); }
- 100% { transform: scale(1); }
-}
-
 /* ── Category pastel tints (icon container backgrounds) ── */
 .cat-emerald    { background-color: oklch(0.522 0.154 142 / 0.12); }
 .cat-orange     { background-color: oklch(0.65  0.18  35  / 0.12); }
@@ -508,14 +359,6 @@
 .cat-fuchsia    { background-color: oklch(0.62  0.2   300 / 0.12); }
 .cat-red        { background-color: oklch(0.6   0.2   25  / 0.12); }
 .cat-slate      { background-color: oklch(0.6   0.01  250 / 0.12); }
-
-/* ── KPI cards — soft gradient surfaces
-  (base .kpi-card removed in FIX-DESIGN-P7-8 — now applied to shadcn <Card>;
-  these modifier classes provide only the accent gradient tints). */
-.kpi-card-green  { background: linear-gradient(135deg, oklch(0.522 0.154 142 / 0.10), oklch(0.522 0.154 142 / 0.02)); }
-.kpi-card-orange { background: linear-gradient(135deg, oklch(0.65  0.18  35  / 0.10), oklch(0.65  0.18  35  / 0.02)); }
-.kpi-card-rose   { background: linear-gradient(135deg, oklch(0.6   0.2   350 / 0.10), oklch(0.6   0.2   350 / 0.02)); }
-.kpi-card-amber  { background: linear-gradient(135deg, oklch(0.7   0.15  75  / 0.10), oklch(0.7   0.15  75  / 0.02)); }
 
 /* ── Daily notes card ── */
 .daily-notes-card {
@@ -541,206 +384,25 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-  PREMIUM ANIMATIONS — Count-up, Staggered entrance, Typewriter, Hover lift
+  PREMIUM ANIMATIONS — Staggered entrance (+ guard reduced-motion)
   Combo: Linear / Stripe / Apple Finance inspired
-  All respect prefers-reduced-motion (declared at bottom).
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Staggered card entrance — kini satu definisi di §13 (anim-stagger,
    keyframes premium-fade-up-kf + delay --stagger×60ms). Definisi lama
    duplikat di sini dihapus biar tidak dua sumber kebenaran. ── */
 
-/* ── Progress ring draw: stroke-dashoffset animates from full to target ── */
-@keyframes anim-ring-draw {
- from { stroke-dashoffset: var(--ring-circumference, 283); }
- to   { stroke-dashoffset: var(--ring-offset, 0); }
-}
-.anim-ring {
- animation: anim-ring-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
- will-change: stroke-dashoffset;
-}
-
-/* ── Hover lift: subtle translateY + colored shadow ── */
-.anim-lift {
- transition: transform 0.2s ease, box-shadow 0.2s ease;
- will-change: transform;
-}
-.anim-lift:hover {
- transform: translateY(-2px);
-}
-
-/* ── Typewriter cursor blink ── */
-@keyframes anim-cursor-blink {
- 0%, 50% { opacity: 1; }
- 51%, 100% { opacity: 0; }
-}
-.anim-cursor {
- animation: anim-cursor-blink 1s steps(1) infinite;
-}
-
-/* ── Reduced motion: disable all animations ── */
+/* ── Reduced motion: disable all animations ──
+  (Task 44-10: selector mati .anim-ring/.anim-lift/.anim-cursor/tier api
+  dihapus dari daftar; .anim-stagger + .anim-flame-pulse tetap dijaga.) */
 @media (prefers-reduced-motion: reduce) {
  .anim-stagger,
- .anim-ring,
- .anim-lift,
- .anim-cursor,
- .anim-flame-pulse,
- .anim-flame-pulse-slow,
- .anim-flame-pulse-fast,
- .anim-flame-pulse-blaze,
- .anim-flame-embers,
- .anim-flame-embers::before,
- .anim-flame-embers::after,
- .anim-flame-epic,
- .anim-celebration-overlay,
- .anim-flash-green,
- .anim-crossfade {
+ .anim-flame-pulse {
    animation: none !important;
    transition: none !important;
    opacity: 1 !important;
    transform: none !important;
  }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-  GAMIFICATION ANIMATIONS — Flame pulse, Number flash, Quote crossfade
-  Combo: playful reward feedback for streaks, completions, and refreshes
-  ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Streak flame pulse: scale 1→1.12→1 every 1.5s when streak ≥ 7 ── */
-@keyframes anim-flame-pulse {
- 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(249, 115, 22, 0)); }
- 50% { transform: scale(1.12); filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.5)); }
-}
-.anim-flame-pulse {
- animation: anim-flame-pulse 1.5s ease-in-out infinite;
- display: inline-block;
-}
-
-/* ── Streak flame tiers — dynamic intensity by streak count ──
-  spark (1-3):    subtle slow pulse, amber
-  flame (4-6):    normal pulse, orange
-  blaze (7-29):   fast pulse + glow shadow, red
-  fire (30-99):   fast pulse + ember particles rising, deep red
-  epic (100+):    rainbow hue-rotate shimmer, deep red + rainbow
-  ───────────────────────────────────────────────────────────── */
-@keyframes anim-flame-pulse-slow {
- 0%, 100% { transform: scale(1); }
- 50% { transform: scale(1.08); }
-}
-.anim-flame-pulse-slow {
- animation: anim-flame-pulse-slow 2.2s ease-in-out infinite;
- display: inline-block;
-}
-
-@keyframes anim-flame-pulse-fast {
- 0%, 100% {
-   transform: scale(1);
-   filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
- }
- 50% {
-   transform: scale(1.15);
-   filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.7));
- }
-}
-.anim-flame-pulse-fast {
- animation: anim-flame-pulse-fast 1.1s ease-in-out infinite;
- display: inline-block;
-}
-
-@keyframes anim-flame-pulse-blaze {
- 0%, 100% {
-   transform: scale(1) rotate(-2deg);
-   filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
- }
- 50% {
-   transform: scale(1.18) rotate(2deg);
-   filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8));
- }
-}
-.anim-flame-pulse-blaze {
- animation: anim-flame-pulse-blaze 0.8s ease-in-out infinite;
- display: inline-block;
-}
-
-/* Ember particles rising from the flame — used for fire tier (30-99).
-  Pure CSS pseudo-elements so no extra DOM is needed per render. */
-@keyframes anim-flame-rise {
- 0% { transform: translateY(0) scale(0.8); opacity: 0; }
- 50% { opacity: 1; }
- 100% { transform: translateY(-40px) scale(1.2); opacity: 0; }
-}
-.anim-flame-embers {
- position: relative;
- display: inline-block;
-}
-.anim-flame-embers::before,
-.anim-flame-embers::after {
- content: '';
- position: absolute;
- top: 0;
- left: 50%;
- width: 4px;
- height: 4px;
- border-radius: 9999px;
- background: radial-gradient(circle, #fbbf24 0%, #ef4444 60%, transparent 100%);
- pointer-events: none;
- animation: anim-flame-rise 1.4s ease-out infinite;
-}
-.anim-flame-embers::before {
- margin-left: -6px;
- animation-delay: 0s;
-}
-.anim-flame-embers::after {
- margin-left: 2px;
- animation-delay: 0.7s;
-}
-
-/* Epic tier (100+): rainbow hue-rotate shimmer over a deep red base. */
-@keyframes anim-rainbow-shimmer {
- 0% { filter: hue-rotate(0deg) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
- 100% { filter: hue-rotate(360deg) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
-}
-.anim-flame-epic {
- animation: anim-rainbow-shimmer 3s linear infinite;
- display: inline-block;
-}
-
-/* ── Celebration overlay: full-screen radial primary glow for milestones ──
-  Spawned imperatively by showCelebrationOverlay() in src/lib/confetti.ts.
-  Auto-removed after the animation completes; pointer-events:none so it
-  never blocks taps. */
-@keyframes anim-celebration-glow {
- 0%, 100% { opacity: 0; }
- 50% { opacity: 0.3; }
-}
-.anim-celebration-overlay {
- position: fixed;
- inset: 0;
- pointer-events: none;
- z-index: 100;
- background: radial-gradient(circle, hsl(var(--primary) / 0.2), transparent 70%);
- animation: anim-celebration-glow 1.5s ease-out;
-}
-
-/* ── Number flash: green pulse when a value increases (habit completed, XP gained) ── */
-@keyframes anim-flash-green {
- 0% { color: inherit; transform: scale(1); }
- 30% { color: oklch(0.622 0.174 142); transform: scale(1.12); }
- 100% { color: inherit; transform: scale(1); }
-}
-.anim-flash-green {
- animation: anim-flash-green 0.8s ease-out;
-}
-
-/* ── Quote crossfade: fade out + slide up, new quote fades in from below ── */
-@keyframes anim-crossfade-in {
- from { opacity: 0; transform: translateY(8px); }
- to { opacity: 1; transform: translateY(0); }
-}
-.anim-crossfade {
- animation: anim-crossfade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
- will-change: opacity;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -761,28 +423,6 @@
  animation: anim-money-rise 2s ease-out forwards;
  will-change: transform, opacity;
  pointer-events: none;
-}
-
-/* ── Number flash green (income / value-up feedback) ── */
-@keyframes anim-number-flash-green {
- 0%, 100% { color: inherit; transform: scale(1); }
- 50%      { color: hsl(var(--success)); transform: scale(1.05); }
-}
-.anim-flash-up {
- animation: anim-number-flash-green 0.6s ease-out;
- display: inline-block;
- will-change: transform, color;
-}
-
-/* ── Number flash red (expense / value-down feedback) ── */
-@keyframes anim-number-flash-red {
- 0%, 100% { color: inherit; transform: scale(1); }
- 50%      { color: hsl(var(--destructive)); transform: scale(0.95); }
-}
-.anim-flash-down {
- animation: anim-number-flash-red 0.6s ease-out;
- display: inline-block;
- will-change: transform, color;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -844,27 +484,15 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-  PREMIUM BOTTOM DOCK — floating glass nav treatments & animations
-  (redesign of the old Flutter notched bar). Liquid sliding indicator,
-  active-icon pop, FAB menu stagger, dock entrance, layered depth
-  shadows. All respect prefers-reduced-motion (block at the bottom).
+  PREMIUM BOTTOM DOCK — sisa definisi lama yang masih hidup (Task 44-10:
+  definisi duplikat dock-shadow/indicator/label/pop/stagger/entrance dihapus;
+  versi menang kini di §14. Yang tersisa di sini: varian dark, media query
+  label sempit, dan FAB backdrop — semua masih dipakai page.tsx).
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Layered depth shadows: frosted dock / popup card / FAB ── */
-.premium-dock-shadow {
- box-shadow:
-   0 1px 2px rgba(15, 23, 42, 0.05),
-   0 8px 24px -6px rgba(13, 148, 136, 0.22),
-   0 24px 48px -12px rgba(15, 23, 42, 0.18),
-   inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-.dark .premium-dock-shadow {
- box-shadow:
-   0 1px 2px rgba(0, 0, 0, 0.45),
-   0 10px 28px -6px rgba(13, 148, 136, 0.3),
-   0 28px 56px -12px rgba(0, 0, 0, 0.55),
-   inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
+/* ── Layered depth shadows: popup card + varian dark FAB ──
+  (dock-shadow & FAB light kini didefinisikan di §14/§15 — duplikat
+  lama dihapus; cascade tetap memakai versi terakhir.) */
 .premium-pop-shadow {
  box-shadow:
    0 2px 6px rgba(15, 23, 42, 0.06),
@@ -875,48 +503,28 @@
    0 2px 6px rgba(0, 0, 0, 0.5),
    0 32px 64px -12px rgba(0, 0, 0, 0.6);
 }
-.premium-fab-shadow {
- box-shadow:
-   0 2px 4px rgba(13, 148, 136, 0.35),
-   0 12px 28px -4px rgba(13, 148, 136, 0.55);
-}
+/* Varian dark FAB — basis light kini di §15 (.premium-fab-shadow);
+  selector .dark ini spesifisitasnya lebih tinggi sehingga tetap menang
+  di mode gelap (nol perubahan visual). */
 .dark .premium-fab-shadow {
  box-shadow:
    0 2px 4px rgba(0, 0, 0, 0.45),
    0 14px 32px -4px rgba(13, 148, 136, 0.5);
 }
 
-/* ── Liquid gradient indicator: GPU translateX + spring overshoot ──
-  All dock tabs share the same width, so the pill only needs to move:
-  transform-only transition = no layout thrash on low-end phones. */
-.nav-liquid-indicator {
- background: linear-gradient(
-   135deg,
-   color-mix(in oklab, var(--primary) 62%, white) 0%,
-   var(--primary) 45%,
-   color-mix(in oklab, var(--primary) 68%, #10b981) 100%
- );
- box-shadow:
-   0 4px 14px -2px color-mix(in oklab, var(--primary) 50%, transparent),
-   inset 0 1px 0 rgba(255, 255, 255, 0.28);
- transition: transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1), opacity 0.25s ease;
- will-change: transform;
-}
+/* ── Liquid gradient indicator — basis (gradient/transition) kini di §14;
+  varian dark box-shadow tetap di sini: spesifisitas .dark lebih tinggi
+  sehingga tetap menang di mode gelap (nol perubahan visual). ── */
 .dark .nav-liquid-indicator {
  box-shadow:
    0 4px 18px -2px color-mix(in oklab, var(--primary) 60%, transparent),
    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-/* ── Dock tab labels: fixed 10px, gracefully smaller on narrow screens
-  so "Pengaturan" always fits inside the liquid pill (pill width =
-  18.75% of dock − 2×3px inset, which shrinks with the viewport while
-  the text width stays constant at a given font-size). ── */
-.premium-dock-label {
- font-size: 10px;
- line-height: 1;
- letter-spacing: -0.01em;
-}
+/* ── Dock tab labels: label harus mengecil di layar sempit supaya
+  "Pengaturan" tetap muat di dalam pill (pill menyusut mengikuti
+  viewport). Basis font-size/letter-spacing kini di §14 — media query
+  389.98/349.98px hanya didefinisikan di sini dan tetap hidup. ── */
 @media (max-width: 389.98px) {
  .premium-dock-label { font-size: 9.5px; }
 }
@@ -924,40 +532,9 @@
  .premium-dock-label { font-size: 9px; }
 }
 
-/* ── Active tab icon pop: bouncy scale-in when the class is applied ── */
-@keyframes nav-icon-pop {
- 0%   { transform: scale(0.72); }
- 55%  { transform: scale(1.16); }
- 100% { transform: scale(1); }
-}
-.anim-nav-icon-pop {
- animation: nav-icon-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* ── FAB quick-add menu: staggered spring entrance (backwards fill
-  hides each item until its delayed animation starts) ── */
-@keyframes fab-item-pop {
- from { opacity: 0; transform: translateY(10px) scale(0.92); }
- to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-.anim-fab-item {
- opacity: 1; /* resting state matches 'to' — no flicker when re-added */
- animation: fab-item-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-}
-.anim-fab-item-1 { animation-delay: 0.05s; }
-.anim-fab-item-2 { animation-delay: 0.1s; }
-.anim-fab-item-3 { animation-delay: 0.15s; }
-
-/* ── Dock entrance: slide-up + fade on first mount ── */
-@keyframes nav-dock-enter {
- from { opacity: 0; transform: translateY(26px); }
- to   { opacity: 1; transform: translateY(0); }
-}
-.anim-nav-dock-enter {
- animation: nav-dock-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s backwards;
-}
-
-/* ── FAB backdrop fade-in ── */
+/* ── FAB backdrop fade-in — masih dipakai page.tsx (.anim-fab-backdrop).
+  (Versi pengganti .anim-fab-backdrop-in + fab-backdrop-in-kf di §14
+  ternyata tidak dipakai dan sudah dihapus.) ── */
 @keyframes fab-backdrop-in {
  from { opacity: 0; }
  to   { opacity: 1; }
@@ -966,43 +543,14 @@
  animation: fab-backdrop-in 0.22s ease-out;
 }
 
-/* ── Reduced motion: dock animations off, indicator snaps instantly ── */
+/* ── Reduced motion: sisa anim dock lama dimatikan. Kelas §14
+  (nav-icon-pop / fab-item / dock-enter) dijaga guard reduced-motion
+  blok Aurora di bawah; rule .nav-liquid-indicator lama kalah cascade
+  dari guard itu dan sudah dibuang. ── */
 @media (prefers-reduced-motion: reduce) {
- .anim-nav-icon-pop,
- .anim-fab-item,
- .anim-fab-item-1,
- .anim-fab-item-2,
- .anim-fab-item-3,
- .anim-nav-dock-enter,
  .anim-fab-backdrop {
    animation: none !important;
-   opacity: 1 !important;
-   transform: none !important;
  }
- .nav-liquid-indicator {
-   transition: opacity 0.15s ease !important;
- }
-}
-
-/* ── #6 Habit card check: enhanced pop with checkmark scale-in ── */
-@keyframes anim-check-pop {
- 0%   { transform: scale(1); }
- 30%  { transform: scale(1.03); }
- 60%  { transform: scale(0.99); }
- 100% { transform: scale(1); }
-}
-.anim-check-pop {
- animation: anim-check-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* ── #7 Scroll reveal: fade-up when element enters viewport ── */
-@keyframes anim-scroll-reveal {
- from { opacity: 0; transform: translateY(24px); }
- to   { opacity: 1; transform: translateY(0); }
-}
-.anim-scroll-reveal {
- animation: anim-scroll-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
- will-change: transform, opacity;
 }
 
 /* ── #4/#8 Enhance shadcn Dialog/Drawer/Sheet with premium easing ── */
@@ -1018,15 +566,13 @@
  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* ── Reduced motion: disable all transition animations ── */
+/* ── Reduced motion: disable all transition animations ──
+  (Task 44-10: .anim-check-pop/.anim-scroll-reveal/.anim-flash-up/
+  .anim-flash-down dihapus dari daftar — kelasnya sudah tidak ada.) */
 @media (prefers-reduced-motion: reduce) {
  .anim-tab-enter,
  .anim-tab-fade-up,
- .anim-check-pop,
- .anim-scroll-reveal,
- .anim-money-particle,
- .anim-flash-up,
- .anim-flash-down {
+ .anim-money-particle {
    animation: none !important;
    transition: none !important;
    opacity: 1 !important;
@@ -1037,7 +583,8 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-  DELIGHT ANIMATIONS — Bounce, fill-bar, gradient-shift, shake, pulse-ring, sparkle
+  DELIGHT ANIMATIONS — fill-bar + press feedback + progress grow
+  (Task 44-10: gradient-shift / pulse-ring / shake dihapus — 0 pemakaian.)
   Added: premium micro-interactions for hero cards, forms, and milestones
   ══════════════════════════════════════════════════════════════════════ */
 
@@ -1050,58 +597,11 @@
  animation: anim-fill-bar 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ── Animated gradient shift: moving gradient for hero cards ── */
-@keyframes anim-gradient-shift {
- 0% { background-position: 0% 50%; }
- 50% { background-position: 100% 50%; }
- 100% { background-position: 0% 50%; }
-}
-.anim-gradient-shift {
- background-size: 200% 200%;
- animation: anim-gradient-shift 8s ease-in-out infinite;
-}
-
-/* ── Pulse ring: expanding ring for primary action buttons ── */
-@keyframes anim-pulse-ring {
- 0% { transform: scale(0.95); opacity: 0.6; }
- 70% { transform: scale(1.3); opacity: 0; }
- 100% { transform: scale(1.3); opacity: 0; }
-}
-.anim-pulse-ring::before {
- content: '';
- position: absolute;
- inset: 0;
- border-radius: inherit;
- background: inherit;
- animation: anim-pulse-ring 2s ease-out infinite;
- z-index: -1;
-}
-.anim-pulse-ring {
- position: relative;
-}
-
-/* ── Press scale: tactile feedback for all clickable elements ── */
+/* ── Press scale: tactile feedback for all clickable elements ──
+  (Task 44-10: deklarasi :active transform lama dihapus — kalah cascade
+  dari animasi press-kf §13; transisi release tetap dari sini.) */
 .anim-press {
  transition: transform 0.1s ease;
-}
-.anim-press:active {
- transform: scale(0.95);
-}
-
-/* ── Shake: used by PinPad on wrong PIN entry ──
-  Triggered by toggling the `anim-shake` class — the keyframe runs once
-  and the class is removed after 500ms by the component. */
-@keyframes anim-shake {
- 0%, 100% { transform: translateX(0); }
- 15%      { transform: translateX(-10px); }
- 30%      { transform: translateX(9px); }
- 45%      { transform: translateX(-7px); }
- 60%      { transform: translateX(5px); }
- 75%      { transform: translateX(-3px); }
- 90%      { transform: translateX(2px); }
-}
-.anim-shake {
- animation: anim-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
 /* ── Progress bar fill: animate shadcn Progress indicator from 0 on mount ── */
@@ -1112,14 +612,12 @@
  animation: anim-progress-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ── Reduced motion: disable all delight animations ── */
+/* ── Reduced motion: disable all delight animations ──
+  (Task 44-10: .anim-gradient-shift/.anim-pulse-ring/.anim-shake dihapus
+  dari daftar — kelasnya sudah tidak ada.) */
 @media (prefers-reduced-motion: reduce) {
  .anim-fill-bar,
- .anim-gradient-shift,
- .anim-pulse-ring,
- .anim-pulse-ring::before,
  .anim-press,
- .anim-shake,
  .anim-progress-fill [data-slot="progress-indicator"] {
    animation: none !important;
    transition: none !important;
@@ -1142,38 +640,6 @@
   Subtle, smooth, liquid feel. All respect prefers-reduced-motion.
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Smooth color/stroke transition (budget ring, status pills) ── */
-/* Apply to elements whose color should smoothly transition when state
-  changes (e.g., budget ring green → amber → red). */
-.anim-color-smooth {
- transition: stroke 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-             color 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-             fill 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* ── Staggered row entrance (category insights, transaction list) ── */
-/* Use with --stagger-index CSS variable set inline per item. */
-@keyframes anim-row-in {
- from { opacity: 0; transform: translateY(8px); }
- to   { opacity: 1; transform: translateY(0); }
-}
-.anim-row-stagger {
- opacity: 0;
- animation: anim-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
- animation-delay: calc(var(--stagger-index, 0) * 60ms);
- will-change: transform, opacity;
-}
-
-/* ── Slide-in from right (drill-down navigation: month → week → day) ── */
-@keyframes anim-slide-in-right {
- from { opacity: 0; transform: translateX(24px); }
- to   { opacity: 1; transform: translateX(0); }
-}
-.anim-slide-in-right {
- animation: anim-slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
- will-change: transform, opacity;
-}
-
 /* ── Single red flash for over-budget elements (bars, alerts) ── */
 @keyframes anim-flash-red {
  0%, 100% { background-color: var(--bg, transparent); }
@@ -1183,25 +649,10 @@
  animation: anim-flash-red 0.6s ease-out 1;
 }
 
-/* ── Subtle breathing glow (today cell, active elements) ── */
-@keyframes anim-glow-breathe {
- 0%, 100% { box-shadow: 0 0 0 0 oklch(0.62 0.19 264 / 0); }
- 50% { box-shadow: 0 0 0 4px oklch(0.62 0.19 264 / 0.12); }
-}
-.anim-glow-breathe {
- animation: anim-glow-breathe 3s ease-in-out infinite;
-}
-
-/* ── Urgency pulse (deadline < 7 days, soft red glow) ── */
-@keyframes anim-urgency-pulse {
- 0%, 100% { box-shadow: 0 0 0 0 oklch(0.65 0.2 25 / 0); }
- 50% { box-shadow: 0 0 0 3px oklch(0.65 0.2 25 / 0.10); }
-}
-.anim-urgency-pulse {
- animation: anim-urgency-pulse 2.5s ease-in-out infinite;
-}
-
-/* ── Subtle float (empty state illustrations, icons) ── */
+/* ── Subtle float (empty state illustrations, icons) ──
+  (Task 44-10: definisi lama .anim-glow-breathe + .anim-urgency-pulse
+  dihapus — duplikat; versi menang ada di §13 dengan keyframes
+  glow-breathe-kf / urgency-pulse-kf.) */
 @keyframes anim-float-subtle {
  0%, 100% { transform: translateY(0); }
  50% { transform: translateY(-4px); }
@@ -1221,11 +672,10 @@
  animation: anim-micro-pulse 0.5s ease-out 1;
 }
 
-/* ── Reduced motion: disable all new premium animations ── */
+/* ── Reduced motion: disable all new premium animations ──
+  (Task 44-10: .anim-color-smooth/.anim-row-stagger/.anim-slide-in-right
+  dihapus dari daftar — kelasnya sudah tidak ada.) */
 @media (prefers-reduced-motion: reduce) {
- .anim-color-smooth { transition: none; }
- .anim-row-stagger,
- .anim-slide-in-right,
  .anim-flash-red,
  .anim-glow-breathe,
  .anim-urgency-pulse,
@@ -1233,7 +683,6 @@
  .anim-micro-pulse {
    animation: none !important;
  }
- .anim-row-stagger { opacity: 1; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1288,30 +737,11 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-  ANIM-3 — Pull-to-Refresh Sprout + Card Flip 3D
-  Mobile-only pull-to-refresh with growing 🌱 sprout, and 3D card flip
-  for habit cards. All respect prefers-reduced-motion.
+  ANIM-3 — Card Flip 3D
+  (Task 44-10: Pull-to-Refresh Sprout dihapus — indikator pull kini
+  inline-style di pull-to-refresh.tsx, kelas .anim-sprout* tak terpakai.)
+  All respect prefers-reduced-motion.
   ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Pull-to-Refresh Sprout ──
-  The sprout icon grows + rotates as the user pulls down. When ready
-  (pull ≥ 80px), it gets a subtle "snap" wobble. While refreshing, it
-  switches to a continuous spin (handled via Loader2's animate-spin). */
-.anim-sprout {
- /* Smooth spring-y transition when the pull distance changes — matches
-    the content's snap-back easing for a unified feel. */
- transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
- will-change: transform;
-}
-/* "Ready" state — sprout is fully grown, give it a gentle pulse so the
-  user knows releasing will trigger a refresh. */
-.anim-sprout-ready {
- animation: anim-sprout-ready-pulse 1.2s ease-in-out infinite;
-}
-@keyframes anim-sprout-ready-pulse {
- 0%, 100% { filter: drop-shadow(0 0 0 oklch(0.622 0.174 142 / 0)); }
- 50%      { filter: drop-shadow(0 0 6px oklch(0.622 0.174 142 / 0.45)); }
-}
 
 /* ── Card Flip 3D ──
   .perspective-1000 goes on the PARENT of the rotating element so the
@@ -1332,14 +762,9 @@
 }
 
 /* ── Reduced motion: disable ANIM-3 effects ──
-  Sprout stays static (no pulse, no spin), card flip is bypassed in the
-  component (front always shown), and transitions are flattened. */
+  Card flip is bypassed in the component (front always shown), and
+  transitions are flattened. */
 @media (prefers-reduced-motion: reduce) {
- .anim-sprout,
- .anim-sprout-ready {
-   animation: none !important;
-   transition: none !important;
- }
  /* Force preserve-3d off so the back face doesn't render in 3D space
     (the component already skips the rotation, but this is a safety net
     for any custom usage). */
@@ -1355,61 +780,6 @@
   All keyframes respect prefers-reduced-motion (animations set to none
   in the global reduced-motion block at the end of this file).
   ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Tab transition: fade + 4px slide-x (0.1s) ──
-  Replaces PageTransition's framer-motion AnimatePresence. Loses exit
-  animation but the new tab fades in immediately on mount — snappy. */
-@keyframes css-tab-enter {
- from { opacity: 0; transform: translateX(4px); }
- to   { opacity: 1; transform: translateX(0); }
-}
-.css-tab-enter {
- animation: css-tab-enter 0.1s cubic-bezier(0.16, 1, 0.3, 1);
- will-change: transform, opacity;
-}
-
-/* ── DotWave — 3 dots bounce in sequence ── */
-@keyframes css-dot-wave {
- 0%, 100% { transform: translateY(0); }
- 50%      { transform: translateY(var(--dot-lift, -8px)); }
-}
-.css-dot-wave-dot {
- animation: css-dot-wave 1.2s ease-in-out infinite;
- will-change: transform;
-}
-
-/* ── BreathingSeed — calm breathing pulse + ripples ── */
-@keyframes css-breathing-core {
- 0%, 100% { transform: scale(1); }
- 50%      { transform: scale(1.15); }
-}
-@keyframes css-breathing-ripple {
- 0%   { transform: scale(0.6); opacity: 0.4; }
- 100% { transform: scale(2);   opacity: 0; }
-}
-.css-breathing-core {
- animation: css-breathing-core 4s ease-in-out infinite;
- will-change: transform;
-}
-.css-breathing-ripple {
- animation: css-breathing-ripple 4s ease-out infinite;
- will-change: transform, opacity;
-}
-.css-breathing-sprout {
- animation: css-breathing-core 4s ease-in-out infinite;
- will-change: transform;
-}
-
-/* ── LiquidGlassSpinner — rotating highlight arc ── */
-@keyframes css-liquid-spin {
- from { transform: rotate(0deg); }
- to   { transform: rotate(360deg); }
-}
-.css-liquid-spin {
- animation: css-liquid-spin 1.1s linear infinite;
- will-change: transform;
- transform-origin: 50% 50%;
-}
 
 /* ── TreeGrow — Opsi A: "Root-to-Leaf Growth" (Task 28, rev. user) ──────────────
   Pohon organic: garis tanah → AKAR menggaris ke bawah → batang naik →
@@ -1654,109 +1024,10 @@
  }
 }
 
-/* ── AuroraRing — circular progress ring + rotation ──
-  Combines stroke-dashoffset (pathLength equivalent) + CSS rotation.
-  The SVG `pathLength="1"` attribute normalizes the path length so
-  `stroke-dasharray: 0.25 1` + `stroke-dashoffset` animates the visible
-  arc length. */
-@keyframes css-aurora-arc {
- 0%, 100% { stroke-dashoffset: 0.75; }
- 50%      { stroke-dashoffset: 0.15; }
-}
-@keyframes css-aurora-rotate {
- from { transform: rotate(0deg); }
- to   { transform: rotate(360deg); }
-}
-@keyframes css-aurora-sprout {
- 0%, 100% { transform: scale(1); }
- 50%      { transform: scale(1.12); }
-}
-.css-aurora-arc {
- stroke-dasharray: 1;
- stroke-dashoffset: 0.75;
- animation: css-aurora-arc 1.6s ease-in-out infinite;
- /* Combine with rotation via transform on the SVG element (separate layer). */
-}
-.css-aurora-rotate {
- animation: css-aurora-rotate 2.4s linear infinite;
- transform-origin: 50% 50%;
- will-change: transform;
-}
-.css-aurora-sprout {
- animation: css-aurora-sprout 2.4s ease-in-out infinite;
- will-change: transform;
-}
-
-/* ── FallingLeaves — fall + sway ──
-  Each leaf sets inline style with --fall-duration, --sway-amount,
-  animation-delay (negative for mid-loop start), and rotate direction. */
-@keyframes css-leaf-fall {
- from { transform: translateY(-50px) rotate(0deg); }
- to   { transform: translateY(110vh) rotate(var(--leaf-rotate, 360deg)); }
-}
-@keyframes css-leaf-sway {
- 0%, 100% { transform: translateX(0); }
- 25%      { transform: translateX(var(--sway-amount, 30px)); }
- 50%      { transform: translateX(0); }
- 75%      { transform: translateX(calc(-1 * var(--sway-amount, 30px))); }
-}
-.css-leaf-fall {
- animation: css-leaf-fall var(--fall-duration, 8s) linear infinite;
- will-change: transform;
-}
-.css-leaf-sway {
- animation: css-leaf-sway calc(var(--fall-duration, 8s) / 2) ease-in-out infinite;
- will-change: transform;
-}
-
-/* ── MorphingSprout — crossfade between 3 stacked paths ──
-  True SVG `d` morphing is impossible in pure CSS. Instead we stack 3
-  paths and crossfade opacity — visually similar (shape "blinks" through
-  sprout → circle → square → sprout). The wrapper rotates slowly.
-  Each path's opacity animates on a 3s loop with staggered windows. */
-@keyframes css-morph-rotate {
- from { transform: rotate(0deg); }
- to   { transform: rotate(360deg); }
-}
-@keyframes css-morph-path-1 {
- 0%, 33%      { opacity: 1; }
- 33.01%, 100% { opacity: 0; }
-}
-@keyframes css-morph-path-2 {
- 0%, 33%      { opacity: 0; }
- 33.01%, 66%  { opacity: 1; }
- 66.01%, 100% { opacity: 0; }
-}
-@keyframes css-morph-path-3 {
- 0%, 66%      { opacity: 0; }
- 66.01%, 100% { opacity: 1; }
-}
-.css-morph-rotate {
- animation: css-morph-rotate 6s linear infinite;
- transform-origin: 50% 50%;
- will-change: transform;
-}
-.css-morph-path-1 { animation: css-morph-path-1 3s steps(1, end) infinite; }
-.css-morph-path-2 { animation: css-morph-path-2 3s steps(1, end) infinite; }
-.css-morph-path-3 { animation: css-morph-path-3 3s steps(1, end) infinite; }
-
-/* ── Reduced motion: disable all FIX-TIER2 CSS animations ── */
+/* ── Reduced motion: disable all FIX-TIER2 CSS animations ──
+  (Task 44-10: loader css-* dihapus — 0 pemakaian di src; daftar selector
+  tersisa hanya tree-* yang wajib utuh.) */
 @media (prefers-reduced-motion: reduce) {
- .css-tab-enter,
- .css-dot-wave-dot,
- .css-breathing-core,
- .css-breathing-ripple,
- .css-breathing-sprout,
- .css-liquid-spin,
- .css-aurora-arc,
- .css-aurora-rotate,
- .css-aurora-sprout,
- .css-leaf-fall,
- .css-leaf-sway,
- .css-morph-rotate,
- .css-morph-path-1,
- .css-morph-path-2,
- .css-morph-path-3,
  /* TASK-28 (v2): TreeGrow — matikan semua animasi pohon */
  .tree-glow,
  .tree-sway,
@@ -1801,8 +1072,8 @@
    PREMIUM UI SYSTEM v2 — "Rutina Aurora"
    Kartu berlapis hairline, chip gradien, hero gradien, label editorial,
    angka tabular. Semua varian .dark + reduced-motion guard.
-   Urutan penting: .card-shadow-premium DULU, .premium-card SESUDAHNYA
-   (mencegah cascade flat-shadow yang pernah terjadi — lihat worklog 2-c).
+   (Task 44-10: .card-shadow-premium dihapus — 0 pemakaian di src;
+   shadow kartu kini sepenuhnya dari .premium-card sendiri.)
    ========================================================================= */
 
 /* FIX AMBIENCE-1: `position: relative` unlayered dulu ada di sini dan
@@ -1820,20 +1091,6 @@
     radial-gradient(60% 32% at 12% -4%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 70%),
     radial-gradient(48% 26% at 96% 8%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 72%),
     linear-gradient(to bottom, color-mix(in oklab, var(--primary) 4%, transparent), transparent 32%);
-}
-
-/* --- shadow util (dideklarasikan lebih dulu — cascade-safe) --- */
-.card-shadow-premium {
-  box-shadow:
-    0 1px 2px 0 hsl(160 12% 32% / 0.06),
-    0 2px 8px -2px hsl(160 12% 32% / 0.08),
-    0 8px 24px -12px hsl(160 12% 32% / 0.1);
-}
-.dark .card-shadow-premium {
-  box-shadow:
-    0 1px 2px 0 hsl(0 0% 0% / 0.4),
-    0 2px 10px -2px hsl(0 0% 0% / 0.45),
-    0 10px 28px -12px hsl(0 0% 0% / 0.5);
 }
 
 /* --- §1 premium-card ------------------------------------------------------ */
@@ -2393,6 +1650,7 @@
 }
 .anim-flame-pulse {
   animation: flame-pulse-kf 1.8s ease-in-out infinite;
+  display: inline-block; /* Task 44-10: dipindah dari definisi lama §gamifikasi */
 }
 
 @keyframes nav-icon-pop-kf {
@@ -2460,22 +1718,19 @@
     0 8px 28px -8px hsl(0 0% 0% / 0.6),
     0 18px 44px -12px hsl(0 0% 0% / 0.7);
 }
-.fab-shadow {
-  box-shadow:
-    0 2px 8px -2px hsl(172 60% 22% / 0.5),
-    0 8px 22px -6px hsl(172 60% 22% / 0.55);
-}
 .nav-liquid-indicator {
   position: absolute;
   border-radius: 9999px;
   background: linear-gradient(120deg, var(--primary), color-mix(in oklab, var(--primary) 65%, #10b981));
   box-shadow: 0 2px 10px -2px color-mix(in oklab, var(--primary) 55%, transparent);
   transition: transform 0.42s cubic-bezier(0.34, 1.4, 0.5, 1), width 0.42s cubic-bezier(0.34, 1.4, 0.5, 1);
+  will-change: transform; /* Task 44-10: dipindah dari definisi lama §dock */
 }
 .premium-dock-label {
   font-size: 9px;
   line-height: 1;
   font-weight: 600;
+  letter-spacing: -0.01em; /* Task 44-10: dipindah dari definisi lama §dock */
 }
 @media (max-width: 380px) {
   .premium-dock-label {
@@ -2495,18 +1750,6 @@
 }
 .anim-nav-dock-enter {
   animation: nav-dock-enter-kf 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes fab-backdrop-in-kf {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-.anim-fab-backdrop-in {
-  animation: fab-backdrop-in-kf 0.22s ease-out both;
 }
 
 @keyframes fab-item-pop-kf {
@@ -2536,7 +1779,6 @@
   .anim-urgency-pulse,
   .anim-glow-breathe,
   .anim-nav-dock-enter,
-  .anim-fab-backdrop-in,
   .anim-fab-item,
   .anim-fab-item-1,
   .anim-fab-item-2,
@@ -2618,5 +1860,70 @@
   .work-note-card-sky {
     box-shadow: none;
     transition: none;
+  }
+}
+
+/* --- §17 Task 44 "Fabulous-inspired" — surface 3-tier + XP reward ------
+   Prinsip: "Motion should communicate change, not decoration."
+   Tier berdasarkan brief: hero (premium-hero) → content (premium-card) →
+   supporting (premium-card-quiet). Kartu supporting = statistik sekunder:
+   visual weight paling ringan — tanpa sheen, tanpa hover-lift, shadow
+   1 lapis tipis + border hairline. Prioritas depth: spacing > border >
+   shadow (bukan blur/gradient). */
+
+/* Tier 3 — supporting surface (KPI grid, cincin, tabel per-habit, insight) */
+.premium-card-quiet {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid hsl(160 10% 90% / 0.75);
+  background: hsl(0 0% 100% / 0.72);
+  box-shadow: 0 1px 2px 0 hsl(160 12% 32% / 0.04);
+}
+.dark .premium-card-quiet {
+  border-color: hsl(165 8% 22% / 0.8);
+  background: hsl(166 8% 18% / 0.85);
+  box-shadow: 0 1px 2px 0 hsl(0 0% 0% / 0.28);
+}
+
+/* Chip "+XP" — reward kecil saat habit diselesaikan: melayang naik lalu
+   pudar (sekali jalan, 0.75s, GPU-friendly transform+opacity). Dipasang
+   di habit card dekat checkbox; muncul HANYA saat justCompleted. */
+@keyframes xp-rise-kf {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.85);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px) scale(1);
+  }
+}
+.anim-xp-rise {
+  animation: xp-rise-kf 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+/* TreeProgress (Task 44) — bagian pohon yang tumbuh mengikuti progres
+   harian. Tiap part (trunk/ranting/daun) di-fade + slide-up oleh inline
+   style dari React; kelas ini hanya menyediakan transisinya agar tiap
+   kenaikan progress (habit selesai) terasa "hidup" dalam ±0.6s. */
+.tree-part {
+  transition:
+    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Reduced-motion tambahan (Task 44): flip kartu habit 500ms + chip XP —
+   jadi instan; TreeProgress langsung tiba di posisi akhir. */
+@media (prefers-reduced-motion: reduce) {
+  .habit-flip-wrap,
+  .anim-xp-rise,
+  .tree-part {
+    animation: none !important;
+    transition: none !important;
   }
 }

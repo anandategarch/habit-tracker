@@ -9,6 +9,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { jakartaNowIso } from '@/lib/timezone';
+import { xpForHabit } from '@/lib/dashboard-helpers';
 import { computeStreak } from './daily-tracker-helpers';
 import { parseSchedule } from '@/lib/habit-schedule';
 import { milestoneForStreak, burstFromElement } from '@/lib/confetti';
@@ -189,8 +190,6 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
             toast.error('Kambuh tercatat. Jangan menyerah! 💪');
             confettiElRef.current = null;
           } else {
-            toast.success('Habit selesai! 🎉');
-
             // ── Confetti — ONLY after successful API response ──
             // BUG-1 fix: the month cache was already mutated above to include
             // today's completion, so computeStreak already counts today. The
@@ -218,6 +217,18 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
             const el = confettiElRef.current;
 
             const milestone = milestoneForStreak(newStreak);
+
+            // Task 44 "completion harus memuaskan": XP yang BARU didapat
+            // ditampilkan langsung di toast (sebelumnya XP tidak pernah
+            // terlihat — feedback jadi flat). Milestone streak mendapat
+            // pesan lebih spesial + confetti rainbow.
+            const xp = xpForHabit(habit);
+            toast.success(
+              milestone
+                ? `Streak ${newStreak} hari! +${xp} XP 🔥`
+                : `Habit selesai! +${xp} XP 🎉`,
+            );
+
             if (milestone) {
               // Milestone streak — burst rainbow besar dari elemen asal
               // (perayaan full-screen berbasis tier lama sudah tidak ada di
@@ -358,7 +369,8 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
         queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
 
         if (nextCompleted && !wasCompleted) {
-          toast.success(`Target tercapai! 🎉 (${habit.name})`);
+          // Task 44: +XP tampil juga di milestone amount (konsisten toggle biner).
+          toast.success(`Target tercapai! +${xpForHabit(habit)} XP 🎉 (${habit.name})`);
           const currentStreak = cache
             ? computeStreak(cache[habitId] || [], selectedDate, {
                 startDate: habit.startDate,

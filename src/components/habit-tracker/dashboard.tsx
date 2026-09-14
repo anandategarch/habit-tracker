@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app-store';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,7 +14,6 @@ import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { WeeklyReview } from '@/components/habit-tracker/weekly-review';
 import { toDashboardData } from '@/lib/dashboard/contract';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { jakartaNowParts } from '@/lib/timezone';
 import {
  Target,
  BarChart3,
@@ -35,6 +34,7 @@ import {
  Sparkles,
  RefreshCw,
  Calendar,
+ LineChart,
 } from 'lucide-react';
 import { type Period, PERIOD_OPTIONS, type MotivationalQuote } from './dashboard-types';
 import { DEFAULT_DATA } from './dashboard-default-data';
@@ -52,6 +52,9 @@ import {
 import { TimeTrackedHabits } from './dashboard-time-tracked-habits';
 import { LastDoneSummaryCard } from './dashboard-last-done';
 import { FinanceOverviewCard } from './dashboard-finance-overview';
+import { TodayHero } from './today-hero';
+import { TodayHabitsCard } from './today-habits';
+import { DailyCheckInCard } from './daily-check-in-card';
 
 const DashboardCharts = dynamic(() => import('./dashboard-charts'), {
  ssr: false,
@@ -78,73 +81,22 @@ const HourlyConsistency = dynamic(() => import('./hourly-consistency'), {
  loading: () => <Skeleton className="h-44 rounded-2xl" />,
 });
 
-/* ── PREMIUM UI v2 ("Rutina Aurora") — Hero greeting ─────────────────────
-* Signature teal→emerald gradient panel at the very top of the dashboard.
-* The greeting follows the Jakarta wall-clock hour; the date label is
-* formatted in Indonesian from the Jakarta date string (local-midnight
-* Date so the label is stable in any browser timezone). Client-only by
-* design — Dashboard is dynamically imported with ssr:false — but window
-* is still guarded for safety.
-*/
-function GreetingHero({ successToday }: { successToday: number }) {
- // Fix 11-c L-6: greeting tidak lagi dibekukan saat mount — dihitung tiap
- // render dari jam dinding Jakarta, dan interval 60 detik memaksa re-render
- // sehingga sapaan/label berganti saat jam atau tanggal berubah.
- const [, setMinuteTick] = useState(0);
- useEffect(() => {
-   const id = window.setInterval(() => setMinuteTick((t) => t + 1), 60_000);
-   return () => window.clearInterval(id);
- }, []);
- if (typeof window === 'undefined') {
-   return <GreetingHeroShell successToday={successToday} greeting="Selamat datang 👋" dateLabel="" />;
- }
- const { hour } = jakartaNowParts();
- const greeting =
-   hour >= 4 && hour < 11
-     ? 'Selamat pagi 🌤'
-     : hour >= 11 && hour < 15
-       ? 'Selamat siang ☀️'
-       : hour >= 15 && hour < 19
-         ? 'Selamat sore 🌇'
-         : 'Selamat malam 🌙';
- const [y, m, d] = jakartaDateString().split('-').map(Number);
- const dateLabel = new Intl.DateTimeFormat('id-ID', {
-   weekday: 'long',
-   day: 'numeric',
-   month: 'long',
-   year: 'numeric',
- }).format(new Date(y, m - 1, d));
- return <GreetingHeroShell successToday={successToday} greeting={greeting} dateLabel={dateLabel} />;
-}
+/* ── Task 44 "Today is the Hero" — struktur Beranda sebagai JOURNEY ──────
+ * Urutan lama (analytics-first: sapaan → quote → filter → 13 KPI → …)
+ * diganti alur emosional (brief Fabulous-inspired):
+ *   ① TodayHero (sapaan personal + progres X/Y + TreeProgress + streak/level)
+ *   ② Rutinitas Hari Ini (done + belum — keduanya dirayakan)
+ *   ③ Check-in Harian (mood/energi/tidur — kini juga di Beranda)
+ *   ④ Quote (personal reminder, editorial)
+ *   ⑤ Tinjauan Mingguan (momentum)
+ *   ⑥ "Perjalananmu" — analitik sekunder: KPI grid + cincin + chart…
+ *     (tier supporting: KPI/cincin/tabel kini premium-card-quiet — tanpa
+ *     sheen & shadow kuat — analytics tidak lagi mendominasi layar pertama)
+ * GreetingHero lama dihapus (digantikan TodayHero yang memakai userName
+ * dari greeting API — sebelumnya field itu tidak pernah dipetakan). */
 
-function GreetingHeroShell({ successToday, greeting, dateLabel }: { successToday: number; greeting: string; dateLabel: string }) {
-
- return (
-   <div className="premium-hero">
-     <div className="premium-hero-bubbles" aria-hidden="true" />
-     <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 px-5 py-5 sm:px-6">
-       <div className="premium-fade-up min-w-0">
-         <h2 className="text-lg font-bold tracking-tight sm:text-xl">{greeting}</h2>
-         {dateLabel && <p className="mt-1 text-[13px] font-medium opacity-90">{dateLabel}</p>}
-       </div>
-       <div
-         className="premium-fade-up flex shrink-0 items-center gap-3 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5"
-         style={{ animationDelay: '120ms' }}
-       >
-         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/25 bg-white/10">
-           <Zap className="h-4.5 w-4.5" aria-hidden="true" />
-         </span>
-         <span className="block leading-none">
-           <span className="premium-stat block text-xl sm:text-2xl">{Math.round(successToday)}%</span>
-           <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
-             Hari ini
-           </span>
-         </span>
-       </div>
-     </div>
-   </div>
- );
-}
+/** Payload ringan GET /api/daily-logs?date= untuk kartu check-in Beranda. */
+type DailyLogPayloadLite = { date?: string; mood?: number; energy?: number; sleep?: number } | null;
 
 export default function Dashboard() {
  const refreshKey = useAppStore(s => s.refreshKey);
@@ -155,6 +107,10 @@ export default function Dashboard() {
  const setActiveTab = useAppStore((s) => s.setActiveTab);
  const openHabitFocus = useAppStore((s) => s.openHabitFocus);
  const openTrackerDate = useAppStore((s) => s.openTrackerDate);
+ // Task 44: jalur CTA empty-state — sama dengan FAB “Habit Baru”.
+ const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
+ // Jakarta “today” — dipakai query check-in + deep-link Rutinitas Hari Ini.
+ const todayStr = jakartaDateString();
  const [period, setPeriod] = useState<Period>('all');
  const [retryCount, setRetryCount] = useState(0);
  // Fix 11-c M-4: tick kutipan — queryKey berganti tiap klik "Ganti kutipan"
@@ -207,6 +163,31 @@ export default function Dashboard() {
    },
    staleTime: Infinity, // quote doesn't change unless user manually refreshes
  });
+
+ // ── Check-in harian (Task 44) — nilai mood/energi/tidur HARI INI untuk
+ // kartu check-in Beranda. Query key SAMA dengan tracker (['daily-logs',
+ // tanggal]) → cache terbagi; simpan dari DailyCheckInCard otomatis
+ // meng-invalidate key ini sehingga kedua tab sinkron.
+ const { data: dailyLogData } = useQuery<DailyLogPayloadLite>({
+   queryKey: ['daily-logs', todayStr],
+   queryFn: async () => {
+     const res = await fetch(`/api/daily-logs?date=${todayStr}`);
+     if (!res.ok) return null;
+     return res.json();
+   },
+   staleTime: 15_000,
+ });
+ // Gate tanggal (anti stale keepPreviousData — pola tracker worklog 6-c).
+ const checkInValue = useMemo(() => {
+   if (!dailyLogData) return null;
+   const dataDate = dailyLogData.date?.slice(0, 10);
+   if (dataDate && dataDate !== todayStr) return null;
+   return {
+     mood: dailyLogData.mood ?? 3,
+     energy: dailyLogData.energy ?? 3,
+     sleep: dailyLogData.sleep ?? 7,
+   };
+ }, [dailyLogData, todayStr]);
 
  const quote: MotivationalQuote | null = quoteData?.text
    ? { quote: quoteData.text, translation: '', author: quoteData.author || '' }
@@ -292,7 +273,10 @@ export default function Dashboard() {
  if (loading) {
    return (
      <div className="space-y-6">
-       <Skeleton className="h-[88px] w-full rounded-2xl" />
+       {/* Task 44: urutan skeleton = urutan journey (hero, habits, check-in, quote) */}
+       <Skeleton className="h-[228px] w-full rounded-2xl" />
+       <Skeleton className="h-56 w-full rounded-2xl" />
+       <Skeleton className="h-44 w-full rounded-2xl" />
        <Skeleton className="h-24 w-full rounded-2xl" />
        <Skeleton className="h-10 w-64 rounded-full" />
        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -315,35 +299,23 @@ export default function Dashboard() {
  }
 
  const displayData = data || DEFAULT_DATA;
- // Jakarta "today" — destination of the Today's Focus row jump (so the user
- // lands on the tracker grid ready to complete the habit).
- const todayStr = jakartaDateString();
  const weeklyBarData = displayData.weeklyChartData.map((d) => ({
    ...d,
    label: d.day.slice(0, 3),
  }));
 
- const priorityVariant = (p?: string) => {
-   // Guard against null/undefined — previously crashed on .toLowerCase()
-   // if a habit had a missing priority field.
-   // Fix 11-c L-8: nilai prioritas habit bisa Indonesia (Tinggi/Sedang/Rendah —
-   // seed Rutina) maupun Inggris (High/Medium/Low — schema default).
-   switch ((p ?? 'medium').toLowerCase()) {
-     case 'high':
-     case 'tinggi':
-       return 'destructive' as const;
-     case 'medium':
-     case 'sedang':
-       return 'default' as const;
-     default:
-       return 'secondary' as const;
-   }
- };
 
  return (
    <div className="app-ambience relative space-y-6">
-     {/* ── Hero Greeting (Rutina Aurora) ───────────────────────── */}
-     <GreetingHero successToday={displayData.successToday} />
+    {/* 1 Today Hero (Task 44 - sapaan personal + progres + pohon rutinitas) */}
+    <TodayHero
+      userName={displayData.userName}
+      completed={displayData.todayCompletedCount}
+      total={displayData.todayTotalCount}
+      currentStreak={displayData.currentStreak}
+      level={displayData.currentLevel}
+      levelProgress={displayData.levelProgress}
+    />
 
      {fetchError && !fetching && (
        <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">
@@ -355,9 +327,30 @@ export default function Dashboard() {
        </div>
      )}
 
+    {/* 2 Rutinitas Hari Ini (Task 44 - done + belum, keduanya dirayakan) */}
+    <TodayHabitsCard
+      habits={displayData.todayHabits}
+      todayStr={todayStr}
+      onOpenTracker={openTrackerDate}
+      onOpenHabit={openHabitFocus}
+      onAddHabit={() => {
+        triggerQuickAdd('habit');
+        setActiveTab('settings');
+      }}
+    />
+
+    {/* 3 Check-in Harian (Task 44 - kini juga di Beranda, bukan hanya di
+          Tracker; mood/energi/tidur = identitas emosional aplikasi) */}
+    <DailyCheckInCard
+      key={`${todayStr}|${checkInValue ? 'row' : 'none'}`}
+      date={todayStr}
+      value={checkInValue}
+    />
+
+    {/* 4 Quote (personal reminder - editorial serif, bukan banner) */}
      {/* ── Motivational Quote Card (glass tinted) ──────────────── */}
      <div className="premium-quote">
-       <div className="relative z-10 p-5 pl-6">
+       <div className="relative z-10 p-4 sm:p-5">
          {quoteLoading ? (
            <div className="flex items-center gap-3 flex-wrap gap-y-2">
              <Skeleton className="h-8 w-8 rounded-xl" />
@@ -372,7 +365,22 @@ export default function Dashboard() {
        </div>
      </div>
 
-     {/* ── Period Filter ──────────────────────────────────────── */}
+     {/* ── Weekly Review + AI Insights ──────────────────────────── */}
+     <ScrollReveal>
+       <WeeklyReview />
+     </ScrollReveal>
+
+     {/* ── Progress Rings Section ───────────────────────────────── */}
+    {/* ── 5 "Perjalananmu" — analitik sekunder (Task 44: analytics turun
+          dari layar pertama; microcopy brief) ─────────────────────────── */}
+    <div className="flex items-center gap-2.5 pt-1">
+      <span className="chip-soft chip-soft-violet h-8 w-8" aria-hidden="true">
+        <LineChart className="h-4 w-4" />
+      </span>
+      <h3 className="premium-label">Perjalananmu</h3>
+    </div>
+
+    {/* ── Period Filter ──────────────────────────────────────── */}
      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
        <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
        <span className="premium-label">Periode</span>
@@ -404,20 +412,22 @@ export default function Dashboard() {
            { label: 'Total XP', icon: Star, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
            { label: 'Level', icon: Award, chip: 'chip-violet', numeric: true, value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${Math.round(displayData.levelProgress)}%`, key: 'level' },
            { label: 'Skor', icon: Brain, chip: 'chip-emerald', numeric: true, value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
-           { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><MoodEmoji mood={displayData.moodAverage} /></span><span className="text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log mood' },
+           { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex min-w-0 items-center gap-2"><span className="anim-micro-pulse shrink-0"><MoodEmoji mood={displayData.moodAverage} /></span><span className="truncate text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log mood' },
            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: displayData.sleepAverage != null ? <CountUpNumber value={displayData.sleepAverage} decimals={1} /> : <span aria-label="Belum ada data">—</span>, sub: displayData.sleepAverage != null ? 'jam / malam' : 'belum ada data', key: 'sleep', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log tidur' },
-           { label: 'Energi', icon: Activity, chip: 'chip-slate', value: <span className="flex items-center gap-2"><span className="anim-micro-pulse"><EnergyEmoji energy={displayData.energyAverage} className="text-xl" /></span><span className="text-lg font-bold">{getEnergyLabel(displayData.energyAverage)}</span></span>, sub: null, key: 'energy', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log energi' },
+           { label: 'Energi', icon: Activity, chip: 'chip-slate', value: <span className="flex min-w-0 items-center gap-2"><span className="anim-micro-pulse shrink-0"><EnergyEmoji energy={displayData.energyAverage} className="text-xl" /></span><span className="truncate text-lg font-bold">{getEnergyLabel(displayData.energyAverage)}</span></span>, sub: null, key: 'energy', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat log energi' },
          ].map((card, i) => {
            const Icon = card.icon;
            // Hide non-essential KPI cards on mobile (< 640px) to reduce
            // cognitive overload. → 7 on mobile.
-           // Hidden: longest, success, weekly, monthly, level, productivity.
-           // Visible: habits, completion, streak, xp, mood, sleep, energy.
+           // Hidden: longest, success, weekly, monthly, level, productivity, energy.
+           // Visible: habits, completion, streak, xp, mood, sleep — genap 2 kolom
+           // (Task 44: energy dipindah hidden — nilainya live di kartu check-in
+           // Beranda; grid 7 kartu ganjil di 320-390px kini 6 rapi.)
            // NOTE: kartu hantu "Tantangan"/"Lencana"/"Target" dihapus — field
            // itu tidak pernah dikirim /api/dashboard (kontrak rebuild), jadi
            // kartunya selalu menampilkan nilai kosong (pola fix 9-b); kartu
            // Energi baru ditambahkan dari kpi.energyAvg (kontrak).
-           const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'productivity']);
+           const MOBILE_HIDDEN = new Set(['longest', 'success', 'weekly', 'monthly', 'level', 'productivity', 'energy']);
            const isHiddenOnMobile = MOBILE_HIDDEN.has(card.key);
            // KPI body shared by both the interactive <button> and the
            // static <div> variants below.
@@ -450,7 +460,7 @@ export default function Dashboard() {
                  onClick={card.nav}
                  aria-label={card.navLabel}
                  className={cn(
-                   'premium-card premium-card-sheen premium-card-hover anim-stagger group relative cursor-pointer rounded-2xl p-4 text-left',
+                   'premium-card-quiet anim-stagger group relative cursor-pointer rounded-2xl p-4 text-left',
                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                    isHiddenOnMobile && 'hidden sm:block'
                  )}
@@ -467,7 +477,7 @@ export default function Dashboard() {
            return (
              <div
                key={card.key}
-               className={cn('premium-card premium-card-sheen anim-stagger rounded-2xl p-4', isHiddenOnMobile && 'hidden sm:block')}
+               className={cn('premium-card-quiet anim-stagger rounded-2xl p-4', isHiddenOnMobile && 'hidden sm:block')}
                style={{ animationDelay: `${i * 50}ms` }}
              >
                {kpiBody}
@@ -477,20 +487,14 @@ export default function Dashboard() {
        </div>
      </section>
 
-     {/* ── Weekly Review + AI Insights ──────────────────────────── */}
-     <ScrollReveal>
-       <WeeklyReview />
-     </ScrollReveal>
-
-     {/* ── Progress Rings Section ───────────────────────────────── */}
      <ScrollReveal>
      <section aria-label="Progress overview">
-       <div className="premium-card premium-card-sheen rounded-2xl p-5">
+       <div className="premium-card-quiet rounded-2xl p-5">
          <h3 className="premium-label mb-5 flex items-center gap-2">
            Ringkasan Progres
            <ChartInfo text="Persentase hari yang berhasil menyelesaikan minimal 1 habit dari total hari dalam periode yang dipilih. Cincin 'Minggu Ini' dan 'Bulan Ini' dihitung dari minggu/bulan kalender berjalan." />
          </h3>
-         <div className="flex items-center justify-around flex-wrap gap-6">
+         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
            <div className="relative">
              <ProgressRing value={displayData.completionRate} size={110} strokeWidth={10} color="stroke-primary" label="Keseluruhan" />
            </div>
@@ -537,77 +541,23 @@ export default function Dashboard() {
      {/* ── Last Done (Terakhir Dilakukan) ─────────────────────────── */}
      <LastDoneSummaryCard data={displayData.lastDoneSummary} />
 
-     {/* ── Bottom Row: Leaderboard + Today's Focus ─────────────── */}
-     <section aria-label="Details" className="grid grid-cols-1 md:grid-cols-2 gap-4">
-       <div className="premium-card premium-card-sheen rounded-2xl p-5">
-         <h3 className="premium-label mb-4 flex items-center gap-2">
-           Peringkat Habit
-           <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
-         </h3>
-         <div className="grid grid-cols-2 gap-3">
-           {/* ONE-CLICK (6-a FIX-1): tile jadi tombol → openHabitFocus(id)
-               bila API mengirim id habit; tanpa id → div statis. */}
-           <BestWorstTile habit={displayData.bestHabit} tone="best" onOpen={openHabitFocus} />
-           <BestWorstTile habit={displayData.worstHabit} tone="worst" onOpen={openHabitFocus} />
-         </div>
-       </div>
-
-       <div className="premium-card premium-card-sheen rounded-2xl p-5">
-         <div className="mb-4 flex items-center justify-between gap-3">
-           <h3 className="premium-label flex items-center gap-2">
-             Fokus Hari Ini
-             <ChartInfo text="Menampilkan daftar habit yang belum diselesaikan hari ini. Urut berdasarkan prioritas." />
-           </h3>
-           <Badge variant="secondary" className="text-xs">
-             {displayData.todayFocus.length} tersisa
-           </Badge>
-         </div>
-         {displayData.todayFocus.length === 0 ? (
-           <div className="premium-empty">
-             <div className="premium-empty-orb">
-               <CheckCircle className="h-8 w-8 text-primary" aria-hidden="true" />
-             </div>
-             <p className="text-sm font-medium">Semua selesai untuk hari ini! Kerja bagus.</p>
-           </div>
-         ) : (
-           <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-             {displayData.todayFocus.map((habit) => (
-               <div key={habit.id} className="group/row flex items-center gap-1.5">
-                 {/* ONE-CLICK (4-a): row main click → jump to the tracker grid
-                     (today preselected) so the user can complete it right away. */}
-                 <button
-                   type="button"
-                   onClick={() => openTrackerDate(todayStr)}
-                   aria-label={`Buka tracker hari ini untuk menyelesaikan habit ${habit.name}`}
-                   className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                 >
-                   <div className="flex items-center gap-2.5 min-w-0">
-                     <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base" aria-hidden="true">{habit.icon}</span>
-                     <span className="text-sm font-medium truncate">{habit.name}</span>
-                   </div>
-                   {habit.priority && (
-                     <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-xs">
-                       {habit.priority}
-                     </Badge>
-                   )}
-                 </button>
-                 {/* ONE-CLICK (4-a): icon-button → openHabitFocus(id) opens this
-                     habit's TimeAnalysisDialog on the tracker tab. Subtle on
-                     mobile (always visible), fades in on row hover on desktop. */}
-                 <button
-                   type="button"
-                   onClick={() => openHabitFocus(habit.id)}
-                   aria-label={`Lihat analisis waktu habit ${habit.name}`}
-                   className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-visible:opacity-100"
-                 >
-                   <BarChart3 className="h-4 w-4" aria-hidden="true" />
-                 </button>
-               </div>
-             ))}
-           </div>
-         )}
-       </div>
-     </section>
+         {/* ── Peringkat Habit (Task 44: "Fokus Hari Ini" dihapus — fungsinya
+          dipindah ke TodayHabitsCard di atas; leaderboard kini full-width,
+          tier supporting) ──────────────────────────────────────────────── */}
+    <section aria-label="Peringkat habit">
+      <div className="premium-card-quiet rounded-2xl p-5">
+        <h3 className="premium-label mb-4 flex items-center gap-2">
+          Peringkat Habit
+          <ChartInfo text="Peringkat habit berdasarkan jumlah hari diselesaikan dalam periode yang dipilih. Streak dihitung dari hari terakhir sekarang ke belakang berturut-turut." />
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {/* ONE-CLICK (6-a FIX-1): tile jadi tombol → openHabitFocus(id)
+              bila API mengirim id habit; tanpa id → div statis. */}
+          <BestWorstTile habit={displayData.bestHabit} tone="best" onOpen={openHabitFocus} />
+          <BestWorstTile habit={displayData.worstHabit} tone="worst" onOpen={openHabitFocus} />
+        </div>
+      </div>
+    </section>
 
      {/* ── Keuangan Bulan Ini ────────────────────────────────────────── */}
      <FinanceOverviewCard data={displayData.financeOverview} />
@@ -615,7 +565,7 @@ export default function Dashboard() {
      {/* ── Per-Habit Performance Table ───────────────────────────────── */}
      {displayData.habitDetailStats.length > 0 && (
        <section aria-label="Habit details">
-         <div className="premium-card premium-card-sheen rounded-2xl p-5">
+         <div className="premium-card-quiet rounded-2xl p-5">
            <h3 className="premium-label mb-4 flex items-center gap-2">
              Performa Per Habit
              <ChartInfo text="Detail statistik per habit termasuk jumlah hari selesai, completion rate, dan streak terkini dalam periode yang dipilih." />
@@ -674,7 +624,7 @@ export default function Dashboard() {
            {insights.map((insight, i) => (
              <div
                key={i}
-               className="premium-card premium-card-sheen rounded-xl p-4"
+               className="premium-card-quiet rounded-xl p-4"
              >
                <div className="flex items-start gap-3">
                  <div className="mt-0.5 shrink-0">{insight.icon}</div>

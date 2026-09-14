@@ -7,10 +7,15 @@ import type { DashboardData } from './dashboard-types';
 
 export const DEFAULT_DATA: DashboardData = {
   totalHabits: 0,
+  graduatedCount: 0,
   completionRate: 0,
   currentStreak: 0,
   longestStreak: 0,
   successToday: 0,
+  userName: '',
+  todayHabits: [],
+  todayCompletedCount: 0,
+  todayTotalCount: 0,
   weeklyCompletion: 0,
   monthlyCompletion: 0,
   weekToDateRate: 0,
