@@ -1,0 +1,39 @@
+POHON RUTINA — 10 Opsi Konsep Visual
+=====================================
+
+Ini kumpulan ilustrasi konsep "pohon habit" untuk Rutina.
+Murni IDEASI — belum ada kode implementasi (sesuai permintaan).
+Identitas visual mengikuti tema Aurora teal Rutina.
+
+CARA BUKA
+---------
+Buka file "galeri-pohon.html" di browser untuk melihat semua
+gambar berjalan keterangan + petanya ke data Rutina nyata.
+Atau buka langsung gambar di folder pohon-concepts/.
+
+
+A. TAHAPAN PERTUMBUHAN (level = XP & Level yang sudah ada)
+----------------------------------------------------------
+1. benih.png        — Level 1          : akun baru, biji bercahaya
+2. tunas.png        — Level 2-3        : XP awal + streak pendek
+3. pohon-muda.png   — Level 4-6        : level menengah + streak stabil
+4. pohon-dewasa.png — Level tinggi     : tajuk megah + buah emas
+                                       (buah = goal yang lulus/graduatedAt)
+5. berbunga.png     — Comeback         : streak baru setelah lama berhenti
+
+B. STATE KHUSUS (sinyal halus, bukan hukuman)
+---------------------------------------------
+6. daun-kuning.png  — habit sering terlewat (completion rate turun)
+7. dorman.png       — mode libur resmi (vacationUntil aktif),
+                      bersalju + 1 kuncup musim semi
+
+C. CONTOH TAMPILAN DI APLIKASI
+------------------------------
+8.  mockup-beranda.png — pohon jadi hero layar Beranda
+9.  mockup-fokus.png   — tiap daun berikon habit, tap = fokus habit itu
+10. mockup-ring.png    — pohon dalam ring progress XP/level
+                         (seperti splash screen)
+
+
+Pohon = refleksi sistem yang SUDAH ada di Rutina:
+XP -> tumbuh | streak -> sehat | goal lulus -> buah | libur -> dorman.

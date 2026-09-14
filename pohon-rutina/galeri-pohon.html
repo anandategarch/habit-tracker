@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galeri Konsep — Pohon Rutina</title>
+<style>
+  :root {
+    --bg: #04211f;
+    --bg2: #062e2b;
+    --card: rgba(255,255,255,0.045);
+    --card-border: rgba(255,255,255,0.09);
+    --teal: #14b8a6;
+    --teal-soft: #2dd4bf;
+    --emerald: #10b981;
+    --amber: #f59e0b;
+    --text: #ecfdf5;
+    --muted: rgba(236,253,245,0.62);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #0b3f3a 0%, var(--bg) 55%) fixed, var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 28px 18px 60px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header.hero { text-align: center; margin-bottom: 34px; }
+  header.hero .eyebrow {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--teal-soft);
+    background: rgba(20,184,166,0.12); border: 1px solid rgba(45,212,191,0.25);
+    padding: 5px 14px; border-radius: 999px; margin-bottom: 14px;
+  }
+  header.hero h1 { font-size: clamp(24px, 5vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+  header.hero h1 .accent { color: var(--teal-soft); }
+  header.hero p.sub { color: var(--muted); font-size: 14px; max-width: 640px; margin: 10px auto 0; }
+  header.hero p.note {
+    margin: 14px auto 0; max-width: 560px; font-size: 12px; color: var(--amber);
+    background: rgba(245,158,11,0.08); border: 1px dashed rgba(245,158,11,0.35);
+    border-radius: 12px; padding: 8px 14px;
+  }
+  h2.section {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+    margin: 38px 0 6px; color: var(--text);
+  }
+  h2.section .num {
+    display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, #0d9488, #10b981); font-size: 12px; font-weight: 800;
+    box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+  }
+  p.section-sub { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; padding-left: 36px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .grid.mock { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 20px; overflow: hidden; backdrop-filter: blur(8px);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card:hover { transform: translateY(-4px); border-color: rgba(45,212,191,0.4); box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
+  .card .imgwrap { position: relative; background: #052b28; }
+  .card img { display: block; width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; }
+  .grid.mock .card img { aspect-ratio: 768/1344; }
+  .card .tag {
+    position: absolute; top: 10px; left: 10px;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; color: #04211f;
+    background: linear-gradient(135deg, var(--teal-soft), var(--emerald));
+    box-shadow: 0 4px 12px rgba(20,184,166,0.4);
+  }
+  .card .tag.gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+  .card .tag.warn { background: linear-gradient(135deg, #fcd34d, #f59e0b); }
+  .card .tag.cold { background: linear-gradient(135deg, #a7f3d0, #5eead4); }
+  .card .body { padding: 14px 16px 16px; }
+  .card h3 { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+  .card p { font-size: 12px; color: var(--muted); }
+  .card .map {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 11px; color: rgba(45,212,191,0.85);
+  }
+  .card .map b { color: var(--teal-soft); font-weight: 700; }
+  footer { text-align: center; margin-top: 44px; color: var(--muted); font-size: 11.5px; }
+  footer .heart { color: var(--teal-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">Konsep Visual · Ideasi</span>
+    <h1>Pohon <span class="accent">Rutina</span> 🌳</h1>
+    <p class="sub">10 opsi visual untuk konsep &ldquo;pohon habit&rdquo; — pohon yang tumbuh dari konsistensimu, bukan dekorasi. Sesuai identitas Aurora teal Rutina.</p>
+    <p class="note">⚠︎ Ini murni konsep ilustrasi (bukan implementasi) — sesuai permintaan &ldquo;jangan buat kode dulu&rdquo;.</p>
+  </header>
+
+  <h2 class="section"><span class="num">A</span> Tahapan Pertumbuhan — Benih → Berbuah</h2>
+  <p class="section-sub">Tahap ditentukan XP &amp; Level yang sudah ada di Rutina. Semakin konsisten, semakin tinggi pohonmu.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="imgwrap"><span class="tag">Level 1</span><img src="pohon-concepts/benih.png" alt="Tahap benih — biji bercahaya di gundukan tanah"></div>
+      <div class="body">
+        <h3>1 · Benih</h3>
+        <p>Biji bercahaya baru ditanam — awal perjalanan, penuh potensi.</p>
+        <div class="map">Data: <b>akun baru / level 1</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag">Level 2–3</span><img src="pohon-concepts/tunas.png" alt="Tahap tunas — kecambah dua daun dengan kunang-kunang"></div>
+      <div class="body">
+        <h3>2 · Tunas</h3>
+        <p>Kecambah dua daun dengan kunang-kunang — konsistensi mulai terbentuk.</p>
+        <div class="map">Data: <b>XP awal + streak pendek</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag">Level 4–6</span><img src="pohon-concepts/pohon-muda.png" alt="Tahap pohon muda — batang ramping dua lapis tajuk"></div>
+      <div class="body">
+        <h3>3 · Pohon Muda</h3>
+        <p>Dua lapis tajuk mulai rapat — rutinitas mulai berakar kuat.</p>
+        <div class="map">Data: <b>level menengah + streak stabil</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag gold">Level tinggi</span><img src="pohon-concepts/pohon-dewasa.png" alt="Tahap pohon dewasa — tajuk tiga lapis dengan buah emas"></div>
+      <div class="body">
+        <h3>4 · Pohon Dewasa + Buah</h3>
+        <p>Tiga lapis tajuk megah. Buah emas = <b>goal yang lulus</b> — panen konsistensi.</p>
+        <div class="map">Data: <b>Level tinggi + graduatedAt (goal selesai)</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag gold">Comeback</span><img src="pohon-concepts/berbunga.png" alt="Tahap berbunga — bunga putih-pink bermekaran"></div>
+      <div class="body">
+        <h3>5 · Berbunga</h3>
+        <p>Bunga bermekaran — momen &ldquo;kembali bangkit&rdquo; setelah lama terhenti.</p>
+        <div class="map">Data: <b>streak baru setelah comeback</b></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section"><span class="num">B</span> State Khusus — Sinyal Halus, Bukan Hukuman</h2>
+  <p class="section-sub">Pohon tidak menghukum. Daun menguning = &ldquo;ayo dirawat&rdquo;. Dorman = libur resmi, tidak mati.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="imgwrap"><span class="tag warn">Perlu dirawat</span><img src="pohon-concepts/daun-kuning.png" alt="Daun amber gugur perlahan — sinyal lembut"></div>
+      <div class="body">
+        <h3>6 · Daun Menguning</h3>
+        <p>Beberapa daun amber gugur perlahan — habit itu sedang sering terlewat.</p>
+        <div class="map">Data: <b>habit dengan completion rate turun</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag cold">Mode Libur</span><img src="pohon-concepts/dorman.png" alt="Pohon dorman — ranting telanjang bersalju dengan satu kuncup"></div>
+      <div class="body">
+        <h3>7 · Dorman (Musim Dingin)</h3>
+        <p>Ranting tenang bersalju, satu kuncup menyala — istirahat, bukan mati. Pulang = musim semi.</p>
+        <div class="map">Data: <b>vacationUntil aktif</b></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section"><span class="num">C</span> Contoh Tampilan di Aplikasi</h2>
+  <p class="section-sub">Bagaimana pohon bisa hidup di dalam UI Rutina — semua elemen interaktif (tap daun → habit itu).</p>
+  <div class="grid mock">
+    <div class="card">
+      <div class="imgwrap"><span class="tag">Beranda</span><img src="pohon-concepts/mockup-beranda.png" alt="Mockup layar beranda dengan pohon sebagai hero"></div>
+      <div class="body">
+        <h3>8 · Pohon Jadi Hero Beranda</h3>
+        <p>Pohon di tengah layar utama — pengingat visual setiap buka app.</p>
+        <div class="map">Menggantikan/memperkaya <b>area greeting Beranda</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag">Zoom Daun</span><img src="pohon-concepts/mockup-fokus.png" alt="Mockup zoom pohon dengan daun berikon habit"></div>
+      <div class="body">
+        <h3>9 · Daun = Habit-mu</h3>
+        <p>Tiap daun punya ikon habit (buku, air, bulan…) — tap untuk fokus ke habit itu.</p>
+        <div class="map">Data: <b>1 daun = 1 habit aktif</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="imgwrap"><span class="tag">Level Ring</span><img src="pohon-concepts/mockup-ring.png" alt="Mockup pohon dalam ring progress dengan badge level"></div>
+      <div class="body">
+        <h3>10 · Pohon + Ring Level</h3>
+        <p>Ring progress mengelilingi pohon — XP hari ini menuju level berikutnya, seperti splash screen.</p>
+        <div class="map">Data: <b>XP progress → naik level = pohon tumbuh</b></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Dibuat untuk eksplorasi arah visual · belum ada kode implementasi · pilih favoritmu dan diskusikan arahnya <span class="heart">🌱</span>
+  </footer>
+
+</div>
+</body>
+</html>
