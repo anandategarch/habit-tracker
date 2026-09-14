@@ -242,7 +242,12 @@ export async function GET(req: Request) {
     //    Σ initialBalance + Σ pemasukan − Σ pengeluaran (semua waktu).
     const [srcAgg, txByType, recurringRows, sourceRows] = await Promise.all([
       db.fundSource.aggregate({ _sum: { initialBalance: true } }),
-      db.transaction.groupBy({ by: ['type'], _sum: { amount: true } }),
+      // BUGHUNT-54 (3-a #2): totalBalance (KPI Dana Darurat/runway) harus
+      // konsisten dengan hero "Total Saldo" = Σ saldo per sumber
+      // (computeSourceBalances hanya menghitung transaksi BERMILIK dompet) —
+      // transaksi tanpa sumber (sourceId null) tidak boleh menggelembungkan
+      // saldo. Grup ini hanya memberi makan totalBalance + runway.
+      db.transaction.groupBy({ by: ['type'], _sum: { amount: true }, where: { sourceId: { not: null } } }),
       db.recurringTransaction.findMany({
         where: { isActive: true },
         select: {

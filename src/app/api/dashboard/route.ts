@@ -68,11 +68,20 @@ export async function GET(req: Request) {
       startYmd = shiftYmd(todayYmd, -(period - 1));
     }
 
-    const [settings, habits, allCompleted, dailyLogs, monthTx, budgetRows] = await Promise.all([
+    // BUGHUNT-54 (3-c #1a): query terpisah untuk rantai XP — SEMUA habit
+    // non-arsip (aktif + DIJEDA). Men-jeda habit bersejarah dulunya
+    // menurunkan totalXp/currentLevel (regresi level) karena query `habits`
+    // memfilter isActive; `habits` tetap dipakai untuk rotasi harian
+    // (tracking/KPI/fokus) supaya habit dijesa keluar dari tagihan hari ini.
+    const [settings, habits, xpHabits, allCompleted, dailyLogs, monthTx, budgetRows] = await Promise.all([
       db.appSettings.findUnique({ where: { id: 'singleton' } }),
       db.habit.findMany({
         where: { isActive: true, isArchived: false },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      }),
+      db.habit.findMany({
+        where: { isArchived: false },
+        select: { id: true, difficulty: true },
       }),
       db.habitLog.findMany({
         where: { completed: true },
@@ -185,9 +194,11 @@ export async function GET(req: Request) {
     // ── XP & level (all-time) ──
     // Task 36: iterasi `habits` (termasuk yang lulus) — XP habit lulus tidak
     // pernah dicabut; level = kenangan kemenangan, bukan sewa bulanan.
+    // BUGHUNT-54 (3-c #1a): iterasi `xpHabits` (non-arsip: aktif + dijesa) —
+    // jeda = istirahat terencana, BUKAN penghapusan sejarah XP.
     let totalXp = 0;
     let todayXp = 0;
-    for (const h of habits) {
+    for (const h of xpHabits) {
       const logs = logsByHabit.get(h.id) ?? [];
       const weight = xpForDifficulty(h.difficulty);
       totalXp += logs.length * weight;
@@ -225,6 +236,12 @@ export async function GET(req: Request) {
     type HabitRate = { id: string; name: string; emoji: string; rate: number; done: number; days: number };
     const rates: HabitRate[] = [];
     for (const h of tracking) {
+      // BUGHUNT-54 (3-c #1b): habit libur (vacationMode) BUKAN kandidat
+      // best/worst — rate-nya menyesatkan selama libur (0% → sinyal pohon
+      // "Daun Menguning" bertabrakan dengan "Dorman" utk habit yang sama).
+      // Konsumen worstHabit (tile Peringkat + sinyal pohon) sama-sama ingin
+      // habit yang benar-benar melemah, bukan yang sedang beristirahat.
+      if (h.vacationMode) continue;
       const startYmdHabit = jakartaDateString(h.startDate as Date);
       const effStart = startYmdHabit > startYmd ? startYmdHabit : startYmd;
       if (effStart > todayYmd) continue;

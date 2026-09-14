@@ -132,7 +132,10 @@ export default function ProgressTab() {
       });
     }
 
-    if (data.weeklyChartData.length > 0) {
+    if (data.weeklyChartData.some((d) => d.rate > 0)) {
+      // BUGHUNT-54 (3-c #7): tampilkan insight "hari terbaik" hanya bila ada
+      // data nyata (≥1 penyelesaian minggu ini). weeklyChart SELALU 7 entri
+      // (diisi nol) → dulu user tanpa data melihat "Hari terbaik: X (0%)".
       const bestDay = data.weeklyChartData.reduce((best, d) => (d.rate > best.rate ? d : best), data.weeklyChartData[0]);
       items.push({
         icon: <span className="chip-soft chip-soft-teal h-8 w-8"><Trophy className="h-4 w-4" /></span>,
@@ -185,6 +188,17 @@ export default function ProgressTab() {
       case '3m': return '90 Hari';
       case 'all': return 'Semua';
       default: return '30 Hari';
+    }
+  }, [period]);
+
+  // BUGHUNT-54 (3-c #4): label jendela rate sinyal "Daun Menguning" —
+  // sumber rate = periode query aktif halaman ini (bukan hardcode 30 hari).
+  const careRatePeriodLabel = useMemo(() => {
+    switch (period) {
+      case '7d': return '7 hari';
+      case '1m': return '30 hari';
+      case '3m': return '90 hari';
+      default: return 'sejak awal';
     }
   }, [period]);
 
@@ -276,6 +290,7 @@ export default function ProgressTab() {
           tree={treeState}
           currentStreak={displayData.currentStreak}
           vacationCount={vacationCount}
+          ratePeriodLabel={careRatePeriodLabel}
         />
       </ScrollReveal>
 

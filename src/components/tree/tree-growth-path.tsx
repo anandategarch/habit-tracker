@@ -27,11 +27,15 @@ interface TreeGrowthPathProps {
   tree: TreeGrowthState;
   currentStreak: number;
   vacationCount: number;
+  /** BUGHUNT-54 (3-c #4): label jendela waktu rate worstHabit — sumber rate
+   *  mengikuti periode query aktif tab Progres ('7 hari' / '30 hari' /
+   *  '90 hari' / 'sejak awal'), bukan hardcode "(30 hari)". */
+  ratePeriodLabel: string;
 }
 
 type StageStatus = 'achieved' | 'current' | 'locked';
 
-export function TreeGrowthPath({ tree, currentStreak, vacationCount }: TreeGrowthPathProps) {
+export function TreeGrowthPath({ tree, currentStreak, vacationCount, ratePeriodLabel }: TreeGrowthPathProps) {
   // Anchor deep-link: kartu "Pohonmu" Beranda mendarat di seksi ini
   // (pola consume-and-clear seperti trackerFocusNotes).
   const progressFocusTree = useAppStore((s) => s.progressFocusTree);
@@ -153,7 +157,12 @@ export function TreeGrowthPath({ tree, currentStreak, vacationCount }: TreeGrowt
         </div>
 
         {/* Sinyal musiman — pohon bicara tentang kondisimu, bukan menghukum */}
-        <SignalCards tree={tree} currentStreak={currentStreak} vacationCount={vacationCount} />
+        <SignalCards
+          tree={tree}
+          currentStreak={currentStreak}
+          vacationCount={vacationCount}
+          ratePeriodLabel={ratePeriodLabel}
+        />
       </div>
     </section>
   );
@@ -165,10 +174,12 @@ function SignalCards({
   tree,
   currentStreak,
   vacationCount,
+  ratePeriodLabel,
 }: {
   tree: TreeGrowthState;
   currentStreak: number;
   vacationCount: number;
+  ratePeriodLabel: string;
 }) {
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
@@ -227,8 +238,11 @@ function SignalCards({
       icon: <Leaf className="h-4 w-4" aria-hidden="true" />,
       title: 'Daun Menguning',
       active: !!tree.care,
+      // BUGHUNT-54 (3-c #4): label jendela rate mengikuti `ratePeriodLabel`
+      // (periode query aktif Progres) — dulu hardcode "(30 hari)" sehingga
+      // angka "Rawat" bisa bohong saat periode 7 hari / semua waktu.
       activeText: tree.care
-        ? `"${tree.care.habitName}" selesai ${tree.care.rate}% (30 hari) — ayo kembali dirawat.`
+        ? `"${tree.care.habitName}" selesai ${tree.care.rate}% (${ratePeriodLabel}) — ayo kembali dirawat.`
         : '',
       idleText: `Sinyal lembut saat habit terlemah turun di bawah ${TREE_CARE_RATE}%.`,
       actionLabel: tree.care ? `Rawat ${tree.care.habitName}` : null,

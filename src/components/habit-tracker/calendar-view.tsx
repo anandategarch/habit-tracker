@@ -217,7 +217,13 @@ export default function CalendarView() {
     staleTime: 30_000,
   });
 
-  const habitIds = useMemo(() => habits.map((h) => h.id).join(','), [habits]);
+  // BUGHUNT-54 (3-b #1): /api/habits kini juga mengirim habit DIJEDA — kalender
+  // hanya memantau habit AKTIF (log yang diambil & denominator heatmap),
+  // filter client-side di sini (habit dijeda tidak "due" di hari apa pun).
+  const habitIds = useMemo(
+    () => habits.filter((h) => h.isActive).map((h) => h.id).join(','),
+    [habits],
+  );
   const { data: habitLogs = [], isError: fetchError } = useQuery<HabitLog[]>({
     queryKey: ['habit-logs-batch', selectedMonth, habitIds],
     queryFn: async () => {
@@ -279,6 +285,9 @@ export default function CalendarView() {
     const activeHabitCountOnDay = (dayStr: string): number =>
       habits.filter((h) => {
         if (h.isArchived) return false;
+        // BUGHUNT-54 (3-b #1): habit dijeda tidak dihitung "due" di kalender
+        // (jangan menggelembungkan denominator heatmap saat habit dijeda).
+        if (!h.isActive) return false;
         // Task 39 (#3): habit lulus (graduatedAt) tidak lagi "due" — tanpa
         // ini heatmap kalender menurun permanen setelah wisuda (3/4 padahal
         // semua habit berjalan selesai 3/3). Tracker & dashboard sudah

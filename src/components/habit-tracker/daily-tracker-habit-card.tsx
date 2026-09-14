@@ -28,7 +28,7 @@ import {
   Target,
 } from 'lucide-react';
 import type { Habit, HabitLog } from './daily-tracker-types';
-import { computeStreakDetail, shiftYmdKey, toDateString } from './daily-tracker-helpers';
+import { computeStreakDetail, jakartaYmdOf, shiftYmdKey, toDateString } from './daily-tracker-helpers';
 import { xpForHabit } from '@/lib/dashboard-helpers';
 import { dateFromYMD } from '@/lib/timezone';
 import { eeeIdFormatter } from '@/lib/date-utils';
@@ -106,7 +106,9 @@ interface DayCell {
   label: string;
   dayNum: number;
   // 'off' = Task 37: hari di luar jadwal habit (bukan miss, bahan bolong).
-  state: 'done' | 'miss' | 'relapse' | 'clean' | 'future' | 'off';
+  // 'prestart' = BUGHUNT-54 (3-b #5): hari sebelum startDate — habit belum
+  // ada, bukan "terlewat" (netral; styling sama seperti 'off').
+  state: 'done' | 'miss' | 'relapse' | 'clean' | 'future' | 'off' | 'prestart';
   isSelected: boolean;
 }
 
@@ -148,15 +150,22 @@ function HabitCardInner({
   const isScheduledDaily = schedule.kind === 'daily';
 
   // ── Back face: 7 hari terakhir (selectedDate-6 … selectedDate) ──
+  // BUGHUNT-54 (3-b #5): batas bawah flip 7 hari = startDate (YMD Jakarta —
+  // pola computeStreak/kalender Task 39 #9; null → tidak ada batas). Hari
+  // pra-mulai jadi sel NETRAL ('prestart'), bukan 'miss' — habit baru tidak
+  // terkesan langsung gagal seminggu.
+  const startYmd = habit.startDate ? jakartaYmdOf(habit.startDate) : null;
   const days: DayCell[] = Array.from({ length: 7 }, (_, i) => {
     const ymd = shiftYmdKey(selectedDate, i - 6);
     const d = dateFromYMD(ymd);
     const log = monthLogs?.find((l) => toDateString(l.date) === ymd);
     const done = !!log?.completed;
     const off = !isScheduledDaily && !isScheduledOn(schedule, ymd);
+    const prestart = !!startYmd && ymd < startYmd;
     let state: DayCell['state'];
     if (ymd > todayStr) state = 'future';
     else if (done) state = isAvoid ? 'relapse' : 'done';
+    else if (prestart) state = 'prestart';
     else if (off) state = 'off';
     else if (isAvoid) state = 'clean';
     else state = 'miss';
@@ -588,7 +597,9 @@ function HabitCardInner({
                   title={`${day.ymd}${
                     day.state === 'off'
                       ? ' — di luar jadwal'
-                      : isShielded
+                      : day.state === 'prestart'
+                        ? ' — sebelum tanggal mulai'
+                        : isShielded
                         ? ' — hari aman (streak tetap jalan)'
                         : day.state === 'relapse'
                           ? ' — kambuh'
@@ -603,7 +614,8 @@ function HabitCardInner({
                     day.state === 'clean' && 'bg-emerald-500/15 dark:bg-emerald-500/20',
                     day.state === 'relapse' && 'bg-rose-500/20 dark:bg-rose-500/25',
                     isShielded && 'bg-teal-500/15 dark:bg-teal-400/15',
-                    day.state === 'off' && 'opacity-45 bg-muted/30',
+                    (day.state === 'off' || day.state === 'prestart') &&
+                      'opacity-45 bg-muted/30',
                     !isShielded &&
                       (day.state === 'miss' || day.state === 'future') &&
                       'bg-muted/60',
@@ -631,7 +643,7 @@ function HabitCardInner({
                     {day.state === 'miss' && !isShielded && (
                       <span className="block h-3 w-[3px] rounded-full bg-muted-foreground/40" />
                     )}
-                    {day.state === 'off' && (
+                    {(day.state === 'off' || day.state === 'prestart') && (
                       <Minus className="h-3 w-3 text-muted-foreground/50" aria-hidden="true" />
                     )}
                     {day.state === 'future' && (

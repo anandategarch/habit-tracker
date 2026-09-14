@@ -511,28 +511,18 @@ export default function DailyTracker() {
     async (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-      const oldIndex = scheduledHabits.findIndex((h) => h.id === active.id);
-      const newIndex = scheduledHabits.findIndex((h) => h.id === over.id);
+      // BUGHUNT-54 (3-b #2): sumber array HARUS sama dengan yang dirender
+      // grid mode drag — SEMUA habit aktif (activeHabits), bukan hanya yang
+      // terjadwal hari itu. Dulu indeks reorder dihitung dari scheduledHabits,
+      // sehingga habit mingguan/bulanan tidak bisa diurutkan di luar hari
+      // jadwalnya. Task 39 (#2) tetap terpenuhi secara alami: penomoran
+      // ulang kini mencakup SELURUH habit aktif — tidak ada dua habit
+      // ber-sortOrder sama setelah refresh.
+      const oldIndex = activeHabits.findIndex((h) => h.id === active.id);
+      const newIndex = activeHabits.findIndex((h) => h.id === over.id);
       if (oldIndex < 0 || newIndex < 0) return;
 
-      const reorderedSubset = arrayMove(scheduledHabits, oldIndex, newIndex);
-
-      // Task 39 (#2): sisipkan hasil reorder kembali ke daftar habit aktif
-      // PENUH sebelum menomori ulang. Dulu sortOrder di-assign dari index
-      // SUBSET terjadwal — habit mingguan/bulanan yang tersembunyi hari itu
-      // mempertahankan nomor lama → dua habit bisa ber-sortOrder sama →
-      // urutan global kacau permanen setelah refresh (tie-break createdAt).
-      const subsetIds = new Set(reorderedSubset.map((h) => h.id));
-      const reorderedActive: Habit[] = [];
-      let k = 0;
-      for (const h of activeHabits) {
-        if (subsetIds.has(h.id) && k < reorderedSubset.length) {
-          reorderedActive.push(reorderedSubset[k]);
-          k += 1;
-        } else {
-          reorderedActive.push(h);
-        }
-      }
+      const reorderedActive = arrayMove(activeHabits, oldIndex, newIndex);
 
       // Re-assign `sortOrder` so the new array position matches the DB order
       // (0..N-1 across ALL active habits — scheduled or not). Collect only
@@ -543,7 +533,7 @@ export default function DailyTracker() {
       });
 
       // Optimistic local override: reordered active habits (with new order
-      // field) followed by the unchanged paused/archived habits.
+      // field) followed by the unchanged paused/graduated habits.
       const activeIds = new Set(reorderedActive.map((h) => h.id));
       const nonActive = habits.filter((h) => !activeIds.has(h.id));
       const reorderedAll: Habit[] = [
@@ -551,6 +541,13 @@ export default function DailyTracker() {
         ...nonActive,
       ];
       setLocalHabitsOverride(reorderedAll);
+
+      // BUGHUNT-54 (3-b #3): snapshot sortOrder LAMA sebelum kirim. PUT
+      // paralel non-atomik — satu gagal membuat urutan setengah-teraplikasi
+      // menempel permanen; snapshot dipakai di catch untuk PUT-balik.
+      // `habits` saat handler ini jalan masih nilai server (override baru
+      // di-set di atas dan tidak pernah dibaca balik di sini).
+      const priorOrders = new Map(habits.map((h) => [h.id, h.sortOrder]));
 
       // Persist each changed habit's order via PUT /api/habits/[id].
       // Parallel; invalidate the query on settle so the server-side truth
@@ -577,12 +574,27 @@ export default function DailyTracker() {
         setTimeout(() => setLocalHabitsOverride(null), 200);
       } catch {
         toast.error('Gagal menyimpan urutan');
+        // BUGHUNT-54 (3-b #3): rollback best-effort — PUT-balik sortOrder
+        // lama untuk semua update yang sudah terkirim (PUT yang tadi gagal
+        // menjadi no-op dengan nilai sama; kegagalan rollback pun ditelan
+        // allSettled — kebenaran akhir tetap lewat refetch di bawah).
+        await Promise.allSettled(
+          updates.map(async (u) => {
+            const prior = priorOrders.get(u.id);
+            if (prior === undefined) return;
+            await fetch(`/api/habits/${u.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sortOrder: prior }),
+            });
+          }),
+        );
         // Revert to server truth.
         await queryClient.invalidateQueries({ queryKey: ['habits'] });
         setLocalHabitsOverride(null);
       }
     },
-    [scheduledHabits, activeHabits, habits, queryClient],
+    [activeHabits, habits, queryClient],
   );
 
   /** Toggle drag mode. When enabling, force viewFilter to "all" so every
@@ -1030,6 +1042,8 @@ export default function DailyTracker() {
           />
 
           {/* ─────────────────── Daily Summary (4 KPI cards) ─────── */}
+          {/* BUGHUNT-54 (3-b #6): selectedDate + todayStr diteruskan supaya
+              label KPI dinamis ("XP 12 Feb" saat melihat tanggal lampau). */}
           <DailySummary
             completedCount={completedCount}
             totalCount={totalCount}
@@ -1037,6 +1051,8 @@ export default function DailyTracker() {
             todayXP={todayXP}
             bestStreak={bestStreak}
             totalXp={totalXp}
+            selectedDate={selectedDate}
+            todayStr={todayStr}
           />
 
           {/* Task 36: Banner Kembali (anti-nunda) — hanya saat butuh: bolong

@@ -49,19 +49,29 @@ export function ParallaxBackground({ className }: ParallaxBackgroundProps) {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
 
+    // BUGHUNT-54 (3-d #7): pasca BUGFIX SCROLL-2 dokumen TIDAK pernah
+    // scroll (layout h-dvh + overflow-hidden) — scroll sebenarnya terjadi
+    // di elemen konten [data-slot="app-scroller"] (PullToRefresh, page.tsx).
+    // Dulu listener dipasang di window → window.scrollY selalu 0 → parallax
+    // mati total. Pasang listener ke elemen scroller itu (fallback ke
+    // window bila tak ketemu) dan baca scrollTop dari elemen yang sama.
+    const scroller: HTMLElement | Window =
+      document.querySelector<HTMLElement>('[data-slot="app-scroller"]') ?? window;
+
     let queued = false;
     const onScroll = () => {
       if (queued) return;
       queued = true;
       rafRef.current = requestAnimationFrame(() => {
         // Parallax halus: 6% dari scroll, di-clamp supaya subtle.
-        setOffset(Math.min(40, Math.max(0, window.scrollY * 0.06)));
+        const top = scroller instanceof HTMLElement ? scroller.scrollTop : window.scrollY;
+        setOffset(Math.min(40, Math.max(0, top * 0.06)));
         queued = false;
       });
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      window.removeEventListener('scroll', onScroll);
+      scroller.removeEventListener('scroll', onScroll);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);

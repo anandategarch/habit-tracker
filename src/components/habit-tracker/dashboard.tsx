@@ -274,10 +274,15 @@ export default function Dashboard() {
   const todayHabits = displayData.todayHabits.map((h) =>
     doneOverlay[h.id] ? { ...h, completed: true } : h,
   );
-  const newlyDone = todayHabits.filter(
-    (h) => doneOverlay[h.id] && !displayData.todayHabits.find((o) => o.id === h.id)?.completed,
+  // BUGHUNT-54 (3-c #2): semantik avoid — SUKSES = TIDAK kambuh. Kambuh
+  // (log completed avoid) dulunya dihitung sebagai "selesai" → hero
+  // Beranda merayakan "Semua selesai 🌳" + TreeProgress growth penuh
+  // padahal habit hindari justru kambuh. Konsisten dengan KPI "Hari Ini %"
+  // (Task 39 #4, server-side). Overlay 1-tap hanya untuk habit normal
+  // (canOneTap) → completed=true pada overlay memang sukses.
+  const todayCompleted = todayHabits.filter(
+    (h) => (h.habitType === 'avoid' ? !h.completed : h.completed),
   ).length;
-  const todayCompleted = displayData.todayCompletedCount + newlyDone;
 
   // Strip keuangan — hanya bila ada aktivitas bulan ini (jangan menagih
   // user yang belum memakai fitur keuangan).
@@ -305,18 +310,24 @@ export default function Dashboard() {
       {/* ①.5 GROW — Pohonmu (POHON Task 53): cermin pertumbuhan seumur —
             tahap botanical dari level/XP; melengkapi TreeProgress hero
             yang mencerminkan progres hari ini. */}
-      <ScrollReveal>
-        <TreeCard
-          tree={treeState}
-          onOpenTree={openProgressTree}
-          onOpenBloom={() => openTrackerHistoryForTree(todayStr.slice(0, 7))}
-          onOpenDorman={() => {
-            setSettingsSection('habits');
-            setActiveTab('settings');
-          }}
-          onOpenCare={(habitId) => openHabitFocusForTree(habitId)}
-        />
-      </ScrollReveal>
+      {/* BUGHUNT-54 (3-c #5b): saat fetchError data = DEFAULT_DATA → jangan
+            render pohon fabricated (veteran kelihatan "Benih"); kartu muncul
+            kembali begitu retry berhasil membawa data asli. */}
+      {data && (
+        <ScrollReveal>
+          <TreeCard
+            tree={treeState}
+            level={displayData.currentLevel}
+            onOpenTree={openProgressTree}
+            onOpenBloom={() => openTrackerHistoryForTree(todayStr.slice(0, 7))}
+            onOpenDorman={() => {
+              setSettingsSection('habits');
+              setActiveTab('settings');
+            }}
+            onOpenCare={(habitId) => openHabitFocusForTree(habitId)}
+          />
+        </ScrollReveal>
+      )}
 
       {fetchError && !fetching && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">

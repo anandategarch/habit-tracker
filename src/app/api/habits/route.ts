@@ -1,4 +1,5 @@
-// GET/POST /api/habits — daftar habit aktif (non-archived) + completedLogCount.
+// GET/POST /api/habits — daftar habit non-archived (aktif + dijeda) +
+// completedLogCount.
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, readJsonBody } from '@/app/api/_lib/api-utils';
@@ -18,7 +19,16 @@ export async function GET() {
     await expireHabitVacations();
     const [habits, counts] = await Promise.all([
       db.habit.findMany({
-        where: { isActive: true, isArchived: false },
+        // BUGHUNT-54 (3-b #1): isActive TIDAK lagi difilter di server. Dulu
+        // habit DIJEDA hilang permanen dari seluruh UI — tombol "Lanjutkan"
+        // (Habit Master) dan filter "Dijeda" tak pernah melihatnya, dan XP/
+        // level turun karena completedLogCount-nya ikut lenyap. Konsumen yang
+        // hanya boleh menampilkan habit aktif sudah memfilter isActive
+        // client-side (tracker: activeHabits/use-habit-completions; kalender:
+        // activeHabitCountOnDay + habitIds; goals: daftar pendukung; Habit
+        // Master justru butuh habit dijeda untuk filter statusnya).
+        // isArchived TETAP difilter — arsip memang keluar dari rotasi.
+        where: { isArchived: false },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       }),
       // Satu groupBy untuk semua habit (bukan query per-habit).

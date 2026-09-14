@@ -56,13 +56,19 @@ export function SWRegister() {
 
       // Cek versi berbasis file sw.js yang baru saja diparse —
       // lebih andal daripada scriptURL (yang tidak berubah antar versi).
-      if (currentVersion && currentVersion !== `${reg.active?.scriptURL ?? ''}|${version}`) {
-        window.localStorage.setItem('sw-version', `${reg.active?.scriptURL ?? ''}|${version}`);
+      // BUGHUNT-54 (3-d #10): simpan/bandingkan VERSI SAJA, TANPA scriptURL.
+      // Dulu string tersimpan menyertakan reg.active?.scriptURL yang NULL
+      // pada register pertama (SW belum aktif) → kunjungan ke-2 reg.active
+      // sudah terisi → string berbeda → user baru dapat 1 reload penuh yang
+      // tak perlu. Versi cache stabil antar kunjungan; format lama (dengan
+      // scriptURL) otomatis termigrasi sekali lalu stabil.
+      if (currentVersion && currentVersion !== version) {
+        window.localStorage.setItem('sw-version', version);
         window.location.reload();
         return;
       }
       if (!currentVersion) {
-        window.localStorage.setItem('sw-version', `${reg.active?.scriptURL ?? ''}|${version}`);
+        window.localStorage.setItem('sw-version', version);
       }
 
       reg.addEventListener('updatefound', () => {

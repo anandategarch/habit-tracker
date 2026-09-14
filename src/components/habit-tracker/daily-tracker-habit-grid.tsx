@@ -200,7 +200,7 @@ export function HabitGridSection({
             Buat Habit Pertama
           </Button>
         </div>
-      ) : scheduledHabits.length === 0 ? (
+      ) : !dragMode && scheduledHabits.length === 0 ? (
         <div className="premium-card premium-empty rounded-2xl">
           <div className="premium-empty-orb">
             <svg viewBox="0 0 24 24" className="h-8 w-8 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -249,17 +249,24 @@ export function HabitGridSection({
         // so every reorderable item is visible). SortableHabitCard adds
         // the grip handle + DnD listeners; outside drag mode it would be a
         // transparent wrapper, but we only render it inside this branch.
+        // BUGHUNT-54 (3-b #2): cabang ini kini merender SEMUA habit aktif
+        // (activeHabits), bukan hanya yang TERJADWAL hari itu — habit
+        // mingguan/bulanan jadi bisa diurutkan di hari non-jadwalnya.
+        // Empty-state "tidak terjadwal" & filter di-guard !dragMode supaya
+        // cabang ini menang saat mode urutan aktif; handleDragEnd (parent)
+        // memakai activeHabits — sumber array yang SAMA dengan yang
+        // dirender di sini agar indeks reorder cocok.
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={scheduledHabits.map((h) => h.id)}
+            items={activeHabits.map((h) => h.id)}
             strategy={rectSortingStrategy}
           >
             <div className="habit-grid">
-              {scheduledHabits.map((habit, idx) => {
+              {activeHabits.map((habit, idx) => {
                 const isDone = !!(completionMap[habit.id] ?? false);
                 const isToggling = togglingIds.has(habit.id);
                 const justCompleted = recentlyCompleted.has(habit.id);

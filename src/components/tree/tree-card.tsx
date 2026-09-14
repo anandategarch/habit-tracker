@@ -31,6 +31,11 @@ interface HabitLiteForVacation {
 
 interface TreeCardProps {
   tree: TreeGrowthState;
+  /** BUGHUNT-54 (3-c #5a): level ASLI user (kpi currentLevel) — dipakai
+   *  untuk label "Pohonmu · Level N". Dulu memakai stage.levelLabel tahap
+   *  → user Level 0 tampil "Level 1" (label rentang tahap, bukan level
+   *  user). */
+  level: number;
   onOpenTree: () => void;
   onOpenBloom: () => void;
   onOpenDorman: () => void;
@@ -54,7 +59,7 @@ export function useVacationCount(): number {
   return (data ?? []).filter((h) => h.vacationMode === true).length;
 }
 
-export function TreeCard({ tree, onOpenTree, onOpenBloom, onOpenDorman, onOpenCare }: TreeCardProps) {
+export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, onOpenCare }: TreeCardProps) {
   const pct = Math.round(tree.stageProgress);
   const narrative = treeGrowthNarrative(tree);
   const fruitCaption =
@@ -62,7 +67,7 @@ export function TreeCard({ tree, onOpenTree, onOpenBloom, onOpenDorman, onOpenCa
 
   return (
     <section
-      aria-label={`Pohonmu — tahap ${tree.stage.label}, ${tree.stage.levelLabel}`}
+      aria-label={`Pohonmu — tahap ${tree.stage.label}, Level ${level}`}
       className="anim-stagger relative overflow-hidden rounded-2xl border border-teal-900/60 shadow-[0_18px_44px_-18px_rgba(2,20,17,0.55)]"
       style={{ background: 'linear-gradient(135deg,#071715,#05110F)' }}
     >
@@ -75,8 +80,9 @@ export function TreeCard({ tree, onOpenTree, onOpenBloom, onOpenDorman, onOpenCa
       >
         {/* Konteks kiri */}
         <div className="min-w-0 flex-1 px-4 py-4 sm:px-5 sm:py-5">
+          {/* BUGHUNT-54 (3-c #5a): level ASLI user, bukan levelLabel tahap. */}
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#63E6BE]">
-            Pohonmu · {tree.stage.levelLabel}
+            Pohonmu · Level {level}
           </p>
           <h3 className="font-display mt-1 text-xl font-semibold leading-tight text-[#F4F9F7] sm:text-[1.45rem]">
             {tree.stage.label}
@@ -159,12 +165,14 @@ export function TreeCard({ tree, onOpenTree, onOpenBloom, onOpenDorman, onOpenCa
             <button
               type="button"
               onClick={() => onOpenCare(tree.care!.habitId)}
-              aria-label={`Sinyal perawatan: habit ${tree.care.habitName} selesai ${tree.care.rate}% — buka analisis`}
+              aria-label={`Sinyal perawatan: habit ${tree.care.habitName} selesai ${tree.care.rate}% sejak awal — buka analisis`}
               className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-[#E7B64B]/35 bg-[#E7B64B]/10 px-3 py-1.5 text-[11.5px] font-semibold text-[#F1D9A0] transition-colors hover:bg-[#E7B64B]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E7B64B]/60"
             >
               <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span className="truncate">
-                Rawat: {tree.care.habitName} ({tree.care.rate}%)
+                {/* BUGHUNT-54 (3-c #4): Beranda query period 'all' → label
+                    jendela rate jujur "sejak awal" (dulu implisit "30 hari"). */}
+                Rawat: {tree.care.habitName} ({tree.care.rate}% sejak awal)
               </span>
             </button>
           )}

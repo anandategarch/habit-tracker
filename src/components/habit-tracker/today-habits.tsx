@@ -70,6 +70,13 @@ export function TodayHabitsCard({
   // Yang belum selesai dulu (bisa ditindak), lalu yang sudah (dirayakan).
   const pending = habits.filter((h) => !h.completed);
   const done = habits.filter((h) => h.completed);
+  // BUGHUNT-54 (3-c #2): semantik avoid — sukses = TIDAK kambuh. Badge
+  // "X/Y selesai" menghitung habit BERHASIL (avoid yang masih bersih =
+  // berhasil), bukan jumlah baris ter-log; konsisten dengan hero Beranda
+  // & KPI "Hari Ini %" (Task 39 #4). Kambuh avoid tidak dihitung sukses.
+  const successCount = habits.filter(
+    (h) => (h.habitType === 'avoid' ? !h.completed : h.completed),
+  ).length;
   const completing = completingIds ?? new Set<string>();
 
   return (
@@ -86,7 +93,7 @@ export function TodayHabitsCard({
         </h3>
         {habits.length > 0 && (
           <Badge variant="secondary" className="shrink-0 text-xs tabular-nums">
-            {done.length}/{habits.length} selesai
+            {successCount}/{habits.length} selesai
           </Badge>
         )}
       </div>
@@ -104,8 +111,12 @@ export function TodayHabitsCard({
             Tambah Rutinitas Pertama
           </Button>
         </div>
-      ) : pending.length === 0 ? (
+      ) : pending.length === 0 && successCount === habits.length ? (
         /* Semua selesai — rayakan, jangan tinggalkan kartu kosong. */
+        /* BUGHUNT-54 (3-c #2): rayakan hanya bila SEMUA habit memang berhasil —
+           kambuh avoid (pending=0 tapi bukan sukses) tidak lagi memicu
+           "Semua selesai 🌳"; habit hindari yang bersih tetap tampil sebagai
+           baris aktif (relapse bisa dicatat kapan pun sepanjang hari). */
         <div className="premium-empty">
           <TreeProgress size={64} growth={1} />
           <p className="text-sm font-semibold">Semua selesai hari ini 🌳</p>

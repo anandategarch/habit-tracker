@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Trash2, Edit3, Search, X, ChevronDown, Wallet, MoreHorizontal } from 'lucide-react';
+import { Trash2, Edit3, Search, X, ChevronDown, Wallet, MoreHorizontal, CircleOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import { format } from '@/lib/date-utils';
@@ -35,6 +35,10 @@ interface GroupedTransaction {
 interface FinanceTransactionsProps {
  filteredTransactions: Transaction[];
  groupedTransactions: GroupedTransaction[];
+ /** BUGHUNT-54 (3-a #7): transaksi PRA-filter (bulan mentah / hasil pencarian
+     server sebelum filter client) — dasar footer "Total Pengeluaran Hari
+     Ini" & indikator truncation pencarian. */
+ transactions: Transaction[];
  selectedTxIds: Set<string>;
  txFilter: { type: string; category: string; source: string; search: string };
  /** CONNECTED-APP — filter tanggal aktif dari drill-down (heatmap / hari ini). */
@@ -121,6 +125,7 @@ function estimateRowSize(row: FlatRow | undefined): number {
 export default function FinanceTransactions({
  filteredTransactions,
  groupedTransactions,
+ transactions,
  selectedTxIds,
  txFilter,
  focusDate,
@@ -163,14 +168,18 @@ export default function FinanceTransactions({
  // H3: YMD dibaca dari komponen UTC ISO (slice(0,10)) — jakartaDateKey
  // lama mengonversi +7 sehingga pengeluaran ≥17:00 bergeser ke hari
  // berikutnya (total harian salah).
+ // BUGHUNT-54 (3-a #7): hitung dari prop `transactions` PRA-filter (bulan
+ // mentah), bukan filteredTransactions — saat filter tipe Pemasukan aktif,
+ // footer lama menampilkan "Rp 0" menyesatkan padahal ada pengeluaran hari
+ // ini. (H3 tetap: YMD dari komponen UTC ISO slice(0,10).)
  const todayExpense = useMemo(
    () =>
      isCurrentMonth
-       ? filteredTransactions
+       ? transactions
            .filter(t => t.date.slice(0, 10) === today && t.type === 'expense')
            .reduce((s, t) => s + (t.amount ?? 0), 0)
        : 0,
-   [isCurrentMonth, filteredTransactions, today]
+   [isCurrentMonth, transactions, today]
  );
 
  // PERF-FIX (Fix 14): Flatten grouped transactions into a single list of
@@ -262,6 +271,9 @@ export default function FinanceTransactions({
          <Search className="h-3 w-3 shrink-0" />
          <span className="flex-1">
            Mencari di <strong>semua periode</strong> — {filteredTransactions.length} transaksi ditemukan
+           {/* BUGHUNT-54 (3-a #9): API membatasi 500 hasil — bila hasil mentah
+               tepat 500, tampilkan penanda kemungkinan terpotong. */}
+           {transactions.length === 500 && ' · 500+ kemungkinan terpotong'}
          </span>
          <button
            onClick={() => onFilterChange({ ...txFilter, search: '' })}
@@ -711,8 +723,22 @@ function TransactionRow({
                <span aria-hidden="true" className="shrink-0">·</span>
              </>
            )}
-           <span className="shrink-0" aria-hidden="true">{getSourceEmoji(tx.source || tx.sourceName || 'Kas')}</span>
-           <span className="truncate">{tx.source || tx.sourceName || 'Kas'}</span>
+           {/* BUGHUNT-54 (3-a #5): transaksi tanpa sumber (source & sourceName
+               keduanya kosong) jangan berlabel palsu "Kas 👛" — tampil jujur
+               "Tanpa Sumber" dengan ikon netral. */}
+           {!tx.source && !tx.sourceName ? (
+             <>
+               <span className="shrink-0 text-muted-foreground/60" aria-hidden="true">
+                 <CircleOff className="h-3 w-3" />
+               </span>
+               <span className="truncate text-muted-foreground/70">Tanpa Sumber</span>
+             </>
+           ) : (
+             <>
+               <span className="shrink-0" aria-hidden="true">{getSourceEmoji(tx.source || tx.sourceName || 'Kas')}</span>
+               <span className="truncate">{tx.source || tx.sourceName || 'Kas'}</span>
+             </>
+           )}
          </p>
        </div>
 

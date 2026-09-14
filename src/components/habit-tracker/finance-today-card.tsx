@@ -22,7 +22,7 @@
 // Hanya dirender saat bulan terpilih = bulan berjalan (Jakarta) — "hari ini"
 // tidak bermakna pada bulan lampau; komponen lain tetap tampil normal.
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownRight,
@@ -80,7 +80,16 @@ export function FinanceTodayCard({
   const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
 
-  const todayYmd = jakartaDateString();
+  // BUGHUNT-54 (3-a #8): todayYmd dulu dihitung per-render → tab yang terbuka
+  // lewat tengah malam Jakarta membeku di kemarin (tanggal, streak, budget
+  // hint, query key). Kini state yang diperbarui interval 60 detik — pola
+  // yang sama dengan header tanggal page.tsx; setState nilai sama = no-op.
+  const [todayYmd, setTodayYmd] = useState(() => jakartaDateString());
+  useEffect(() => {
+    const update = () => setTodayYmd(jakartaDateString());
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
   const isCurrentMonth = selectedMonth === todayYmd.slice(0, 7);
 
   const { data: recap, isLoading } = useQuery<DailyRecap>({

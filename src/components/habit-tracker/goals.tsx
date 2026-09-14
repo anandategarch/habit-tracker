@@ -50,23 +50,11 @@ export default function Goals() {
   // clearTimeout membatalkan timer 2,5 dtk → sorotan menempel selamanya &
   // milestone ter-expand paksa. Clear kini terjadi DALAM timeout bersama
   // lepasnya sorotan; cleanup hanya untuk unmount/pergantian fokus.
+  // (Efek konsumsinya dipindah ke bawah query ['goals'] — lihat
+  // BUGHUNT-54 (3-c #3): butuh akses data goals untuk gating.)
   const focusGoalId = useAppStore((s) => s.focusGoalId);
   const clearGoalFocus = useAppStore((s) => s.clearGoalFocus);
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!focusGoalId) return;
-    setHighlightId(focusGoalId);
-    // Scroll setelah render kartu (requestAnimationFrame menunggu paint).
-    requestAnimationFrame(() => {
-      document.getElementById(focusGoalId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    // Sorot 2,5 detik — cukup terlihat, tidak menjadi noise permanen.
-    const t = setTimeout(() => {
-      setHighlightId(null);
-      clearGoalFocus();
-    }, 2500);
-    return () => clearTimeout(t);
-  }, [focusGoalId, clearGoalFocus]);
   // VERIFY-48 (48-b): fokus yang belum terkonsumsi saat tab ditinggalkan
   // (unmount < 2,5 dtk) tidak boleh menunggu di store — kunjungan Tujuan
   // berikutnya (kapan pun) akan men-scroll + menyorot ulang deep-link basi.
@@ -85,7 +73,7 @@ export default function Goals() {
   // bentuk cache → goals membaca focusToday=[] (status pendukung selalu
   // "belum") atau Beranda membaca todayHabits=undefined → crash render.
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null; graduatedAt?: string | null }[]>({
+  const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null; graduatedAt?: string | null; isActive?: boolean }[]>({
     queryKey: ['habits'],
     queryFn: async () => {
       const res = await fetch('/api/habits');
@@ -123,6 +111,11 @@ export default function Goals() {
   >();
   for (const h of habits) {
     if (!h.goalId) continue;
+    // BUGHUNT-54 (3-b #1): /api/habits kini juga mengirim habit dijeda —
+    // daftar pendukung tujuan hanya habit AKTIF (habit dijeda tidak bisa
+    // "selesai hari ini"; membiarkannya dihitung membuat counter tujuan
+    // membengkak dengan anggota yang tidak bisa dipenuhi sampai dilanjutkan).
+    if (!h.isActive) continue;
     // VERIFY-48 (48-c F5): habit LULUS tidak pernah bisa "selesai hari ini"
     // lagi — membiarkannya di daftar pendukung membuat counter tujuan
     // (mis. "1/2 selesai") menghitung anggota yang mustahil terpenuhi
@@ -166,6 +159,30 @@ export default function Goals() {
   const total = list.length;
   const completed = list.filter((g) => g.status === 'completed').length;
   const ongoing = list.filter((g) => g.status === 'active').length;
+
+  // BUGHUNT-54 (3-c #3): deep-link openGoalFocus dikonsumsi HANYA setelah
+  // data ['goals'] siap (pola daily-tracker 47-d #2). Dulunya efek jalan
+  // saat mount dengan cache dingin → kartu belum ter-render → scroll/sorot
+  // no-op & timer 2,5 dtk membakar flag SEBELUM data tiba.
+  useEffect(() => {
+    if (!focusGoalId) return;
+    // Data belum siap (pertama kali buka tab Tujuan di sesi segar) — JANGAN
+    // konsumsi fokus; efek jalan ulang saat goals terisi.
+    if (list.length === 0 && isLoading) return;
+    setHighlightId(focusGoalId);
+    // Scroll setelah render kartu (requestAnimationFrame menunggu paint).
+    requestAnimationFrame(() => {
+      document.getElementById(focusGoalId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // Sorot 2,5 detik — cukup terlihat, tidak menjadi noise permanen.
+    const t = setTimeout(() => {
+      setHighlightId(null);
+      clearGoalFocus();
+    }, 2500);
+    return () => clearTimeout(t);
+    // `list`/`isLoading` masuk deps AGAR fokus tertunda sampai data siap —
+    // setelah data tiba, fokus dikonsumsi tepat sekali lalu ter-clear.
+  }, [focusGoalId, clearGoalFocus, list, isLoading]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 

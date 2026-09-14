@@ -342,17 +342,25 @@ export function FinanceSourceDialogs({
                   terkini. Ubah saldo aktual lewat klik angka saldo di daftar
                   sumber (inline edit → PATCH). */}
               <Label htmlFor="source-balance">Saldo Awal</Label>
+              {/* BUGHUNT-54 (3-a #4): form EDIT jangan menampilkan kolom
+                  kosong untuk initialBalance NEGATIF — prefill nilainya
+                  ("Rp -50.000"), bukan '' seperti dulu (balance > 0). */}
               <Input
                 id="source-balance"
                 inputMode="numeric"
                 placeholder="Rp 0"
-                value={sourceForm.balance > 0 ? formatNominalInput(String(sourceForm.balance)) : ''}
-                onChange={(e) =>
+                value={sourceForm.balance !== 0 ? formatNominalInput(String(sourceForm.balance)) : ''}
+                onChange={(e) => {
+                  // BUGHUNT-54 (3-a #4): izinkan saldo awal negatif — deteksi
+                  // tanda minus ('-' / '−') pada input dan pertahankan pada
+                  // magnitude (prefill minus bertahan saat digit diedit).
+                  const raw = e.target.value;
+                  const magnitude = amountFromInput(raw);
                   setSourceForm((prev) => ({
                     ...prev,
-                    balance: amountFromInput(e.target.value.replace(/[^\d]/g, '')),
-                  }))
-                }
+                    balance: /[-−]/.test(raw) ? -magnitude : magnitude,
+                  }));
+                }}
                 disabled={submitting}
                 className="h-9 tabular-nums"
               />
@@ -362,7 +370,7 @@ export function FinanceSourceDialogs({
                   saldo saat ini, klik angka saldo di daftar sumber dana.
                 </p>
               )}
-              {sourceForm.balance > 0 && (
+              {sourceForm.balance !== 0 && (
                 <p className="text-[11px] text-muted-foreground">
                   Pra-tinjau: <span className="font-semibold tabular-nums">{formatRupiah(sourceForm.balance)}</span>
                 </p>

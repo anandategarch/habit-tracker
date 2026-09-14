@@ -87,7 +87,13 @@ export function SourceBalance() {
     if (!src.id || savingBalanceId) return;
     const digits = parseNominalInput(balanceEditValue);
     if (!digits) { cancelEditBalance(); return; } // kosong = batal, bukan set 0
-    const val = amountFromInput(balanceEditValue);
+    // BUGHUNT-54 (3-a #4): amountFromInput membuang tanda minus — prefill
+    // "Rp -50.000" (saldo negatif) terbalik jadi +50.000 saat disimpan.
+    // Deteksi minus ('-' / '−') di posisi mana pun (hanya prefill yang
+    // memuatnya) dan pertahankan tanda; guard no-op membandingkan nilai
+    // bertanda sehingga prefill tak tersentung = no-op (tanpa PATCH).
+    const rawTrim = balanceEditValue.trim();
+    const val = /[-−]/.test(rawTrim) ? -amountFromInput(rawTrim) : amountFromInput(rawTrim);
     if (val === (src.balance ?? 0)) { cancelEditBalance(); return; } // no-op
     setSavingBalanceId(src.id);
     try {

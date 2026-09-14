@@ -11,6 +11,8 @@
 // gunakan jakartaDateString() dari lib/timezone.
 // ---------------------------------------------------------------------------
 
+import { jakartaDateString } from './timezone';
+
 const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
 
 // --- Locale object (kompatibel pemakaian date-fns `locale: id`) -----------
@@ -128,11 +130,12 @@ export const differenceInCalendarDays = (a: Date, b: Date) =>
 export const differenceInDays = differenceInCalendarDays;
 
 function todayYMD(): string {
-  // "Hari ini" kalender = lokal browser (keputusan desain terdokumentasi:
-  // grid bulan browser-local konsisten; pengguna Rutina diasumsikan di
-  // zona Jakarta sehingga identik).
-  const n = new Date();
-  return `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
+  // BUGHUNT-54 (3-b #7): "hari ini" kini mengikuti Jakarta (konvensi seluruh
+  // app — Asia/Jakarta). Dulu membaca tanggal BROWSER-lokal: user non-WIB
+  // melihat ring "Hari Ini" kalender di tanggal kemarin (isToday membanding-
+  // kan YMD browser vs tanggal UTC-midnight grid). timezone.ts tanpa import
+  // apa pun → tidak ada import cycle dari sini.
+  return jakartaDateString();
 }
 
 // --- formatter khusus chart (label pendek Indonesia) ------------------------

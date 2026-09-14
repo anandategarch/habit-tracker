@@ -582,7 +582,13 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
    const digits = parseNominalInput(rawTrim);
    if (!digits) { setBalanceEditId(null); setBalanceEditValue(''); return; }
    const magnitude = Number(digits) || 0;
-   const val = rawTrim.startsWith('-') || rawTrim.startsWith('−') ? -magnitude : magnitude;
+   // BUGHUNT-54 (3-a #4): prefill diformat "Rp -50.000" — startsWith('-')
+   // TIDAK pernah match karena string diawali awalan "Rp ", sehingga saldo
+   // negatif terbalik jadi positif saat disimpan. Deteksi tanda minus ('-'
+   // atau '−') di posisi mana pun (hanya prefill yang memuatnya; ketikan
+   // user dibersihkan dari minus oleh onChange) dan pertahankan tanda —
+   // guard no-op di bawah kini membandingkan nilai bertanda dengan benar.
+   const val = /[-−]/.test(rawTrim) ? -magnitude : magnitude;
 
    // Bug fix: skip PATCH if value unchanged (user clicked then blurred
    // without editing). Avoids unnecessary network call + toast spam.

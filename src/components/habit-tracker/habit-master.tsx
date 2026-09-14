@@ -268,8 +268,13 @@ export default function HabitMaster() {
  const openedViaQuickAddRef = useRef(false);
  useEffect(() => {
    if (quickAddAction === 'habit') {
-     openedViaQuickAddRef.current = true;
+     // BUGHUNT-54 (3-d #1): openAdd() me-reset openedViaQuickAddRef ke
+     // false (kontrak 47-d #4 untuk pembukaan NORMAL). Dulu flag diset
+     // DULU lalu openAdd() menimpanya → sesi quick-add kehilangan status
+     // → setelah simpan habit user terdampar di Pengaturan. Urutan yang
+     // benar: buka dialog dulu, baru tandai sesi ini sebagai quick-add.
      openAdd();
+     openedViaQuickAddRef.current = true;
      clearQuickAdd();
    }
  }, [quickAddAction, clearQuickAdd, openAdd]);

@@ -181,8 +181,11 @@ export default function Settings() {
  const dbStats: { habits: number; logs: number; days: number } | null = settings ? {
    habits: Array.isArray(habitsData) ? habitsData.length : 0,
    logs: Array.isArray(logsData) ? logsData.length : 0,
-   // "Hari Dilacak" = jumlah hari unik dengan entri log harian (DailyLog
-   // unik per tanggal, jadi length = hari unik bulan ini).
+   // "Hari Dilacak Bulan Ini" = jumlah hari unik dengan entri log harian
+   // bulan berjalan (DailyLog unik per tanggal, jadi length = hari unik
+   // bulan ini) — BUGHUNT-54 (3-d #12): label lama "Hari Dilacak"
+   // mengklaim total sepanjang masa padahal datanya identik dgn tile
+   // "Log Bulan Ini" (query yang sama, bulan Jakarta berjalan).
    days: Array.isArray(logsData) ? logsData.length : 0,
  } : null;
 
@@ -529,7 +532,7 @@ export default function Settings() {
              {([
                { label: 'Total Habit', value: dbStats?.habits ?? '-', icon: ListChecks, tint: 'chip-soft-teal' },
                { label: 'Log Bulan Ini', value: dbStats?.logs ?? '-', icon: Activity, tint: 'chip-soft-violet' },
-               { label: 'Hari Dilacak', value: dbStats?.days ?? '-', icon: CalendarCheck, tint: 'chip-soft-amber' },
+               { label: 'Hari Dilacak Bulan Ini', value: dbStats?.days ?? '-', icon: CalendarCheck, tint: 'chip-soft-amber' },
              ] as const).map((stat) => {
                const StatIcon = stat.icon;
                return (

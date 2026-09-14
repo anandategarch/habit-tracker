@@ -12,21 +12,26 @@ import {
   sourceInfoMap,
   transactionDate,
 } from '@/app/api/_lib/api-utils';
-import { jakartaDateString, jakartaNowParts } from '@/lib/timezone';
+import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
+import { shiftYmd } from '@/lib/dashboard-helpers';
 
 export const dynamic = 'force-dynamic';
 
-// M7: jarak minimal antar-run per frekuensi (hari). Guard CAS lama hanya
-// membandingkan lastRun yang dibaca request itu sendiri — request berikutnya
-// (detik kemudian) lolos lagi dan membuat transaksi ganda.
-const MIN_INTERVAL_DAYS: Record<string, number> = {
-  daily: 1,
-  weekly: 7,
-  monthly: 28,
-};
-
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
+}
+
+// BUGHUNT-54 (3-a #6): tanggal instance BERIKUTNYA setelah ymd sesuai
+// frekuensi — semantik sama dengan addIntervalYMD di route dashboard
+// (monthly = +1 bulan kalender, clamp ke akhir bulan: 31 Jan → 28/29 Feb).
+function addIntervalYMD(ymd: string, frequency: string): string {
+  if (frequency === 'daily') return shiftYmd(ymd, 1);
+  if (frequency === 'weekly') return shiftYmd(ymd, 7);
+  const [y, m, d] = ymd.split('-').map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const lastDay = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(d, lastDay)).padStart(2, '0')}`;
 }
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -37,19 +42,25 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 
     const now = new Date();
     if (!rt.isActive) throw badRequest('Transaksi berulang sedang tidak aktif');
-    if (rt.endDate && rt.endDate.getTime() < now.getTime()) {
+    // BUGHUNT-54 (3-a #6a): endDate dibandingkan per YMD Jakarta (konvensi
+    // app — sama dengan filter "sudah berakhir" di route dashboard), bukan
+    // instant: tagihan ber-endDate HARI INI masih due dan boleh diproses.
+    if (rt.endDate && jakartaDateKey(rt.endDate) < jakartaDateString()) {
       throw badRequest('Transaksi berulang sudah melewati tanggal berakhir');
     }
     if (rt.startDate.getTime() > now.getTime()) {
       throw badRequest('Transaksi berulang belum dimulai');
     }
 
-    // M7: guard jarak-antar-run berbasis lastRun TERSIMPAN — instance belum
-    // jatuh tempo lagi → 409 (bukan transaksi ganda).
-    const minDays = MIN_INTERVAL_DAYS[rt.frequency] ?? 1;
-    if (rt.lastRun && now.getTime() - rt.lastRun.getTime() < minDays * 86_400_000) {
+    // BUGHUNT-54 (3-a #6b): guard anti proses-dini kini berbasis instance
+    // berikutnya (lastRun + interval, kalender bulanan penuh) — ditolak hanya
+    // bila MASIH di masa depan (> hari ini YMD Jakarta). Guard lama
+    // MIN_INTERVAL_DAYS (monthly = 28 hari) salah untuk bulan 29–31 hari:
+    // instans bulanan bisa diproses hingga 3 hari lebih awal → jadwal drift.
+    // Instance yang jatuh tempo hari ini / terlambat tetap boleh diproses.
+    if (rt.lastRun && addIntervalYMD(jakartaDateKey(rt.lastRun), rt.frequency) > jakartaDateString()) {
       return NextResponse.json(
-        { error: 'Instance terbaru belum cukup lama — transaksi berulang ini baru diproses' },
+        { error: 'Instance berikutnya belum jatuh tempo — transaksi berulang ini baru diproses' },
         { status: 409 },
       );
     }

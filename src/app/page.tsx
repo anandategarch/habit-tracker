@@ -27,6 +27,12 @@ import {
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
+// BUGHUNT-54 (3-d #2): gerbang Kunci Aplikasi — PIN perangkat (hash di
+// localStorage 'rutina_app_lock', kelola di Pengaturan) kini benar-benar
+// mengunci shell saat sesi baru. Komponen baru, app-lock-settings.tsx
+// (READ-ONLY) tetap sumber kebenaran isAppLockSet/verifyAppLockPin.
+import { AppLockGate } from '@/components/app-lock-gate';
+
 import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
@@ -106,10 +112,11 @@ const NAV_SECTIONS: {
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] =
   NAV_SECTIONS.flatMap((s) => s.items);
 
-// PREMIUM DOCK PATTERN (TASK 45 v2): Bottom nav = 3 left + FAB center +
-// 2 right — kini UTAMA + Tracker + Goals | FAB | Progress + Finance.
-// Meja Kerja & Pengaturan (frekuensi rendah) via drawer hamburger — dock
-// hanya memuat 5 tab harian agar label tetap terbaca di layar 390px.
+// PREMIUM DOCK PATTERN (TASK 45 v2 → TASK 54): Bottom nav = 2 left + FAB
+// center + 2 right — Hari Ini + Tracker | FAB | Progres + Keuangan.
+// TASK 54: "Tujuan" DIHAPUS dari dock atas permintaan user (dock kini
+// simetris). Tujuan tetap terjangkau: drawer hamburger mobile + sidebar
+// desktop (NAV_SECTIONS) + deep-link ?tab=goals + openGoalFocus().
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
  dashboard: Dashboard,
@@ -272,11 +279,17 @@ const [showSplash, setShowSplash] = useState(true);
  // pattern (e.g. daily-tracker's month-cache useEffect). Wrapped in
  // Promise.resolve so the caller can always `await` even if the inner
  // work is sync.
+ // BUGHUNT-54 (3-d #6): urutan PENTING — triggerRefresh() DULU, baru
+ // invalidateQueries(). triggerRefresh sinkron mengganti refreshKey dalam
+ // queryKey 5 keluarga query → query KUNCI BARU mulai fetch; query kunci
+ // LAMA otomatis jadi inactive. invalidateQueries() tanpa filter menandai
+ // semua query untuk refetch, tapi query inactive (kunci lama) tidak
+ // di-refetch, dan query kunci BARU yang sedang in-flight ter-dedupe
+ // React Query. Dulu urutannya terbalik → endpoint berat kena 2×
+ // (refetch kunci lama + fetch kunci baru).
  const handleRefresh = useCallback(async () => {
-   await Promise.all([
-     queryClient.invalidateQueries(),
-     Promise.resolve(triggerRefresh()),
-   ]);
+   triggerRefresh();
+   await queryClient.invalidateQueries();
  }, [queryClient, triggerRefresh]);
 
  // BUGHUNT-OTHER-1 BUG-L9: header date string should use Jakarta wall-clock
@@ -355,6 +368,12 @@ const [showSplash, setShowSplash] = useState(true);
  useEffect(() => {
   const onPop = () => {
    isPopstateRef.current = true;
+   // BUGHUNT-54 (3-d #5): aksi quick-add yang BELUM terkonsumsi saat user
+   // menekan Back = user membatalkan (Back terjadi sebelum chunk tab target
+   // termount & efek konsumennya jalan) — bersihkan supaya tab yang
+   // dikunjungi manual belakangan tidak mendadak membuka dialog tambah.
+   // Bila aksi sudah dikonsumsi nilainya null → clearQuickAdd() no-op.
+   useAppStore.getState().clearQuickAdd();
    applyUrlToStore();
    // Guard: bila popstate tidak mengubah store (efek sinkron tidak jalan),
    // flag tetap harus bersih sebelum klik tab berikutnya — jika tidak, klik
@@ -386,6 +405,31 @@ const [showSplash, setShowSplash] = useState(true);
    return () => window.removeEventListener('resize', apply);
  }, [setSidebarOpen]);
 
+ // BUGHUNT-54 (3-d #3): deteksi mobile via matchMedia('(min-width: 768px)')
+ // (state + listener) — dipakai atribut `inert` pada aside sidebar di bawah
+ // saat drawer TERTUTUP di mobile (tombol nav off-screen tidak lagi
+ // menangkap fokus Tab). Desktop (sidebar statis terbuka) tetap normal.
+ const [isMobileViewport, setIsMobileViewport] = useState(true);
+ useEffect(() => {
+   if (typeof window === 'undefined') return;
+   const mq = window.matchMedia('(min-width: 768px)');
+   const apply = () => setIsMobileViewport(!mq.matches);
+   apply();
+   mq.addEventListener('change', apply);
+   return () => mq.removeEventListener('change', apply);
+ }, []);
+
+ // BUGHUNT-54 (3-d #3b): Escape menutup drawer saat terbuka — paritas a11y
+ // dengan pola Escape menu FAB (PremiumBottomNav) yang sudah ada.
+ useEffect(() => {
+   if (!sidebarOpen) return;
+   const onKey = (e: KeyboardEvent) => {
+     if (e.key === 'Escape') setSidebarOpen(false);
+   };
+   window.addEventListener('keydown', onKey);
+   return () => window.removeEventListener('keydown', onKey);
+ }, [sidebarOpen, setSidebarOpen]);
+
  const handleNavClick = useCallback((id: TabId) => {
    setActiveTab(id);
    // Auto-close sidebar on mobile after clicking a nav item
@@ -401,8 +445,7 @@ const [showSplash, setShowSplash] = useState(true);
  const ActiveComponent = TAB_COMPONENTS[activeTab];
 
  return (
-   <TooltipProvider delayDuration={300}>
-     {/* Splash screen — TreeGrow (Opsi A, Task 28) on initial app load (1.6s).
+   <TooltipProvider delayDuration={300}>     {/* Splash screen — TreeGrow (Opsi A, Task 28) on initial app load (1.6s).
          Premium branded loading: pohon 3 lapis tajuk tumbuh + progress ring
          mengakselerasi (riset CMU: terasa lebih cepat) — pengganti ikon
          sprout sederhana. FEAT-SPLASH-REVEAL: exit animation (fade + scale +
@@ -430,6 +473,12 @@ const [showSplash, setShowSplash] = useState(true);
          iOS Safari intermittently fails to respond to touch after DnD
          sensors or CSS animations intercept touch events. With the layout
          bounded, PullToRefresh owns the scroll, document doesn't scroll. */}
+     {/* BUGHUNT-54 (3-d #2): AppLockGate membungkus SELURUH shell (header,
+         konten tab, sidebar/drawer, PremiumBottomNav) — saat PIN diset dan
+         sesi belum dibuka, hanya layar kunci yang dirender (shell tidak
+         termount sama sekali). Splash screen tetap di luar gerbang
+         (branding dulu → layar kunci → aplikasi). Tanpa PIN: pass-through. */}
+     <AppLockGate>
      <div className={cn('h-dvh flex bg-background overflow-hidden', splashExiting && 'anim-content-reveal')}>
        {/* ANIM-2 / Feature 4: Parallax background layer — subtle decorative
            gradient that drifts opposite to scroll direction. Fixed-positioned,
@@ -448,6 +497,7 @@ const [showSplash, setShowSplash] = useState(true);
        {/* Sidebar - fixed position, slides in/out.
            PREMIUM-UI: glass panel + gradient logo + active pill gradien. */}
        <aside
+         {...(!sidebarOpen && isMobileViewport ? { inert: true } : {})}
          className={cn(
            'fixed top-0 left-0 z-50 h-dvh w-64 flex flex-col',
            'bg-card/95 backdrop-blur-xl border-r border-border',
@@ -482,6 +532,9 @@ const [showSplash, setShowSplash] = useState(true);
                        <button
                          key={item.id}
                          onClick={() => handleNavClick(item.id)}
+                         // BUGHUNT-54 (3-d #8): aria-current untuk nav
+                         // sidebar/drawer (paritas dgn tombol dock).
+                         aria-current={isActive ? 'page' : undefined}
                          className={cn(
                            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
@@ -593,6 +646,7 @@ const [showSplash, setShowSplash] = useState(true);
          onNavClick={handleNavClick}
        />
      </div>
+     </AppLockGate>
    </TooltipProvider>
  );
 }
@@ -613,10 +667,17 @@ const [showSplash, setShowSplash] = useState(true);
 //    role=menu, focus-visible rings, prefers-reduced-motion respected.
 
 const DOCK_H = 62; // dock height (px)
-// FIX DOCK-1: semua 5 tab kini ADA di dock (dulu `goals` cuma di sidebar
-// desktop → di mobile Tujuan TIDAK BISA dijangkau sama sekali). Sisi kiri 3
-// tab + FAB di tengah + sisi kanan 2 tab.
-const DOCK_SIDE = 0.43; // width share of each tab group (left/right)
+// TASK 54: Tujuan keluar dari dock (permintaan user) — dock simetris:
+// 2 tab kiri + FAB tengah + 2 tab kanan. dockTabMetrics() data-driven
+// jadi geometri indikator menyesuaikan otomatis; aktifTab 'goals' (via
+// drawer/deep-link) membiarkan indikator tersembunyi — sama perilakunya
+// seperti tab 'work'/'settings' yang memang tak pernah ada di dock.
+// BUGHUNT-54 (3-d #4): 0.43 → 0.40. Zona tengah (1 − 2×DOCK_SIDE) kini 20%
+// ≈ 59px @dock 296px (viewport 320px) ≥ FAB 56px — dulu 14% ≈ 41px < 56px,
+// sudut dalam tombol Tracker/Progres ketimpa FAB (elementFromPoint = FAB).
+// Lebar tab @320px = 0.40×296/2 ≈ 59px masih muat untuk label terpanjang
+// "Keuangan" (~47px).
+const DOCK_SIDE = 0.40; // width share of each tab group (left/right)
 const IND_INSET = 3; // indicator horizontal inset inside a tab
 const FAB_SIZE = 56; // FAB diameter (px)
 const FAB_PROTRUDE = 22; // px of FAB protruding above the dock top edge
@@ -624,7 +685,6 @@ const FAB_PROTRUDE = 22; // px of FAB protruding above the dock top edge
 const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
  { id: 'dashboard', label: 'Hari Ini', icon: Sunrise },
  { id: 'tracker', label: 'Tracker', icon: ListChecks },
- { id: 'goals', label: 'Tujuan', icon: Target },
 ];
 
 const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
@@ -805,7 +865,9 @@ function PremiumBottomNav({
          className="absolute left-1/2 -top-[46px] -translate-x-1/2 w-[104px] h-[104px] rounded-full bg-teal-400/20 dark:bg-teal-400/25 blur-3xl pointer-events-none"
        />
 
-       {/* Tab groups — 37.5% each side; the center 25% is the FAB zone */}
+       {/* Tab groups — 40% each side; the center 20% is the FAB zone
+           (BUGHUNT-54 3-d #4/#9a: zona tengah ±59px @320px ≥ FAB 56px;
+           geometri indikator tetap data-driven via dockTabMetrics()). */}
        <div className="absolute left-0 top-0 h-full flex items-stretch" style={{ width: `${DOCK_SIDE * 100}%` }}>
          {NAV_LEFT_ITEMS.map(renderTab)}
        </div>

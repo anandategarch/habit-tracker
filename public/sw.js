@@ -2,7 +2,7 @@
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v23';
+const CACHE_NAME = 'habit-tracker-v24';
 // Riwayat versi:
 //  v23 — POHON RUTINA (Task 53): fitur pohon bertumbuh (Beranda "Pohonmu"
 //        + Progres "Jalan Pertumbuhan"). 7 artwork SVG botanical pengguna

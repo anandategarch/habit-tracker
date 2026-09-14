@@ -169,6 +169,11 @@ export function WorkAssistant({ date, data }: { date: string; data: WorkPayload 
         toast.error('Sebagian item gagal ditambahkan — coba lagi sebentar');
       }
       setApplying(false);
+    }).catch(() => {
+      // BUGHUNT-54 (3-d #11): tanpa .catch, promise reject meninggalkan
+      // applying=true selamanya → tombol "Menerapkan…" terkunci permanen.
+      setApplying(false);
+      toast.error('Gagal menerapkan hasil asisten');
     });
   };
 

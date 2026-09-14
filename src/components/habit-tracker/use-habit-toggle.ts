@@ -296,11 +296,18 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
       delta: number,
       event?: React.MouseEvent | React.KeyboardEvent,
     ) => {
+      const habitId = habit.id;
+      // BUGHUNT-54 (3-b #4): guard in-flight (pola toggleHabit 47-c #4).
+      // Stepper −/+ sudah disabled saat round-trip, tapi BADAN kartu amount
+      // mengarah ke sini juga (handleHabitCheck me-redirect +1) — double-tap
+      // badan kartu mengirim dua POST race yang saling menimpa nilai.
+      if (inFlightRef.current.has(habitId)) return;
+      inFlightRef.current.add(habitId);
+      try {
       if (selectedDate > todayStr) {
         toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
         return;
       }
-      const habitId = habit.id;
       const target = Math.max(1, habit.target || 1);
       const current = Math.round(amountValueMapRef.current[habitId] ?? 0);
       const nextValue = Math.min(target, Math.max(0, Math.round(current + delta)));
@@ -436,6 +443,12 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
           s.delete(habitId);
           return s;
         });
+      }
+      } finally {
+        // BUGHUNT-54 (3-b #4): lepas guard in-flight apa pun hasil round-trip
+        // (pola toggleHabit — guard tidak boleh menggantung bila clamp/future
+        // guard meng-return dini).
+        inFlightRef.current.delete(habitId);
       }
     },
     [selectedDate, todayStr, queryClient, amountValueMapRef, completionMapRef, monthLogsCacheRef, setAmountValueMap, setCompletionMap, setCompletedAtMap],

@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const rows = await db.transaction.findMany({
-      orderBy: { date: 'desc', createdAt: 'desc' },
+      // BUGHUNT-54 (3-a #1): bentuk objek 2-kunci DITOLAK Prisma 7
+      // (PrismaClientValidationError) — pakai bentuk array.
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       take: 5,
     });
     const sources = await db.fundSource.findMany();
@@ -27,7 +29,10 @@ export async function GET() {
       sourceName: t.sourceId ? (nameById.get(t.sourceId) ?? null) : null,
     }));
     return NextResponse.json({ transactions });
-  } catch {
+  } catch (e) {
+    // BUGHUNT-54 (3-a #1): jangan telan error senyap — kegagalan Prisma dsb.
+    // terlihat di log server (dulu catch kosong → selalu {transactions:[]}).
+    console.error('[api/finance/last-done]', e);
     return NextResponse.json({ transactions: [] });
   }
 }

@@ -319,6 +319,14 @@ export default function Finance() {
    setSelectedTxIds(new Set());
  }, [selectedMonth, setSelectedTxIds, txFocusDate]);
 
+ // BUGHUNT-54 (3-a #3): bulk-select juga direset saat FILTER berubah
+ // (kategori/tipe/sumber/pencarian via txFilter) atau tanggal fokus —
+ // seleksi lama bisa menunjuk transaksi yang sudah disembunyikan filter;
+ // "Hapus" massal tidak boleh menghapus transaksi tak terlihat (stale ids).
+ useEffect(() => {
+   setSelectedTxIds(new Set());
+ }, [txFilter, txFocusDate, setSelectedTxIds]);
+
  const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
    queryKey: ['finance', 'categories'],
    queryFn: async () => {
@@ -375,14 +383,18 @@ export default function Finance() {
      // param so the search spans ALL periods. This lets users find a
      // transaction from any month without navigating to that month first.
      // When search is empty, fall back to month-scoped view (normal mode).
+     //
+     // BUGHUNT-54 (3-a #7): filter type/category/source TIDAK lagi dikirim ke
+     // server — lapisan filter client (filteredTransactions di bawah) sudah
+     // menyaring hal yang sama, sehingga hasil fetch = transaksi bulan mentah
+     // (pra-filter) dan bisa dipakai footer "Total Pengeluaran Hari Ini" +
+     // badge truncation pencarian. queryKey tetap memuat txFilter supaya
+     // cache per-konteks filter tidak tertukar.
      const params = new URLSearchParams();
      const isSearching = debouncedSearch.trim().length > 0;
      if (!isSearching) {
        params.set('month', selectedMonth);
      }
-     if (txFilter.type !== 'all') params.set('type', txFilter.type);
-     if (txFilter.category !== 'all') params.set('category', txFilter.category);
-     if (sourceFilterId) params.set('source', sourceFilterId);
      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
      const res = await fetch(`/api/finance/transactions?${params}`);
      if (!res.ok) return [];
@@ -696,6 +708,9 @@ export default function Finance() {
          <FinanceTransactions
            filteredTransactions={filteredTransactions}
            groupedTransactions={groupedTransactions}
+           // BUGHUNT-54 (3-a #7): transaksi PRA-filter (bulan mentah) — dasar
+           // footer "Total Pengeluaran Hari Ini" + badge truncation pencarian.
+           transactions={transactions}
            selectedTxIds={mutations.selectedTxIds}
            txFilter={txFilter}
            focusDate={txFocusDate}

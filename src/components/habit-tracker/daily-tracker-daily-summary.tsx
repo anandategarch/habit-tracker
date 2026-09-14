@@ -8,6 +8,8 @@
 
 import { CheckCircle2, Zap, Flame, Award } from 'lucide-react';
 import { calcLevel } from '@/lib/dashboard-helpers';
+import { mmmDdIdFormatter } from '@/lib/date-utils';
+import { dateFromYMD } from '@/lib/timezone';
 import { TreeProgress } from '@/components/ui/loaders';
 import { CountUpNumber } from './count-up';
 import { useAppStore } from '@/store/app-store';
@@ -16,11 +18,15 @@ interface DailySummaryProps {
   completedCount: number;
   totalCount: number;
   completionPct: number;
-  /** XP hari ini (habit selesai hari ini × bobot difficulty). */
+  /** XP hari yang SEDANG DILIHAT (habit selesai tanggal itu × bobot difficulty). */
   todayXP: number;
   bestStreak: number;
   /** XP total all-time (agregat completedLogCount × XP_MAP per habit). */
   totalXp: number;
+  /** BUGHUNT-54 (3-b #6): tanggal yang sedang dilihat + hari ini Jakarta —
+   *  label KPI dinamis ("XP Hari Ini" menyesatkan di tanggal lampau). */
+  selectedDate: string;
+  todayStr: string;
 }
 
 export function DailySummary({
@@ -30,11 +36,18 @@ export function DailySummary({
   todayXP,
   bestStreak,
   totalXp,
+  selectedDate,
+  todayStr,
 }: DailySummaryProps) {
   const level = calcLevel(totalXp);
   const pct = Math.max(0, Math.min(100, completionPct));
   // VERIFY-48 (48-c F9): KPI streak → Riwayat (kalender sumber streak).
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
+  // BUGHUNT-54 (3-b #6): label dinamis — tanggal lampau tampil "XP {d MMM}" /
+  // "Progres {d MMM}" (mmmDdIdFormatter: label pendek Indonesia, konsisten
+  // dengan chart/kalender).
+  const isToday = selectedDate === todayStr;
+  const dateLabel = mmmDdIdFormatter(dateFromYMD(selectedDate));
 
   return (
     <section
@@ -73,7 +86,7 @@ export function DailySummary({
             <Zap className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="premium-label">XP Hari Ini</p>
+            <p className="premium-label">{isToday ? 'XP Hari Ini' : `XP ${dateLabel}`}</p>
             <p className="premium-stat text-xl text-foreground">
               <CountUpNumber value={todayXP} className="premium-stat-grad" />
               <span className="text-sm font-semibold text-muted-foreground"> XP</span>
@@ -127,7 +140,7 @@ export function DailySummary({
       {/* Mini progress bar */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="premium-label">Progres Hari Ini</span>
+          <span className="premium-label">{isToday ? 'Progres Hari Ini' : `Progres ${dateLabel}`}</span>
           <span className="text-xs font-semibold text-muted-foreground tabular-nums">
             {pct}%
           </span>
@@ -138,7 +151,7 @@ export function DailySummary({
           aria-valuenow={pct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label="Persentase habit selesai hari ini"
+          aria-label={isToday ? 'Persentase habit selesai hari ini' : `Persentase habit selesai ${dateLabel}`}
         >
           <div
             className="h-full rounded-full premium-progress-fill"
