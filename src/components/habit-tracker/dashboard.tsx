@@ -40,6 +40,7 @@ import { QuoteDisplay } from './dashboard-helpers';
 import { TodayHero } from './today-hero';
 import { TodayHabitsCard } from './today-habits';
 import { DailyCheckInCard } from './daily-check-in-card';
+import { TreeCard, buildTreeInput, useVacationCount } from '@/components/tree/tree-card';
 
 /** Payload ringan GET /api/daily-logs?date= untuk kartu check-in Beranda. */
 type DailyLogPayloadLite = { date?: string; mood?: number; energy?: number; sleep?: number } | null;
@@ -68,6 +69,12 @@ export default function Dashboard() {
   const openTrackerNotes = useAppStore((s) => s.openTrackerNotes);
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
   const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
+  // POHON (Task 53): kartu "Pohonmu" → roadmap Progres; chip state →
+  // konteks masing-masing (riwayat streak / Habit Master / fokus habit).
+  const openProgressTree = useAppStore((s) => s.openProgressTree);
+  const openHabitFocusForTree = useAppStore((s) => s.openHabitFocus);
+  const openTrackerHistoryForTree = useAppStore((s) => s.openTrackerHistory);
+  const setSettingsSection = useAppStore((s) => s.setSettingsSection);
   // Jalur CTA empty-state — sama dengan FAB "Habit Baru" (kembali ke
   // Beranda setelah simpan via quickAddReturnTab).
   const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
@@ -226,6 +233,10 @@ export default function Dashboard() {
 
   const loading = data === undefined && !fetchError;
 
+  // POHON (Task 53) — jumlah habit mode liburan (cache ['habits'] terbagih;
+  // saat data belum turun, 0 → kartu pohon tetap aman dirender).
+  const vacationCount = useVacationCount();
+
   const handleRefreshQuote = () => {
     setQuoteTick((t) => t + 1);
   };
@@ -244,6 +255,20 @@ export default function Dashboard() {
   }
 
   const displayData = data || DEFAULT_DATA;
+
+  // POHON (Task 53) — state pohon dari data dashboard ASLI (level/XP/
+  // streak/goal lulus/habit terlemah) + vacationCount.
+  const treeState = buildTreeInput(
+    {
+      currentLevel: displayData.currentLevel,
+      totalXP: displayData.totalXP,
+      levelProgress: displayData.levelProgress,
+      currentStreak: displayData.currentStreak,
+      graduatedCount: displayData.graduatedCount,
+      worstHabit: displayData.worstHabit,
+    },
+    vacationCount,
+  );
 
   // Merge overlay optimistik → daftar & hitungan hari ini.
   const todayHabits = displayData.todayHabits.map((h) =>
@@ -276,6 +301,22 @@ export default function Dashboard() {
         onOpenHistory={() => openTrackerHistory(todayStr.slice(0, 7))}
         onOpenProgress={() => setActiveTab('progress')}
       />
+
+      {/* ①.5 GROW — Pohonmu (POHON Task 53): cermin pertumbuhan seumur —
+            tahap botanical dari level/XP; melengkapi TreeProgress hero
+            yang mencerminkan progres hari ini. */}
+      <ScrollReveal>
+        <TreeCard
+          tree={treeState}
+          onOpenTree={openProgressTree}
+          onOpenBloom={() => openTrackerHistoryForTree(todayStr.slice(0, 7))}
+          onOpenDorman={() => {
+            setSettingsSection('habits');
+            setActiveTab('settings');
+          }}
+          onOpenCare={(habitId) => openHabitFocusForTree(habitId)}
+        />
+      </ScrollReveal>
 
       {fetchError && !fetching && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">

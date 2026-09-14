@@ -1,9 +1,14 @@
-// Rutina Service Worker — v22 (R2: logo tunas teal dipulihkan).
+// Rutina Service Worker — v23 (POHON: 7 artwork SVG pertumbuhan di-precache).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v22';
+const CACHE_NAME = 'habit-tracker-v23';
 // Riwayat versi:
+//  v23 — POHON RUTINA (Task 53): fitur pohon bertumbuh (Beranda "Pohonmu"
+//        + Progres "Jalan Pertumbuhan"). 7 artwork SVG botanical pengguna
+//        (benih/tunas/pohon-muda/pohon-dewasa/berbunga/daun-kuning/dorman)
+//        di-precache supaya pohon tetap tampil saat offline — ia adalah
+//        cermin identitas sistem, bukan dekorasi yang boleh hilang.
 //  v22 — Opsi R2 (Task 34): SEMUA file ikon berganti konten — logo Rutina asli
 //        (tunas Lucide, teal #3eb59e = --primary yang dirender aplikasi)
 //        dipulihkan dari sejarah git, menggantikan logo template Z.AI yang
@@ -53,6 +58,14 @@ const PRECACHE = [
   '/icon-192-maskable.png',
   '/icon-512-maskable.png',
   '/apple-touch-icon.png',
+  // POHON (Task 53) — artwork SVG pertumbuhan (botanical gelap Aurora)
+  '/tree/benih.svg',
+  '/tree/tunas.svg',
+  '/tree/pohon-muda.svg',
+  '/tree/pohon-dewasa.svg',
+  '/tree/berbunga.svg',
+  '/tree/daun-kuning.svg',
+  '/tree/dorman.svg',
 ];
 
 self.addEventListener('install', (event) => {

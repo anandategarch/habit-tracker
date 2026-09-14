@@ -125,6 +125,12 @@ interface AppState {
   // progress
   progressPeriod: ProgressPeriod;
   setProgressPeriod: (period: ProgressPeriod) => void;
+  /** POHON (Task 53): kartu "Pohonmu" Beranda → seksi "Jalan Pertumbuhan"
+   *  tab Progres (anchor #jalan-pertumbuhan). Flag konsumsi-sekali —
+   *  digulir setelah Progres terpasang (pola trackerFocusNotes). */
+  progressFocusTree: boolean;
+  openProgressTree: () => void;
+  clearProgressTreeFocus: () => void;
 
   // settings
   settingsSection: SettingsSection;
@@ -221,6 +227,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   progressPeriod: 'all',
   setProgressPeriod: (period) => set({ progressPeriod: period }),
+  progressFocusTree: false,
+  openProgressTree: () => set({ activeTab: 'progress', progressFocusTree: true }),
+  clearProgressTreeFocus: () => set({ progressFocusTree: false }),
 
   settingsSection: 'umum',
   setSettingsSection: (section) => set({ settingsSection: section }),

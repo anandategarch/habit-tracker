@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>
+  <linearGradient id="xbg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071715"/><stop offset="1" stop-color="#05110F"/></linearGradient>
+  <linearGradient id="xleaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9AF4CC"/><stop offset=".5" stop-color="#63E6BE"/><stop offset="1" stop-color="#1E9B72"/></linearGradient>
+  <linearGradient id="xleafDark" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#106B53"/><stop offset="1" stop-color="#38C99E"/></linearGradient>
+  <linearGradient id="xwood" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#765133"/><stop offset="1" stop-color="#4D3424"/></linearGradient>
+  <linearGradient id="xgold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFE99A"/><stop offset="1" stop-color="#D89A2B"/></linearGradient>
+  <linearGradient id="xring" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#63E6BE"/><stop offset="1" stop-color="#0C8E70"/></linearGradient>
+  <filter id="xshadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="10" stdDeviation="13" flood-color="#000" flood-opacity=".30"/></filter>
+  <filter id="xglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="22"/></filter>
+  <pattern id="xgrid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="#173B34" stroke-width="1" opacity=".42"/></pattern>
+ </defs><rect width="1024" height="1024" rx="44" fill="url(#xbg)"/><rect x="64" y="64" width="896" height="896" rx="36" fill="url(#xgrid)" opacity=".13"/><circle cx="832" cy="148" r="170" fill="#34D9A3" opacity=".07" filter="url(#xglow)"/><g transform="translate(0 10)"><ellipse cx="512" cy="865" rx="355" ry="52" fill="#020706" opacity=".75"/>
+<ellipse cx="512" cy="855" rx="330" ry="35" fill="#181714"/>
+<path d="M197 853 Q 512 785 827 855" fill="none" stroke="#2A241B" stroke-width="10" opacity=".75"/>
+<g opacity=".95">
+ <path d="M512 748 C 507.04 769.7, 498.36 785.2, 468.6 796.36" fill="none" stroke="#694A32" stroke-width="8" stroke-linecap="round"/>
+ <path d="M514.48 748 C 518.2 769.08, 526.88 785.2, 559.12 796.36" fill="none" stroke="#694A32" stroke-width="8" stroke-linecap="round"/>
+ <path d="M510.14 752.96 C 484.1 771.56, 471.7 777.76, 442.56 782.72" fill="none" stroke="#4D3826" stroke-width="4" stroke-linecap="round"/>
+ <path d="M513.24 752.96 C 539.9 771.56, 552.92 778.38, 581.44 782.72" fill="none" stroke="#4D3826" stroke-width="4" stroke-linecap="round"/>
+ </g><ellipse cx="512" cy="708" rx="34" ry="46" fill="url(#xgold)" filter="url(#xshadow)"/><ellipse cx="500" cy="694" rx="9" ry="13" fill="#FFF3B5" opacity=".65"/><path d="M544 675 Q 585 638 606 601" fill="none" stroke="#4FE5B3" stroke-width="5" stroke-linecap="round" stroke-dasharray="6 12"/></g></svg>

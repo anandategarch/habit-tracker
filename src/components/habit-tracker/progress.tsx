@@ -63,6 +63,8 @@ import {
 import { TimeTrackedHabits } from './dashboard-time-tracked-habits';
 import { LastDoneSummaryCard } from './dashboard-last-done';
 import { FinanceOverviewCard } from './dashboard-finance-overview';
+import { TreeGrowthPath } from '@/components/tree/tree-growth-path';
+import { buildTreeInput, useVacationCount } from '@/components/tree/tree-card';
 
 const DashboardCharts = dynamic(() => import('./dashboard-charts'));
 const HourlyConsistency = dynamic(() => import('./hourly-consistency'));
@@ -98,6 +100,9 @@ export default function ProgressTab() {
   });
 
   const loading = data === undefined && !fetchError;
+
+  // POHON (Task 53) — mode liburan dari cache ['habits'] terbagih.
+  const vacationCount = useVacationCount();
 
   // CONNECTED-APP — insight tidak berhenti sebagai teks: tiap insight
   // membawa AKSI menuju konteks yang menghasilkan angkanya (brief #11:
@@ -208,6 +213,19 @@ export default function ProgressTab() {
   }
 
   const displayData = data || DEFAULT_DATA;
+
+  // POHON (Task 53) — state pohon dari data ASLI (XP/level/seumur).
+  const treeState = buildTreeInput(
+    {
+      currentLevel: displayData.currentLevel,
+      totalXP: displayData.totalXP,
+      levelProgress: displayData.levelProgress,
+      currentStreak: displayData.currentStreak,
+      graduatedCount: displayData.graduatedCount,
+      worstHabit: displayData.worstHabit,
+    },
+    vacationCount,
+  );
   const weeklyBarData = displayData.weeklyChartData.map((d) => ({
     ...d,
     label: d.day.slice(0, 3),
@@ -250,6 +268,16 @@ export default function ProgressTab() {
           </div>
         )}
       </div>
+
+      {/* ── POHON: Jalan Pertumbuhan (Task 53) — pusat emosional tab Progres:
+            roadmap tahap botanical + sinyal musim, semua dari data ASLI. */}
+      <ScrollReveal>
+        <TreeGrowthPath
+          tree={treeState}
+          currentStreak={displayData.currentStreak}
+          vacationCount={vacationCount}
+        />
+      </ScrollReveal>
 
       {/* ── KPI Cards Grid ──────────────────────────────────────── */}
       <section aria-label="Key metrics">
