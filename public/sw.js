@@ -1,9 +1,15 @@
-// Rutina Service Worker — v25 (TASK 56: ikon aplikasi = artwork tunas pengguna).
+// Rutina Service Worker — v26 (TASK 57: ikon loading = pohon transparan).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v25';
+const CACHE_NAME = 'habit-tracker-v26';
 // Riwayat versi:
+//  v26 — TASK 57 (fix "kok jadi kotak"): splash + tab loading kini memakai
+//        /tree/tunas-mark.svg — artwork tunas botanical TANPA layer latar
+//        (rect teal kotak dibuang, crop persegi di sekitar tunas, bayangan
+//        .16) sehingga yang tampil POHONNYA pada background aplikasi.
+//        File baru wajib di-precache; bump cache agar pengguna PWA langsung
+//        dapat mark transparan (bukan tile kotak v25).
 //  v25 — TASK 56 (samakan ikon dgn pohon terbaru): splash + tab loading
 //        kini TreeMark (artwork tunas botanical pengguna — komponen baru di
 //        loaders.tsx, TreeGrow vektor lama dihapus). SELURUH paket ikon PWA
@@ -69,6 +75,7 @@ const PRECACHE = [
   // POHON (Task 53) — artwork SVG pertumbuhan (botanical gelap Aurora)
   '/tree/benih.svg',
   '/tree/tunas.svg',
+  '/tree/tunas-mark.svg', // Task 57 — mark transparan utk splash/tab loading
   '/tree/pohon-muda.svg',
   '/tree/pohon-dewasa.svg',
   '/tree/berbunga.svg',

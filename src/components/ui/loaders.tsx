@@ -78,22 +78,30 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
 }
 
 /**
- * TreeMark (Task 56) — ikon aplikasi Rutina: artwork pohon botanical
- * milik pengguna (public/tree/tunas.svg, tahap "Tunas").
+ * TreeMark (Task 56, fix Task 57) — ikon aplikasi Rutina: artwork pohon
+ * botanical milik pengguna (public/tree/tunas-mark.svg, tahap "Tunas").
  *
  * TASK 56: splash + tab loading disamakan dengan pohon terbaru — mengganti
  * TreeGrow (pohon garis vektor lama, Task 28). Artwork yang sama dipakai
  * kartu "Pohonmu" Beranda, tab Pohon, dan paket ikon PWA/favicon — identitas
  * visual satu suara dari launcher → splash → dalam aplikasi.
  *
+ * TASK 57 (fix "kok jadi kotak"): tunas.svg asli adalah artwork gaya IKON
+ * dengan 3 layer latar (rect teal gelap + grid + glow dekoratif) — di splash
+ * yang background-nya terang, layer itu tampak sebagai KOTAK gelap, bukan
+ * pohon. Solusi: tunas-mark.svg — geometri & warna artwork PERSIS sama
+ * (gundukan tanah + akar + batang + 2 daun botanical) TANPA layer latar,
+ * viewBox di-crop persegi (342 595 340 350) di sekitar tunas, bayangan tanah
+ * dilembutkan .75→.16. Loading kini menampilkan POHONNYA — bukan kotak.
+ *
  * Varian:
- * - 'splash' : tile masuk dengan settle-spring + halo teal bernapas +
+ * - 'splash' : mark masuk dengan settle-spring + halo teal bernapas +
  *   progress ring MENGAKSELERASI (ease-in — riset CMU: terasa lebih cepat).
  *   Untuk layar pembuka (1.6s, sinkron anim-splash-exit di page.tsx).
- * - 'inline' : tile tampil langsung + goyang lembut dari pangkal (tanpa
+ * - 'inline' : mark tampil langsung + goyang lembut dari pangkal (tanpa
  *   ring/sekuens) — untuk tab-loading yang selesai dalam ~300ms.
  *
- * Kenapa <img> dan bukan inline-SVG: aset punya gradient id (xbg/xleaf…)
+ * Kenapa <img> dan bukan inline-SVG: aset punya gradient id (xleaf/xwood…)
  * yang akan bertabrakan kalau dua instance ter-render bersamaan (splash +
  * tab loading saat transisi). Sebagai dokumen terpisah, id aman.
  * Goyang/bernafas lewat kelas CSS (globals.css §TreeMark) — adaptif
@@ -111,7 +119,7 @@ export function TreeMark({
   /** Tampilkan progress ring yang mengakselerasi (varian splash). */
   ring?: boolean;
 }) {
-  // Padding supaya ring (r≈47% dari size) melingkar DI LUAR tile artwork.
+  // Padding supaya ring (r≈47% dari size) melingkar DI LUAR mark artwork.
   const pad = Math.max(3, Math.round(size * 0.085));
   const tile = Math.max(24, size - pad * 2);
   return (
@@ -121,8 +129,9 @@ export function TreeMark({
       role="status"
       aria-label="Memuat"
     >
-      {/* Halo teal "bernapas" di belakang tile — hanya splash (tenang, bukan
-          strobo). Static samar di bawah prefers-reduced-motion. */}
+      {/* Halo teal "bernapas" di belakang mark — hanya splash (tenang, bukan
+          strobo). Terlihat menembus celah antar daun karena mark transparan.
+          Static samar di bawah prefers-reduced-motion. */}
       {variant === 'splash' && <div className="treemark-halo treemark-halo-on" aria-hidden="true" />}
 
       {/* Progress ring — mulai pukul 12, arc mengakselerasi 1 putaran.
@@ -145,17 +154,19 @@ export function TreeMark({
         </svg>
       )}
 
-      {/* Tile artwork — enter (splash) di wrapper, sway di <img> supaya dua
-          animasi tidak bertabrakan di elemen yang sama. */}
+      {/* Mark transparan (Task 57 — tanpa kotak): SVG auto-fit preserve-aspect
+          di dalam kotak tile (aspect 340:350 ≈ persegi, letterbox ~1.4%).
+          Enter (splash) di wrapper, sway di <img> supaya dua animasi tidak
+          bertabrakan di elemen yang sama. */}
       <div
         className={cn('treemark-tile', variant === 'splash' && 'treemark-enter')}
         style={{ width: tile, height: tile }}
       >
         <img
-          src="/tree/tunas.svg"
+          src="/tree/tunas-mark.svg"
           alt=""
-          width={1024}
-          height={1024}
+          width={340}
+          height={350}
           decoding="async"
           draggable={false}
           fetchPriority={variant === 'splash' ? 'high' : 'auto'}

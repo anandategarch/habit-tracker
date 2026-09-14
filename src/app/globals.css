@@ -1110,14 +1110,19 @@
  }
 }
 
-/* ── TreeMark (Task 56) — ikon splash/tab-loading: artwork pohon pengguna ──
+/* ── TreeMark (Task 56, fix Task 57) — ikon splash/tab-loading: artwork pohon
+  pengguna ──
   TASK 56: "loading waktu buka aplikasi, icon nya samakan dengan pohon
   terbaru" — splash + tab loading kini memakai artwork botanical "tunas"
-  (public/tree/tunas.svg, <img> via komponen TreeMark) — identitas visual
-  yang sama dengan kartu Pohonmu, tab Pohon, dan ikon PWA/favicon.
-  Tile gelap + halo teal bernapas + goyang lembut dari pangkal + progress
-  ring mengakselerasi (semangat Task 27/28 dipertahankan: ring ease-in
-  terasa lebih cepat; splash 1.6s sinkron anim-splash-exit). */
+  (<img> via komponen TreeMark) — identitas visual yang sama dengan kartu
+  Pohonmu, tab Pohon, dan ikon PWA/favicon.
+  TASK 57 (fix "kok jadi kotak"): sumber diganti tunas-mark.svg — artwork
+  TRANSPARAN (layer latar teal kotak dibuang, viewBox di-crop persegi di
+  sekitar tunas, bayangan tanah .16) sehingga yang tampil POHONNYA pada
+  background aplikasi, bukan tile kotak gelap. Mark transparan + halo teal
+  bernapas + goyang lembut dari pangkal + progress ring mengakselerasi
+  (semangat Task 27/28 dipertahankan: ring ease-in terasa lebih cepat;
+  splash 1.6s sinkron anim-splash-exit). */
 .treemark-tile {
   position: relative;
   will-change: transform, opacity;

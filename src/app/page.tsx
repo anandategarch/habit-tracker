@@ -48,8 +48,9 @@ import { TreeMark } from '@/components/ui/loaders';
 //
 // Now each dynamic() provides a `loading` render-prop that shows TreeMark
 // (TASK 56: artwork pohon botanical pengguna — sama dengan splash screen,
-// kartu "Pohonmu", dan ikon PWA) for consistent branding across app load +
-// tab transitions. The loader mounts immediately when the dynamic wrapper
+// kartu "Pohonmu", dan ikon PWA; TASK 57: mark TRANSPARAN tanpa tile kotak)
+// for consistent branding across app load + tab transitions. The loader
+// mounts immediately when the dynamic wrapper
 // renders, then swaps out atomically once the chunk resolves — no blank
 // frame in between. The PageTransition's motion.div still animates the
 // surrounding fade, so the loader itself enters with the same fade-in.
@@ -455,12 +456,12 @@ const [showSplash, setShowSplash] = useState(true);
  const ActiveComponent = TAB_COMPONENTS[activeTab];
 
  return (
-   <TooltipProvider delayDuration={300}>     {/* Splash screen — TASK 56: TreeMark (artwork pohon botanical pengguna
-         tahap "Tunas") on initial app load (1.6s). Premium branded loading:
-         tile artwork + halo bernapas + goyang lembut + progress ring
-         mengakselerasi (riset CMU: terasa lebih cepat). FEAT-SPLASH-REVEAL:
-         exit animation (fade + scale + slide up) instead of hard cut;
-         content entrance (fade + slide up). */}
+   <TooltipProvider delayDuration={300}>     {/* Splash screen — TASK 56/57: TreeMark (artwork pohon botanical pengguna
+         tahap "Tunas", versi MARK TRANSPARAN tanpa latar kotak) on initial
+         app load (1.6s). Premium branded loading: pohon + halo bernapas +
+         goyang lembut + progress ring mengakselerasi (riset CMU: terasa
+         lebih cepat). FEAT-SPLASH-REVEAL: exit animation (fade + scale +
+         slide up) instead of hard cut; content entrance (fade + slide up). */}
      {showSplash && (
        <div
          className={cn(
