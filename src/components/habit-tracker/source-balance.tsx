@@ -7,11 +7,17 @@
 // triggerQuickAdd('transfer') lalu openFinanceSubTab('overview') — konsumsi
 // terjadi DI SINI (pola consume-and-clear). Guard: tunggu query sources
 // selesai; <2 sumber → toast pemandu; ≥2 → buka dialog transfer.
+//
+// QUICK-EDIT (Task 40, DASHBOARD-FIN): saldo tiap sumber bisa diubah
+// LANGSUNG dari panel ini — klik angka saldo → input inline (mask
+// formatNominalInput) → Enter/✓ simpan via PATCH /api/finance/sources/[id]
+// body {balance} (semantik sama dengan inline edit di dialog Kelola:
+// initialBalance digeser, tanpa transaksi penyesuaian). Esc/✕ batal.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeftRight, Wallet, AlertTriangle } from 'lucide-react';
+import { ArrowLeftRight, Wallet, AlertTriangle, Check, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +39,7 @@ import {
 } from '@/components/ui/select';
 import { useAppStore } from '@/store/app-store';
 import { jakartaDateString } from '@/lib/timezone';
-import { formatRupiah, formatNominalInput, amountFromInput } from './finance-types';
+import { formatRupiah, formatNominalInput, amountFromInput, parseNominalInput } from './finance-types';
 import type { FundSource } from './finance-types';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +65,50 @@ export function SourceBalance() {
   });
 
   const [transferOpen, setTransferOpen] = useState(false);
+
+  // ── Quick-edit saldo langsung (Task 40) ──
+  const [balanceEditId, setBalanceEditId] = useState<string | null>(null);
+  const [balanceEditValue, setBalanceEditValue] = useState('');
+  const [savingBalanceId, setSavingBalanceId] = useState<string | null>(null);
+
+  const startEditBalance = (src: FundSource) => {
+    if (!src.id || savingBalanceId) return;
+    setBalanceEditId(src.id);
+    setBalanceEditValue(formatNominalInput(String(Math.round(src.balance ?? 0))));
+  };
+
+  const cancelEditBalance = () => {
+    setBalanceEditId(null);
+    setBalanceEditValue('');
+  };
+
+  const commitEditBalance = async (src: FundSource) => {
+    if (!src.id || savingBalanceId) return;
+    const digits = parseNominalInput(balanceEditValue);
+    if (!digits) { cancelEditBalance(); return; } // kosong = batal, bukan set 0
+    const val = amountFromInput(balanceEditValue);
+    if (val === (src.balance ?? 0)) { cancelEditBalance(); return; } // no-op
+    setSavingBalanceId(src.id);
+    try {
+      const res = await fetch(`/api/finance/sources/${src.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance: val }),
+      });
+      if (res.ok) {
+        toast.success(`Saldo ${src.name} diupdate ke ${formatRupiah(val)}`);
+        cancelEditBalance();
+        invalidate(); // ['finance'] — sources + dashboard KPI ikut menyegarkan
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || 'Gagal menyimpan saldo');
+      }
+    } catch {
+      toast.error('Terjadi kesalahan');
+    } finally {
+      setSavingBalanceId(null);
+    }
+  };
 
   // Konsumsi FAB quick-add 'transfer' (guard: tunggu data sources supaya
   // keputusan ≥2 sumber tidak salah saat cache belum terisi).
@@ -143,28 +193,86 @@ export function SourceBalance() {
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {sources.map(src => (
-              <li
-                key={src.id || src.name}
-                className="premium-list-item px-3! py-2.5!"
-              >
-                <span
-                  className="h-9 w-9 rounded-xl grid place-items-center text-base shrink-0 bg-muted/60"
-                  aria-hidden="true"
+            {sources.map(src => {
+              const editing = !!src.id && balanceEditId === src.id;
+              const saving = savingBalanceId === src.id;
+              return (
+                <li
+                  key={src.id || src.name}
+                  className="premium-list-item px-3! py-2.5!"
                 >
-                  {src.emoji}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{src.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {SOURCE_TYPE_LABEL[src.type] ?? src.type}
-                  </p>
-                </div>
-                <span className="text-sm font-semibold tabular-nums shrink-0">
-                  {formatRupiah(src.balance ?? 0)}
-                </span>
-              </li>
-            ))}
+                  <span
+                    className="h-9 w-9 rounded-xl grid place-items-center text-base shrink-0 bg-muted/60"
+                    aria-hidden="true"
+                  >
+                    {src.emoji}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{src.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {SOURCE_TYPE_LABEL[src.type] ?? src.type}
+                    </p>
+                  </div>
+                  {editing ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Input
+                        inputMode="numeric"
+                        value={balanceEditValue}
+                        onChange={(e) =>
+                          setBalanceEditValue(formatNominalInput(e.target.value.replace(/[^\d]/g, '')))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void commitEditBalance(src);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cancelEditBalance();
+                          }
+                        }}
+                        disabled={saving}
+                        className="h-8 w-28 text-xs tabular-nums"
+                        aria-label={`Edit saldo ${src.name}`}
+                        autoFocus
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-emerald-600 dark:text-emerald-400 hover:text-emerald-600"
+                        onClick={() => { void commitEditBalance(src); }}
+                        disabled={saving}
+                        aria-label={`Simpan saldo ${src.name}`}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground"
+                        onClick={cancelEditBalance}
+                        disabled={saving}
+                        aria-label={`Batal edit saldo ${src.name}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="group/balance flex items-center gap-1.5 text-sm font-semibold tabular-nums shrink-0 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-h-[36px]"
+                      onClick={() => startEditBalance(src)}
+                      title={src.id ? 'Klik untuk edit saldo' : undefined}
+                      aria-label={src.id ? `Edit saldo ${src.name} — sekarang ${formatRupiah(src.balance ?? 0)}` : `Saldo ${src.name}`}
+                    >
+                      {formatRupiah(src.balance ?? 0)}
+                      {src.id && (
+                        <Pencil className="h-3 w-3 text-muted-foreground/70 group-hover/balance:text-foreground transition-colors" aria-hidden="true" />
+                      )}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
             <li className="flex items-center justify-between px-3 pt-2.5">
               <span className="premium-label">Total Saldo Semua Sumber</span>
               <span className="premium-stat text-sm">{formatRupiah(totalBalance)}</span>

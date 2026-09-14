@@ -31,6 +31,7 @@ import { useAppStore } from '@/store/app-store';
 import { SourceBalance } from './source-balance';
 import { SpendingHeatmap } from './finance-spending-heatmap';
 import { CountUpRupiah } from './count-up-rupiah';
+import FinanceKpiDashboard from './finance-kpi-dashboard';
 import { formatRupiah, monthLabel } from './finance-types';
 import { tintFromColor, formatDateShort } from '@/lib/finance-helpers';
 import { cn } from '@/lib/utils';
@@ -227,6 +228,9 @@ export default function FinanceOverview({
           </p>
         </div>
       </button>
+
+      {/* ── Dashboard Keuangan KPI (Task 40, DASHBOARD-FIN) ── */}
+      <FinanceKpiDashboard dashboardData={dashboardData} selectedMonth={selectedMonth} />
 
       {/* ── Sumber Dana + Transfer (self-contained, konsumsi quickAdd
           'transfer' ada di SourceBalance — jangan duplikat) ── */}

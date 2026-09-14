@@ -1,7 +1,14 @@
 // GET /api/finance/dashboard?month=yyyy-MM — ringkasan keuangan bulanan.
+// Task 40 (DASHBOARD-FIN): diperluas jadi mesin KPI dashboard keuangan —
+// rasio tabungan, perbandingan bulan lalu (MoM), pemakaian budget, dan
+// dana darurat (runway). Referensi KPI: savings rate + emergency fund
+// (Quicken "5 Personal Finance KPIs", Klipfolio "KPIs of personal
+// finance", CFPB emergency fund guide — benchmark sehat ≥ 20% tabungan
+// dan 3–6 bulan biaya hidup).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { badRequest, handleApiError, round1, transactionMonthRange, ymdOf } from '@/app/api/_lib/api-utils';
+import { fetchBudgetItems } from '@/app/api/_lib/budget-utils';
 import { isValidMonth, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +22,12 @@ function daysInMonthOf(ym: string): number {
     return leap ? 29 : 28;
   }
   return DAYS_IN_MONTH[m - 1];
+}
+
+function prevMonthOf(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  if (m <= 1) return `${y - 1}-12`;
+  return `${y}-${String(m - 1).padStart(2, '0')}`;
 }
 
 export async function GET(req: Request) {
@@ -81,6 +94,48 @@ export async function GET(req: Request) {
       if (!spentByDay.has(ymd)) noSpendDays += 1;
     }
 
+    // ── DASHBOARD-FIN (Task 40): KPI tambahan ─────────────────────────────
+    // Semua field optional di FE — route tetap kompatibel dgn caller lama.
+
+    // 1) Rasio tabungan: (pemasukan − pengeluaran) / pemasukan. Null saat
+    //    pemasukan 0 (membagi 0 → NaN/menyesatkan; FE tampil "—").
+    const savingsRate = monthIncome > 0
+      ? Math.round(((monthIncome - monthExpense) / monthIncome) * 1000) / 10
+      : null;
+
+    // 2) Bulan lalu (MoM) — total income/expense bulan sebelumnya.
+    const prevMonth = prevMonthOf(month);
+    const prevRange = transactionMonthRange(prevMonth);
+    const prevRows = await db.transaction.findMany({
+      where: { type: { in: ['income', 'expense'] }, date: { gte: prevRange.gte, lt: prevRange.lt } },
+      select: { type: true, amount: true, date: true },
+    });
+    let prevMonthIncome = 0;
+    let prevMonthExpense = 0;
+    for (const tx of prevRows) {
+      if (!ymdOf(tx.date as Date).startsWith(prevMonth)) continue;
+      if (tx.type === 'income') prevMonthIncome += tx.amount;
+      else prevMonthExpense += tx.amount;
+    }
+
+    // 3) Pemakaian budget bulan terpilih (reuse helper budgets — konsisten
+    //    dengan sub-tab Budget & kartu dashboard utama).
+    const budgetItems = await fetchBudgetItems(month);
+    const budgetTotal = budgetItems.reduce((s, b) => s + b.amount, 0);
+    const budgetSpent = Math.round(budgetItems.reduce((s, b) => s + b.spent, 0));
+
+    // 4) Total saldo semua sumber + dana darurat (runway).
+    //    Transfer antar sumber saling meniadakan, jadi total saldo =
+    //    Σ initialBalance + Σ pemasukan − Σ pengeluaran (semua waktu).
+    const [srcAgg, txByType] = await Promise.all([
+      db.fundSource.aggregate({ _sum: { initialBalance: true } }),
+      db.transaction.groupBy({ by: ['type'], _sum: { amount: true } }),
+    ]);
+    const incomeAll = txByType.find((t) => t.type === 'income')?._sum.amount ?? 0;
+    const expenseAll = txByType.find((t) => t.type === 'expense')?._sum.amount ?? 0;
+    const totalBalance = Math.round(((srcAgg._sum.initialBalance ?? 0) + incomeAll - expenseAll) * 100) / 100;
+    const runwayDays = dailyAvg > 0 ? Math.max(0, Math.floor(totalBalance / dailyAvg)) : null;
+
     const top = byCategory[0] ?? null;
 
     return NextResponse.json({
@@ -93,6 +148,14 @@ export async function GET(req: Request) {
       projection,
       noSpendDays,
       topCategory: top,
+      // KPI dashboard (Task 40)
+      savingsRate,
+      prevMonthIncome: Math.round(prevMonthIncome),
+      prevMonthExpense: Math.round(prevMonthExpense),
+      budgetTotal: Math.round(budgetTotal),
+      budgetSpent,
+      totalBalance,
+      runwayDays,
     });
   } catch (error) {
     return handleApiError(error, 'finance/dashboard:GET');

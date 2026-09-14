@@ -135,6 +135,15 @@ export interface DashboardData {
   dailyAvg: number;
   projection: number;
   noSpendDays: number;
+  // ── KPI Dashboard Keuangan (Task 40, DASHBOARD-FIN) — semua optional
+  // supaya caller lama / respons API lama tetap valid (FE defensif null).
+  savingsRate?: number | null; // % — null saat pemasukan bulan 0
+  prevMonthIncome?: number;
+  prevMonthExpense?: number;
+  budgetTotal?: number;
+  budgetSpent?: number;
+  totalBalance?: number;
+  runwayDays?: number | null; // hari tertutup rata-rata pengeluaran — null saat dailyAvg 0
   topCategory: { category: string; amount: number } | null;
 }
 
@@ -210,7 +219,9 @@ export function compactRupiah(value: number): string {
   if (abs < 10_000) return sign + fmtRupiah(abs);
   if (abs >= 1_000_000_000) return `${sign}Rp${trimCompact(abs / 1_000_000_000)}M`;
   if (abs >= 1_000_000) return `${sign}Rp${trimCompact(abs / 1_000_000)}jt`;
-  return `${sign}Rp${trimCompact(abs / 1_000)}`;
+  // BUG-FIX (Task 40): akhiran "rb" hilang — 500.000 dirender "Rp500" (baca
+  // sebagai lima ratus rupiah). Docstring sejak awal bilang "Rp350rb".
+  return `${sign}Rp${trimCompact(abs / 1_000)}rb`;
 }
 
 /**
