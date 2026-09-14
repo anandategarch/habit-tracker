@@ -88,7 +88,7 @@ function KpiCard({
   return (
     <button
       type="button"
-      className="premium-card rounded-2xl p-4 text-left w-full cursor-pointer anim-stagger transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.98]"
+      className="premium-card premium-card-sheen rounded-2xl p-4 text-left w-full cursor-pointer anim-stagger transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.98]"
       style={{ '--stagger': stagger } as CSSProperties}
       onClick={onClick}
       aria-label={ariaLabel}
@@ -97,13 +97,9 @@ function KpiCard({
         <span className={cn(TONE_CHIP[tone], 'h-8 w-8 shrink-0')} aria-hidden="true">
           <Icon className="h-4 w-4" />
         </span>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">
-          {label}
-        </p>
+        <p className="premium-label truncate">{label}</p>
       </div>
-      <p className={cn('text-lg sm:text-xl font-extrabold tabular-nums leading-tight', TONE_TEXT[tone])}>
-        {value}
-      </p>
+      <p className={cn('premium-stat text-lg sm:text-xl leading-tight', TONE_TEXT[tone])}>{value}</p>
       {typeof progress === 'number' ? (
         <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden" role="presentation">
           <div

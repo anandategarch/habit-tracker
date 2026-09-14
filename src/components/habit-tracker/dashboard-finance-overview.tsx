@@ -16,6 +16,8 @@ import { useAppStore } from '@/store/app-store';
 import { formatRupiah } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { ChartInfo } from './dashboard-helpers';
+import { CountUpNumber } from './count-up';
+import { CountUpRupiah } from './count-up-rupiah';
 import type { FinanceOverviewData } from './dashboard-types';
 
 function StatTile({
@@ -27,7 +29,7 @@ function StatTile({
   tileClass,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   valueClass?: string;
   icon: typeof TrendingUp;
   chipClass: string;
@@ -85,21 +87,26 @@ export function FinanceOverviewCard({ data }: { data: FinanceOverviewData }) {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile
             label="Pemasukan"
-            value={formatRupiah(income)}
+            value={<CountUpRupiah amount={income} />}
             icon={TrendingUp}
             chipClass="chip-soft-teal"
             tileClass="border-emerald-500/20 bg-emerald-500/5 dark:border-emerald-400/20 dark:bg-emerald-400/10"
           />
           <StatTile
             label="Pengeluaran"
-            value={formatRupiah(expense)}
+            value={<CountUpRupiah amount={expense} />}
             icon={TrendingDown}
             chipClass="chip-soft-rose"
             tileClass="border-rose-500/20 bg-rose-500/5 dark:border-rose-400/20 dark:bg-rose-400/10"
           />
           <StatTile
             label="Selisih"
-            value={`${net >= 0 ? '+' : '−'}${formatRupiah(Math.abs(net))}`}
+            value={
+              <>
+                {net >= 0 ? '+' : '−'}
+                <CountUpRupiah amount={Math.abs(net)} />
+              </>
+            }
             valueClass={net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}
             icon={Wallet}
             chipClass="chip-soft-teal"
@@ -125,7 +132,7 @@ export function FinanceOverviewCard({ data }: { data: FinanceOverviewData }) {
               <span className="premium-label">Anggaran</span>
             </div>
             <p className="premium-stat mt-2 text-base sm:text-lg">
-              {budgetTotal > 0 ? `${budgetPct}%` : '—'}
+              {budgetTotal > 0 ? <CountUpNumber value={budgetPct} suffix="%" /> : '—'}
             </p>
             {budgetTotal > 0 ? (
               <>

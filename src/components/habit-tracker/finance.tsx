@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
 import {
  ArrowUpRight,
  ArrowDownRight,
@@ -567,6 +568,15 @@ export default function Finance() {
          pointer-events-none, aria-hidden. Auto-cleans after 2.6s. */}
      <MoneyParticles triggerKey={mutations.moneyParticlesKey} />
 
+     {/* Task 41: header sektor seragam (eyebrow + ikon + subteks) — dulu
+         finance langsung loncat ke month picker tanpa identitas sektor. */}
+     <PageHeader
+       title="Keuangan"
+       subtitle="Catat arus kas dan pantau kesehatan finansialmu"
+       icon={Wallet}
+       eyebrow="Sektor"
+     />
+
      {/* Header — compact on mobile: month picker + action buttons in 2 rows */}
      <div className="flex flex-col gap-2">
        {/* Row 1: Month navigation */}
@@ -593,7 +603,7 @@ export default function Finance() {
        </div>
        {/* Row 2: Quick actions — horizontal scroll on mobile, wrap on desktop */}
        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 sm:overflow-visible sm:pb-0 sm:flex-wrap">
-         <Button size="sm" className="shrink-0 bg-destructive hover:bg-destructive text-white anim-press anim-pulse-ring" onClick={() => mutations.openNewTx('expense')}><ArrowDownRight className="h-4 w-4" />Pengeluaran</Button>
+         <Button size="sm" className="shrink-0 bg-destructive hover:bg-destructive text-white anim-press" onClick={() => mutations.openNewTx('expense')}><ArrowDownRight className="h-4 w-4" />Pengeluaran</Button>
          <Button size="sm" className="shrink-0 anim-press" onClick={() => mutations.openNewTx('income')}><ArrowUpRight className="h-4 w-4" />Pemasukan</Button>
          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => mutations.setCatDialogOpen(true)}><Settings2 className="h-4 w-4" />Kategori</Button>
          <Button size="sm" variant="outline" className="shrink-0 anim-press" onClick={() => mutations.setSourceDialogOpen(true)}><Wallet className="h-4 w-4" />Sumber Dana</Button>
@@ -612,14 +622,14 @@ export default function Finance() {
          setTxFilter({ type: 'all', category: 'all', source: 'all', search: '' });
        }
      }}>
-       <TabsList className="flex w-full overflow-x-auto scrollbar-hide">
-         <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
-         <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
-         <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
-         <TabsTrigger value="analysis" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Analisis</span></TabsTrigger>
-         <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Recurring</span></TabsTrigger>
-         <TabsTrigger value="rules" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><Wand2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Aturan</span></TabsTrigger>
-         <TabsTrigger value="savings" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1"><PiggyBank className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tabungan</span></TabsTrigger>
+       <TabsList className="flex w-full gap-0.5 overflow-x-auto scrollbar-hide rounded-xl bg-muted/60 p-1 h-auto">
+         <TabsTrigger value="overview" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><BarChart3 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ringkasan</span></TabsTrigger>
+         <TabsTrigger value="transactions" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><Wallet className="h-3.5 w-3.5" /><span className="hidden sm:inline">Transaksi</span></TabsTrigger>
+         <TabsTrigger value="budgets" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><Target className="h-3.5 w-3.5" /><span className="hidden sm:inline">Budget</span></TabsTrigger>
+         <TabsTrigger value="analysis" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><Compass className="h-3.5 w-3.5" /><span className="hidden sm:inline">Analisis</span></TabsTrigger>
+         <TabsTrigger value="recurring" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><Repeat className="h-3.5 w-3.5" /><span className="hidden sm:inline">Recurring</span></TabsTrigger>
+         <TabsTrigger value="rules" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><Wand2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Aturan</span></TabsTrigger>
+         <TabsTrigger value="savings" className="flex-1 text-xs sm:text-sm whitespace-nowrap gap-1 rounded-lg py-1.5 px-3 data-[state=active]:shadow-md"><PiggyBank className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tabungan</span></TabsTrigger>
        </TabsList>
 
        <TabsContent value="overview" className="mt-4 anim-tab-fade-up">

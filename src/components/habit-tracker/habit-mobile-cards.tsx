@@ -4,7 +4,7 @@
 // Tap kartu → openHabitFocus(id) (store 1-klik); tombol aksi memakai
 // stopPropagation + aria-label Indonesia.
 
-import { Pencil, Trash2, Pause, Play, Archive, ArchiveRestore } from 'lucide-react';
+import { Pencil, Trash2, Pause, Play, Archive, ArchiveRestore, GraduationCap, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
 import { tintFromEmoji } from '@/lib/emoji-color';
@@ -110,7 +110,15 @@ export function HabitMobileCards({
                             : 'bg-slate-400/10 text-slate-600 dark:text-slate-400',
                     )}
                   >
-                    {graduated ? `🎓 ${HABIT_STATUS_LABELS[status]}${h.targetDays ? ` · ${h.completedLogCount ?? 0}/${h.targetDays}` : ''}` : HABIT_STATUS_LABELS[status]}
+                    {graduated ? (
+                      <span className="inline-flex items-center gap-1">
+                        <GraduationCap className="h-3 w-3" aria-hidden="true" />
+                        {HABIT_STATUS_LABELS[status]}
+                        {h.targetDays ? ` · ${h.completedLogCount ?? 0}/${h.targetDays}` : ''}
+                      </span>
+                    ) : (
+                      HABIT_STATUS_LABELS[status]
+                    )}
                   </span>
                   <BadgeDot option={priorityMap.get(h.priority)} fallback={h.priority} />
                   <span aria-hidden="true">·</span>
@@ -120,7 +128,7 @@ export function HabitMobileCards({
                   </span>
                   {schedBadge && (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-teal-500/10 dark:bg-teal-400/10 px-1.5 py-0.5 text-[10px] font-bold text-teal-600 dark:text-teal-300 max-w-[8rem]">
-                      <span aria-hidden="true">📅</span>
+                      <CalendarDays className="h-3 w-3" aria-hidden="true" />
                       <span className="truncate">{schedBadge}</span>
                     </span>
                   )}

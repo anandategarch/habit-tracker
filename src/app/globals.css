@@ -310,18 +310,24 @@
  box-shadow: 0 0 0 2px oklch(1 0 0 / 8%);
 }
 
-/* Transaction card — premium soft shadow */
+/* Transaction card — Task 41: disamakan dengan bahasa premium-card
+   (gradient putih hangat + border halus + shadow tinted primary). */
 .tx-card {
- background: oklch(1 0 0);
+ background:
+  linear-gradient(120deg, oklch(1 0 0), oklch(0.985 0.008 165));
  border-radius: 1rem;
  padding: 1rem 1.25rem;
  margin-bottom: 0.75rem;
- box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+ border: 1px solid oklch(0.93 0.012 165);
+ box-shadow:
+  0 1px 2px color-mix(in oklab, var(--primary) 6%, transparent),
+  0 8px 24px -14px color-mix(in oklab, var(--primary) 22%, transparent);
  transition: transform 0.15s ease, box-shadow 0.15s ease;
  position: relative;
 }
 .dark .tx-card {
- background: oklch(0.205 0 0);
+ background: linear-gradient(120deg, oklch(0.21 0.004 165), oklch(0.185 0.006 165));
+ border-color: oklch(1 0 0 / 7%);
  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
 }
 .tx-card:active {
@@ -378,8 +384,8 @@
  min-height: 44px;
 }
 .tx-chip-active {
- background: oklch(0.522 0.154 142);
- color: oklch(0.985 0 0);
+ background: var(--primary);
+ color: var(--primary-foreground);
 }
 .tx-chip-inactive {
  background: oklch(0.96 0.005 120);
@@ -540,22 +546,9 @@
   All respect prefers-reduced-motion (declared at bottom).
   ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Staggered card entrance: slide-up + fade-in ── */
-@keyframes anim-stagger-in {
- from {
-   opacity: 0;
-   transform: translateY(12px);
- }
- to {
-   opacity: 1;
-   transform: translateY(0);
- }
-}
-.anim-stagger {
- opacity: 1; /* resting state — matches the 'to' keyframe so there's no flicker when other animations are added/removed */
- animation: anim-stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
- will-change: transform, opacity;
-}
+/* ── Staggered card entrance — kini satu definisi di §13 (anim-stagger,
+   keyframes premium-fade-up-kf + delay --stagger×60ms). Definisi lama
+   duplikat di sini dihapus biar tidak dua sumber kebenaran. ── */
 
 /* ── Progress ring draw: stroke-dashoffset animates from full to target ── */
 @keyframes anim-ring-draw {
@@ -897,16 +890,21 @@
   All dock tabs share the same width, so the pill only needs to move:
   transform-only transition = no layout thrash on low-end phones. */
 .nav-liquid-indicator {
- background: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 45%, #10b981 100%);
+ background: linear-gradient(
+   135deg,
+   color-mix(in oklab, var(--primary) 62%, white) 0%,
+   var(--primary) 45%,
+   color-mix(in oklab, var(--primary) 68%, #10b981) 100%
+ );
  box-shadow:
-   0 4px 14px -2px rgba(13, 148, 136, 0.5),
+   0 4px 14px -2px color-mix(in oklab, var(--primary) 50%, transparent),
    inset 0 1px 0 rgba(255, 255, 255, 0.28);
  transition: transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1), opacity 0.25s ease;
  will-change: transform;
 }
 .dark .nav-liquid-indicator {
  box-shadow:
-   0 4px 18px -2px rgba(13, 148, 136, 0.65),
+   0 4px 18px -2px color-mix(in oklab, var(--primary) 60%, transparent),
    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
@@ -1133,133 +1131,11 @@
  }
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-  FINANCE EXPLORER — Drill-down analytics workspace
-  ══════════════════════════════════════════════════════════════════════ */
-
-.fe-card {
- background: oklch(1 0 0);
- border-radius: 1.5rem;
- padding: 1.25rem;
- border: 1px solid #EEF2FF;
- box-shadow: 0 8px 32px rgba(99, 102, 241, 0.06), 0 2px 8px rgba(99, 102, 241, 0.03);
-}
-.dark .fe-card {
- background: oklch(0.21 0.004 120);
- border-color: oklch(1 0 0 / 6%);
- box-shadow: 0 8px 32px oklch(0 0 0 / 0.22);
-}
-.fe-card-title {
- font-size: 0.9rem;
- font-weight: 700;
- letter-spacing: -0.01em;
- color: #0F172A;
-}
-.dark .fe-card-title {
- color: oklch(0.95 0.005 120);
-}
-
-/* Category row (clickable) */
-.fe-cat-row {
- display: flex;
- align-items: center;
- gap: 0.5rem;
- padding: 0.5rem;
- border-radius: 0.625rem;
- background: oklch(0.98 0.004 250);
- transition: background 0.2s ease, transform 0.2s ease;
-}
-.fe-cat-row:hover {
- background: #EEF2FF;
- transform: translateX(2px);
-}
-.dark .fe-cat-row {
- background: oklch(1 0 0 / 4%);
-}
-.dark .fe-cat-row:hover {
- background: oklch(1 0 0 / 8%);
-}
-
-/* Transaction row */
-.fe-tx-row {
- display: flex;
- align-items: center;
- gap: 0.6rem;
- padding: 0.5rem 0.25rem;
- border-radius: 0.625rem;
- transition: background 0.2s ease;
-}
-.fe-tx-row:hover {
- background: oklch(0.97 0.004 250);
-}
-.dark .fe-tx-row:hover {
- background: oklch(1 0 0 / 4%);
-}
-.fe-tx-logo {
- width: 2rem;
- height: 2rem;
- border-radius: 0.5rem;
- background: oklch(0.96 0.004 250);
- display: flex;
- align-items: center;
- justify-content: center;
- font-size: 0.95rem;
- flex-shrink: 0;
-}
-.dark .fe-tx-logo {
- background: oklch(1 0 0 / 6%);
-}
-
-/* KPI cards */
-.fe-kpi {
- display: flex;
- align-items: center;
- gap: 0.75rem;
- padding: 0.75rem;
- border-radius: 1rem;
- background: linear-gradient(135deg, oklch(0.98 0.004 250), oklch(0.96 0.004 250));
- border: 1px solid #EEF2FF;
- box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
- transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.fe-kpi:hover {
- transform: translateY(-2px);
- box-shadow: 0 6px 20px rgba(99, 102, 241, 0.08);
-}
-.dark .fe-kpi {
- background: oklch(1 0 0 / 4%);
- border-color: oklch(1 0 0 / 6%);
-}
-.fe-kpi-icon {
- width: 2rem;
- height: 2rem;
- border-radius: 9999px;
- display: flex;
- align-items: center;
- justify-content: center;
- flex-shrink: 0;
- box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-.fe-kpi-label {
- font-size: 0.65rem;
- font-weight: 600;
- text-transform: uppercase;
- letter-spacing: 0.04em;
- color: #64748B;
-}
-.fe-kpi-value {
- font-size: 0.9rem;
- font-weight: 700;
- letter-spacing: -0.01em;
- color: #0F172A;
- font-variant-numeric: tabular-nums;
- white-space: nowrap;
- overflow: hidden;
- text-overflow: ellipsis;
-}
-.dark .fe-kpi-value {
- color: oklch(0.95 0.005 120);
-}
+/* ═════════════════════════════════════════════════════════
+  FINANCE EXPLORER (fe-*) — DIHAPUS Task 41: komponennya sudah
+  dimigrasi ke sistem premium-card (Task 41-b); sistem indigo/
+  violet paralel ini tidak dipakai lagi (verifikasi rg "fe-" src).
+  ═════════════════════════════════════════════════════════ */
 
 /* ══════════════════════════════════════════════════════════════════════
   PREMIUM FINTECH ANIMATIONS — v2
@@ -2142,21 +2018,32 @@
   position: relative;
   overflow: hidden;
   border-radius: 1.25rem;
-  border: 1px solid hsl(160 30% 88% / 0.8);
+  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
   background:
-    radial-gradient(120% 160% at 85% -20%, hsl(166 84% 62% / 0.55) 0%, transparent 55%),
-    linear-gradient(125deg, #10b981 0%, #059669 28%, #14b8a6 62%, #0d9488 100%);
+    radial-gradient(120% 160% at 85% -20%, color-mix(in oklab, color-mix(in oklab, var(--primary) 50%, white) 55%, transparent) 0%, transparent 55%),
+    linear-gradient(
+      125deg,
+      color-mix(in oklab, var(--primary) 60%, #10b981) 0%,
+      color-mix(in oklab, var(--primary) 80%, #10b981) 30%,
+      var(--primary) 65%,
+      color-mix(in oklab, var(--primary) 80%, black) 100%
+    );
   color: #ecfdf5;
   box-shadow:
-    0 2px 4px -2px hsl(172 48% 24% / 0.4),
-    0 10px 28px -10px hsl(172 48% 24% / 0.5),
-    0 18px 44px -18px hsl(172 60% 30% / 0.45);
+    0 2px 4px -2px color-mix(in oklab, var(--primary) 45%, transparent),
+    0 10px 28px -10px color-mix(in oklab, var(--primary) 55%, transparent),
+    0 18px 44px -18px color-mix(in oklab, var(--primary) 65%, transparent);
 }
 .dark .premium-hero {
-  border-color: hsl(168 40% 22% / 0.9);
+  border-color: color-mix(in oklab, var(--primary) 35%, black);
   background:
-    radial-gradient(120% 160% at 85% -20%, hsl(166 60% 40% / 0.35) 0%, transparent 55%),
-    linear-gradient(125deg, hsl(176 60% 24%), hsl(160 65% 22%), hsl(174 55% 18%));
+    radial-gradient(120% 160% at 85% -20%, color-mix(in oklab, var(--primary) 35%, transparent) 0%, transparent 55%),
+    linear-gradient(
+      125deg,
+      color-mix(in oklab, var(--primary) 42%, black),
+      color-mix(in oklab, var(--primary) 36%, black) 45%,
+      color-mix(in oklab, var(--primary) 28%, black)
+    );
   box-shadow:
     0 2px 6px -2px hsl(0 0% 0% / 0.5),
     0 14px 34px -12px hsl(0 0% 0% / 0.6);
@@ -2234,13 +2121,21 @@
 }
 /* Angka KPI dengan gradient teal→emerald — "meledak" secara visual. */
 .premium-stat-grad {
-  background: linear-gradient(135deg, hsl(168 70% 26%), hsl(160 70% 36%));
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--primary) 78%, black),
+    color-mix(in oklab, var(--primary) 72%, #10b981)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 .dark .premium-stat-grad {
-  background: linear-gradient(135deg, hsl(166 65% 62%), hsl(158 60% 52%));
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--primary) 82%, white),
+    color-mix(in oklab, var(--primary) 58%, #10b981)
+  );
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -2253,8 +2148,8 @@
   background: hsl(166 10% 26% / 0.8);
 }
 .premium-progress [data-slot='progress-indicator'] {
-  background: linear-gradient(90deg, hsl(173 70% 40%), hsl(160 75% 42%));
-  box-shadow: 0 1px 3px -1px hsl(160 60% 30% / 0.5);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--primary) 86%, #10b981), var(--primary));
+  box-shadow: 0 1px 3px -1px color-mix(in oklab, var(--primary) 45%, transparent);
 }
 
 /* --- §6 premium-quote ----------------------------------------------------- */

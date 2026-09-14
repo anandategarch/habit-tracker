@@ -26,7 +26,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import {
  ResponsiveContainer,
  ComposedChart,
@@ -41,6 +41,7 @@ import {
 import {
  ChevronLeft,
  Calendar,
+ Lightbulb,
  TrendingUp,
  TrendingDown,
  Minus,
@@ -49,7 +50,6 @@ import {
  Wallet,
  ArrowUpRight,
 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
@@ -542,7 +542,7 @@ export function CategoryDetailView({
      </Select>
 
      {/* Hero number */}
-     <Card className="overflow-hidden anim-stagger contain-card">
+     <div className="premium-card premium-card-sheen rounded-2xl overflow-hidden anim-stagger contain-card" style={{ '--stagger': 0 } as CSSProperties}>
        <div className="bg-gradient-to-br from-[#22c55e]/[0.025] via-[#10b981]/[0.015] to-transparent px-4 py-5 sm:px-6">
          <div className="flex items-center gap-2 mb-1">
            <span className="text-2xl">{cat.emoji}</span>
@@ -576,14 +576,16 @@ export function CategoryDetailView({
            </div>
          )}
        </div>
-     </Card>
+     </div>
 
      {/* Combination chart: bars (daily) + line (7-day moving average) */}
-     <Card className="overflow-hidden anim-stagger contain-card">
-       <div className="px-4 py-3 sm:px-6">
+     <div className="premium-card premium-card-sheen rounded-2xl overflow-hidden anim-stagger contain-card" style={{ '--stagger': 1 } as CSSProperties}>
+       <div className="p-4 sm:p-5">
          <div className="flex items-center justify-between mb-3">
-           <h3 className="text-sm font-semibold flex items-center gap-1.5">
-             <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+           <h3 className="premium-label flex items-center gap-2">
+             <span className="chip-icon h-7 w-7 chip-teal shrink-0" aria-hidden="true">
+               <TrendingUp className="h-3.5 w-3.5" />
+             </span>
              Grafik Harian
            </h3>
            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -667,33 +669,35 @@ export function CategoryDetailView({
          </ResponsiveContainer>
          </div>
        </div>
-     </Card>
+     </div>
 
      {/* Stats grid */}
-     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-       <Card className="p-3">
-         <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Rata²/tx</p>
-         <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(avgPerTx)}</p>
-       </Card>
-       <Card className="p-3">
-         <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Rata²/hari</p>
-         <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(avgPerDay)}</p>
-       </Card>
-       <Card className="p-3">
-         <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Tertinggi</p>
-         <p className="text-sm font-bold tabular-nums mt-0.5">{compactRupiahSafe(maxTx.amount)}</p>
-       </Card>
-       <Card className="p-3">
-         <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Hari Tertinggi</p>
-         <p className="text-sm font-bold tabular-nums mt-0.5">{maxDay.day > 0 ? `Tgl ${maxDay.day}` : '—'}</p>
-       </Card>
+     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 2 } as CSSProperties}>
+         <p className="premium-label">Rata²/tx</p>
+         <p className="premium-stat text-base sm:text-lg mt-1">{compactRupiahSafe(avgPerTx)}</p>
+       </div>
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 3 } as CSSProperties}>
+         <p className="premium-label">Rata²/hari</p>
+         <p className="premium-stat text-base sm:text-lg mt-1">{compactRupiahSafe(avgPerDay)}</p>
+       </div>
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 4 } as CSSProperties}>
+         <p className="premium-label">Tertinggi</p>
+         <p className="premium-stat text-base sm:text-lg mt-1">{compactRupiahSafe(maxTx.amount)}</p>
+       </div>
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 5 } as CSSProperties}>
+         <p className="premium-label">Hari Tertinggi</p>
+         <p className="premium-stat text-base sm:text-lg mt-1">{maxDay.day > 0 ? `Tgl ${maxDay.day}` : '—'}</p>
+       </div>
      </div>
 
      {/* MERGE Task 32: Ringkasan mingguan M1–M5 (transplant Eksplorasi) */}
      {weekly.length > 0 && (
-       <Card className="p-3">
-         <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-           <Calendar className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 6 } as CSSProperties}>
+         <h3 className="premium-label mb-3 flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-emerald shrink-0" aria-hidden="true">
+             <Calendar className="h-3.5 w-3.5" />
+           </span>
            Ringkasan Mingguan
          </h3>
          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -714,13 +718,15 @@ export function CategoryDetailView({
              );
            })}
          </div>
-       </Card>
+       </div>
      )}
 
      {/* Pattern insights */}
      {peakHour.count > 0 && (
-       <Card className="p-3 flex items-center gap-2">
-         <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 flex items-center gap-3 anim-stagger" style={{ '--stagger': 7 } as CSSProperties}>
+         <span className="chip-icon h-8 w-8 chip-sky shrink-0" aria-hidden="true">
+           <Clock className="h-4 w-4" />
+         </span>
          <p className="text-xs text-muted-foreground">
            Paling sering beli jam{' '}
            <span className="font-semibold text-foreground">
@@ -728,14 +734,16 @@ export function CategoryDetailView({
            </span>{' '}
            ({peakHour.count}×)
          </p>
-       </Card>
+       </div>
      )}
 
      {/* A2: Time-of-day distribution */}
      {catTx.length > 0 && (
-       <Card className="p-3">
-         <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-           <Clock className="h-3 w-3 text-muted-foreground" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 8 } as CSSProperties}>
+         <h3 className="premium-label mb-2.5 flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-sky shrink-0" aria-hidden="true">
+             <Clock className="h-3.5 w-3.5" />
+           </span>
            Distribusi Waktu
          </h3>
          <div className="space-y-1.5">
@@ -764,18 +772,25 @@ export function CategoryDetailView({
            ))}
          </div>
          {topTimeSlot.count > 0 && (
-           <p className="text-[11px] text-muted-foreground mt-2">
-             💡 Dominan {topTimeSlot.label.toLowerCase()} — {topTimeSlot.count} dari {catTx.length} transaksi
-           </p>
+           <div className="mt-2 flex items-center gap-2">
+             <span className="chip-icon h-7 w-7 chip-amber shrink-0" aria-hidden="true">
+               <Lightbulb className="h-3.5 w-3.5" />
+             </span>
+             <p className="text-[11px] text-muted-foreground">
+               Dominan {topTimeSlot.label.toLowerCase()} — {topTimeSlot.count} dari {catTx.length} transaksi
+             </p>
+           </div>
          )}
-       </Card>
+       </div>
      )}
 
      {/* C9: Source breakdown */}
      {sourceList.length > 1 && (
-       <Card className="p-3">
-         <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-           <Wallet className="h-3 w-3 text-muted-foreground" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 9 } as CSSProperties}>
+         <h3 className="premium-label mb-2.5 flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-violet shrink-0" aria-hidden="true">
+             <Wallet className="h-3.5 w-3.5" />
+           </span>
            Sumber Dana
          </h3>
          <div className="space-y-1.5">
@@ -797,45 +812,51 @@ export function CategoryDetailView({
              </div>
            ))}
          </div>
-       </Card>
+       </div>
      )}
 
      {/* D11: Personality tag */}
      {personalityTag && (
-       <Card className="p-3 flex items-center gap-3 bg-primary/5">
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 flex items-center gap-3 anim-stagger" style={{ '--stagger': 10 } as CSSProperties}>
          <span className="text-2xl shrink-0">{personalityTag.emoji}</span>
          <div className="min-w-0">
            <p className="text-xs font-bold text-primary">{personalityTag.tag}</p>
            <p className="text-[11px] text-muted-foreground">{personalityTag.desc}</p>
          </div>
-       </Card>
+       </div>
      )}
 
      {/* A1: Pola per Hari — smooth line/area chart dengan nodes */}
      {catTx.length > 0 && (
-       <Card className="p-3">
-         <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-           <Calendar className="h-3 w-3 text-muted-foreground" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 11 } as CSSProperties}>
+         <h3 className="premium-label mb-3 flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-emerald shrink-0" aria-hidden="true">
+             <Calendar className="h-3.5 w-3.5" />
+           </span>
            Pola per Hari
          </h3>
          <DowLineChart data={dowData} topIdx={dowTop.idx} color={primaryColor} />
          {dowTop.total > 0 && (
-           <div className="mt-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
-             <span className="text-[11px]">💡</span>
+           <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+             <span className="chip-icon h-7 w-7 chip-amber shrink-0" aria-hidden="true">
+               <Lightbulb className="h-3.5 w-3.5" />
+             </span>
              <span className="text-[11px] text-muted-foreground">
                Paling boros di hari <span className="font-semibold text-foreground">{DOW_NAMES[dowTop.idx]}</span> —{' '}
                <span className="font-semibold text-foreground">{compactRupiahSafe(dowTop.total)}</span> ({dowTop.count}×)
              </span>
            </div>
          )}
-       </Card>
+       </div>
      )}
 
      {/* C8: Distribusi Nominal — 5 circular progress rings */}
      {histogram.length > 0 && catTx.length >= 3 && (
-       <Card className="p-3">
-         <h3 className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-           <Receipt className="h-3 w-3 text-muted-foreground" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 12 } as CSSProperties}>
+         <h3 className="premium-label mb-3 flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-amber shrink-0" aria-hidden="true">
+             <Receipt className="h-3.5 w-3.5" />
+           </span>
            Distribusi Nominal
          </h3>
          <div className="flex items-start justify-between gap-0.5 sm:gap-2">
@@ -882,22 +903,26 @@ export function CategoryDetailView({
            })}
          </div>
          {dominantBucket.count > 0 && (
-           <div className="mt-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
-             <span className="text-[11px]">💡</span>
+           <div className="mt-3 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+             <span className="chip-icon h-7 w-7 chip-amber shrink-0" aria-hidden="true">
+               <Lightbulb className="h-3.5 w-3.5" />
+             </span>
              <span className="text-[11px] text-muted-foreground">
                Mayoritas transaksi di range{' '}
                <span className="font-semibold text-foreground">{dominantBucket.range}</span> ({dominantBucket.count}×)
              </span>
            </div>
          )}
-       </Card>
+       </div>
      )}
 
      {/* D12: Anomaly detection */}
      {anomalies.length > 0 && (
-       <Card className="p-3 border-warning/30 dark:border-warning/20">
-         <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-warning dark:text-warning/80">
-           <TrendingUp className="h-3 w-3" />
+       <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger" style={{ '--stagger': 13 } as CSSProperties}>
+         <h3 className="premium-label mb-2.5 flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-rose shrink-0" aria-hidden="true">
+             <TrendingUp className="h-3.5 w-3.5" />
+           </span>
            Anomali Terdeteksi
          </h3>
          <div className="space-y-1.5">
@@ -923,14 +948,16 @@ export function CategoryDetailView({
              </div>
            ))}
          </div>
-       </Card>
+       </div>
      )}
 
      {/* Transaction list */}
-     <Card className="overflow-hidden">
+     <div className="premium-card premium-card-sheen rounded-2xl overflow-hidden anim-stagger" style={{ '--stagger': 14 } as CSSProperties}>
        <div className="px-4 py-2.5 sm:px-6 border-b border-border">
-         <h3 className="text-sm font-semibold flex items-center gap-1.5">
-           <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+         <h3 className="premium-label flex items-center gap-2">
+           <span className="chip-icon h-7 w-7 chip-slate shrink-0" aria-hidden="true">
+             <Receipt className="h-3.5 w-3.5" />
+           </span>
            Rincian Transaksi
          </h3>
        </div>
@@ -967,7 +994,7 @@ export function CategoryDetailView({
            ))
          )}
        </div>
-     </Card>
+     </div>
    </div>
  );
 }

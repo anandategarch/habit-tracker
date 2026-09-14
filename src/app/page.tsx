@@ -67,7 +67,7 @@ const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ss
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
 
 const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
- { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+ { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
  { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
  { id: 'work', label: 'Meja Kerja', icon: Briefcase },
  { id: 'goals', label: 'Tujuan', icon: Target },
@@ -289,7 +289,7 @@ const [showSplash, setShowSplash] = useState(true);
        >
          {/* Logo */}
          <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
-           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-500 text-white premium-fab-shadow">
+           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary/85 to-emerald-500 text-white premium-fab-shadow">
              <Sprout className="h-5 w-5" strokeWidth={2.2} />
            </div>
            <div className="leading-tight">
@@ -735,7 +735,7 @@ function PremiumBottomNav({
            aria-expanded={fabOpen}
            className={cn(
              'relative grid place-items-center rounded-full',
-             'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-500',
+             'bg-gradient-to-br from-primary via-primary/85 to-emerald-500',
              'premium-fab-shadow',
              // Socket illusion: the ring approximates the dock bg color so
              // the FAB looks punched through the frosted glass.

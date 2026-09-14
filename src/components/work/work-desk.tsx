@@ -9,7 +9,8 @@
 import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { CalendarDays, Check, Clock, Columns3, NotebookPen, Repeat, Sparkles, Umbrella } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { Briefcase, CalendarDays, Check, Clock, Columns3, NotebookPen, Repeat, Sparkles, Umbrella } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';
 import { useSetDayFlag, useWorkBoard, useWorkData } from './use-work-api';
@@ -49,21 +50,21 @@ export default function WorkDesk() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      {/* ── Header ── */}
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">
-            {formatLongIndoDate(today)}
-          </p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl">Meja Kerja</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">
-            {holiday
-              ? 'Hari libur — santai dulu, kerjaan nggak ke mana-mana.'
-              : allDone
-                ? 'Meja bersih. Mantap hari ini!'
-                : 'Satu-satu, semua beres.'}
-          </p>
-        </div>
+      {/* ── Header — Task 41: seragam PageHeader (ikon Briefcase + eyebrow
+          tanggal Jakarta), CTA "Tanya AI" tetap menempel kanan. ── */}
+      <PageHeader
+        title="Meja Kerja"
+        subtitle={
+          holiday
+            ? 'Hari libur — santai dulu, kerjaan nggak ke mana-mana.'
+            : allDone
+              ? 'Meja bersih. Mantap hari ini!'
+              : 'Satu-satu, semua beres.'
+        }
+        icon={Briefcase}
+        eyebrow={formatLongIndoDate(today)}
+        chipClassName="chip-emerald"
+      >
         {/* Tombol "Tanya AI" (padanan FAB melayang mockup — di sini menempel
             header supaya tidak bertabrakan dengan FAB quick-add global dock). */}
         <button
@@ -79,7 +80,7 @@ export default function WorkDesk() {
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           Tanya AI
         </button>
-      </header>
+      </PageHeader>
 
       {/* ── Pil statistik ── */}
       <div className="flex flex-wrap gap-2" role="group" aria-label="Ringkasan hari ini">
@@ -149,24 +150,24 @@ export default function WorkDesk() {
           dari ikon Sparkles), so all 5 pills fit without horizontal scroll
           down to 360px. */}
       <Tabs value={subTab} onValueChange={setSubTab} className="gap-4">
-        <TabsList className="flex w-full overflow-x-auto">
-          <TabsTrigger value="today" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
+        <TabsList className="flex w-full gap-0.5 overflow-x-auto scrollbar-hide rounded-xl bg-muted/60 p-1 h-auto">
+          <TabsTrigger value="today" className="flex-1 gap-0.5 whitespace-nowrap rounded-lg py-1.5 px-2 text-[11px] sm:gap-1 sm:px-3 sm:text-xs data-[state=active]:shadow-md">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
             Hari Ini
           </TabsTrigger>
-          <TabsTrigger value="routines" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
+          <TabsTrigger value="routines" className="flex-1 gap-0.5 whitespace-nowrap rounded-lg py-1.5 px-2 text-[11px] sm:gap-1 sm:px-3 sm:text-xs data-[state=active]:shadow-md">
             <Repeat className="h-3.5 w-3.5" aria-hidden="true" />
             Rutinitas
           </TabsTrigger>
-          <TabsTrigger value="notes" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
+          <TabsTrigger value="notes" className="flex-1 gap-0.5 whitespace-nowrap rounded-lg py-1.5 px-2 text-[11px] sm:gap-1 sm:px-3 sm:text-xs data-[state=active]:shadow-md">
             <NotebookPen className="h-3.5 w-3.5" aria-hidden="true" />
             Catatan
           </TabsTrigger>
-          <TabsTrigger value="board" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
+          <TabsTrigger value="board" className="flex-1 gap-0.5 whitespace-nowrap rounded-lg py-1.5 px-2 text-[11px] sm:gap-1 sm:px-3 sm:text-xs data-[state=active]:shadow-md">
             <Columns3 className="h-3.5 w-3.5" aria-hidden="true" />
             Papan
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex-1 gap-0.5 whitespace-nowrap px-1 text-[11px] sm:gap-1 sm:px-2 sm:text-xs">
+          <TabsTrigger value="ai" className="flex-1 gap-0.5 whitespace-nowrap rounded-lg py-1.5 px-2 text-[11px] sm:gap-1 sm:px-3 sm:text-xs data-[state=active]:shadow-md">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Asisten
           </TabsTrigger>

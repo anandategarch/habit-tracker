@@ -42,6 +42,7 @@ import {
  Gauge,
  Sprout,
  CalendarDays,
+ ListChecks,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -486,6 +487,8 @@ export default function HabitMaster() {
      <PageHeader
        title="Habit Master"
        subtitle="Kelola dan atur semua habit kamu di satu tempat."
+       icon={ListChecks}
+       eyebrow="Perpustakaan Habit"
      >
        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
          <DialogTrigger asChild>

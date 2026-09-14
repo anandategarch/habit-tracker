@@ -145,7 +145,7 @@ export function HabitGridSection({
                   onClick={() => setViewFilter(key)}
                   data-active={viewFilter === key}
                   aria-pressed={viewFilter === key}
-                  className="premium-segment-item flex-1 min-w-0 data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+                  className="premium-segment-item flex-1 min-w-0"
                 >
                   {label}
                 </button>

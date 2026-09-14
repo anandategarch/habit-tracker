@@ -394,7 +394,7 @@ export default function Dashboard() {
      <section aria-label="Key metrics">
        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
          {[
-           { label: 'Total Habit', icon: Target, chip: 'chip-teal', numeric: true, value: <CountUpNumber value={displayData.totalHabits} />, sub: displayData.graduatedCount > 0 ? `🎓 ${displayData.graduatedCount} lulus` : 'habit aktif', key: 'habits', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat semua habit' },
+           { label: 'Total Habit', icon: Target, chip: 'chip-teal', numeric: true, value: <CountUpNumber value={displayData.totalHabits} />, sub: displayData.graduatedCount > 0 ? `${displayData.graduatedCount} habit lulus` : 'habit aktif', key: 'habits', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat semua habit' },
            { label: 'Tingkat Selesai', icon: CheckCircle, chip: 'chip-emerald', numeric: true, value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
            { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', numeric: true, value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak' },
            { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest' },
@@ -567,7 +567,7 @@ export default function Dashboard() {
              <div className="premium-empty-orb">
                <CheckCircle className="h-8 w-8 text-primary" aria-hidden="true" />
              </div>
-             <p className="text-sm font-medium">Semua selesai untuk hari ini! 🎉</p>
+             <p className="text-sm font-medium">Semua selesai untuk hari ini! Kerja bagus.</p>
            </div>
          ) : (
            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -644,7 +644,7 @@ export default function Dashboard() {
                        </div>
                      </div>
                      <div className="flex items-center gap-2">
-                       <Progress value={habit.rate} className="h-1.5 flex-1" />
+                       <Progress value={habit.rate} className="premium-progress h-1.5 flex-1" />
                        <span className="text-xs text-muted-foreground shrink-0">
                          {habit.completed}/{habit.total}
                        </span>

@@ -224,7 +224,7 @@ export function GoalCard({
 
         {/* Progress otomatis dari % milestone */}
         <div className="flex items-center gap-3">
-          <Progress value={pct} className="anim-progress-fill h-2 flex-1" aria-label={`Progres ${pct}%`} />
+          <Progress value={pct} className="premium-progress anim-progress-fill h-2 flex-1" aria-label={`Progres ${pct}%`} />
           <span className="premium-stat text-xs text-foreground shrink-0">{pct}%</span>
           {milestones.length > 0 && (
             <span className="text-[11px] text-muted-foreground shrink-0">

@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CountUpRupiah } from './count-up-rupiah';
 import {
   Dialog,
   DialogContent,
@@ -275,7 +276,7 @@ export function SourceBalance() {
             })}
             <li className="flex items-center justify-between px-3 pt-2.5">
               <span className="premium-label">Total Saldo Semua Sumber</span>
-              <span className="premium-stat text-sm">{formatRupiah(totalBalance)}</span>
+              <CountUpRupiah amount={totalBalance} className="premium-stat text-sm" />
             </li>
           </ul>
         )}

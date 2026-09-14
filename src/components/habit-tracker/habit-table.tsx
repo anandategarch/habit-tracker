@@ -11,6 +11,8 @@ import {
   Play,
   Archive,
   ArchiveRestore,
+  GraduationCap,
+  CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
@@ -126,10 +128,11 @@ export function HabitTable({
                       <p className="truncate text-sm font-medium">{h.name}</p>
                       <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                         {graduated ? (
-                          // Task 36: lulus = kemenangan — badge emerald + 🎓,
-                          // bukan abu-abu "diarsipkan".
+                          // Task 36: lulus = kemenangan — badge emerald +
+                          // ikon toga (Task 41: emoji 🎓 → lucide seragam).
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-px text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                            🎓 {HABIT_STATUS_LABELS[status]}
+                            <GraduationCap className="h-3 w-3" aria-hidden="true" />
+                            {HABIT_STATUS_LABELS[status]}
                             {h.targetDays ? ` · ${h.completedLogCount ?? 0}/${h.targetDays} hari` : ''}
                           </span>
                         ) : (
@@ -143,7 +146,7 @@ export function HabitTable({
                         )}
                         {schedBadge && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-teal-500/10 dark:bg-teal-400/10 px-1.5 py-px text-[10px] font-bold text-teal-600 dark:text-teal-300 max-w-[8rem]">
-                            <span aria-hidden="true">📅</span>
+                            <CalendarDays className="h-3 w-3" aria-hidden="true" />
                             <span className="truncate">{schedBadge}</span>
                           </span>
                         )}

@@ -318,6 +318,8 @@ export default function Settings() {
      <PageHeader
        title="Pengaturan"
        subtitle="Kelola preferensi, habits, dan data"
+       icon={SettingsIcon}
+       eyebrow="Sektor"
      />
 
      {/* Sub-tabs — premium segmented control (pola view-toggle daily-tracker) */}
@@ -336,7 +338,7 @@ export default function Settings() {
              onClick={() => setActiveSection(tab.id)}
              data-active={isActive}
              aria-pressed={isActive}
-             className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm flex items-center gap-1.5"
+             className="premium-segment-item flex items-center gap-1.5"
            >
              <Icon className="h-3.5 w-3.5" />
              <span>{tab.label}</span>

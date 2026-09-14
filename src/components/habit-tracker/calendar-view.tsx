@@ -377,6 +377,8 @@ export default function CalendarView() {
       <PageHeader
         title="Kalender"
         subtitle="Visualisasikan penyelesaian habit kamu dalam heatmap bulanan."
+        icon={CalendarDays}
+        eyebrow="Riwayat"
       >
         <Button
           variant="outline"

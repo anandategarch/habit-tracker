@@ -19,6 +19,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { GoalCard } from './goal-card';
 import { GoalFormDialog } from './goal-form-dialog';
 import { GoalsSkeleton } from './goals-skeleton';
+import { CountUpNumber } from './count-up';
 import { nextStatusForMilestones, type Goal, type GoalMilestone } from './goals-helpers';
 
 /** Body PUT lengkap dari goal (partial-safe di API). */
@@ -162,7 +163,12 @@ export default function Goals() {
   return (
     <div className="max-w-4xl space-y-4 sm:space-y-6">
       {/* Header */}
-      <PageHeader title="Tujuan" subtitle="Kelola tujuan jangka panjang dan milestone-nya">
+      <PageHeader
+        title="Tujuan"
+        subtitle="Kelola tujuan jangka panjang dan milestone-nya"
+        icon={Target}
+        eyebrow="Sektor"
+      >
         <Button onClick={openNewForm} className="btn-primary-gradient">
           <Plus className="h-4 w-4" aria-hidden="true" />
           Tujuan Baru
@@ -182,7 +188,9 @@ export default function Goals() {
               <span className={cn('chip-icon h-9 w-9', stat.chip)} aria-hidden="true">
                 <StatIcon className="h-4 w-4" />
               </span>
-              <p className={cn('premium-stat text-2xl sm:text-3xl', stat.tint)}>{stat.value}</p>
+              <p className={cn('premium-stat text-2xl sm:text-3xl', stat.tint)}>
+                <CountUpNumber value={stat.value} />
+              </p>
               {/* min-h-7: angka tetap sejajar saat label wrap di mobile */}
               <p className="premium-label min-h-7 leading-tight">{stat.label}</p>
             </div>

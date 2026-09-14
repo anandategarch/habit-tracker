@@ -74,7 +74,7 @@ export function FiltersBar({
           onClick={() => setCategoryFilter('all')}
           data-active={categoryFilter === 'all'}
           aria-pressed={categoryFilter === 'all'}
-          className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+          className="premium-segment-item"
         >
           Semua
         </button>
@@ -87,7 +87,7 @@ export function FiltersBar({
               onClick={() => setCategoryFilter(active ? 'all' : c.label)}
               data-active={active}
               aria-pressed={active}
-              className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm inline-flex items-center gap-1.5"
+              className="premium-segment-item inline-flex items-center gap-1.5"
             >
               {c.color && (
                 <span
@@ -117,7 +117,7 @@ export function FiltersBar({
               onClick={() => setStatusFilter(active ? 'all' : opt.id)}
               data-active={active}
               aria-pressed={active}
-              className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+              className="premium-segment-item"
             >
               {opt.label}
             </button>

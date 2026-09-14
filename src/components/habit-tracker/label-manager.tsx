@@ -153,7 +153,7 @@ export default function LabelManager() {
               }}
               data-active={active}
               aria-pressed={active}
-              className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+              className="premium-segment-item"
             >
               {tab.label}
             </button>

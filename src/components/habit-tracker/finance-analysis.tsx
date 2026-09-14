@@ -34,6 +34,7 @@ import {
   ChevronRight,
   Clock,
   Compass,
+  Lightbulb,
   RefreshCw,
   Split,
   TrendingDown,
@@ -52,6 +53,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/store/app-store';
 import { formatRupiah, compactRupiahSafe } from './finance-types';
+import { CountUpRupiah } from './count-up-rupiah';
 import { monthOptionLabel } from './category-explorer-helpers';
 import { tintFromColor } from '@/lib/finance-helpers';
 import { cn } from '@/lib/utils';
@@ -378,13 +380,13 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
         {monthPicker}
         <div className="text-right">
           <p className="premium-label">Total Pengeluaran</p>
-          <p className="premium-stat text-lg">{formatRupiah(grandTotal)}</p>
+          <p className="premium-stat text-lg"><CountUpRupiah amount={grandTotal} /></p>
         </div>
       </div>
 
       {/* Kartu statistik bulan */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="premium-card premium-card-sheen rounded-2xl p-3 anim-stagger flex items-center gap-2.5" style={{ '--stagger': 0 } as CSSProperties}>
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger flex items-center gap-3" style={{ '--stagger': 0 } as CSSProperties}>
           <span className="chip-icon chip-rose h-9 w-9 shrink-0" aria-hidden="true">
             <TrendingDown className="h-4 w-4" />
           </span>
@@ -393,7 +395,7 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
             <p className="premium-stat text-sm truncate">{compactRupiahSafe(dashboardData?.monthExpense ?? grandTotal)}</p>
           </div>
         </div>
-        <div className="premium-card premium-card-sheen rounded-2xl p-3 anim-stagger flex items-center gap-2.5" style={{ '--stagger': 1 } as CSSProperties}>
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger flex items-center gap-3" style={{ '--stagger': 1 } as CSSProperties}>
           <span className="chip-icon chip-emerald h-9 w-9 shrink-0" aria-hidden="true">
             <Wallet className="h-4 w-4" />
           </span>
@@ -402,7 +404,7 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
             <p className="premium-stat text-sm truncate">{compactRupiahSafe(dashboardData?.monthIncome ?? 0)}</p>
           </div>
         </div>
-        <div className="premium-card premium-card-sheen rounded-2xl p-3 anim-stagger flex items-center gap-2.5" style={{ '--stagger': 2 } as CSSProperties}>
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger flex items-center gap-3" style={{ '--stagger': 2 } as CSSProperties}>
           <span className="chip-icon chip-teal h-9 w-9 shrink-0" aria-hidden="true">
             <Clock className="h-4 w-4" />
           </span>
@@ -411,7 +413,7 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
             <p className="premium-stat text-sm truncate">{compactRupiahSafe(dashboardData?.dailyAvg ?? 0)}</p>
           </div>
         </div>
-        <div className="premium-card premium-card-sheen rounded-2xl p-3 anim-stagger flex items-center gap-2.5" style={{ '--stagger': 3 } as CSSProperties}>
+        <div className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 anim-stagger flex items-center gap-3" style={{ '--stagger': 3 } as CSSProperties}>
           <span className="chip-icon chip-amber h-9 w-9 shrink-0" aria-hidden="true">
             <TrendingDown className="h-4 w-4 rotate-12" />
           </span>
@@ -424,15 +426,19 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
 
       {/* Insight line + aksi budget */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] text-muted-foreground min-w-0">
-          💡{' '}
-          {dashboardData?.topCategory
-            ? `Kategori terbesar: ${dashboardData.topCategory.category} (${formatRupiah(dashboardData.topCategory.amount)})`
-            : `${categoryTotals.length} kategori dipakai bulan ini`}
-          {typeof dashboardData?.noSpendDays === 'number' && dashboardData.noSpendDays > 0
-            ? ` · ${dashboardData.noSpendDays} hari tanpa belanja`
-            : ''}
-        </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="chip-icon h-7 w-7 chip-amber shrink-0" aria-hidden="true">
+            <Lightbulb className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-[11px] text-muted-foreground min-w-0">
+            {dashboardData?.topCategory
+              ? `Kategori terbesar: ${dashboardData.topCategory.category} (${formatRupiah(dashboardData.topCategory.amount)})`
+              : `${categoryTotals.length} kategori dipakai bulan ini`}
+            {typeof dashboardData?.noSpendDays === 'number' && dashboardData.noSpendDays > 0
+              ? ` · ${dashboardData.noSpendDays} hari tanpa belanja`
+              : ''}
+          </p>
+        </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Button
             size="sm"

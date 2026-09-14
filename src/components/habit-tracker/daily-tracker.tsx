@@ -901,7 +901,7 @@ export default function DailyTracker() {
           onClick={() => setViewMode('today')}
           data-active={viewMode === 'today'}
           aria-pressed={viewMode === 'today'}
-          className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+          className="premium-segment-item"
         >
           Hari Ini
         </button>
@@ -909,7 +909,7 @@ export default function DailyTracker() {
           onClick={() => setViewMode('history')}
           data-active={viewMode === 'history'}
           aria-pressed={viewMode === 'history'}
-          className="premium-segment-item data-[active=true]:bg-primary data-[active=true]:shadow-sm"
+          className="premium-segment-item"
         >
           Riwayat
         </button>

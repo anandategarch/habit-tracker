@@ -8,6 +8,7 @@
 
 import { CheckCircle2, Zap, Flame, Award } from 'lucide-react';
 import { calcLevel } from '@/lib/dashboard-helpers';
+import { CountUpNumber } from './count-up';
 
 interface DailySummaryProps {
   completedCount: number;
@@ -45,7 +46,7 @@ export function DailySummary({
           <div className="min-w-0">
             <p className="premium-label">Selesai</p>
             <p className="premium-stat text-xl text-foreground">
-              {completedCount}
+              <CountUpNumber value={completedCount} className="premium-stat-grad" />
               <span className="text-sm font-semibold text-muted-foreground">
                 /{totalCount}
               </span>
@@ -61,7 +62,7 @@ export function DailySummary({
           <div className="min-w-0">
             <p className="premium-label">XP Hari Ini</p>
             <p className="premium-stat text-xl text-foreground">
-              {todayXP}
+              <CountUpNumber value={todayXP} className="premium-stat-grad" />
               <span className="text-sm font-semibold text-muted-foreground"> XP</span>
             </p>
           </div>
@@ -77,7 +78,7 @@ export function DailySummary({
           <div className="min-w-0">
             <p className="premium-label">Streak Terbaik</p>
             <p className="premium-stat text-xl text-foreground">
-              {bestStreak}
+              <CountUpNumber value={bestStreak} className="premium-stat-grad" />
               <span className="text-sm font-semibold text-muted-foreground"> hari</span>
             </p>
           </div>
@@ -90,7 +91,9 @@ export function DailySummary({
           </span>
           <div className="min-w-0">
             <p className="premium-label">Level</p>
-            <p className="premium-stat text-xl text-foreground">Lv {level}</p>
+            <p className="premium-stat text-xl text-foreground">
+              <CountUpNumber value={level} prefix="Lv " className="premium-stat-grad" />
+            </p>
             <p className="text-[11px] text-muted-foreground tabular-nums truncate">
               XP total {totalXp}
             </p>
