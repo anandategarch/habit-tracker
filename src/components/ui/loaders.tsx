@@ -95,9 +95,9 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
  * dilembutkan .75→.16. Loading kini menampilkan POHONNYA — bukan kotak.
  *
  * Varian:
- * - 'splash' : mark masuk dengan settle-spring + halo teal bernapas +
- *   progress ring MENGAKSELERASI (ease-in — riset CMU: terasa lebih cepat).
- *   Untuk layar pembuka (1.6s, sinkron anim-splash-exit di page.tsx).
+ * - 'splash' : (LEGACY Task 56/57 — sejak Task 58 splash pembuka memakai
+ *   TreeGrowSplash: sekuens tumbuh Tunas→Berbunga; varian ini tidak lagi
+ *   dipakai page.tsx, dipertahankan demi kompatibilitas API.)
  * - 'inline' : mark tampil langsung + goyang lembut dari pangkal (tanpa
  *   ring/sekuens) — untuk tab-loading yang selesai dalam ~300ms.
  *
@@ -180,6 +180,112 @@ export function TreeMark({
 /** Baris skeleton generik. */
 export function SkeletonRow({ className }: { className?: string }) {
   return <div className={cn('h-14 animate-pulse rounded-xl bg-muted/60', className)} />;
+}
+
+/* ── TreeGrowSplash (Task 58) — splash pembuka: pohon TUMBUH ─────────────
+ * User: "loading awal buka aplikasi pakai animasi dari Tunas sampai pohon
+ * berbunga". Empat artwork botanical pengguna (grow-1-tunas … grow-4-
+ * berbunga — dibangkitkan scripts/make-growth-marks.mjs dari sumber ikon
+ * 1024×1024, layer latar kotak dibuang) dipasang BERTUMPUK bottom-align
+ * di satu kotak.
+ *
+ * Trik "tumbuh" (bukan berganti gambar): keempat file berbagi sistem
+ * koordinat — viewBox x=152 w=720 + batas bawah y=966 sama persis, hanya
+ * batas atasnya yang naik tiap tahap. Konsekuensinya: skala px-per-unit
+ * identik (gundukan tanah sama besar) & garis tanah jatuh di posisi layar
+ * yang sama saat semua image di-bottom-align → tahap berikutnya crossfade
+ * DI ATAS tahap sebelumnya seolah pohon yang sama memanjang ke atas.
+ *
+ * Sekuens (sinkron splash exit 2.0s di page.tsx + ring 1.62s):
+ *   t=0      tunas masuk (settle-spring dari tanah) + ring mulai
+ *   t=0.44s  pohon muda mekar di atas tunas   (fade 0.44s, ease-out)
+ *   t=0.88s  pohon dewasa
+ *   t=1.32s  pohon berbunga — penuh di 1.76s, goyang lembut mulai 1.45s
+ * Ring selesai ~1.7s (efek "selesai!" psikologis Task 27 tetap terjaga).
+ * Halo teal bernapas + progress ring mengakselerasi (ease-in riset CMU)
+ * diwarisi dari estetika TreeMark Task 56/57.
+ *
+ * Sama seperti TreeMark: <img> (bukan inline-SVG) supaya gradient id
+ * (xleaf/xwood…) tiap file tidak bertabrakan antar instance/dokumen.
+ * prefers-reduced-motion: cerita dimatikan — hanya berbunga statis. */
+const TREE_GROW_STAGES = [
+  { src: '/tree/grow-1-tunas.svg', w: 720, h: 363, delay: 0 },
+  { src: '/tree/grow-2-muda.svg', w: 720, h: 619, delay: 0.44 },
+  { src: '/tree/grow-3-dewasa.svg', w: 720, h: 718, delay: 0.88 },
+  { src: '/tree/grow-4-berbunga.svg', w: 720, h: 784, delay: 1.32 },
+] as const;
+
+/** Aspek kotak = tahap tertinggi (berbunga) — kotak disesuaikan supaya
+ *  pohon berbunga muat penuh tanpa terpotong. */
+const TREE_GROW_MAX_ASPECT =
+  TREE_GROW_STAGES[TREE_GROW_STAGES.length - 1].h / TREE_GROW_STAGES[TREE_GROW_STAGES.length - 1].w;
+
+export function TreeGrowSplash({
+  className,
+  size = 180,
+  ring = true,
+}: {
+  className?: string;
+  size?: number;
+  /** Tampilkan progress ring yang mengakselerasi (1.62s, ease-in). */
+  ring?: boolean;
+}) {
+  const boxW = Math.round(size);
+  const boxH = Math.round(size * TREE_GROW_MAX_ASPECT);
+  return (
+    <div
+      className={cn('relative', className)}
+      style={{ width: boxW, height: boxH }}
+      role="status"
+      aria-label="Memuat — pohon tumbuh dari tunas hingga berbunga"
+    >
+      {/* Halo teal "bernapas" di belakang pohon (warisan TreeMark splash). */}
+      <div className="treemark-halo treemark-halo-on" aria-hidden="true" />
+
+      {/* Progress ring — mulai pukul 12, arc mengakselerasi 1.62s; selesai
+          ~saat berbunga penuh (metafora: pertumbuhan = progres loading). */}
+      {ring && (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
+          <g transform="rotate(-90 50 50)">
+            <circle className="treemark-ring-track" cx="50" cy="50" r="47" fill="none" strokeWidth="2.6" />
+            <circle
+              className="treemark-ring-arc"
+              cx="50"
+              cy="50"
+              r="47"
+              fill="none"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              pathLength={1}
+            />
+          </g>
+        </svg>
+      )}
+
+      {/* Stack 4 tahap — enter spring di wrapper (origin tanah), tiap tahap
+          fade-in via kelas + animationDelay, sway serempak di <img>. */}
+      <div className="tree-grow-root" aria-hidden="true">
+        {TREE_GROW_STAGES.map((s, i) => (
+          <div
+            key={s.src}
+            className={cn('tree-grow-stage', i === TREE_GROW_STAGES.length - 1 && 'tree-grow-final')}
+            style={{ animationDelay: `${s.delay}s` }}
+          >
+            <img
+              src={s.src}
+              alt=""
+              width={s.w}
+              height={s.h}
+              decoding="async"
+              draggable={false}
+              fetchPriority={i === 0 ? 'high' : 'auto'}
+              className="tree-grow-img tree-grow-sway"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /* ── TreeProgress (Task 44) — signature visual Rutina ────────────────────

@@ -37,7 +37,7 @@ import { AppLockGate } from '@/components/app-lock-gate';
 import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
-import { TreeMark } from '@/components/ui/loaders';
+import { TreeMark, TreeGrowSplash } from '@/components/ui/loaders';
 
 // FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
 // initial bundle small + avoid SSR for components that use browser-only APIs.
@@ -253,14 +253,15 @@ export default function Home() {
  const triggerQuickAdd = useAppStore(s => s.triggerQuickAdd);
  const queryClient = useQueryClient();
 
- // Splash screen on initial app load — TASK 56: TreeMark (artwork pohon
-// botanical pengguna, tahap "Tunas") — ikon disamakan dengan pohon
-// terbaru: tile gelap + halo teal bernapas + goyang lembut + progress
-// ring mengakselerasi, selama 1.6s while dynamic imports + React Query
-// fetch data. Makes first load feel premium + branded — pengganti pohon
-// garis vektor TreeGrow (Task 28).
-// TASK-28 timing (riset Task 27): 2600ms → 1600ms. Riset UX: splash idealnya
-// <1.5-2s; ring selesai tepat saat splash exit (efek "selesai!" psikologis).
+ // Splash screen on initial app load — TASK 58: TreeGrowSplash — pohon
+// TUMBUH dari Tunas → Pohon Muda → Pohon Dewasa → Berbunga (4 artwork
+// botanical pengguna, crossfade bertumpuk dari tanah yang sama) + halo
+// teal bernapas + progress ring mengakselerasi, selama 2.0s while dynamic
+// imports + React Query fetch data. Makes first load feel premium +
+// branded — pengganti TreeMark statis (Task 56/57).
+// TASK-58 timing: 1.6s → 2.0s — narasi 4 tahap butuh ruang (tahap terakhir
+// penuh di 1.76s); masih dalam rentang riset Task 27 (ideal 1.5-2s, exit
+// reveal 400ms). Ring 1.62s selesai ~saat berbunga penuh.
 // FEAT-SPLASH-REVEAL: Exit animation (fade + scale + slide up, 400ms)
 // instead of hard cut. Uses splashExiting state to delay unmount until
 // animation completes.
@@ -276,7 +277,7 @@ const [showSplash, setShowSplash] = useState(true);
      setSplashExiting(true);
      // Unmount after exit animation completes (400ms)
      unmountTimer = setTimeout(() => setShowSplash(false), 400);
-   }, 1600);
+   }, 2000);
    return () => {
      clearTimeout(exitTimer);
      if (unmountTimer) clearTimeout(unmountTimer);
@@ -456,10 +457,11 @@ const [showSplash, setShowSplash] = useState(true);
  const ActiveComponent = TAB_COMPONENTS[activeTab];
 
  return (
-   <TooltipProvider delayDuration={300}>     {/* Splash screen — TASK 56/57: TreeMark (artwork pohon botanical pengguna
-         tahap "Tunas", versi MARK TRANSPARAN tanpa latar kotak) on initial
-         app load (1.6s). Premium branded loading: pohon + halo bernapas +
-         goyang lembut + progress ring mengakselerasi (riset CMU: terasa
+   <TooltipProvider delayDuration={300}>     {/* Splash screen — TASK 58: TreeGrowSplash — animasi pohon TUMBUH
+         Tunas → Pohon Muda → Pohon Dewasa → Berbunga (artwork botanical
+         pengguna, mark transparan — fix kotak Task 57 dipertahankan) on
+         initial app load (2.0s). Premium branded loading: sekuens tumbuh
+         + halo bernapas + progress ring mengakselerasi (riset CMU: terasa
          lebih cepat). FEAT-SPLASH-REVEAL: exit animation (fade + scale +
          slide up) instead of hard cut; content entrance (fade + slide up). */}
      {showSplash && (
@@ -470,7 +472,7 @@ const [showSplash, setShowSplash] = useState(true);
          )}
          key="splash"
        >
-         <TreeMark size={176} variant="splash" ring />
+         <TreeGrowSplash size={180} ring />
          <div className="text-center">
            <p className="text-lg font-semibold text-primary tracking-tight">Rutina</p>
            <p className="text-xs text-muted-foreground mt-1">Menumbuhkan habit harian</p>

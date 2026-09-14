@@ -1,21 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="340" height="350" viewBox="342 595 340 350">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="363" viewBox="152 603 720 363">
 <defs>
-  <linearGradient id="xleaf" x1="0" y1="0" x2="1" y2="1">
-<stop stop-color="#9AF4CC"/>
-<stop offset=".5" stop-color="#63E6BE"/>
-<stop offset="1" stop-color="#1E9B72"/>
-</linearGradient>
-  <linearGradient id="xleafDark" x1="0" y1="1" x2="1" y2="0">
-<stop stop-color="#106B53"/>
-<stop offset="1" stop-color="#38C99E"/>
-</linearGradient>
-  <linearGradient id="xwood" x1="0" y1="0" x2="1" y2="0">
-<stop stop-color="#765133"/>
-<stop offset="1" stop-color="#4D3424"/>
-</linearGradient>
+  <linearGradient id="xwood" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#765133"/><stop offset="1" stop-color="#4D3424"/></linearGradient>
+  <linearGradient id="xleaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9AF4CC"/><stop offset=".5" stop-color="#63E6BE"/><stop offset="1" stop-color="#1E9B72"/></linearGradient>
+  <linearGradient id="xleafDark" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#106B53"/><stop offset="1" stop-color="#38C99E"/></linearGradient>
  </defs>
-<g transform="translate(0 10)">
-<ellipse cx="512" cy="865" rx="355" ry="52" fill="#020706" opacity=".16"/>
+<g transform="translate(0 10)"><ellipse cx="512" cy="865" rx="355" ry="52" fill="#020706" opacity=".16"/>
 <ellipse cx="512" cy="855" rx="330" ry="35" fill="#181714"/>
 <path d="M197 853 Q 512 785 827 855" fill="none" stroke="#2A241B" stroke-width="10" opacity=".75"/>
 <g opacity=".95">
@@ -23,17 +12,13 @@
  <path d="M515.2 815 C 520.0 842.2, 531.2 863.0, 572.8 877.4" fill="none" stroke="#694A32" stroke-width="8" stroke-linecap="round"/>
  <path d="M509.6 821.4 C 476.0 845.4, 460.0 853.4, 422.4 859.8" fill="none" stroke="#4D3826" stroke-width="4" stroke-linecap="round"/>
  <path d="M513.6 821.4 C 548.0 845.4, 564.8 854.2, 601.6 859.8" fill="none" stroke="#4D3826" stroke-width="4" stroke-linecap="round"/>
- </g>
-<path d="M512 815 C510 744 513 675 520 613" stroke="url(#xwood)" stroke-width="16" fill="none" stroke-linecap="round"/>
-<g transform="translate(510 700) rotate(-47) scale(0.5)">
+ </g><path d="M512 815 C510 744 513 675 520 613" stroke="url(#xwood)" stroke-width="16" fill="none" stroke-linecap="round"/><g transform="translate(510 700) rotate(-47) scale(0.5)">
   <path d="M0 0 C -14 -52, 15 -92, 66 -106 C 72 -55, 45 -12, 0 0 Z" fill="url(#xleaf)"/>
   <path d="M2 -6 C 24 -35, 45 -68, 66 -102" fill="none" stroke="#D7FFF0" stroke-width="3" opacity=".55" stroke-linecap="round"/>
   <path d="M17 -32 L42 -34 M9 -51 L33 -56 M28 -14 L50 -18" fill="none" stroke="#C1F6E3" stroke-width="2" opacity=".32" stroke-linecap="round"/>
- </g>
-<g transform="translate(516 670) rotate(35) scale(0.47)">
+ </g><g transform="translate(516 670) rotate(35) scale(0.47)">
   <path d="M0 0 C -14 -52, 15 -92, 66 -106 C 72 -55, 45 -12, 0 0 Z" fill="url(#xleafDark)"/>
   <path d="M2 -6 C 24 -35, 45 -68, 66 -102" fill="none" stroke="#D7FFF0" stroke-width="3" opacity=".55" stroke-linecap="round"/>
   <path d="M17 -32 L42 -34 M9 -51 L33 -56 M28 -14 L50 -18" fill="none" stroke="#C1F6E3" stroke-width="2" opacity=".32" stroke-linecap="round"/>
- </g>
-</g>
+ </g></g>
 </svg>
