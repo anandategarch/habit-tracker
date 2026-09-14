@@ -83,6 +83,8 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
   // bulan di sini dan di header finance.tsx saling sinkron dua arah.
   const selectedMonth = useAppStore(s => s.selectedMonth);
   const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
+  // VERIFY-48 (48-b): pembuatan budget dari Analisis menyegarkan dashboard.
+  const triggerRefresh = useAppStore(s => s.triggerRefresh);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [busy, setBusy] = useState<'auto' | 'split' | null>(null);
 
@@ -245,10 +247,13 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
       const { created, errMessage } = await postBudgets('auto', rows);
       if (errMessage) {
         toast.error(errMessage);
-        if (created > 0) queryClient.invalidateQueries({ queryKey: ['finance'] });
+        // VERIFY-48 (48-b): budget baru mengubah budgetTotal/budgetSpent di
+        // /api/dashboard (tile Anggaran Beranda + kartu Progres) — triggerRefresh.
+        if (created > 0) { queryClient.invalidateQueries({ queryKey: ['finance'] }); triggerRefresh(); }
       } else {
         toast.success(`${created} budget bulanan dibuat dari pola belanja`);
         queryClient.invalidateQueries({ queryKey: ['finance'] });
+        triggerRefresh();
       }
     } catch {
       toast.error('Terjadi kesalahan');
@@ -278,10 +283,12 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
       const { created, errMessage } = await postBudgets('split', rows);
       if (errMessage) {
         toast.error(errMessage);
-        if (created > 0) queryClient.invalidateQueries({ queryKey: ['finance'] });
+        // VERIFY-48 (48-b): sama dengan auto-suggest — dashboard ikut segar.
+        if (created > 0) { queryClient.invalidateQueries({ queryKey: ['finance'] }); triggerRefresh(); }
       } else {
         toast.success(`Budget hemat (75% pola) untuk ${created} kategori dibuat`);
         queryClient.invalidateQueries({ queryKey: ['finance'] });
+        triggerRefresh();
       }
     } catch {
       toast.error('Terjadi kesalahan');

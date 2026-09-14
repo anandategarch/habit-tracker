@@ -124,11 +124,14 @@ export function TodayHabitsCard({
             const busy = completing.has(habit.id);
             return (
               <div key={habit.id} className="group/row flex items-center gap-1.5">
-                {/* Baris utama — secondary action: buka tracker hari ini. */}
+                {/* Baris utama — secondary action (VERIFY-48 48-c F11): fokus
+                    habit SPESIFIK ini (trackTime → dialog analisis; lainnya →
+                    gulir ke kartunya; dulu generik buka puncak tracker —
+                    konteks per-habit hilang). */}
                 <button
                   type="button"
-                  onClick={() => onOpenTracker(todayStr)}
-                  aria-label={`Buka tracker hari ini untuk rutinitas ${habit.name}`}
+                  onClick={() => onOpenHabit(habit.id)}
+                  aria-label={`Buka detail rutinitas ${habit.name} di tracker`}
                   className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
@@ -219,8 +222,8 @@ export function TodayHabitsCard({
               <div key={habit.id} className="group/row flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => onOpenTracker(todayStr)}
-                  aria-label={`Rutinitas ${habit.name} sudah selesai hari ini — buka tracker`}
+                  onClick={() => onOpenHabit(habit.id)}
+                  aria-label={`Rutinitas ${habit.name} sudah selesai hari ini — lihat detailnya di tracker`}
                   className={cn(
                     'flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                     isAvoid

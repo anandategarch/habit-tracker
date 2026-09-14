@@ -65,6 +65,7 @@ export default function Dashboard() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
   const openTrackerDate = useAppStore((s) => s.openTrackerDate);
+  const openTrackerNotes = useAppStore((s) => s.openTrackerNotes);
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
   const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
   // Jalur CTA empty-state — sama dengan FAB "Habit Baru" (kembali ke
@@ -338,7 +339,7 @@ export default function Dashboard() {
         key={`${todayStr}|${checkInValue ? 'row' : 'none'}`}
         date={todayStr}
         value={checkInValue}
-        onOpenJournal={() => openTrackerDate(todayStr)}
+        onOpenJournal={() => openTrackerNotes(todayStr)}
         onOpenHistory={() => openTrackerHistory(todayStr.slice(0, 7))}
       />
 

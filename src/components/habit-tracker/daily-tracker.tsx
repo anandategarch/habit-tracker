@@ -245,6 +245,18 @@ export default function DailyTracker() {
     // `habits` masuk deps AGAR fokus tertunda sampai data siap — setelah
     // data tiba, fokus dikonsumsi tepat sekali lalu ter-clear.
   }, [focusHabitId, clearHabitFocus, openAnalysis, habits, habitsLoading]);
+  // VERIFY-48 (48-b): fokus habit yang masih menunggu (data belum siap)
+  // saat user meninggalkan Tracker tidak boleh menunggu di store —
+  // kunjungan Tracker berikutnya akan men-scroll/membuka dialog + me-reset
+  // selectedDate ke hari ini secara tak terduga. Effect terpisah: cleanup
+  // hanya jalan saat unmount; jika fokus sudah terkonsumsi (store null),
+  // clear no-op.
+  useEffect(
+    () => () => {
+      if (useAppStore.getState().focusHabitId) clearHabitFocus();
+    },
+    [clearHabitFocus],
+  );
 
   const { data: dailyLogData } = useQuery<DailyLogPayload>({
     queryKey: ['daily-logs', selectedDate],
@@ -271,6 +283,27 @@ export default function DailyTracker() {
     completionMapRef,
     amountValueMapRef,
   } = useHabitCompletions(habits, selectedDate, refreshKey);
+
+  // VERIFY-48 (48-c F7): konsumsi fokus jurnal dari Beranda — "Tulis jurnal"
+  // mendarat di KARTU CATATAN (anchor #daily-notes-card), bukan puncak
+  // tracker (kartu catatan adalah seksi terakhir — tanpa ini janji link
+  // meleset satu layar penuh). Menunggu loading habit DAN data daily-logs
+  // (check-in + catatan ada DI ATAS kartu target — kalau termuat setelah
+  // scroll, kartu terdorong turun dan anchor meleset); double-rAF memastikan
+  // satu pass layout sebelum scroll halus dihitung.
+  const trackerFocusNotes = useAppStore((s) => s.trackerFocusNotes);
+  const clearTrackerNotesFocus = useAppStore((s) => s.clearTrackerNotesFocus);
+  useEffect(() => {
+    if (!trackerFocusNotes || loading || dailyLogData === undefined) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document
+          .getElementById('daily-notes-card')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    clearTrackerNotesFocus();
+  }, [trackerFocusNotes, loading, dailyLogData, clearTrackerNotesFocus]);
 
   // ── Task 38: toggle/stepper optimistik + confetti (dari hook) ──
   const {
@@ -520,17 +553,22 @@ export default function DailyTracker() {
       setLocalHabitsOverride(reorderedAll);
 
       // Persist each changed habit's order via PUT /api/habits/[id].
-      // Fire-and-forget in parallel; invalidate the query on settle so the
-      // server-side truth is re-fetched (and the local override cleared).
+      // Parallel; invalidate the query on settle so the server-side truth
+      // is re-fetched (and the local override cleared).
+      // VERIFY-48 (48-b): fetch TIDAK reject pada 4xx/5xx — cek res.ok per
+      // PUT dan lempar agar jalur catch (toast + revert) benar-benar jalan
+      // untuk kegagalan server (dulu kegagalan senyap, order kembali tanpa
+      // penjelasan).
       try {
         await Promise.all(
-          updates.map((u) =>
-            fetch(`/api/habits/${u.id}`, {
+          updates.map(async (u) => {
+            const res = await fetch(`/api/habits/${u.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ sortOrder: u.sortOrder }),
-            }),
-          ),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          }),
         );
         await queryClient.invalidateQueries({ queryKey: ['habits'] });
         // Brief delay so the refetch lands before we drop the override —

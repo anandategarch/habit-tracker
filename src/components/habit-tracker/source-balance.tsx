@@ -143,8 +143,15 @@ export function SourceBalance() {
     setTransferOpen(true);
   };
 
+  // VERIFY-48 (48-b): PATCH saldo (inline) membuat transaksi PENYESUAIAN —
+  // angka dashboard (saldo hero Beranda, strip Keuangan Bulan Ini, KPI
+  // Progres) ikut berubah. Dulunya hanya ['finance'] yang disegarkan →
+  // Beranda/Progres stale sampai 30 detik/remount (pola use-finance-mutations
+  // invalidateFinance = ['finance'] + triggerRefresh; di sini setara dengan
+  // invalidasi prefix ['dashboard'] yang menutup semua varian refreshKey).
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['finance'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
 
   if (isError) {

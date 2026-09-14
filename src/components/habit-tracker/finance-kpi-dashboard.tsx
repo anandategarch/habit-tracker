@@ -21,6 +21,7 @@ import { useMemo } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
+  ChevronRight,
   LifeBuoy,
   PiggyBank,
   ShieldCheck,
@@ -171,6 +172,9 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
       : `${compactRupiah(totalBalance)} ÷ ${compactRupiah(dashboardData?.dailyAvg ?? 0)}/hari · ideal 90–180`;
 
   // Insight strip — rule-based, prioritas masalah dulu.
+  // VERIFY-48 (48-c F4b): strip kini BERAKSI — tiap varian membawa CTA ke
+  // sub-tab yang relevan (dulu teks mati, mis. "cek kategori teratas di
+  // Analisis" tanpa tombol ke sana).
   const insight = useMemo(() => {
     const month = selectedMonth;
     if (income === 0 && expense === 0) {
@@ -178,6 +182,7 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
         icon: PiggyBank,
         text: `Belum ada transaksi ${month} — catat pemasukan & pengeluaran untuk menghidupkan dashboard ini.`,
         tone: 'neutral' as Tone,
+        cta: { label: 'Catat transaksi', sub: 'transactions' as const },
       };
     }
     if (income > 0 && expense > income) {
@@ -185,6 +190,7 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
         icon: TriangleAlert,
         text: `Pengeluaran ${compactRupiah(expense - income)} melebihi pemasukan bulan ini — cek kategori teratas di Analisis.`,
         tone: 'bad' as Tone,
+        cta: { label: 'Buka Analisis', sub: 'analysis' as const },
       };
     }
     if (runwayDays !== null && runwayDays < 30 && totalBalance > 0) {
@@ -192,6 +198,7 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
         icon: LifeBuoy,
         text: `Dana darurat baru menutup ${runwayDays} hari biaya hidup — target aman 3–6 bulan.`,
         tone: 'warn' as Tone,
+        cta: { label: 'Kelola tabungan', sub: 'savings' as const },
       };
     }
     if (savingsRate !== null && savingsRate >= 20) {
@@ -199,12 +206,14 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
         icon: ShieldCheck,
         text: `Kabar baik: kamu menyimpan ${savingsValue} pemasukan bulan ini (benchmark sehat ≥ 20%).`,
         tone: 'good' as Tone,
+        cta: { label: 'Lihat tabungan', sub: 'savings' as const },
       };
     }
     return {
       icon: ArrowUpRight,
       text: `Rasio tabungan ${savingsValue} — kecilkan pengeluaran variabel untuk mengejar target 20%.`,
       tone: 'warn' as Tone,
+      cta: { label: 'Buka Analisis', sub: 'analysis' as const },
     };
   }, [income, expense, runwayDays, totalBalance, savingsRate, savingsValue, selectedMonth]);
 
@@ -266,10 +275,13 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
         />
       </div>
 
-      {/* Insight strip */}
-      <div
+      {/* Insight strip — VERIFY-48 (48-c F4b): clickable, membawa CTA. */}
+      <button
+        type="button"
+        onClick={() => openFinanceSubTab(insight.cta.sub)}
+        aria-label={`${insight.cta.label} — ${insight.text}`}
         className={cn(
-          'mt-3 flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs leading-relaxed',
+          'mt-3 flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs leading-relaxed transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
           insight.tone === 'good' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
           insight.tone === 'warn' && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
           insight.tone === 'bad' && 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
@@ -278,8 +290,12 @@ export default function FinanceKpiDashboard({ dashboardData, selectedMonth }: Fi
         role="status"
       >
         <InsightIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <p className="min-w-0">{insight.text}</p>
-      </div>
+        <p className="min-w-0 flex-1">{insight.text}</p>
+        <span className="flex shrink-0 items-center gap-0.5 font-semibold">
+          {insight.cta.label}
+          <ChevronRight className="h-3 w-3" aria-hidden="true" />
+        </span>
+      </button>
     </div>
   );
 }

@@ -340,18 +340,23 @@ function HabitCardInner({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenAnalysis?.(habit.id);
-                  }}
-                  aria-label={`Analisis waktu: ${habit.name}`}
-                  title="Analisis waktu"
-                  className="h-10 w-10 rounded-full grid place-items-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                >
-                  <BarChart3 className="h-3.5 w-3.5" />
-                </button>
+                {/* VERIFY-48 (48-a #2): tombol analisis hanya untuk habit
+                    trackTime (pola today-habits) — untuk habit lain dialognya
+                    buntu "tidak mencatat waktu" tanpa aksi lanjutan. */}
+                {habit.trackTime && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenAnalysis?.(habit.id);
+                    }}
+                    aria-label={`Analisis waktu: ${habit.name}`}
+                    title="Analisis waktu"
+                    className="h-10 w-10 rounded-full grid place-items-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {

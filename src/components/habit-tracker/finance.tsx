@@ -252,12 +252,6 @@ export default function Finance() {
  // Stable latest-ref: applyFinanceFocus has empty deps (never changes
  // identity), so the ref is initialized once and never reassigned.
  const applyFocusRef = useRef(applyFinanceFocus);
- useEffect(() => {
-   if (financeFocus) {
-     applyFocusRef.current(financeFocus);
-     clearFinanceFocus();
-   }
- }, [financeFocus, clearFinanceFocus]);
 
  // ── Data Fetching (TanStack Query) ─────────────────────────────────────
  // All fetch calls migrated from manual useEffect + useState to useQuery.
@@ -287,6 +281,19 @@ export default function Finance() {
  // Sinkronkan latest-ref sumber untuk applyFinanceFocus (deklarasi ref ada
  // di atas; assignment di sini — setelah `sources` benar-benar dideklarasikan).
  useEffect(() => { sourcesRef.current = sources; }, [sources]);
+
+ // Konsumsi fokus global (dipindah ke sini supaya sourcesLoading sudah
+ // terdeklarasi — VERIFY-48 48-b latent): focus bersourceId butuh data
+ // sources untuk resolve nama (sourcesRef kosong saat mount dingin →
+ // filter sumber diam-diam jatuh). Tunda konsumsi sampai query selesai —
+ // pola yang sama dengan konsumsi quick-add 'transfer' di SourceBalance.
+ useEffect(() => {
+   if (financeFocus) {
+     if (financeFocus.sourceId && sourcesLoading) return;
+     applyFocusRef.current(financeFocus);
+     clearFinanceFocus();
+   }
+ }, [financeFocus, clearFinanceFocus, sourcesLoading]);
 
  // ── Mutations hook (SPLIT-PHASE2-UI) ──
  // All dialog/form state + CRUD handlers live in this hook.

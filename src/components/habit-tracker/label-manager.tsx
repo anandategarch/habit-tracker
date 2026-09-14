@@ -105,6 +105,10 @@ export default function LabelManager() {
       // fix 6-d LABEL-RENAME-1: pastikan cache habit ikut diperbarui (rename
       // di-cascade server-side ke Habit.category/priority/difficulty).
       await queryClient.invalidateQueries({ queryKey: ['habits'] });
+      // VERIFY-48 (48-b): rename label juga menggeser kategori di chart
+      // Progres + badge prioritas Beranda (turunan /api/dashboard dari
+      // habit.category) — dulu hanya ['habits'] yang disegarkan → stale.
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Label berhasil diperbarui');
       cancelEdit();
     } catch (e) {
@@ -117,6 +121,8 @@ export default function LabelManager() {
     try {
       await remove.mutateAsync(deleteTarget.id);
       await queryClient.invalidateQueries({ queryKey: ['habits'] });
+      // VERIFY-48 (48-b): sama dengan rename — dashboard ikut disegarkan.
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Label berhasil dihapus');
       setDeleteTarget(null);
     } catch (e) {

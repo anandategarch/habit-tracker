@@ -166,9 +166,16 @@ function applyUrlToStore() {
  const date = params.get('date');
  const dateOk = !!date && URL_DATE_RE.test(date) && isValidCalendarDate(date);
  if (nextTab === 'tracker') {
-  if (dateOk && date !== s.selectedDate) {
-   s.setSelectedDate(date);
-   if (date.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(date.slice(0, 7));
+  if (dateOk) {
+   if (date !== s.selectedDate) {
+    s.setSelectedDate(date);
+    if (date.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(date.slice(0, 7));
+   }
+   // VERIFY-48 (48-b): entry ?date=X menjanjikan TAMPILAN HARI itu — reset
+   // viewMode KE SETIAP popstate/mount bertanggal (dulu hanya saat tanggal
+   // berbeda: Back dari tab lain dengan tanggal SAMA masih bisa mendarat di
+   // kalender Riwayat yang basi).
+   if (s.trackerViewMode !== 'today') s.setTrackerViewMode('today');
   } else if (!dateOk) {
    // Entry tanpa konteks tanggal = hari ini (mencegah tanggal basi menempel
    // saat Back ke entry pra-konteks).
@@ -314,6 +321,22 @@ const [showSplash, setShowSplash] = useState(true);
  const isPopstateRef = useRef(false);
  useEffect(() => {
   if (typeof window === 'undefined') return;
+  // VERIFY-48 (48-b): eksekusi PERTAMA efek (mount) menutup mata memakai
+  // state render-1 (pra-deep-link, activeTab='dashboard') → replaceState
+  // MENGHAPUS entry deep-link asli lalu pushState membuat duplikat —
+  // Back dari tab deep-link mendarat di dashboard kosong, bukan keluar app.
+  // Mount: applyUrlToStore (efek di atasnya) sudah menyelaraskan store ↔
+  // URL; cukup kanonikalisasi IN-PLACE (param sampah dibersihkan tanpa
+  // mengganti entry) + catat tab sebagai titik awal riwayat.
+  if (prevTabRef.current === null) {
+   const mountedTab = useAppStore.getState().activeTab;
+   prevTabRef.current = mountedTab;
+   const canonical = buildContextUrl(mountedTab);
+   if (canonical.search !== window.location.search) {
+    window.history.replaceState({ rutinaTab: mountedTab }, '', canonical.toString());
+   }
+   return;
+  }
   const url = buildContextUrl(activeTab);
   const isTabSwitch = prevTabRef.current !== null && prevTabRef.current !== activeTab;
   if (url.search !== window.location.search) {

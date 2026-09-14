@@ -116,14 +116,14 @@ export default function ProgressTab() {
         icon: <span className="chip-soft chip-soft-amber h-8 w-8"><Flame className="h-4 w-4" /></span>,
         text: `Streak ${data.currentStreak} hari berjalan — terus pertahankan!`,
         type: 'success',
-        action: { label: 'Lihat riwayat', run: () => openTrackerHistory() },
+        action: { label: 'Lihat riwayat', run: () => openTrackerHistory(todayStr.slice(0, 7)) },
       });
     } else if (data.currentStreak >= 3) {
       items.push({
         icon: <span className="chip-soft chip-soft-amber h-8 w-8"><Flame className="h-4 w-4" /></span>,
         text: `Streak ${data.currentStreak} hari — momentum mulai terbentuk!`,
         type: 'info',
-        action: { label: 'Lihat riwayat', run: () => openTrackerHistory() },
+        action: { label: 'Lihat riwayat', run: () => openTrackerHistory(todayStr.slice(0, 7)) },
       });
     }
 
@@ -142,7 +142,7 @@ export default function ProgressTab() {
         icon: <span className="chip-soft chip-soft-teal h-8 w-8"><Star className="h-4 w-4" /></span>,
         text: 'Luar biasa! Tingkat penyelesaianmu di atas 80%.',
         type: 'success',
-        action: { label: 'Lihat riwayat', run: () => openTrackerHistory() },
+        action: { label: 'Lihat riwayat', run: () => openTrackerHistory(todayStr.slice(0, 7)) },
       });
     } else if (data.completionRate < 50 && data.totalHabits > 0) {
       items.push({
@@ -164,11 +164,14 @@ export default function ProgressTab() {
         icon: <span className="chip-soft chip-soft-violet h-8 w-8"><Brain className="h-4 w-4" /></span>,
         text: `Skor produktivitas tinggi: ${data.productivityScore}%!`,
         type: 'success',
+        // VERIFY-48 (48-c F4a): insight tanpa aksi = teks mati — skor
+        // produktivitas berasal dari riwayat penyelesaian.
+        action: { label: 'Lihat riwayat', run: () => openTrackerHistory(todayStr.slice(0, 7)) },
       });
     }
 
     return items.slice(0, 3);
-  }, [data, openTrackerDate, openTrackerHistory, setActiveTab, setSettingsSection]);
+  }, [data, openTrackerDate, openTrackerHistory, setActiveTab, setSettingsSection, todayStr]);
 
   const chartLabel = useMemo(() => {
     switch (period) {
@@ -254,17 +257,17 @@ export default function ProgressTab() {
           {[
             { label: 'Total Habit', icon: Target, chip: 'chip-teal', numeric: true, value: <CountUpNumber value={displayData.totalHabits} />, sub: displayData.graduatedCount > 0 ? `${displayData.graduatedCount} habit lulus` : 'habit aktif', key: 'habits', nav: () => setActiveTab('tracker'), navLabel: 'Buka tab tracker untuk melihat semua habit' },
             { label: 'Tingkat Selesai', icon: CheckCircle, chip: 'chip-emerald', numeric: true, value: <CountUpNumber value={displayData.completionRate} suffix="%" />, sub: null, progress: displayData.completionRate, key: 'completion' },
-            { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', numeric: true, value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak', nav: () => openTrackerHistory(), navLabel: 'Lihat riwayat kalender — sumber streak' },
-            { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest', nav: () => openTrackerHistory(), navLabel: 'Lihat riwayat kalender — sumber rekor streak' },
+            { label: 'Streak Aktif', icon: Flame, chip: 'chip-orange', iconClass: displayData.currentStreak >= 7 ? 'anim-flame-pulse' : '', numeric: true, value: <CountUpNumber value={displayData.currentStreak} />, sub: 'hari', key: 'streak', nav: () => openTrackerHistory(todayStr.slice(0, 7)), navLabel: 'Lihat riwayat kalender — sumber streak' },
+            { label: 'Rekor Streak', icon: Trophy, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.longestStreak} />, sub: 'hari', key: 'longest', nav: () => openTrackerHistory(todayStr.slice(0, 7)), navLabel: 'Lihat riwayat kalender — sumber rekor streak' },
             { label: 'Hari Ini', icon: Zap, chip: 'chip-lime', numeric: true, value: <CountUpNumber value={displayData.successToday} suffix="%" />, sub: null, progress: displayData.successToday, key: 'success', nav: () => openTrackerDate(todayStr), navLabel: 'Buka tracker hari ini' },
             { label: '7 Hari', icon: CalendarDays, chip: 'chip-sky', numeric: true, value: <CountUpNumber value={displayData.weeklyCompletion} suffix="%" />, sub: null, progress: displayData.weeklyCompletion, key: 'weekly', nav: () => setPeriod('7d'), navLabel: 'Filter seluruh halaman ke periode 7 hari' },
             { label: '30 Hari', icon: TrendingUp, chip: 'chip-teal', numeric: true, value: <CountUpNumber value={displayData.monthlyCompletion} suffix="%" />, sub: null, progress: displayData.monthlyCompletion, key: 'monthly', nav: () => setPeriod('1m'), navLabel: 'Filter seluruh halaman ke periode 30 hari' },
             { label: 'Total XP', icon: Star, chip: 'chip-amber', numeric: true, value: <CountUpNumber value={displayData.totalXP} />, sub: `Level ${displayData.currentLevel}`, key: 'xp' },
             { label: 'Level', icon: Award, chip: 'chip-violet', numeric: true, value: <CountUpNumber value={displayData.currentLevel} />, sub: null, progress: displayData.levelProgress, progressLabel: `${Math.round(displayData.levelProgress)}%`, key: 'level' },
             { label: 'Skor', icon: Brain, chip: 'chip-emerald', numeric: true, value: <CountUpNumber value={displayData.productivityScore} suffix="%" />, sub: null, progress: displayData.productivityScore, key: 'productivity' },
-            { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex min-w-0 items-center gap-2"><span className="anim-micro-pulse shrink-0"><MoodEmoji mood={displayData.moodAverage} /></span><span className="truncate text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => openTrackerHistory(), navLabel: 'Lihat riwayat mood di kalender' },
-            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: displayData.sleepAverage != null ? <CountUpNumber value={displayData.sleepAverage} decimals={1} /> : <span aria-label="Belum ada data">—</span>, sub: displayData.sleepAverage != null ? 'jam / malam' : 'belum ada data', key: 'sleep', nav: () => openTrackerHistory(), navLabel: 'Lihat riwayat tidur di kalender' },
-            { label: 'Energi', icon: Activity, chip: 'chip-slate', value: <span className="flex min-w-0 items-center gap-2"><span className="anim-micro-pulse shrink-0"><EnergyEmoji energy={displayData.energyAverage} className="text-xl" /></span><span className="truncate text-lg font-bold">{getEnergyLabel(displayData.energyAverage)}</span></span>, sub: null, key: 'energy', nav: () => openTrackerHistory(), navLabel: 'Lihat riwayat energi di kalender' },
+            { label: 'Mood', icon: Smile, chip: 'chip-rose', value: <span className="flex min-w-0 items-center gap-2"><span className="anim-micro-pulse shrink-0"><MoodEmoji mood={displayData.moodAverage} /></span><span className="truncate text-lg font-bold">{getMoodLabel(displayData.moodAverage)}</span></span>, sub: null, key: 'mood', nav: () => openTrackerHistory(todayStr.slice(0, 7)), navLabel: 'Lihat riwayat mood di kalender' },
+            { label: 'Tidur', icon: Moon, chip: 'chip-violet', value: displayData.sleepAverage != null ? <CountUpNumber value={displayData.sleepAverage} decimals={1} /> : <span aria-label="Belum ada data">—</span>, sub: displayData.sleepAverage != null ? 'jam / malam' : 'belum ada data', key: 'sleep', nav: () => openTrackerHistory(todayStr.slice(0, 7)), navLabel: 'Lihat riwayat tidur di kalender' },
+            { label: 'Energi', icon: Activity, chip: 'chip-slate', value: <span className="flex min-w-0 items-center gap-2"><span className="anim-micro-pulse shrink-0"><EnergyEmoji energy={displayData.energyAverage} className="text-xl" /></span><span className="truncate text-lg font-bold">{getEnergyLabel(displayData.energyAverage)}</span></span>, sub: null, key: 'energy', nav: () => openTrackerHistory(todayStr.slice(0, 7)), navLabel: 'Lihat riwayat energi di kalender' },
           ].map((card, i) => {
             const Icon = card.icon;
             // Di Progres (bukan Beranda) semua KPI tampil — layar analytics

@@ -354,12 +354,17 @@ export default function DashboardCharts({
                 <YAxis hide />
                 <ChartTooltip cursor={{ fill: 'var(--muted)', opacity: 0.4 }} content={<ChartTooltipContent />} />
                 <Bar dataKey="completed" name="Penyelesaian" stackId="detail" fill="var(--primary)" onClick={handleDatumClick} />
+                {/* VERIFY-48 (48-a/48-c F8): segmen "Terlewat" ikut bisa
+                    diklik — cursor-pointer di seluruh chart menjanjikan itu,
+                    dan datum membawa tanggal yang sama (kalau tidak valid,
+                    handler defensif mengabaikan). */}
                 <Bar
                   dataKey="missed"
                   name="Terlewat"
                   stackId="detail"
                   fill="var(--muted-foreground)"
                   fillOpacity={0.35}
+                  onClick={handleDatumClick}
                 />
               </BarChart>
             </ChartContainer>

@@ -4,10 +4,12 @@
 // Tap kartu → openHabitFocus(id) (store 1-klik); tombol aksi memakai
 // stopPropagation + aria-label Indonesia.
 
-import { Pencil, Trash2, Pause, Play, Archive, ArchiveRestore, GraduationCap, CalendarDays } from 'lucide-react';
+import { Pencil, Trash2, Pause, Play, Archive, ArchiveRestore, GraduationCap, CalendarDays, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
 import { tintFromEmoji } from '@/lib/emoji-color';
+import { jakartaDateString } from '@/lib/timezone';
+import { isScheduledOn, parseSchedule, scheduleLabel } from '@/lib/habit-schedule';
 import type { HabitOptionRow } from '@/hooks/use-habit-options';
 import {
   habitStatus,
@@ -15,13 +17,14 @@ import {
   HABIT_TYPE_LABELS,
   type Habit,
 } from './habit-master-types';
-import { parseSchedule, scheduleLabel } from '@/lib/habit-schedule';
 
 export interface HabitMobileCardsProps {
   habits: Habit[];
   categoryMap: Map<string, HabitOptionRow>;
   priorityMap: Map<string, HabitOptionRow>;
   difficultyMap: Map<string, HabitOptionRow>;
+  /** VERIFY-48 (48-c F10) — judul tujuan per id (chip Habit↔Tujuan). */
+  goalMap?: Map<string, string>;
   onEdit: (habit: Habit) => void;
   onToggleStatus: (habit: Habit) => void;
   onArchive: (habit: Habit) => void;
@@ -51,12 +54,14 @@ export function HabitMobileCards({
   categoryMap,
   priorityMap,
   difficultyMap,
+  goalMap,
   onEdit,
   onToggleStatus,
   onArchive,
   onDelete,
 }: HabitMobileCardsProps) {
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
+  const openGoalFocus = useAppStore((s) => s.openGoalFocus);
 
   return (
     <div className="space-y-2.5 md:hidden">
@@ -67,17 +72,33 @@ export function HabitMobileCards({
         // Task 37 — badge jadwal tampil (tidak render untuk harian).
         const sched = parseSchedule(h.scheduleJson);
         const schedBadge = sched.kind !== 'daily' ? scheduleLabel(sched) : null;
+        // VERIFY-48 (48-a #3): label kartu = perilaku klik persis — sama
+        // dengan HabitTable (trackTime → analisis; aktif + terjadwal hari
+        // ini → fokus kartu tracker; selainnya → form edit).
+        const focusInTracker =
+          h.trackTime ||
+          (h.isActive &&
+            !h.isArchived &&
+            !h.graduatedAt &&
+            isScheduledOn(sched, jakartaDateString()));
         return (
           <div
             key={h.id}
             role="button"
             tabIndex={0}
-            aria-label={`Buka analisis waktu habit ${h.name}`}
-            onClick={() => openHabitFocus(h.id)}
+            aria-label={
+              h.trackTime
+                ? `Buka analisis waktu habit ${h.name}`
+                : focusInTracker
+                  ? `Buka habit ${h.name} di tracker`
+                  : `Edit habit ${h.name}`
+            }
+            onClick={() => (focusInTracker ? openHabitFocus(h.id) : onEdit(h))}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                openHabitFocus(h.id);
+                if (focusInTracker) openHabitFocus(h.id);
+                else onEdit(h);
               }
             }}
             className={cn(
@@ -97,6 +118,23 @@ export function HabitMobileCards({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{h.name}</p>
+                {/* VERIFY-48 (48-c F10): chip tujuan — link Habit↔Tujuan
+                    terlihat di permukaan kurasi (pola kartu tracker). */}
+                {h.goalId && goalMap?.get(h.goalId) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openGoalFocus(h.goalId!);
+                    }}
+                    title={`Mendukung tujuan: ${goalMap.get(h.goalId)}`}
+                    aria-label={`Buka tujuan ${goalMap.get(h.goalId)}`}
+                    className="mt-1 inline-flex max-w-full items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
+                  >
+                    <Target className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                    <span className="max-w-[10rem] truncate normal-case">{goalMap.get(h.goalId)}</span>
+                  </button>
+                )}
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span
                     className={cn(

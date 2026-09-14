@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -156,6 +156,12 @@ export default function HabitMaster() {
    },
    staleTime: 60_000,
  });
+ // VERIFY-48 (48-c F10): peta id → judul untuk chip tujuan di tabel/kartu
+ // Habit Master — link Habit↔Tujuan terlihat di permukaan kurasi.
+ const goalMap = useMemo(
+   () => new Map(goals.map((g) => [g.id, g.title])),
+   [goals]
+ );
 
  const invalidateHabits = useCallback(() => {
    queryClient.invalidateQueries({ queryKey: ['habits'] });
@@ -1200,6 +1206,7 @@ export default function HabitMaster() {
            categoryMap={categoryMap}
            priorityMap={priorityMap}
            difficultyMap={difficultyMap}
+           goalMap={goalMap}
            onEdit={openEdit}
            onToggleStatus={handleToggleStatus}
            onArchive={handleArchive}
@@ -1210,6 +1217,7 @@ export default function HabitMaster() {
            categoryMap={categoryMap}
            priorityMap={priorityMap}
            difficultyMap={difficultyMap}
+           goalMap={goalMap}
            onEdit={openEdit}
            onToggleStatus={handleToggleStatus}
            onArchive={handleArchive}

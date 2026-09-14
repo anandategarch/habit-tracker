@@ -87,6 +87,12 @@ interface AppState {
    *  (trackerMonth) ikut disinkronkan supaya toggle Riwayat menampilkan
    *  bulan yang benar — dulu openTrackerDate tidak menyentuh bulan. */
   openTrackerDate: (date: string) => void;
+  /** VERIFY-48 (48-c F7): "Tulis jurnal" dari Beranda mendarat di KARTU
+   *  CATATAN tracker (anchor #daily-notes-card), bukan puncak halaman.
+   *  Flag konsumsi-sekali — digulir setelah tracker terpasang. */
+  trackerFocusNotes: boolean;
+  openTrackerNotes: (date: string) => void;
+  clearTrackerNotesFocus: () => void;
   /** Bulan kalender Riwayat (TERPISAH dari selectedMonth finance — dulu
    *  satu state dibagi dua domain: ganti bulan di Keuangan diam-diam
    *  menggeser kalender habit, dan sebaliknya). */
@@ -147,7 +153,15 @@ export const useAppStore = create<AppState>((set) => ({
   trackerViewMode: 'today',
   setTrackerViewMode: (mode) => set({ trackerViewMode: mode }),
   selectedDate: jakartaDateString(),
-  setSelectedDate: (date) => set({ selectedDate: date }),
+  // VERIFY-48 (48-c F2): navigasi tanggal (‹ › / "Hari ini") ikut
+  // menyinkronkan bulan kalender — kontrak komentar openTrackerDate kini
+  // berlaku untuk SEMUA jalur ganti tanggal. Dulu: buka 30 Sep via kalender
+  // → tekan › (1 Okt) → toggle Riwayat masih menampilkan September.
+  setSelectedDate: (date) =>
+    set((s) => ({
+      selectedDate: date,
+      trackerMonth: date.slice(0, 7) !== s.trackerMonth ? date.slice(0, 7) : s.trackerMonth,
+    })),
   openTrackerDate: (date) =>
     set({
       activeTab: 'tracker',
@@ -157,6 +171,16 @@ export const useAppStore = create<AppState>((set) => ({
       // tanggal yang barusaja dibuka (CONNECTED-APP #6).
       trackerMonth: date.slice(0, 7),
     }),
+  trackerFocusNotes: false,
+  openTrackerNotes: (date) =>
+    set({
+      activeTab: 'tracker',
+      trackerViewMode: 'today',
+      selectedDate: date,
+      trackerMonth: date.slice(0, 7),
+      trackerFocusNotes: true,
+    }),
+  clearTrackerNotesFocus: () => set({ trackerFocusNotes: false }),
   trackerMonth: jakartaDateString().slice(0, 7),
   setTrackerMonth: (month) => set({ trackerMonth: month }),
   openTrackerHistory: (month) =>

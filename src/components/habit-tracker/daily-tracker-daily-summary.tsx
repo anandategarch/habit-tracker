@@ -10,6 +10,7 @@ import { CheckCircle2, Zap, Flame, Award } from 'lucide-react';
 import { calcLevel } from '@/lib/dashboard-helpers';
 import { TreeProgress } from '@/components/ui/loaders';
 import { CountUpNumber } from './count-up';
+import { useAppStore } from '@/store/app-store';
 
 interface DailySummaryProps {
   completedCount: number;
@@ -32,6 +33,8 @@ export function DailySummary({
 }: DailySummaryProps) {
   const level = calcLevel(totalXp);
   const pct = Math.max(0, Math.min(100, completionPct));
+  // VERIFY-48 (48-c F9): KPI streak → Riwayat (kalender sumber streak).
+  const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
 
   return (
     <section
@@ -78,8 +81,16 @@ export function DailySummary({
           </div>
         </div>
 
-        {/* Streak terbaik (rose + api animasi) */}
-        <div className="flex items-center gap-2.5 min-w-0">
+        {/* Streak terbaik (rose + api animasi) — VERIFY-48 (48-c F9):
+            KPI streak kini bisa diklik ke Riwayat (semua chip streak lain
+            sudah navigasi; ini satu-satunya yang statis). */}
+        <button
+          type="button"
+          onClick={() => openTrackerHistory()}
+          aria-label={`Streak terbaik ${bestStreak} hari — lihat riwayat kalender`}
+          title="Lihat riwayat kalender — sumber streak"
+          className="flex items-center gap-2.5 min-w-0 cursor-pointer rounded-xl p-1 -m-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
           <span className="chip-soft chip-soft-rose h-9 w-9 shrink-0" aria-hidden="true">
             <Flame
               className={bestStreak > 0 ? 'h-4 w-4 anim-flame-pulse' : 'h-4 w-4'}
@@ -92,7 +103,7 @@ export function DailySummary({
               <span className="text-sm font-semibold text-muted-foreground"> hari</span>
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Level XP total (violet) — Gelombang 1 */}
         <div className="flex items-center gap-2.5 min-w-0">

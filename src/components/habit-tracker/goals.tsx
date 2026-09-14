@@ -67,6 +67,13 @@ export default function Goals() {
     }, 2500);
     return () => clearTimeout(t);
   }, [focusGoalId, clearGoalFocus]);
+  // VERIFY-48 (48-b): fokus yang belum terkonsumsi saat tab ditinggalkan
+  // (unmount < 2,5 dtk) tidak boleh menunggu di store — kunjungan Tujuan
+  // berikutnya (kapan pun) akan men-scroll + menyorot ulang deep-link basi.
+  // Effect terpisah deps kosong: cleanup HANYA jalan saat unmount (kalau
+  // digabung ke efek fokus, clearGoalFocus di cleanup memicu persis bug
+  // 47-d #3 yang diperbaiki — timer sorotan terbunuh saat fokus berganti).
+  useEffect(() => () => { clearGoalFocus(); }, [clearGoalFocus]);
 
   // ── CONNECTED-APP (Task 49): habit pendukung per tujuan ──
   // ['habits'] cache terbagih dengan tracker; status selesai-hari-ini dari
@@ -78,7 +85,7 @@ export default function Goals() {
   // bentuk cache → goals membaca focusToday=[] (status pendukung selalu
   // "belum") atau Beranda membaca todayHabits=undefined → crash render.
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null }[]>({
+  const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null; graduatedAt?: string | null }[]>({
     queryKey: ['habits'],
     queryFn: async () => {
       const res = await fetch('/api/habits');
@@ -116,6 +123,12 @@ export default function Goals() {
   >();
   for (const h of habits) {
     if (!h.goalId) continue;
+    // VERIFY-48 (48-c F5): habit LULUS tidak pernah bisa "selesai hari ini"
+    // lagi — membiarkannya di daftar pendukung membuat counter tujuan
+    // (mis. "1/2 selesai") menghitung anggota yang mustahil terpenuhi
+    // selamanya. Tracker/Beranda sudah menyaring graduatedAt; ini
+    // menyamakan semesta daftar pendukung.
+    if (h.graduatedAt) continue;
     const arr = supportingByGoal.get(h.goalId) ?? [];
     const st = todayStatusById.get(h.id);
     const status = !st

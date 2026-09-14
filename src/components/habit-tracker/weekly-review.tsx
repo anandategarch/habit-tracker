@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
+import { jakartaDateString } from '@/lib/timezone';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -43,9 +44,24 @@ const TYPE_META: Record<InsightType, { icon: LucideIcon; chip: string; accent: s
   finance: { icon: Wallet, chip: 'chip-soft-teal', accent: '#10b981' },
 };
 
+// VERIFY-48 (48-c F3): Insight = Observasi + Konteks + AKSI. Insight mood /
+// sleep / streak / finance dari fallback API tidak membawa habitId — dulu
+// kartu-kartu itu jadi teks mati (worst case: insight keuangan menyuruh
+// "tinjau kategori pengeluaran" tanpa tombol ke sana). Tiap jenis kini
+// punya aksi default menuju konteks yang relevan.
+const DEFAULT_INSIGHT_ACTION: Record<InsightType, { label: string; kind: 'history' | 'finance' }> = {
+  mood: { label: 'Lihat riwayat mood', kind: 'history' },
+  sleep: { label: 'Lihat riwayat tidur', kind: 'history' },
+  performance: { label: 'Lihat riwayat', kind: 'history' },
+  streak: { label: 'Lihat riwayat', kind: 'history' },
+  finance: { label: 'Buka analisis keuangan', kind: 'finance' },
+};
+
 export function WeeklyReview({ onOpenProgress }: { onOpenProgress?: () => void }) {
   const refreshKey = useAppStore((s) => s.refreshKey);
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
+  const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
+  const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
 
   const { data, isLoading, isError, refetch } = useQuery<AiInsight[]>({
     queryKey: ['ai-insights', refreshKey],
@@ -148,7 +164,10 @@ export function WeeklyReview({ onOpenProgress }: { onOpenProgress?: () => void }
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                       {insight.text}
                     </p>
-                    {habitId && (
+                    {/* VERIFY-48 (48-c F3): habitId → fokus habit; tanpa
+                        habitId → aksi default per jenis insight (dulu tanpa
+                        aksi sama sekali). */}
+                    {habitId ? (
                       <button
                         type="button"
                         onClick={() => openHabitFocus(habitId)}
@@ -158,6 +177,26 @@ export function WeeklyReview({ onOpenProgress }: { onOpenProgress?: () => void }
                         Lihat habit
                         <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
                       </button>
+                    ) : (
+                      (() => {
+                        const def = DEFAULT_INSIGHT_ACTION[(insight.type ?? 'performance') as InsightType]
+                          ?? DEFAULT_INSIGHT_ACTION.performance;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              def.kind === 'finance'
+                                ? openFinanceSubTab('analysis')
+                                : openTrackerHistory(jakartaDateString().slice(0, 7))
+                            }
+                            aria-label={`${def.label} — insight ${insight.title}`}
+                            className="mt-2 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          >
+                            {def.label}
+                            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        );
+                      })()
                     )}
                   </div>
                 </div>

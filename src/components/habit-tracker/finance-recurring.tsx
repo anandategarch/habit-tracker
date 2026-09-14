@@ -26,6 +26,7 @@ import {
   Pencil,
   Play,
   Plus,
+  ReceiptText,
   Repeat,
   Trash2,
   AlertTriangle,
@@ -131,6 +132,8 @@ export default function FinanceRecurring({
   getCategoryMeta,
 }: FinanceRecurringProps) {
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
+  // VERIFY-48 (48-c F6): drill-down baris → transaksi kategori terkait.
+  const openFinanceFocus = useAppStore((s) => s.openFinanceFocus);
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<RecurringFormState>(emptyRecurringForm);
@@ -396,6 +399,21 @@ export default function FinanceRecurring({
                     >
                       <Play className="h-3 w-3" />
                       {processingId === rt.id ? 'Memproses…' : 'Proses Sekarang'}
+                    </Button>
+                    {/* VERIFY-48 (48-c F6): recurring → transaksinya — arah
+                        balik (Tagihan Mendatang → sini) sudah ada; baris ini
+                        dulunya pulau (hanya Proses/Edit/Hapus). */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() =>
+                        openFinanceFocus({ category: rt.category, txType: rt.type })
+                      }
+                      aria-label={`Lihat transaksi kategori ${rt.category} dari ${rt.name}`}
+                      title={`Lihat transaksi kategori ${rt.category}`}
+                    >
+                      <ReceiptText className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"

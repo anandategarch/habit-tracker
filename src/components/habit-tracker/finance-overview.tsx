@@ -78,6 +78,11 @@ interface LastDoneRow {
   isTransfer: boolean;
   /** CONNECTED-APP — kategori untuk drill-down baris. */
   category?: string;
+  /** VERIFY-48 (48-c F1): tanggal transaksi ('yyyy-MM-dd' atau ISO — komponen
+   *  YMD diambil via slice(0,10) saat dipakai) supaya drill-down tidak
+   *  kehilangan konteks bulan di batas bulan (baris "semua waktu" dari
+   *  endpoint last-done bisa berada di bulan sebelumnya). */
+  date?: string;
 }
 
 const MAX_LAST_DONE_ROWS = 5;
@@ -140,6 +145,7 @@ export default function FinanceOverview({
           isIncome: item.type === 'income',
           isTransfer: item.type === 'transfer',
           category: item.category ?? undefined,
+          date: dateStr,
         };
       });
     if (fromApi.length > 0) return fromApi.slice(0, MAX_LAST_DONE_ROWS);
@@ -164,6 +170,7 @@ export default function FinanceOverview({
           isIncome: tx.type === 'income',
           isTransfer: tx.type === 'transfer',
           category: tx.category ?? undefined,
+          date: tx.date,
         };
       });
   }, [lastDoneData, transactions, getCategoryMeta]);
@@ -310,8 +317,21 @@ export default function FinanceOverview({
                 type="button"
                 className="premium-list-item w-full px-3! py-2.5! text-left cursor-pointer active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 style={{ '--stagger': idx } as CSSProperties}
-                onClick={() => openFinanceFocus({ category: row.category })}
-                aria-label={`Lihat transaksi kategori ${row.category ?? row.title}`}
+                // VERIFY-48 (48-c F1): baris last-done adalah transaksi SEMUA
+                // WAKTU — di batas bulan (mis. lihat Okt, 5 baris terakhir
+                // semua 28–30 Sep) drill-down kategori-saja mendarat di
+                // daftar KOSONG bulan berjalan. Bawa tanggal (sinkron bulan)
+                // + tipe arah (transfer = 'all' netral).
+                onClick={() =>
+                  openFinanceFocus({
+                    category: row.category,
+                    date: row.date?.slice(0, 10),
+                    txType: row.isTransfer ? 'all' : row.isIncome ? 'income' : 'expense',
+                  })
+                }
+                aria-label={`Lihat transaksi kategori ${row.category ?? row.title}${
+                  row.date ? ` tanggal ${row.date.slice(0, 10)}` : ''
+                }`}
               >
                 <span
                   className="h-10 w-10 rounded-xl grid place-items-center text-base shrink-0 ring-1 ring-black/5 dark:ring-white/10"
