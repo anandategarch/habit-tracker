@@ -682,6 +682,10 @@ export default function Finance() {
              getCategoryMeta={getCategoryMeta}
              transactions={transactions}
              selectedMonth={selectedMonth}
+             // Task 49 (PERDETAIL-HARIAN): CTA "Catat pengeluaran" kartu
+             // Hari Ini — dialog transaksi sama dengan tombol aksi cepat
+             // header (prefill tanggal hari ini Jakarta).
+             onQuickAddExpense={() => mutations.openNewTx('expense')}
            />
          ) : (
            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>

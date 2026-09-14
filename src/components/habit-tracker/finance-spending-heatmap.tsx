@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/store/app-store';
-import { dateFromYMD } from '@/lib/timezone';
+import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
 import type { AppSettings } from '@/lib/settings-types';
 import { formatRupiah, compactRupiah } from './finance-types';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,9 @@ export function SpendingHeatmap({
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
   // CONNECTED-APP: sel hari → transaksi tanggal itu.
   const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
+  // Task 49 (PERDETAIL-HARIAN): kunci hari ini Jakarta — sel hari ini
+  // diberi ring primary.
+  const todayYmd = jakartaDateString();
 
   // BUGHUNT-47 (47-b #3): weekStart pengguna dihormati (kalender habit sudah
   // mengikuti setting ini; heatmap dulu hardcode Senin-awal).
@@ -148,9 +151,12 @@ export function SpendingHeatmap({
                   if (!cell) {
                     return <span key={di} className="h-7 w-7 rounded-lg" aria-hidden="true" />;
                   }
+                  // Task 49 (PERDETAIL-HARIAN): sel HARI INI diberi ring
+                  // primary supaya "hari ini" cepat ditemukan di pola kalender.
+                  const isTodayCell = cell.key === todayYmd;
                   const title = cell.amount > 0
-                    ? `${cell.day} — ${formatRupiah(cell.amount)}`
-                    : `${cell.day} — tanpa pengeluaran`;
+                    ? `${cell.day} — ${formatRupiah(cell.amount)}${isTodayCell ? ' (hari ini)' : ''}`
+                    : `${cell.day} — tanpa pengeluaran${isTodayCell ? ' (hari ini)' : ''}`;
                   return (
                     /* CONNECTED-APP: sel hari → transaksi tanggal itu
                        (drill-down chart #10; dulu cuma tooltip). */
@@ -164,7 +170,8 @@ export function SpendingHeatmap({
                         'h-7 w-7 rounded-lg grid place-items-center text-[10px] font-semibold tabular-nums transition-transform cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         level(cell.amount),
                         cell.amount > 0 && 'hover:scale-105',
-                        textColor(cell.amount)
+                        textColor(cell.amount),
+                        isTodayCell && 'ring-2 ring-primary ring-offset-1 ring-offset-background'
                       )}
                     >
                       {cell.day}
