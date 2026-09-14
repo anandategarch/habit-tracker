@@ -66,6 +66,13 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
   // Set in handleHabitCheck, read in toggleHabit after successful API response.
   const confettiElRef = useRef<HTMLElement | null>(null);
 
+  // BUGHUNT-47 (47-c #4): guard in-flight per-habit. Tap cepat 2× badan kartu
+  // (jaringan lambat) mengirim dua POST berlawanan; bila urutan respons ke
+  // client tidak sama dengan urutan pemrosesan server, checkbox bisa beda
+  // permanen dengan DB. Klik kedua saat round-trip pertama masih berjalan
+  // kini diabaikan (checkbox/stepper sudah disabled — badan kartu belum).
+  const inFlightRef = useRef<Set<string>>(new Set());
+
   // PERF-REACT-1 fix: toggleHabit is declared BEFORE handleHabitCheck and
   // handleTimeDialogSubmit (which call it) so the useCallback deps arrays
   // can reference it without temporal-dead-zone errors. Reads
@@ -75,6 +82,11 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
   const toggleHabit = useCallback(
     async (habit: Habit, completedAt: string | null, dateOverride?: string) => {
       const habitId = habit.id;
+      // BUGHUNT-47 (47-c #4): lewati bila toggle habit ini masih dalam
+      // round-trip (double-tap badan kartu / klik simultan).
+      if (inFlightRef.current.has(habitId)) return;
+      inFlightRef.current.add(habitId);
+      try {
       // M2-fix (tanggal manual diabaikan): dialog waktu membangun completedAt
       // dari manualDate, tapi dulu POST selalu memakai selectedDate → log masuk
       // hari salah. Tanggal manual kini diteruskan sebagai override (default:
@@ -265,6 +277,10 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
           s.delete(habitId);
           return s;
         });
+      }
+      } finally {
+        // BUGHUNT-47 (47-c #4): lepas guard in-flight apa pun hasil round-trip.
+        inFlightRef.current.delete(habitId);
       }
     },
     [selectedDate, queryClient, completionMapRef, monthLogsCacheRef, setCompletionMap, setCompletedAtMap],

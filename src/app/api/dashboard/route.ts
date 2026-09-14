@@ -16,7 +16,7 @@ import { db } from '@/lib/db';
 import { handleApiError, pickDailyQuote, round1, xpForDifficulty, ymdOf } from '@/app/api/_lib/api-utils';
 import { calcLevel, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
-import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
+import { ensureHabitGraduation, expireHabitVacations } from '@/app/api/_lib/habit-ensure';
 import {
   isScheduledOn,
   parseSchedule,
@@ -42,6 +42,9 @@ export async function GET(req: Request) {
   try {
     // Task 36: query habit default-select memuat targetDays/graduatedAt.
     await ensureHabitGraduation();
+    // BUGHUNT-47 (47-c #1): matikan mode liburan kedaluwarsa SEBELUM dibaca
+    // — habit yang masa liburnya lewat kembali ditrack normal.
+    await expireHabitVacations();
     const periodParam = new URL(req.url).searchParams.get('period');
     const validPeriods = new Set(['7', '30', '90', 'all']);
     if (periodParam !== null && !validPeriods.has(periodParam)) {
@@ -325,9 +328,14 @@ export async function GET(req: Request) {
     // ── Fokus hari ini (L-8: priority dari habit) ──
     // Task 37: hanya habit yang JADWALNYA hari ini (habit mingguan tidak
     // ikut menagih di hari kosongnya).
+    // BUGHUNT-47 (47-c #2): habit libur (vacationMode) juga disaring — dulu
+    // focusToday memuatnya sebagai pending → hero Beranda "X dari Y"
+    // menghitung habit libur, TIDAK KONSISTEN dengan KPI "Hari Ini %" &
+    // tracker yang sama-sama mengecualikannya (Task 39 #4).
     const focusToday = tracking
       .filter(
         (h) =>
+          !h.vacationMode &&
           jakartaDateString(h.startDate as Date) <= todayYmd &&
           isScheduledOn(schedByHabit.get(h.id) ?? { kind: 'daily' }, todayYmd),
       )

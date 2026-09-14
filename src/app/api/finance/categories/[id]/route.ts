@@ -57,6 +57,12 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
         // CASCADE rename: transaksi & budget menyimpan kategori by-name.
         await tx.transaction.updateMany({ where: { category: oldName }, data: { category: newName } });
         await tx.weeklyBudget.updateMany({ where: { category: oldName }, data: { category: newName } });
+        // BUGHUNT-47 (47-b #6): recurring & aturan JUGA menyimpan kategori
+        // by-name — tanpa cascade, instance berulang berikutnya lahir dengan
+        // nama kategori lama (kategori "hantu" dengan emoji fallback yang
+        // tidak bisa dikelola muncul di Analisis/Top Kategori).
+        await tx.recurringTransaction.updateMany({ where: { category: oldName }, data: { category: newName } });
+        await tx.transactionRule.updateMany({ where: { category: oldName }, data: { category: newName } });
       }
       try {
         return await tx.financeCategory.update({ where: { id }, data });
@@ -80,9 +86,22 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     const category = await db.financeCategory.findUnique({ where: { id } });
     if (!category) throw notFound('Kategori tidak ditemukan');
 
-    const usedCount = await db.transaction.count({ where: { category: category.name } });
+    const [usedCount, budgetCount, recurringCount] = await Promise.all([
+      db.transaction.count({ where: { category: category.name } }),
+      // BUGHUNT-47 (47-b #6): guard hapus kini juga memeriksa budget &
+      // transaksi berulang — tanpa ini kategori bisa dihapus meninggalkan
+      // budget "yatim" / recurring yang lahir dengan kategori hantu.
+      db.weeklyBudget.count({ where: { category: category.name } }),
+      db.recurringTransaction.count({ where: { category: category.name } }),
+    ]);
     if (usedCount > 0) {
       throw badRequest(`Kategori masih dipakai ${usedCount} transaksi`);
+    }
+    if (budgetCount > 0) {
+      throw badRequest(`Kategori masih dipakai ${budgetCount} budget`);
+    }
+    if (recurringCount > 0) {
+      throw badRequest(`Kategori masih dipakai ${recurringCount} transaksi berulang`);
     }
 
     await db.financeCategory.delete({ where: { id } });

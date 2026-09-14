@@ -170,26 +170,8 @@ export default function DailyTracker() {
   // (react-hooks/refs compliant; migrated from the old latest-ref pattern
   // per worklog note when this block was touched).
   const openAnalysis = useCallback((id: string) => setAnalysisHabitId(id), []);
-  useEffect(() => {
-    if (!focusHabitId) return;
-    // CONNECTED-APP: fokus habit dibuka SESUAI KAPABILITAS — habit trackTime
-    // → dialog Analisis Waktu; habit lain → gulir ke kartunya di grid
-    // (dialog analisis cuma buntu "tidak mencatat waktu" untuk mereka;
-    // kartu grid memuat riwayat 7-hari + stepper + tombol analisis).
-    const focused = habits.find((h) => h.id === focusHabitId);
-    if (focused?.trackTime) {
-      openAnalysis(focusHabitId);
-    } else {
-      requestAnimationFrame(() => {
-        document
-          .getElementById(focusHabitId)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-    }
-    clearHabitFocus();
-    // `habits` sengaja tidak masuk deps: fokus adalah peristiwa sekali-jalan
-    // (consume-and-clear) — cukup dibaca saat fokus datang.
-  }, [focusHabitId, clearHabitFocus, openAnalysis]);
+  // (Efek konsumsi fokus habit dipindah ke BAWAH deklarasi `habits` —
+  // BUGHUNT-47 47-d #2; lihat komentar di sana.)
   // CONNECTED-APP: ganti mode tampilan (Hari Ini ↔ Riwayat) menutup dialog
   // analisis yang masih terbuka — dulu analysisHabitId bertahan sehingga
   // kembali ke "Hari Ini" memunculkan ulang dialog secara tak terduga.
@@ -210,7 +192,7 @@ export default function DailyTracker() {
   const futureToastRef = useRef(false);
 
   // ---- TanStack Query: habits, daily-log ----
-  const { data: queryHabits = [] } = useQuery<Habit[]>({
+  const { data: queryHabits = [], isLoading: habitsLoading } = useQuery<Habit[]>({
     queryKey: ['habits'],
     queryFn: async () => {
       const res = await fetch('/api/habits');
@@ -229,6 +211,40 @@ export default function DailyTracker() {
   const [dragMode, setDragMode] = useState(false);
   const [localHabitsOverride, setLocalHabitsOverride] = useState<Habit[] | null>(null);
   const habits = localHabitsOverride ?? queryHabits;
+
+  // ONE-CLICK-1: consume the global habit focus (set by openHabitFocus anywhere
+  // in the app — dashboard rows, calendar, weekly review, …). Opens the
+  // TimeAnalysisDialog for the focused habit immediately after the tracker
+  // tab mounts, then clears the ephemeral focus (same consume-and-clear
+  // pattern as quickAddAction; latest-ref indirection like use-finance-mutations).
+  // BUGHUNT-47 (47-d #2): efek kini MENUNGGU data habit siap. Dulunya efek
+  // jalan saat mount dengan habits=[] (cache ['habits'] dingin — Beranda
+  // tidak pernah mem-fetch-nya) → habit terfokus tidak ketemu → scroll
+  // no-op & clearHabitFocus membakar fokus SEBELUM data tiba → klik habit
+  // dari Beranda di sesi segar tidak melakukan apa-apa.
+  useEffect(() => {
+    if (!focusHabitId) return;
+    // Data belum siap (pertama kali buka Tracker di sesi segar) — JANGAN
+    // konsumsi fokus; efek ini akan jalan ulang saat habits terisi.
+    if (habits.length === 0 && habitsLoading) return;
+    // CONNECTED-APP: fokus habit dibuka SESUAI KAPABILITAS — habit trackTime
+    // → dialog Analisis Waktu; habit lain → gulir ke kartunya di grid
+    // (dialog analisis cuma buntu "tidak mencatat waktu" untuk mereka;
+    // kartu grid memuat riwayat 7-hari + stepper + tombol analisis).
+    const focused = habits.find((h) => h.id === focusHabitId);
+    if (focused?.trackTime) {
+      openAnalysis(focusHabitId);
+    } else {
+      requestAnimationFrame(() => {
+        document
+          .getElementById(focusHabitId)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+    clearHabitFocus();
+    // `habits` masuk deps AGAR fokus tertunda sampai data siap — setelah
+    // data tiba, fokus dikonsumsi tepat sekali lalu ter-clear.
+  }, [focusHabitId, clearHabitFocus, openAnalysis, habits, habitsLoading]);
 
   const { data: dailyLogData } = useQuery<DailyLogPayload>({
     queryKey: ['daily-logs', selectedDate],
@@ -342,10 +358,17 @@ export default function DailyTracker() {
 
   // GELOMBANG 1: nilai check-in (mood/energi/tidur) — digate pada tanggal
   // yang cocok (anti stale keepPreviousData, pola worklog 6-c).
+  // BUGHUNT-47 (47-e #3): hari yang hanya punya CATATAN (jurnal) — mood/
+  // energi/tidur semua null — tidak lagi dianggap "sudah check-in". Dulunya
+  // null dipaksa 3/3/7 → kartu tampil penuh + chip "Tersimpan otomatis"
+  // padahal user belum mengisi check-in sama sekali.
   const checkInValue = useMemo(() => {
     if (!dailyLogData) return null;
     const dataDate = dailyLogData.date?.slice(0, 10);
     if (dataDate && dataDate !== selectedDate) return null;
+    const hasCheckIn =
+      dailyLogData.mood != null || dailyLogData.energy != null || dailyLogData.sleep != null;
+    if (!hasCheckIn) return null;
     return {
       mood: dailyLogData.mood ?? 3,
       energy: dailyLogData.energy ?? 3,

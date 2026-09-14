@@ -27,6 +27,7 @@ import {
   CalendarClock,
   AlertTriangle,
   Footprints,
+  MinusCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ export interface GoalCardProps {
   goal: Goal;
   /** CONNECTED-APP (Task 49) — habit yang mendukung tujuan ini (dari
    *  Habit.goalId) + status selesai-hari-ini masing-masing. */
-  supportingHabits?: { id: string; name: string; emoji: string; completedToday: boolean }[];
+  supportingHabits?: { id: string; name: string; emoji: string; status: 'done' | 'recorded' | 'pending' }[];
   /** CONNECTED-APP — sorot saat deep-link openGoalFocus(id) mendarat. */
   highlight?: boolean;
   /** Buka dialog edit. */
@@ -310,7 +311,7 @@ export function GoalCard({
             <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
               <span className="premium-label">Rutinitas Pendukung</span>
               <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
-                {supportingHabits!.filter((h) => h.completedToday).length}/
+                {supportingHabits!.filter((h) => h.status === 'done').length}/
                 {supportingHabits!.length} selesai hari ini
               </span>
             </div>
@@ -323,19 +324,30 @@ export function GoalCard({
                   aria-label={`Buka rutinitas ${h.name} di tracker`}
                   className={cn(
                     'flex w-full cursor-pointer items-center gap-2.5 rounded-lg border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                    h.completedToday
+                    h.status === 'done'
                       ? 'border-emerald-500/25 bg-emerald-500/[0.06] hover:border-primary/30'
-                      : 'border-border/60 hover:border-primary/30 hover:bg-muted/50',
+                      : h.status === 'recorded'
+                        ? 'border-border/60 bg-muted/30 hover:border-primary/30'
+                        : 'border-border/60 hover:border-primary/30 hover:bg-muted/50',
                   )}
                 >
                   <span className="text-base shrink-0" aria-hidden="true">{h.emoji}</span>
-                  <span className={cn('flex-1 min-w-0 truncate text-[13px] font-medium', h.completedToday && 'text-muted-foreground')}>
+                  <span className={cn('flex-1 min-w-0 truncate text-[13px] font-medium', h.status !== 'pending' && 'text-muted-foreground')}>
                     {h.name}
                   </span>
-                  {h.completedToday && (
+                  {/* BUGHUNT-47 (47-e #2): avoid yang kambuh → chip netral
+                      "Tercatat" (bukan hijau "Selesai" yang merayakan
+                      kambuh) — konsisten dengan Beranda. */}
+                  {h.status === 'done' && (
                     <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                       <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
                       Selesai
+                    </span>
+                  )}
+                  {h.status === 'recorded' && (
+                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                      <MinusCircle className="h-3 w-3" aria-hidden="true" />
+                      Tercatat
                     </span>
                   )}
                 </button>

@@ -24,7 +24,7 @@ import { Check, NotebookPen, Pencil, Pin, PinOff, Plus, Search, StickyNote, Tras
 import { cn } from '@/lib/utils';
 import { useDeleteNote, useSaveNote, useToggleNoteCheck, useToggleNotePin, useWorkSearch } from './use-work-api';
 import { NOTE_CONTENT_MAX, type WorkNoteItem, type WorkPayload, type WorkTaskItem } from './work-types';
-import { EmptyHint, GroupLabel, MiniSpinner } from './work-shared';
+import { EmptyHint, GroupLabel, MiniSpinner, WorkLoadError } from './work-shared';
 import {
   NoteCheckBox,
   NoteMarkdown,
@@ -508,11 +508,17 @@ export function WorkNotes({
   date,
   data,
   isLoading,
+  error,
+  onRetry,
   onOpenTask,
 }: {
   date: string;
   data: WorkPayload | undefined;
   isLoading: boolean;
+  /** BUGHUNT-47 (47-e #4): fetch gagal tanpa data cache → kartu error (bukan
+   *  skeleton abadi). */
+  error: boolean;
+  onRetry: () => void;
   onOpenTask: (task: WorkTaskItem) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -802,7 +808,17 @@ export function WorkNotes({
             </div>
           )}
 
-          {isLoading || !data ? (
+          {/* BUGHUNT-47 (47-e #4): error fetch tanpa data cache — kartu error
+              + coba lagi, bukan skeleton abadi. */}
+          {error && !data ? (
+            <div className="mt-3">
+              <WorkLoadError
+                title="Catatan gagal dimuat"
+                hint="Koneksi ke server terputus saat mengambil catatan."
+                onRetry={onRetry}
+              />
+            </div>
+          ) : isLoading || !data ? (
             <div className="mt-3 space-y-2.5">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted/60" style={{ animationDelay: `${i * 60}ms` }} />

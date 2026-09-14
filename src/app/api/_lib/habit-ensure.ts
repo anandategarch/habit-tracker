@@ -18,6 +18,8 @@
 // ---------------------------------------------------------------------------
 import { createClient, type Client } from '@libsql/client';
 import { workLibsqlConfig } from '@/app/api/_lib/work-ensure';
+import { db } from '@/lib/db';
+import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
 
 const NEW_COLUMNS: { name: string; ddl: string }[] = [
   {
@@ -69,4 +71,24 @@ export function ensureHabitGraduation(): Promise<void> {
     });
   }
   return globalForHabitDdl.__habitEnsureGraduationPromise;
+}
+
+/** BUGHUNT-47 (47-c #1): matikan mode liburan yang sudah LEWAT masa
+ *  berlakunya (vacationUntil < hari ini Jakarta). Janji UI form habit:
+ *  "mode liburan otomatis nonaktif dan habit kembali ditrack normal" —
+ *  dulunya vacationUntil disimpan tapi TIDAK PERNAH dibaca → habit tetap
+ *  berbadge 🏖 Libur & dikecualikan dari KPI tracker/dashboard selamanya
+ *  sampai dimatikan manual. Dipanggil dari route baca habit utama
+ *  (GET /api/habits + GET /api/dashboard) — idempoten & murah: updateMany
+ *  hanya menyentuh baris libur yang benar-benar kedaluwarsa.
+ *  Logika bisnis streak/XP TIDAK diubah — ini penegakan janji UI yang ada. */
+export async function expireHabitVacations(): Promise<void> {
+  const todayStart = dateFromYMD(jakartaDateString());
+  await db.habit.updateMany({
+    where: {
+      vacationMode: true,
+      vacationUntil: { not: null, lt: todayStart },
+    },
+    data: { vacationMode: false },
+  });
 }

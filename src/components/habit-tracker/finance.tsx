@@ -300,9 +300,17 @@ export default function Finance() {
  // (React error #185). setSelectedTxIds adalah stable reference (useState setter),
  // jadi aman untuk exclude dari deps.
  const { setSelectedTxIds } = mutations;
+ // BUGHUNT-47 (47-d #7): chip tanggal drill-down (mis. "8 Sep ×") di-reset
+ // saat bulan berganti — dulu filter tanggal bulan lama menyaring bulan baru
+ // → daftar transaksi bulan baru tampak KOSONG padahal ada datanya.
+ // Chip tanggal milik bulannya sendiri TIDAK direset (drill-down heatmap
+ // mengatur tanggal + bulan sekaligus — keduanya harus selaras).
  useEffect(() => {
+   if (txFocusDate && txFocusDate.slice(0, 7) !== selectedMonth) {
+     setTxFocusDate(null);
+   }
    setSelectedTxIds(new Set());
- }, [selectedMonth, setSelectedTxIds]);
+ }, [selectedMonth, setSelectedTxIds, txFocusDate]);
 
  const { data: categories = [], isLoading: categoriesLoading } = useQuery<FinanceCategory[]>({
    queryKey: ['finance', 'categories'],

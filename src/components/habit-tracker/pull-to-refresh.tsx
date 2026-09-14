@@ -16,11 +16,15 @@ const MAX_PULL = 110;
 
 interface PullToRefreshProps {
   className?: string;
+  /** BUGHUNT-47: penanda scroll container untuk virtualizer daftar
+   *  transaksi (finance-transactions) — dipakai query
+   *  [data-slot="app-scroller"], jangan direname. */
+  'data-slot'?: string;
   onRefresh: () => void | Promise<void>;
   children: ReactNode;
 }
 
-export function PullToRefresh({ className, onRefresh, children }: PullToRefreshProps) {
+export function PullToRefresh({ className, onRefresh, children, ...rest }: PullToRefreshProps) {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startYRef = useRef<number | null>(null);
@@ -76,6 +80,7 @@ export function PullToRefresh({ className, onRefresh, children }: PullToRefreshP
   return (
     <div
       className={cn('relative touch-pan-y', className)}
+      {...rest}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={() => void handleTouchEnd()}

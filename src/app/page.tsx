@@ -139,32 +139,70 @@ const VALID_TAB_IDS = new Set<string>([
 // alami (dulu replaceState → tombol Back langsung keluar aplikasi).
 const URL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Terapkan parameter URL → store (dipakai saat mount awal & popstate). */
+/** BUGHUNT-47 (47-d #5): ?date= harus tanggal kalender NYATA — regex saja
+ *  menerima '9999-99-99'/'2026-02-31' lalu Date.UTC me-roll-over ke tanggal
+ *  mustahil di tracker. Validasi komponen UTC balik sama persis. */
+function isValidCalendarDate(ymd: string): boolean {
+ const [y, m, d] = ymd.split('-').map(Number);
+ if (!y || !m || !d) return false;
+ const dt = new Date(Date.UTC(y, m - 1, d));
+ return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+/** Terapkan parameter URL → store (dipakai saat mount awal & popstate).
+ * BUGHUNT-47 (47-d #1 — tombol Back "macet"): param konteks yang TIDAK ada
+ * di entry history kini me-RESET konteks store (URL = sumber kebenaran saat
+ * Back/deep-link). Dulu `?tab=finance` tanpa `?sub=` masih memegang
+ * sub-tab lama → efek sinkron pushState BARU saat mundur → entry maju
+ * dihancurkan & Back tampak mati. */
 function applyUrlToStore() {
  const params = new URLSearchParams(window.location.search);
  const s = useAppStore.getState();
  const tab = params.get('tab');
  const nextTab = tab && VALID_TAB_IDS.has(tab) ? (tab as TabId) : 'dashboard';
  if (nextTab !== s.activeTab) s.setActiveTab(nextTab);
+ // ?date= hanya relevan di konteks tracker (47-d #5) — di tab lain param
+ // ini justru menempel sebagai konteks basi.
  const date = params.get('date');
- if (date && URL_DATE_RE.test(date) && date !== s.selectedDate) {
-  s.setSelectedDate(date);
-  if (date.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(date.slice(0, 7));
+ const dateOk = !!date && URL_DATE_RE.test(date) && isValidCalendarDate(date);
+ if (nextTab === 'tracker') {
+  if (dateOk && date !== s.selectedDate) {
+   s.setSelectedDate(date);
+   if (date.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(date.slice(0, 7));
+  } else if (!dateOk) {
+   // Entry tanpa konteks tanggal = hari ini (mencegah tanggal basi menempel
+   // saat Back ke entry pra-konteks).
+   const today = jakartaDateString();
+   if (s.selectedDate !== today) {
+    s.setSelectedDate(today);
+    if (today.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(today.slice(0, 7));
+   }
+  }
  }
  const sub = params.get('sub');
- if (
-  nextTab === 'finance' &&
-  sub &&
-  FINANCE_SUB_TABS.has(sub) &&
-  sub !== s.financeSubTab
- ) {
-  s.setFinanceSubTab(sub as FinanceSubTab);
+ if (nextTab === 'finance') {
+  if (
+   sub &&
+   FINANCE_SUB_TABS.has(sub) &&
+   sub !== s.financeSubTab
+  ) {
+   s.setFinanceSubTab(sub as FinanceSubTab);
+  } else if (!sub && s.financeSubTab !== 'overview') {
+   s.setFinanceSubTab('overview');
+  }
  }
 }
 
-/** Susun URL konteks untuk state saat ini (tab aktif + konteksnya). */
+/** Susun URL konteks untuk state saat ini (tab aktif + konteksnya).
+ * BUGHUNT-47 (47-d #6): param tak dikenal (?goal=/?category=/… hasil URL
+ * manual) dibersihkan supaya URL tetap kanonik dan tidak menempel abadi
+ * di semua pushState berikutnya. */
 function buildContextUrl(tab: TabId): URL {
  const url = new URL(window.location.href);
+ const known = new Set(['tab', 'date', 'sub']);
+ for (const key of Array.from(url.searchParams.keys())) {
+  if (!known.has(key)) url.searchParams.delete(key);
+ }
  url.searchParams.delete('tab');
  url.searchParams.delete('date');
  url.searchParams.delete('sub');
@@ -269,24 +307,37 @@ const [showSplash, setShowSplash] = useState(true);
  // replaceState supaya history tidak dibanjiri entry kecil. popstate sudah
  // meng-update store, jadi cabang ini jadi no-op saat Back (URL sama).
  const prevTabRef = useRef<TabId | null>(null);
+ // BUGHUNT-47 (47-d #1): popstate tidak boleh mem-push entry history baru —
+ // pushState saat mundur menghancurkan riwayat maju & membuat Back tampak
+ // mati. Flag ini memaksa replaceState untuk siklus sinkron yang dipicu
+ // popstate (dibersihkan setelah efek jalan / macrotask berikutnya).
+ const isPopstateRef = useRef(false);
  useEffect(() => {
   if (typeof window === 'undefined') return;
   const url = buildContextUrl(activeTab);
   const isTabSwitch = prevTabRef.current !== null && prevTabRef.current !== activeTab;
   if (url.search !== window.location.search) {
-   if (isTabSwitch) {
+   if (isTabSwitch && !isPopstateRef.current) {
     window.history.pushState({ rutinaTab: activeTab }, '', url.toString());
    } else {
     window.history.replaceState({ rutinaTab: activeTab }, '', url.toString());
    }
   }
   prevTabRef.current = activeTab;
+  isPopstateRef.current = false;
  }, [activeTab, selectedDate, financeSubTab]);
 
  // CONNECTED-APP: tombol Back browser → pulihkan konteks dari URL ke store
  // (mundur antar tab tanpa reload — dulu Back selalu keluar aplikasi).
  useEffect(() => {
-  const onPop = () => applyUrlToStore();
+  const onPop = () => {
+   isPopstateRef.current = true;
+   applyUrlToStore();
+   // Guard: bila popstate tidak mengubah store (efek sinkron tidak jalan),
+   // flag tetap harus bersih sebelum klik tab berikutnya — jika tidak, klik
+   // tab berikutnya akan replaceState (entry history tidak dibuat).
+   setTimeout(() => { isPopstateRef.current = false; }, 0);
+  };
   window.addEventListener('popstate', onPop);
   return () => window.removeEventListener('popstate', onPop);
  }, []);
@@ -492,6 +543,7 @@ const [showSplash, setShowSplash] = useState(true);
              desktop (no touch), it's a pass-through wrapper — no
              behaviour change. */}
          <PullToRefresh
+           data-slot="app-scroller"
            className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 md:p-6 pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-6"
            onRefresh={handleRefresh}
          >

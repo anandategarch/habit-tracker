@@ -34,7 +34,10 @@ export default function WorkDesk() {
   }, []);
 
   const [subTab, setSubTab] = useState('today');
-  const { data, isLoading } = useWorkData(today);
+  // BUGHUNT-47 (47-e #4): isError + refetch diteruskan ke sub-tab supaya
+  // kegagalan fetch menampilkan kartu error + Coba Lagi (bukan skeleton
+  // abadi — kondisi lama `isLoading || !data` menganggap error = loading).
+  const { data, isLoading, isError, refetch } = useWorkData(today);
   const boardQuery = useWorkBoard(today);
   const setDayFlag = useSetDayFlag(today);
   const [editorState, setEditorState] = useState<TaskEditorState>({ task: null });
@@ -203,15 +206,17 @@ export default function WorkDesk() {
             date={today}
             data={data}
             isLoading={isLoading}
+            error={isError}
+            onRetry={() => { void refetch(); }}
             onEditTask={openTaskEditor}
             onGoTo={setSubTab}
           />
         </TabsContent>
         <TabsContent value="routines" className="mt-0">
-          <WorkRoutines date={today} data={data} isLoading={isLoading} />
+          <WorkRoutines date={today} data={data} isLoading={isLoading} error={isError} onRetry={() => { void refetch(); }} />
         </TabsContent>
         <TabsContent value="notes" className="mt-0">
-          <WorkNotes date={today} data={data} isLoading={isLoading} onOpenTask={(task) => openTaskEditor(task)} />
+          <WorkNotes date={today} data={data} isLoading={isLoading} error={isError} onRetry={() => { void refetch(); }} onOpenTask={(task) => openTaskEditor(task)} />
         </TabsContent>
         <TabsContent value="board" className="mt-0">
           <WorkBoard

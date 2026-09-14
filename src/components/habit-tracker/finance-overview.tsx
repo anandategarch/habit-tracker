@@ -72,6 +72,10 @@ interface LastDoneRow {
   meta: string;
   amount: number | null;
   isIncome: boolean;
+  /** BUGHUNT-47 (47-b #9): transfer antar sumber — tampil NETRAL (violet,
+   *  tanpa tanda +/−) konsisten konvensi M4 di daftar Transaksi; dulu
+   *  dirender sebagai pengeluaran merah "−Rp…". */
+  isTransfer: boolean;
   /** CONNECTED-APP — kategori untuk drill-down baris. */
   category?: string;
 }
@@ -134,6 +138,7 @@ export default function FinanceOverview({
           meta: metaParts.filter(Boolean).join(' · '),
           amount,
           isIncome: item.type === 'income',
+          isTransfer: item.type === 'transfer',
           category: item.category ?? undefined,
         };
       });
@@ -157,6 +162,7 @@ export default function FinanceOverview({
           meta: metaParts.filter(Boolean).join(' · '),
           amount: tx.amount ?? null,
           isIncome: tx.type === 'income',
+          isTransfer: tx.type === 'transfer',
           category: tx.category ?? undefined,
         };
       });
@@ -322,12 +328,16 @@ export default function FinanceOverview({
                   <span
                     className={cn(
                       'text-sm font-semibold tabular-nums shrink-0',
-                      row.isIncome
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-rose-600 dark:text-rose-400'
+                      row.isTransfer
+                        ? 'text-violet-600 dark:text-violet-400'
+                        : row.isIncome
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
                     )}
                   >
-                    {row.isIncome ? '+' : '−'}{formatRupiah(row.amount)}
+                    {/* BUGHUNT-47 (47-b #9): transfer NETRAL — tanpa tanda
+                        +/− (bukan pengeluaran), konsisten daftar Transaksi. */}
+                    {row.isTransfer ? '' : row.isIncome ? '+' : '−'}{formatRupiah(row.amount)}
                   </span>
                 )}
               </button>

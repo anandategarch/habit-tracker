@@ -132,8 +132,9 @@ export function DailyCheckInCard({ date, value, onOpenHistory, onOpenJournal }: 
 
   const guardFuture = useCallback((): boolean => {
     if (date > jakartaDateString()) {
-      // Pesan standar guard tanggal masa depan (konsisten dengan toggle habit).
-      toast.error('Tidak bisa mencatat habit untuk tanggal yang akan datang');
+      // BUGHUNT-47 (47-e #6): pesan spesifik check-in (kartu ini mencatat
+      // mood/energi/tidur — bukan habit).
+      toast.error('Tidak bisa mencatat check-in untuk tanggal yang akan datang');
       return false;
     }
     return true;

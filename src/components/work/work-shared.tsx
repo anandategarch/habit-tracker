@@ -4,8 +4,9 @@
 // ---------------------------------------------------------------------------
 'use client';
 
-import { Check, Clock, Loader2 } from 'lucide-react';
+import { Check, Clock, CloudOff, Loader2, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import type { WorkTaskItem } from './work-types';
 
 /** Lingkaran toggle 44px (target sentuh). status menentukan isi lingkaran. */
@@ -157,6 +158,41 @@ export function EmptyHint({
 /** Spinner aksi (dipakai tombol saat mutasi berjalan). */
 export function MiniSpinner({ className }: { className?: string }) {
   return <Loader2 className={cn('h-4 w-4 animate-spin', className)} aria-hidden="true" />;
+}
+
+/** BUGHUNT-47 (47-e #4): state error sub-tab Meja Kerja — dulu gagal fetch
+ *  membuat skeleton berdenyut SELAMANYA (isLoading=false + data undefined
+ *  dianggap "sedang memuat"). Dipakai Hari Ini/Rutinitas/Catatan; Papan
+ *  sudah punya polanya sendiri. */
+export function WorkLoadError({
+  title,
+  hint,
+  onRetry,
+}: {
+  title: string;
+  hint: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="pt-3">
+      <EmptyHint
+        icon={<CloudOff className="h-5 w-5" aria-hidden="true" />}
+        title={title}
+        hint={hint}
+        action={
+          <Button
+            type="button"
+            size="sm"
+            className="btn-primary-gradient mt-1 gap-1"
+            onClick={onRetry}
+          >
+            <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Coba lagi
+          </Button>
+        }
+      />
+    </div>
+  );
 }
 
 /** Nama bulan Indonesia dari kunci hari 'yyyy-MM-dd' (tanpa dependensi baru). */

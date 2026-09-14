@@ -6,6 +6,18 @@
 import { jakartaDateString } from '@/lib/timezone';
 import { parseSchedule } from '@/lib/habit-schedule';
 
+/** BUGHUNT-47 (47-c #6): YMD jam-dinding JAKARTA dari nilai tanggal apa pun
+ *  (Date / ISO string). slice(0,10) lama membaca komponen UTC — startDate
+ *  default Prisma now() (jam 00:00–06:59 Jakarta = hari UTC sebelumnya)
+ *  menampilkan tanggal mulai satu hari lebih awal di form, dan menekan
+ *  Simpan menuliskan nilai salah itu permanen. */
+function jakartaYmdOrNull(v: string | Date | null | undefined): string | null {
+  if (v === null || v === undefined || v === '') return null;
+  const d = v instanceof Date ? v : new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return jakartaDateString(d);
+}
+
 export type { Habit, HabitGroup } from './daily-tracker-types';
 
 /** Tipe target (kolom disiapkan; UI hanya mendukung 'daily' — BUG-14). */
@@ -139,11 +151,12 @@ export function habitToForm(h: {
     goalId: h.goalId ?? null,
     reminder: h.reminder ?? null,
     status: h.isActive ? 'active' : 'paused',
-    // slice(0,10): startDate ISO → kunci YMD (konvensi kunci hari client).
-    startDate: String(h.startDate).slice(0, 10) || jakartaDateString(),
+    // BUGHUNT-47 (47-c #6): baca tanggal mulai sebagai hari Jakarta (bukan
+    // slice UTC — lihat jakartaYmdOrNull di atas).
+    startDate: jakartaYmdOrNull(h.startDate) ?? jakartaDateString(),
     trackTime: h.trackTime,
     vacationMode: h.vacationMode,
-    vacationEnd: h.vacationUntil ? String(h.vacationUntil).slice(0, 10) : null,
+    vacationEnd: jakartaYmdOrNull(h.vacationUntil),
     notes: h.notes ?? null,
   };
 }

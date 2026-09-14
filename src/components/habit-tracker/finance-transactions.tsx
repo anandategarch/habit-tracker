@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -186,22 +186,51 @@ export default function FinanceTransactions({
    return rows;
  }, [groupedTransactions]);
 
- // PERF-FIX (Fix 14): useWindowVirtualizer scrolls with the document
- // (preserving the existing UX where the transaction list lives in
- // normal page flow). The virtualizer renders only the visible window
- // of rows + an overscan buffer; off-screen rows are NOT mounted, which
- // keeps DOM node count bounded regardless of how many transactions
- // the month has. estimateSize returns a rough height per row kind
- // (header is short, tx is taller) — the library uses this to compute
- // total scrollable height and to decide which rows are visible.
- const virtualizer = useWindowVirtualizer({
+ // BUGHUNT-47 (bug dilaporkan user: "kategori week 2 tidak masuk padahal
+ // sudah ada transaksi"): useWindowVirtualizer mengamati scroll WINDOW —
+ // padahal sejak BUGFIX SCROLL-2 arsitektur app menggulir container
+ // [data-slot="app-scroller"] di dalamnya (document tidak pernah scroll).
+ // window.scrollY permanen 0 → range virtualizer tidak pernah maju →
+ // hanya ±22 baris pertama yang ter-mount; sisa bulan jadi ruang kosong
+ // (transaksi minggu 2 dst. "hilang"). Kini virtualizer berlabuh ke
+ // scroll container sebenarnya + scrollMargin = offset list dalam
+ // container (pola resmi TanStack Virtual untuk list dalam elemen yang
+ // digulir).
+ const listRef = useRef<HTMLDivElement>(null);
+ const [scrollerEl, setScrollerEl] = useState<HTMLElement | null>(null);
+ const [scrollMargin, setScrollMargin] = useState(0);
+
+ // Resolve scroll container saat list hadir (saat mount pertama data bisa
+ // masih loading → tx-timeline belum ter-render; efek ini jalan ulang begitu
+ // baris pertama muncul). Pakai wrapper .tx-timeline sebagai jangkar.
+ const hasRows = flatRows.length > 0;
+ useEffect(() => {
+   if (!hasRows) return;
+   const el = listRef.current?.closest('[data-slot="app-scroller"]') as HTMLElement | null;
+   setScrollerEl(el);
+ }, [hasRows]);
+
+ // Ukur offset list dalam konten scroll (scroll-invariant: rect +
+ // scrollTop saling meniadakan). Dihitung tiap render (murah — dua
+ // getBoundingClientRect) karena konten di atas list bisa berubah
+ // (filter expand/collapse, badge pencarian). setState dengan nilai sama
+ // = no-op React, jadi tidak ada render loop.
+ useEffect(() => {
+   if (!scrollerEl || !listRef.current) return;
+   const next =
+     listRef.current.getBoundingClientRect().top +
+     scrollerEl.scrollTop -
+     scrollerEl.getBoundingClientRect().top;
+   setScrollMargin((m) => (m === next ? m : next));
+ });
+
+ const virtualizer = useVirtualizer({
    count: flatRows.length,
    estimateSize: (i) => estimateRowSize(flatRows[i]),
    overscan: 12,
-   // FIX: enable dynamic measurement so virtualizer self-heals when CSS
-   // changes card height. Without this, stale estimateRowSize causes
-   // cards to overlap (was 92px estimate vs 122px actual → 18px overlap).
    measureElement: (el) => el.getBoundingClientRect().height,
+   getScrollElement: () => scrollerEl,
+   scrollMargin,
  });
 
  return (
@@ -430,22 +459,14 @@ export default function FinanceTransactions({
          </div>
        </div>
      ) : (
-       <div className="tx-timeline space-y-1">
+       <div className="tx-timeline space-y-1" ref={listRef}>
          {/*
-           PERF-FIX (Fix 14): Virtualized list.
-           The container div has height = total virtualized size so the
-           document scroll bar reflects the full list length. Each visible
-           row is absolutely positioned via `transform: translateY(start)`.
-           Off-screen rows are NOT mounted — DOM count stays bounded even
-           for months with hundreds of transactions.
-
-           Note on sticky date pill: previously .tx-date-pill was
-           position: sticky inside each group's container so it stayed
-           pinned at top while scrolling within a group. With virtualized
-           absolute positioning, sticky no longer applies — the date
-           header now scrolls with its row. Trade-off accepted to gain
-           bounded DOM for long lists. The pill's visual styling is
-           preserved (still uses .tx-date-pill class).
+           BUGHUNT-47: virtualisasi kini berlabuh ke [data-slot="app-scroller"]
+           (container scroll sebenarnya) — bukan window. Catatan semantik
+           TanStack Virtual: item.start INCLUDES scrollMargin dan
+           getTotalSize() EXCLUDES-nya → translateY mengurangi scrollMargin
+           (pola resmi dokumentasi). Sticky date pill tetap tidak berlaku
+           (posisi absolute) — trade-off yang sama seperti sebelumnya.
          */}
          <div
            style={{
@@ -467,7 +488,7 @@ export default function FinanceTransactions({
                    top: 0,
                    left: 0,
                    width: '100%',
-                   transform: `translateY(${vItem.start}px)`,
+                   transform: `translateY(${vItem.start - scrollMargin}px)`,
                  }}
                >
                  {row.kind === 'header' ? (

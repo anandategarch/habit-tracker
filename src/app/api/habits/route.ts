@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, readJsonBody } from '@/app/api/_lib/api-utils';
 import { parseHabitFields } from '@/app/api/_lib/habit-fields';
-import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
+import { ensureHabitGraduation, expireHabitVacations } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,10 @@ export async function GET() {
     // Task 36: pastikan kolom targetDays/graduatedAt ada (DDL idempotent —
     // no-op lokal, ALTER TABLE saat pertama di Turso produksi).
     await ensureHabitGraduation();
+    // BUGHUNT-47 (47-c #1): matikan mode liburan yang masa berlakunya sudah
+    // lewat — janji UI "otomatis nonaktif dan kembali ditrack normal"
+    // dulunya tidak pernah ditegakkan (vacationUntil tidak pernah dibaca).
+    await expireHabitVacations();
     const [habits, counts] = await Promise.all([
       db.habit.findMany({
         where: { isActive: true, isArchived: false },

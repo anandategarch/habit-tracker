@@ -22,7 +22,7 @@ import {
   type WorkTaskItem,
   type WorkTimeOfDay,
 } from './work-types';
-import { EmptyHint, GroupLabel, MiniSpinner, RoutineTick, WorkBadge, WorkTick } from './work-shared';
+import { EmptyHint, GroupLabel, MiniSpinner, RoutineTick, WorkBadge, WorkTick, WorkLoadError } from './work-shared';
 
 const GROUP_ORDER: WorkTimeOfDay[] = ['pagi', 'siang', 'sore'];
 const GROUP_LABELS: Record<WorkTimeOfDay, string> = { pagi: 'Rutin Pagi', siang: 'Rutin Siang', sore: 'Rutin Sore' };
@@ -186,17 +186,33 @@ export function WorkToday({
   date,
   data,
   isLoading,
+  error,
+  onRetry,
   onEditTask,
   onGoTo,
 }: {
   date: string;
   data: WorkPayload | undefined;
   isLoading: boolean;
+  /** BUGHUNT-47 (47-e #4): fetch gagal tanpa data cache → kartu error +
+   *  coba lagi (bukan skeleton abadi). */
+  error: boolean;
+  onRetry: () => void;
   onEditTask: (task: WorkTaskItem | null, draftTitle?: string) => void;
   onGoTo: (tab: string) => void;
 }) {
   const saveTask = useSaveTask(date);
   const [quickDraft, setQuickDraft] = useState('');
+
+  if (error && !data) {
+    return (
+      <WorkLoadError
+        title="Daftar hari ini gagal dimuat"
+        hint="Koneksi ke server terputus. Rutinitas & tugas akan muncul setelah koneksi kembali."
+        onRetry={onRetry}
+      />
+    );
+  }
 
   if (isLoading || !data) {
     return (

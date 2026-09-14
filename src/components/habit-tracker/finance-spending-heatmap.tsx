@@ -6,14 +6,17 @@
 // (openFinanceSubTab('transactions')).
 
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/store/app-store';
 import { dateFromYMD } from '@/lib/timezone';
+import type { AppSettings } from '@/lib/settings-types';
 import { formatRupiah, compactRupiah } from './finance-types';
 import { cn } from '@/lib/utils';
 
-const DOW_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+// Indeks 0 = Minggu (getUTCDay) — dirotasi mengikuti weekStart pengguna.
+const DOW_BASE = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 const MONTHS_ID = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
@@ -35,11 +38,28 @@ export function SpendingHeatmap({
   // CONNECTED-APP: sel hari → transaksi tanggal itu.
   const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
 
+  // BUGHUNT-47 (47-b #3): weekStart pengguna dihormati (kalender habit sudah
+  // mengikuti setting ini; heatmap dulu hardcode Senin-awal).
+  const { data: settings = null } = useQuery<AppSettings | null>({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const weekStartsOn = settings?.weekStart === 0 ? 0 : 1;
+  const DOW_LABELS = useMemo(
+    () => [...DOW_BASE.slice(weekStartsOn), ...DOW_BASE.slice(0, weekStartsOn)],
+    [weekStartsOn]
+  );
+
   const { cells, maxAmount, activeDays, monthTitle } = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
-    // Kolom = minggu, baris = hari (Senin-awal, konsisten default app).
-    const firstDow = (dateFromYMD(`${selectedMonth}-01`).getUTCDay() + 6) % 7;
+    // Kolom = minggu (mengikuti weekStart pengguna — konsisten kalender).
+    const firstDow = (dateFromYMD(`${selectedMonth}-01`).getUTCDay() + 7 - weekStartsOn) % 7;
     const map = new Map<string, number>();
     let max = 0;
     let active = 0;
@@ -64,7 +84,7 @@ export function SpendingHeatmap({
     }
     const title = `${MONTHS_ID[(m || 1) - 1] ?? ''} ${y}`;
     return { cells: out, maxAmount: max, activeDays: active, monthTitle: title };
-  }, [byDay, selectedMonth]);
+  }, [byDay, selectedMonth, weekStartsOn]);
 
   const weeks = useMemo(() => {
     const count = cells.length > 0 ? cells[cells.length - 1].week + 1 : 0;
@@ -106,7 +126,10 @@ export function SpendingHeatmap({
         </Button>
       </div>
 
-      {weeks.length === 0 ? (
+      {/* BUGHUNT-47 (47-b #8): kondisi empty-state lama (`weeks.length === 0`)
+          tidak pernah tercapai — struktur kalender selalu ≥4 kolom minggu.
+          Cek activeDays (ada pengeluaran atau tidak) sebagai gantinya. */}
+      {weeks.length === 0 || activeDays === 0 ? (
         <p className="text-xs text-muted-foreground py-3">Belum ada data pengeluaran bulan ini.</p>
       ) : (
         <>

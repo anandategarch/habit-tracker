@@ -51,8 +51,10 @@ import {
  ArrowUpRight,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
+import type { AppSettings } from '@/lib/settings-types';
 import { formatRupiah, type Transaction } from './finance-types';
 import { CountUpNumber } from './count-up';
 import { CountUpRupiah } from './count-up-rupiah';
@@ -482,14 +484,30 @@ export function CategoryDetailView({
    // for the rare case.
  }, [transactions, prevTransactions, cat, selectedMonth]);
 
+ // BUGHUNT-47 (47-b #3): weekStart pengguna dihormati — kalender habit &
+ // weeklyRate sudah mengikuti AppSettings.weekStart, tapi bucket mingguan
+ // finance hardcode Senin-awal → user weekStart=Minggu mendapat kartu
+ // "Minggu 2" yang bergeser 1 hari (transaksi hari Minggu masuk minggu
+ // yang salah → "minggu 2 tidak masuk padahal ada transaksi").
+ const { data: settings = null } = useQuery<AppSettings | null>({
+   queryKey: ['settings'],
+   queryFn: async () => {
+     const res = await fetch('/api/settings');
+     if (!res.ok) return null;
+     return res.json();
+   },
+   staleTime: 60_000,
+ });
+ const weekStartsOn = settings?.weekStart === 0 ? 0 : 1;
+
  // MERGE Task 32 (Opsi A): ringkasan mingguan M1–M5 — transplant dari
- // drill-down Eksplorasi lama. Dihitung dari chartData (sudah berisi total
- // harian kategori ini) + offset hari-ke-1 (kolom Senin-awal, konsisten
- // dengan heatmap & explorer lama).
+ // drill-down Eksplorasi lama. BUGHUNT-47: (1) firstDow mengikuti weekStart
+ // pengguna; (2) tiap kartu kini menampilkan RENTANG TANGGALNYA (mis.
+ // "Minggu 2 · 7–13") supaya tidak ambigu minggu mana yang dimaksud.
  const weekly = useMemo(() => {
    const [yy, mm] = selectedMonth.split('-').map(Number);
    const daysInMonth = new Date(yy, mm, 0).getDate();
-   const firstDow = (new Date(Date.UTC(yy, mm - 1, 1)).getUTCDay() + 6) % 7;
+   const firstDow = (new Date(Date.UTC(yy, mm - 1, 1)).getUTCDay() + 7 - weekStartsOn) % 7;
    const weekCount = Math.ceil((firstDow + daysInMonth) / 7);
    const buckets = Array.from({ length: weekCount }, () => ({ total: 0, count: 0 }));
    for (const row of chartData) {
@@ -499,8 +517,16 @@ export function CategoryDetailView({
        buckets[w].count += row.count;
      }
    }
-   return buckets.map((b, i) => ({ name: `Minggu ${i + 1}`, ...b }));
- }, [chartData, selectedMonth]);
+   return buckets.map((b, i) => {
+     const startDay = Math.max(1, 7 * i - firstDow + 1);
+     const endDay = Math.min(7 * (i + 1) - firstDow, daysInMonth);
+     return {
+       name: `Minggu ${i + 1}`,
+       rangeLabel: startDay === endDay ? `${startDay}` : `${startDay}–${endDay}`,
+       ...b,
+     };
+   });
+ }, [chartData, selectedMonth, weekStartsOn]);
 
  return (
    <div className="space-y-4 overflow-x-hidden">
@@ -705,7 +731,12 @@ export function CategoryDetailView({
              const maxWeek = Math.max(...weekly.map((x) => x.total), 1);
              return (
                <div key={w.name} className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2 min-w-0">
-                 <p className="text-[11px] font-semibold text-muted-foreground">{w.name}</p>
+                 <div className="flex items-baseline justify-between gap-1 min-w-0">
+                   <p className="text-[11px] font-semibold text-muted-foreground truncate">{w.name}</p>
+                   {/* BUGHUNT-47: rentang tanggal minggu eksplisit — menghapus
+                       ambiguitas "minggu mana" yang memicu laporan bug. */}
+                   <p className="text-[10px] text-muted-foreground/70 tabular-nums shrink-0">{w.rangeLabel}</p>
+                 </div>
                  <p className="text-sm font-bold tabular-nums">{compactRupiahSafe(w.total)}</p>
                  <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden mt-1.5" aria-hidden="true">
                    <div

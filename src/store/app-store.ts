@@ -166,8 +166,19 @@ export const useAppStore = create<AppState>((set) => ({
       trackerMonth: month ?? s.trackerMonth,
     })),
   focusHabitId: null,
+  // BUGHUNT-47 (47-e #5): semua pemanggil openHabitFocus berkonteks HARI INI
+  // (baris Beranda, baris "Rutinitas Pendukung" goal, widget dashboard) —
+  // dulu selectedDate basi dari sesi tracker sebelumnya ikut terbawa,jadi
+  // "Selesai (hari ini)" di goal mendarat di tracker tanggal MINGGU LALU.
+  // Sinkronkan ke hari ini + bulannya (pola openTrackerDate).
   openHabitFocus: (habitId) =>
-    set({ activeTab: 'tracker', trackerViewMode: 'today', focusHabitId: habitId }),
+    set({
+      activeTab: 'tracker',
+      trackerViewMode: 'today',
+      focusHabitId: habitId,
+      selectedDate: jakartaDateString(),
+      trackerMonth: jakartaDateString().slice(0, 7),
+    }),
   clearHabitFocus: () => set({ focusHabitId: null }),
 
   focusGoalId: null,

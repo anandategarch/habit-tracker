@@ -27,7 +27,7 @@ import { Pencil, Plus, Repeat, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDeleteRoutine, useSaveRoutine, useSetRoutineActive } from './use-work-api';
 import { WORK_TIME_LABELS, WORK_TIME_OF_DAYS, type WorkPayload, type WorkRoutineItem, type WorkTimeOfDay } from './work-types';
-import { EmptyHint, GroupLabel, MiniSpinner } from './work-shared';
+import { EmptyHint, GroupLabel, MiniSpinner, WorkLoadError } from './work-shared';
 
 function AddRoutineForm({ date }: { date: string }) {
   const saveRoutine = useSaveRoutine(date);
@@ -143,7 +143,7 @@ function RoutineManageRow({ routine, date, onRename }: { routine: WorkRoutineIte
   );
 }
 
-export function WorkRoutines({ date, data, isLoading }: { date: string; data: WorkPayload | undefined; isLoading: boolean }) {
+export function WorkRoutines({ date, data, isLoading, error, onRetry }: { date: string; data: WorkPayload | undefined; isLoading: boolean; error: boolean; onRetry: () => void }) {
   const saveRoutine = useSaveRoutine(date);
   const [editing, setEditing] = useState<WorkRoutineItem | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -152,6 +152,18 @@ export function WorkRoutines({ date, data, isLoading }: { date: string; data: Wo
     setEditing(routine);
     setEditTitle(routine.title);
   };
+
+  // BUGHUNT-47 (47-e #4): fetch gagal tanpa data cache → kartu error (bukan
+  // skeleton abadi).
+  if (error && !data) {
+    return (
+      <WorkLoadError
+        title="Rutinitas gagal dimuat"
+        hint="Koneksi ke server terputus saat mengambil rutinitas kerja."
+        onRetry={onRetry}
+      />
+    );
+  }
 
   if (isLoading || !data) {
     return (

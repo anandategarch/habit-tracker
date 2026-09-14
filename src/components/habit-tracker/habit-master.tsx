@@ -221,13 +221,26 @@ export default function HabitMaster() {
  const openAdd = useCallback(() => {
    setEditingId(null);
    setForm(emptyForm());
+   // BUGHUNT-47 (47-d #4): pembukaan NORMAL (tombol "Habit Baru") bukan
+   // sesi quick-add — flag lokal dipakai saat create supaya returnTab basi
+   // (quick-add yang dibatalkan) tidak "menelportkan" user ke tab lama.
+   openedViaQuickAddRef.current = false;
    setDialogOpen(true);
  }, []);
 
  function openEdit(h: Habit) {
    setEditingId(h.id);
    setForm(habitToForm(h));
+   // BUGHUNT-47 (47-d #4): sesi edit juga bukan quick-add.
+   openedViaQuickAddRef.current = false;
    setDialogOpen(true);
+ }
+
+ // BUGHUNT-47 (47-d #4): dialog ditutup tanpa create sukses (Batal/Escape/
+ // overlay) → returnTab quick-add tidak boleh tersimpan basi di store.
+ function handleDialogOpenChange(open: boolean) {
+   if (!open) clearQuickAddReturn();
+   setDialogOpen(open);
  }
 
  // BUGHUNT-ROUND2 FAB-1: FAB quick-add consumer. The mobile FAB "Habit
@@ -244,8 +257,12 @@ export default function HabitMaster() {
  const quickAddReturnTab = useAppStore(s => s.quickAddReturnTab);
  const clearQuickAddReturn = useAppStore(s => s.clearQuickAddReturn);
  const setActiveTab = useAppStore(s => s.setActiveTab);
+ // BUGHUNT-47 (47-d #4): flag sesi — hanya sesi dialog yang DIBUKA quick-add
+ // yang boleh memulangkan user ke returnTab.
+ const openedViaQuickAddRef = useRef(false);
  useEffect(() => {
    if (quickAddAction === 'habit') {
+     openedViaQuickAddRef.current = true;
      openAdd();
      clearQuickAdd();
    }
@@ -355,10 +372,13 @@ export default function HabitMaster() {
        // CONNECTED-APP: pulangkan user ke konteks asal quick-add (Hari Ini /
        // Tracker) — dulu setelah "Tambah Rutinitas Pertama" user terdampar
        // di Pengaturan dan harus navigasi manual kembali.
-       if (quickAddReturnTab) {
+       // BUGHUNT-47 (47-d #4): hanya untuk sesi yang DIBUKA via quick-add —
+       // returnTab basi (quick-add dibatalkan lalu user membuat habit biasa)
+       // tidak lagi men-teleport user.
+       if (quickAddReturnTab && openedViaQuickAddRef.current) {
          setActiveTab(quickAddReturnTab);
-         clearQuickAddReturn();
        }
+       clearQuickAddReturn();
      }
 
      setDialogOpen(false);
@@ -523,7 +543,7 @@ export default function HabitMaster() {
        icon={ListChecks}
        eyebrow="Perpustakaan Habit"
      >
-       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
          <DialogTrigger asChild>
            <Button
              onClick={openAdd}
@@ -1078,7 +1098,7 @@ export default function HabitMaster() {
              <div className="flex justify-end gap-3 pt-2">
                <Button
                  variant="outline"
-                 onClick={() => setDialogOpen(false)}
+                 onClick={() => handleDialogOpenChange(false)}
                  disabled={submitting}
                >
                  Batal

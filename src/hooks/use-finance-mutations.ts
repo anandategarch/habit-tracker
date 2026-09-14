@@ -20,7 +20,7 @@
 //    call directly).
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { jakartaDateString, jakartaNowParts } from '@/lib/timezone';
@@ -30,6 +30,7 @@ import type {
  BudgetItem,
  FinanceCategory,
  FundSource,
+ TransactionRule,
 } from '@/components/habit-tracker/finance-types';
 import {
  formatNominalInput,
@@ -163,6 +164,9 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
 
  const openNewTx = useCallback((type: 'income' | 'expense') => {
    setEditingTx(null);
+   // BUGHUNT-47 (47-b #2): reset penanda sesi aturan — auto-kategorisasi
+   // hanya berlaku sekali per dialog (lihat efek aturan di bawah).
+   ruleAppliedRef.current = false;
    // Audit fix: use Jakarta timezone for date + time prefill (was using
    // date-fns `format(now, ...)` which uses the BROWSER's local TZ).
    // On Vercel (UTC server) or for a traveler in Tokyo (UTC+9), the
@@ -186,6 +190,56 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
    setTxDialogOpen(true);
  }, [getActiveSources]);
 
+ // ── BUGHUNT-47 (47-b #2): mesin ATURAN (auto-kategorisasi) ────────────
+ // Sub-tab "Aturan" menjanjikan "transaksi baru yang deskripsinya memuat
+ // kata kunci otomatis dikategorikan" — tetapi tidak ada satu pun kode
+ // yang membaca TransactionRule saat membuat transaksi (fitur no-op).
+ // Kini: saat user mengetik deskripsi di dialog BARU dan belum memilih
+ // kategori, aturan aktif (priority tertinggi yang cocok) mengisi kategori
+ // + sumber otomatis. SEKALI per sesi dialog; pilihan eksplisit user tidak
+ // pernah ditimpa (begitu kategori terisi — manual maupun aturan — efek
+ // berhenti). Murni client-side: kontrak API tidak berubah.
+ const ruleAppliedRef = useRef(false);
+ const { data: txRules = [] } = useQuery<TransactionRule[]>({
+   queryKey: ['finance', 'rules'],
+   queryFn: async () => {
+     const res = await fetch('/api/finance/rules');
+     if (!res.ok) return [];
+     return (await res.json()).rules ?? [];
+   },
+   staleTime: 60_000,
+ });
+ const txRulesRef = useRef(txRules);
+   useEffect(() => { txRulesRef.current = txRules; }, [txRules]);
+   const sourcesForRulesRef = useRef(getActiveSources);
+   useEffect(() => { sourcesForRulesRef.current = getActiveSources; }, [getActiveSources]);
+   useEffect(() => {
+     if (editingTx) return;
+     if (ruleAppliedRef.current) return;
+     if (txForm.category) {
+       // user sudah memilih kategori sendiri → matikan auto untuk sesi ini
+       ruleAppliedRef.current = true;
+       return;
+     }
+     const desc = txForm.description.trim().toLowerCase();
+     if (!desc) return;
+     const rules = [...txRulesRef.current].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+     const hit = rules.find(
+       (r) => r.keyword && r.keyword.trim() && desc.includes(r.keyword.trim().toLowerCase()),
+     );
+     if (!hit) return;
+     ruleAppliedRef.current = true;
+     const sourceName = hit.sourceId
+       ? sourcesForRulesRef.current().find((s) => s.id === hit.sourceId)?.name ?? null
+       : null;
+     setTxForm((p) => ({
+       ...p,
+       category: hit.category,
+       ...(sourceName && !p.source ? { source: sourceName } : {}),
+     }));
+     toast.info(`Kategori terisi otomatis dari aturan "${hit.keyword}"`);
+   }, [editingTx, txForm.category, txForm.description]);
+
  // BUGHUNT-ROUND2 FAB-1: consume the FAB quick-add action. Runs whenever
  // the Finance tab is live (this hook is only used by the Finance page)
  // and the store holds an expense/income action — opens the pre-filled
@@ -202,6 +256,8 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
 
  const openEditTx = useCallback((tx: Transaction) => {
    setEditingTx(tx);
+   // BUGHUNT-47 (47-b #2): edit tidak pernah auto-kategorisasi.
+   ruleAppliedRef.current = true;
    // H3: Transaction.date menyimpan KOMPONEN UTC = jam dinding Jakarta
    // (jam disimpan sebagai jam UTC). Prefill date+time dibaca LANGSUNG dari
    // komponen ISO (slice), bukan dikonversi +7 — konversi Intl 'Asia/Jakarta'
@@ -218,7 +274,10 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
      tx.source ??
      '';
    setTxForm({
-     type: tx.type, amount: formatNominalInput(String(tx.amount)), category: tx.category,
+     // BUGHUNT-47 (47-b #7): nominal desimal (mis. Rp9,99 dari import/fee)
+     // dulu ter-format "9,99" → koma desimal dibuang parser → tersimpan 999
+     // (nominal berubah diam-diam saat edit). Prefill dibulatkan ke rupiah.
+     type: tx.type, amount: formatNominalInput(String(Math.round(tx.amount))), category: tx.category,
      description: tx.description || '', date: txDate, time: txTime,
      notes: tx.notes || '', source: sourceName,
      // PHASE4-POLISH: parse the stored JSON array string into a string[].

@@ -202,10 +202,16 @@ export default function Dashboard() {
     staleTime: 15_000,
   });
   // Gate tanggal (anti stale keepPreviousData).
+  // BUGHUNT-47 (47-e #3): hari yang hanya punya CATATAN (jurnal) tanpa nilai
+  // check-in tidak lagi dianggap "sudah check-in" (dulu null → 3/3/7 → kartu
+  // penuh + chip "Tersimpan otomatis" padahal belum diisi).
   const checkInValue = useMemo(() => {
     if (!dailyLogData) return null;
     const dataDate = dailyLogData.date?.slice(0, 10);
     if (dataDate && dataDate !== todayStr) return null;
+    const hasCheckIn =
+      dailyLogData.mood != null || dailyLogData.energy != null || dailyLogData.sleep != null;
+    if (!hasCheckIn) return null;
     return {
       mood: dailyLogData.mood ?? 3,
       energy: dailyLogData.energy ?? 3,

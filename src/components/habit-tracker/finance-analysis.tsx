@@ -260,21 +260,27 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
   const handleSplitWeekly = async () => {
     if (busy) return;
     if (suggestTargets.length === 0) {
-      toast.info('Semua kategori utama sudah punya target mingguan');
+      toast.info('Semua kategori utama sudah punya budget');
       return;
     }
     setBusy('split');
     try {
+      // BUGHUNT-47 (47-b #5): "Split Target Mingguan" lama membuat budget
+      // BULANAN sebesar total/4 — schema WeeklyBudget memang selalu bulanan
+      // (tidak ada periode mingguan), janya progress membandingkan pemakaian
+      // SEBULAN penuh vs angka ¼ bulan → budget baru langsung "Terlampaui"
+      // ~400%. Tombol kini jujur: "Budget Hemat" = 75% dari pola bulan
+      // berjalan (ruang hemat 25%), tetap dievaluasi bulanan.
       const rows = suggestTargets.map((t) => ({
         category: t.name,
-        amount: Math.max(MIN_SUGGEST_AMOUNT, Math.round(t.total / 4)),
+        amount: Math.max(MIN_SUGGEST_AMOUNT, Math.round((t.total * 3) / 4)),
       }));
       const { created, errMessage } = await postBudgets('split', rows);
       if (errMessage) {
         toast.error(errMessage);
         if (created > 0) queryClient.invalidateQueries({ queryKey: ['finance'] });
       } else {
-        toast.success(`Target mingguan untuk ${created} kategori dibuat`);
+        toast.success(`Budget hemat (75% pola) untuk ${created} kategori dibuat`);
         queryClient.invalidateQueries({ queryKey: ['finance'] });
       }
     } catch {
@@ -456,9 +462,10 @@ export default function FinanceAnalysis({ getCategoryMeta, onEditTx }: FinanceAn
             className="h-8 text-xs anim-press"
             onClick={() => { void handleSplitWeekly(); }}
             disabled={busy !== null}
+            aria-label="Buat budget hemat 75 persen dari pola belanja"
           >
             <Split className={cn('h-3.5 w-3.5', busy === 'split' && 'animate-pulse')} />
-            {busy === 'split' ? 'Memecah…' : 'Split Target Mingguan'}
+            {busy === 'split' ? 'Menyusun…' : 'Budget Hemat'}
           </Button>
         </div>
       </div>

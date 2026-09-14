@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toDashboardData } from '@/lib/dashboard/contract';
 import { useAppStore } from '@/store/app-store';
 import { Target, CheckCircle2, Flame, Plus, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -44,26 +45,38 @@ export default function Goals() {
 
   // ── CONNECTED-APP (Task 49): fokus tujuan (deep-link openGoalFocus) ──
   // Consume-and-clear: scroll ke kartu + sorot ring (prop highlight).
+  // BUGHUNT-47 (47-d #3): clearGoalFocus() dulunya dipanggil LANGSUNG di badan
+  // efek — dep focusGoalId berubah (X→null) seketika → cleanup efek lari →
+  // clearTimeout membatalkan timer 2,5 dtk → sorotan menempel selamanya &
+  // milestone ter-expand paksa. Clear kini terjadi DALAM timeout bersama
+  // lepasnya sorotan; cleanup hanya untuk unmount/pergantian fokus.
   const focusGoalId = useAppStore((s) => s.focusGoalId);
   const clearGoalFocus = useAppStore((s) => s.clearGoalFocus);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   useEffect(() => {
-    if (focusGoalId) {
-      setHighlightId(focusGoalId);
+    if (!focusGoalId) return;
+    setHighlightId(focusGoalId);
+    // Scroll setelah render kartu (requestAnimationFrame menunggu paint).
+    requestAnimationFrame(() => {
+      document.getElementById(focusGoalId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // Sorot 2,5 detik — cukup terlihat, tidak menjadi noise permanen.
+    const t = setTimeout(() => {
+      setHighlightId(null);
       clearGoalFocus();
-      // Scroll setelah render kartu (requestAnimationFrame menunggu paint).
-      requestAnimationFrame(() => {
-        document.getElementById(focusGoalId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-      // Sorot 2.5 detik — cukup terlihat, tidak menjadi noise permanen.
-      const t = setTimeout(() => setHighlightId(null), 2500);
-      return () => clearTimeout(t);
-    }
+    }, 2500);
+    return () => clearTimeout(t);
   }, [focusGoalId, clearGoalFocus]);
 
   // ── CONNECTED-APP (Task 49): habit pendukung per tujuan ──
   // ['habits'] cache terbagih dengan tracker; status selesai-hari-ini dari
   // ['dashboard','all',…] (key sama dengan Beranda → cache terbagih).
+  // BUGHUNT-47 (47-e #1 — CRITICAL): queryFn kini memakai toDashboardData()
+  // — BENTUK SAMA PERSIS dengan Beranda/Progres. Dulunya query ini menyimpan
+  // raw JSON (focusToday) di key yang SAMA dengan dashboard.tsx (shape
+  // toDashboardData → todayHabits): komponen yang fetch lebih dulu menang
+  // bentuk cache → goals membaca focusToday=[] (status pendukung selalu
+  // "belum") atau Beranda membaca todayHabits=undefined → crash render.
   const refreshKey = useAppStore((s) => s.refreshKey);
   const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null }[]>({
     queryKey: ['habits'],
@@ -80,17 +93,41 @@ export default function Goals() {
     queryFn: async () => {
       const res = await fetch('/api/dashboard?period=all');
       if (!res.ok) return null;
-      return res.json() as Promise<{ focusToday?: { id: string; completed?: boolean }[] } | null>;
+      return toDashboardData(await res.json(), 'all');
     },
     staleTime: 30_000,
-    select: (raw) => ({ todayHabits: raw?.focusToday ?? [] }),
+    select: (d) => ({ todayHabits: d?.todayHabits ?? [] }),
   });
-  const todayDoneIds = new Set((todayData?.todayHabits ?? []).filter((h) => h.completed).map((h) => h.id));
-  const supportingByGoal = new Map<string, { id: string; name: string; emoji: string; completedToday: boolean }[]>();
+  // BUGHUNT-47 (47-e #2): habit avoid yang KAMBUH (logged) tidak lagi
+  // dirayakan "Selesai" — semantik sama dengan Beranda (Task 39 #4):
+  // avoid sukses = TIDAK kambuh; kambuh tercatat netral (chip "Tercatat").
+  const todayStatusById = new Map<
+    string,
+    { logged: boolean; isAvoid: boolean }
+  >(
+    (todayData?.todayHabits ?? []).map((h) => [
+      h.id,
+      { logged: h.completed === true, isAvoid: h.habitType === 'avoid' },
+    ])
+  );
+  const supportingByGoal = new Map<
+    string,
+    { id: string; name: string; emoji: string; status: 'done' | 'recorded' | 'pending' }[]
+  >();
   for (const h of habits) {
     if (!h.goalId) continue;
     const arr = supportingByGoal.get(h.goalId) ?? [];
-    arr.push({ id: h.id, name: h.name, emoji: h.emoji, completedToday: todayDoneIds.has(h.id) });
+    const st = todayStatusById.get(h.id);
+    const status = !st
+      ? 'pending'
+      : st.isAvoid
+        ? st.logged
+          ? 'recorded'
+          : 'done'
+        : st.logged
+          ? 'done'
+          : 'pending';
+    arr.push({ id: h.id, name: h.name, emoji: h.emoji, status });
     supportingByGoal.set(h.goalId, arr);
   }
 

@@ -62,12 +62,22 @@ export async function GET(req: Request) {
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     });
 
+    // BUGHUNT-47 (47-b #4): pencarian juga mencocokkan NAMA SUMBER DANA.
+    // Filter instan di client (finance.tsx) membandingkan sourceName, tapi
+    // server hanya memeriksa description/notes/tags/category → hasil
+    // server∩client membuang match-sumber-saja: baris "BCA/Kas" sempat
+    // muncul saat mengetik lalu HILANG setelah refetch debounced.
+    const sourcesForSearch = await db.fundSource.findMany({
+      select: { id: true, name: true },
+    });
+    const sourceNameById = new Map(sourcesForSearch.map((s) => [s.id, s.name.toLowerCase()]));
+
     let filtered = rows;
     if (search) {
       filtered = rows.filter((r) =>
         [r.description, r.notes, r.tags, r.category].some((s) =>
           (s ?? '').toLowerCase().includes(search),
-        ),
+        ) || (r.sourceId ? (sourceNameById.get(r.sourceId) ?? '').includes(search) : false),
       );
     }
 
