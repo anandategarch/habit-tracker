@@ -8,6 +8,7 @@
 
 import { CheckCircle2, Zap, Flame, Award } from 'lucide-react';
 import { calcLevel } from '@/lib/dashboard-helpers';
+import { TreeProgress } from '@/components/ui/loaders';
 import { CountUpNumber } from './count-up';
 
 interface DailySummaryProps {
@@ -37,7 +38,16 @@ export function DailySummary({
       className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 premium-fade-up"
       aria-label="Ringkasan harian"
     >
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* TASK 45 — pohon signature menyapa di tracker juga (benang emosional
+          antar layar): tumbuh mengikuti progres hari yang sedang dilihat. */}
+      <div className="flex items-center gap-4 sm:gap-5">
+        <TreeProgress
+          size={72}
+          growth={totalCount > 0 ? completedCount / totalCount : 0}
+          className="shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Selesai (teal) */}
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0" aria-hidden="true">
@@ -97,6 +107,8 @@ export function DailySummary({
             <p className="text-[11px] text-muted-foreground tabular-nums truncate">
               XP total {totalXp}
             </p>
+          </div>
+        </div>
           </div>
         </div>
       </div>

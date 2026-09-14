@@ -9,10 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
- LayoutDashboard,
- CheckSquare,
+ Sunrise,
+ ListChecks,
  Target,
-
  Wallet,
  Settings as SettingsIcon,
  PanelLeftClose,
@@ -23,6 +22,8 @@ import {
  ArrowUpRight,
  ArrowLeftRight,
  Briefcase,
+ LineChart,
+ ClipboardList,
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
@@ -57,6 +58,11 @@ const tabLoading = () => (
 
 const Dashboard = dynamic(() => import('@/components/habit-tracker/dashboard'), { ssr: false, loading: tabLoading });
 const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-tracker'), { ssr: false, loading: tabLoading });
+// TASK 45: tab PROGRES — seluruh analitik "Your Journey" dipindah dari
+// Beranda ke tab sendiri (brief: "Don't put all the analytics on Home").
+// Komponen memakai query key ['dashboard', period, …] yang SAMA dengan
+// Beranda → cache terbagih, berpindah tab tidak memicu fetch ulang.
+const ProgressTab = dynamic(() => import('@/components/habit-tracker/progress'), { ssr: false, loading: tabLoading });
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
 
 // TAB MESA KERJA (Task 17-a): catatan kerjaan — rutinitas berulang + tugas
@@ -66,24 +72,49 @@ const WorkDesk = dynamic(() => import('@/components/work/work-desk'), { ssr: fal
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
 
-const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
- { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
- { id: 'tracker', label: 'Tracker Harian', icon: CheckSquare },
- { id: 'work', label: 'Meja Kerja', icon: Briefcase },
- { id: 'goals', label: 'Tujuan', icon: Target },
-
- { id: 'finance', label: 'Keuangan', icon: Wallet },
- { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+// TASK 45 — NAVIGATION REBUILD (destructive redesign):
+// IA lama (flat 6 item, label "Beranda" → rasa dashboard) diganti arsitektur
+// pengelompokan FEEL→DO→GROW:
+//   MAIN (daily journey): Today (greeting+tree+check-in) → Tracker (DO)
+//     → Progress (GROW analytics) → Goals (aspiration) → Finance.
+//   OTHER SPACES (low frequency): Work Desk, Settings — sidebar drawer /
+//     hamburger, TIDAK lagi di dock mobile (Pengaturan keluar dari dock,
+//     digantikan Progress yang jauh lebih sering dibuka).
+const NAV_SECTIONS: {
+  label: string;
+  items: { id: TabId; label: string; icon: React.ElementType }[];
+}[] = [
+  {
+    label: 'Utama',
+    items: [
+      { id: 'dashboard', label: 'Hari Ini', icon: Sunrise },
+      { id: 'tracker', label: 'Tracker', icon: ListChecks },
+      { id: 'progress', label: 'Progres', icon: LineChart },
+      { id: 'goals', label: 'Tujuan', icon: Target },
+      { id: 'finance', label: 'Keuangan', icon: Wallet },
+    ],
+  },
+  {
+    label: 'Ruang lain',
+    items: [
+      { id: 'work', label: 'Meja Kerja', icon: Briefcase },
+      { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+    ],
+  },
 ];
+// Flat lookup — dipakai header title & mapping lama.
+const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] =
+  NAV_SECTIONS.flatMap((s) => s.items);
 
-// PREMIUM DOCK PATTERN: Bottom nav = 2 left + FAB center + 2 right.
-// NAV_LEFT_ITEMS + NAV_RIGHT_ITEMS defined in PremiumBottomNav below.
-// Meja Kerja & Tujuan reachable via sidebar drawer (hamburger) + deep-link ?tab=
-// — dock hanya memuat 5 tab agar label tetap terbaca di layar 390px.
+// PREMIUM DOCK PATTERN (TASK 45 v2): Bottom nav = 3 left + FAB center +
+// 2 right — kini UTAMA + Tracker + Goals | FAB | Progress + Finance.
+// Meja Kerja & Pengaturan (frekuensi rendah) via drawer hamburger — dock
+// hanya memuat 5 tab harian agar label tetap terbaca di layar 390px.
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
  dashboard: Dashboard,
  tracker: DailyTracker,
+ progress: ProgressTab,
  work: WorkDesk,
  goals: Goals,
 
@@ -93,7 +124,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
- 'dashboard', 'tracker', 'work', 'goals',
+ 'dashboard', 'tracker', 'progress', 'work', 'goals',
  'finance', 'settings',
 ]);
 
@@ -287,40 +318,49 @@ const [showSplash, setShowSplash] = useState(true);
            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
          )}
        >
-         {/* Logo */}
+         {/* Logo — TASK 45: tagline "Tumbuh setiap hari" (bukan spesifikasi
+             fitur) — identitas Personal Life Companion. */}
          <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary/85 to-emerald-500 text-white premium-fab-shadow">
              <Sprout className="h-5 w-5" strokeWidth={2.2} />
            </div>
            <div className="leading-tight">
              <span className="font-bold text-sm tracking-tight">Rutina</span>
-             <p className="text-[10px] text-muted-foreground/70">Habit & Keuangan</p>
+             <p className="text-[10px] text-muted-foreground/70">Tumbuh setiap hari</p>
            </div>
          </div>
 
-         {/* Navigation */}
+         {/* Navigation — TASK 45: dikelompokkan (Utama / Ruang lain) supaya
+             hirarki IA terbaca: perjalanan harian dulu, ruang pendukung kemudian. */}
          <ScrollArea className="flex-1 py-3 custom-scrollbar">
-           <nav className="px-2.5 space-y-1">
-             {NAV_ITEMS.map((item) => {
-               const Icon = item.icon;
-               const isActive = activeTab === item.id;
-               return (
-                 <button
-                   key={item.id}
-                   onClick={() => handleNavClick(item.id)}
-                   className={cn(
-                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                     isActive
-                       ? 'btn-primary-gradient text-primary-foreground shadow-md'
-                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/70 active:scale-[0.98]',
-                   )}
-                 >
-                   <Icon className={cn('h-4 w-4 shrink-0', isActive && 'anim-nav-icon-pop')} />
-                   <span>{item.label}</span>
-                 </button>
-               );
-             })}
+           <nav className="px-2.5 space-y-4" aria-label="Navigasi utama">
+             {NAV_SECTIONS.map((section) => (
+               <div key={section.label}>
+                 <p className="premium-label px-3 pb-1.5">{section.label}</p>
+                 <div className="space-y-1">
+                   {section.items.map((item) => {
+                     const Icon = item.icon;
+                     const isActive = activeTab === item.id;
+                     return (
+                       <button
+                         key={item.id}
+                         onClick={() => handleNavClick(item.id)}
+                         className={cn(
+                           'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                           isActive
+                             ? 'btn-primary-gradient text-primary-foreground shadow-md'
+                             : 'text-muted-foreground hover:text-foreground hover:bg-accent/70 active:scale-[0.98]',
+                         )}
+                       >
+                         <Icon className={cn('h-4 w-4 shrink-0', isActive && 'anim-nav-icon-pop')} />
+                         <span>{item.label}</span>
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
+             ))}
            </nav>
          </ScrollArea>
 
@@ -362,10 +402,12 @@ const [showSplash, setShowSplash] = useState(true);
                {sidebarOpen ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}
              </TooltipContent>
            </Tooltip>
-           <h1 className="text-lg font-semibold">
-             {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}
+           <h1 className="text-lg font-semibold truncate">
+             {NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Rutina'}
            </h1>
-           <div className="ml-auto text-xs text-muted-foreground hidden xs:block sm:block" suppressHydrationWarning>
+           {/* TASK 45: tanggal kini tampil mulai 420px (di bawah itu space
+               header sempit — tanggal sudah hadir dalam kartu hero Hari Ini). */}
+           <div className="ml-auto text-xs text-muted-foreground hidden min-[420px]:block" suppressHydrationWarning>
              {dateString}
            </div>
          </header>
@@ -442,14 +484,14 @@ const FAB_SIZE = 56; // FAB diameter (px)
 const FAB_PROTRUDE = 22; // px of FAB protruding above the dock top edge
 
 const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
- { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
- { id: 'tracker', label: 'Tracker', icon: CheckSquare },
+ { id: 'dashboard', label: 'Hari Ini', icon: Sunrise },
+ { id: 'tracker', label: 'Tracker', icon: ListChecks },
  { id: 'goals', label: 'Tujuan', icon: Target },
 ];
 
 const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
+ { id: 'progress', label: 'Progres', icon: LineChart },
  { id: 'finance', label: 'Keuangan', icon: Wallet },
- { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
 ];
 
 // Geometri indikator per tab (fraksi lebar dock) — data-driven dari daftar
@@ -650,13 +692,29 @@ function PremiumBottomNav({
              aria-hidden="true"
              className="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 rounded-[3px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border-b border-r border-slate-900/[0.07] dark:border-white/10"
            />
+           {/* TASK 45: microcopy personal (bukan label utilitas) + Habit
+               Baru diurutan pertama — habit adalah jantung aplikasi. */}
            <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] text-slate-400 dark:text-slate-500">
-             Tambah Cepat
+             Mau catat apa?
            </p>
 
            <button
              role="menuitem"
              className="anim-fab-item anim-fab-item-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+             onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
+           >
+             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_4px_10px_-2px_rgba(245,158,11,0.5)]">
+               <Sprout className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+             </span>
+             <span className="min-w-0">
+               <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Habit Baru</span>
+               <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Satu rutinitas kecil</span>
+             </span>
+           </button>
+
+           <button
+             role="menuitem"
+             className="anim-fab-item anim-fab-item-2 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
              // BUGHUNT-ROUND2 FAB-1: was just onNavClick('finance') — the
              // dialog never opened. The quick-add action makes the
              // Finance tab open the expense dialog after mounting.
@@ -673,7 +731,7 @@ function PremiumBottomNav({
 
            <button
              role="menuitem"
-             className="anim-fab-item anim-fab-item-2 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+             className="anim-fab-item anim-fab-item-3 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
              onClick={() => { triggerQuickAdd('income'); onNavClick('finance'); setFabOpen(false); }}
            >
              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 shadow-[0_4px_10px_-2px_rgba(16,185,129,0.5)]">
@@ -687,7 +745,23 @@ function PremiumBottomNav({
 
            <button
              role="menuitem"
-             className="anim-fab-item anim-fab-item-3 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+             className="anim-fab-item anim-fab-item-4 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
+             // TASK 45: Tugas Kerja — aksi 'task' baru; Meja Kerja membuka
+             // editor tugas kosong saat mount (pola consume-and-clear).
+             onClick={() => { triggerQuickAdd('task'); onNavClick('work'); setFabOpen(false); }}
+           >
+             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-400 to-teal-500 shadow-[0_4px_10px_-2px_rgba(14,165,233,0.45)]">
+               <ClipboardList className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
+             </span>
+             <span className="min-w-0">
+               <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Tugas Kerja</span>
+               <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Tambah tugas di Meja Kerja</span>
+             </span>
+           </button>
+
+           <button
+             role="menuitem"
+             className="anim-fab-item anim-fab-item-5 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
              // ONE-CLICK-2: Transfer quick-add. Opens the transfer dialog on
              // the finance overview sub-tab (SourceBalance consumes the
              // 'transfer' action). Previously the transfer feature was
@@ -700,23 +774,6 @@ function PremiumBottomNav({
              <span className="min-w-0">
                <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Transfer</span>
                <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Pindahkan antar dompet</span>
-             </span>
-           </button>
-
-           <button
-             role="menuitem"
-             className="anim-fab-item anim-fab-item-4 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
-             // "Habit Baru" — the add-habit form lives in Settings →
-             // Habit Master. Navigate there and let HabitMaster open its
-             // dialog via the same quick-add trigger.
-             onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
-           >
-             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_4px_10px_-2px_rgba(245,158,11,0.5)]">
-               <Sprout className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
-             </span>
-             <span className="min-w-0">
-               <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Habit Baru</span>
-               <span className="block text-[11px] leading-tight text-slate-500 dark:text-slate-400">Tambah habit baru</span>
              </span>
            </button>
          </div>

@@ -194,6 +194,11 @@ function HabitCardInner({
   const handleCheckboxClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (dragMode) return;
+    // TASK 45 — haptic ringan (bila didukung perangkat): completion harus
+    // terasa FISIK, <300ms, tanpa menunggu network. Guard feature-detect.
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(12);
+    }
     // Set elemen asal confetti DULU (pola BUG-5) lalu toggle tanpa event —
     // parent memakai ref yang baru saja diset.
     onSetConfettiEl?.(e.currentTarget);
@@ -354,17 +359,24 @@ function HabitCardInner({
                       disabled={isToggling || dragMode}
                       onClick={handleCheckboxClick}
                       className={cn(
-                        'grid h-11 w-11 shrink-0 place-items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'relative grid h-11 w-11 shrink-0 place-items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         isToggling && 'animate-pulse',
                       )}
                     >
+                      {/* TASK 45 — ripple satu-tembakan: ring memancar dari
+                          tombol saat baru selesai (0.6s, reduced-motion aware).
+                          Pelengkap confetti + chip XP → completion terasa
+                          instant + satisfying tanpa animasi panjang. */}
+                      {justCompleted && isDone && (
+                        <span key={`ripple-${habit.id}`} aria-hidden="true" className="rt-check-ripple" />
+                      )}
                       <span
                         className={cn(
-                          'grid h-6 w-6 place-items-center rounded-full border-2 transition-all duration-200',
+                          'grid h-7 w-7 place-items-center rounded-full border-2 transition-all duration-200',
                           isDone
                             ? isAvoid
                               ? 'border-transparent bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-[0_0_14px_-2px_rgba(244,63,94,0.65)]'
-                              : 'border-transparent bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-[0_0_14px_-2px_rgba(16,185,129,0.65)]'
+                              : 'border-transparent bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-[0_0_16px_-2px_rgba(16,185,129,0.75)]'
                             : cn(
                                 'border-muted-foreground/40 bg-transparent',
                                 isAvoid
@@ -373,7 +385,7 @@ function HabitCardInner({
                               ),
                         )}
                       >
-                        {isDone && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
+                        {isDone && <Check className="h-4 w-4" strokeWidth={3.5} />}
                       </span>
                     </button>
                     {/* Task 44 — reward XP terlihat: muncul HANYA untuk habit

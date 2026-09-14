@@ -105,10 +105,11 @@ export function TodayHero({
     <section className="premium-hero" aria-label="Sapaan dan progres hari ini">
       <div className="premium-hero-bubbles" aria-hidden="true" />
       <div className="relative z-10 flex flex-col gap-4 px-5 py-5 sm:px-6">
-        {/* Baris 1 — sapaan personal + tanggal; pohon tumbuh di kanan */}
+        {/* Baris 1 — sapaan personal (Display serif Fraunces — momen emosional,
+            TASK 45 typography 3-lapis) + tanggal; pohon signature di kanan. */}
         <div className="flex items-start justify-between gap-3">
           <div className="premium-fade-up min-w-0">
-            <h2 className="truncate text-lg font-bold tracking-tight sm:text-xl">
+            <h2 className="font-display truncate text-[1.35rem] font-semibold leading-snug tracking-tight sm:text-2xl">
               {greeting}
               {userName ? `, ${userName}` : ''}{' '}
               <span aria-hidden="true">{greetingEmoji(hour)}</span>
@@ -117,8 +118,14 @@ export function TodayHero({
               <p className="mt-1 text-[13px] font-medium opacity-90">{dateLabel}</p>
             )}
           </div>
-          {/* Signature visual — pohon rutinitas; aria di dalam TreeProgress */}
-          <TreeProgress size={78} growth={growth} className="premium-fade-up shrink-0" />
+          {/* Signature visual — pohon rutinitas; halo amber menyala saat streak
+              ≥7 hari (tree-heat), bloom emerald saat hari tuntas. */}
+          <TreeProgress
+            size={88}
+            growth={growth}
+            streak={currentStreak}
+            className="premium-fade-up shrink-0"
+          />
         </div>
 
         {/* Baris 2 — narasi + bar progres besar "X dari Y" */}
@@ -127,8 +134,8 @@ export function TodayHero({
           {total > 0 && (
             <div className="mt-3">
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-[13px] font-semibold">
-                  <CountUpNumber value={completed} className="text-xl font-extrabold" />
+                <p className="font-display text-[13px] font-semibold">
+                  <CountUpNumber value={completed} className="font-display text-[1.65rem] font-bold leading-none" />
                   <span className="opacity-80"> dari {total} rutinitas</span>
                 </p>
                 <span className="premium-stat text-lg">{pct}%</span>

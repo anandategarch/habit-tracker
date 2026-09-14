@@ -25,6 +25,7 @@ import {
   ChevronDown,
   CalendarClock,
   AlertTriangle,
+  Footprints,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -57,8 +58,9 @@ export interface GoalCardProps {
   goal: Goal;
   /** Buka dialog edit. */
   onEdit: (goal: Goal) => void;
-  /** Tandai selesai / aktifkan kembali. */
-  onComplete: (goal: Goal) => void;
+  /** Tandai selesai / aktifkan kembali. TASK 45: originEl = tombol asal
+   *  untuk confetti celebration (sejajar pengalaman completion habit). */
+  onComplete: (goal: Goal, originEl?: HTMLElement | null) => void;
   /** Hapus tujuan (dipanggil setelah konfirmasi AlertDialog). */
   onDelete: (goal: Goal) => void;
   /** Toggle milestone ke-i (BUG-M16: status ikut diturunkan). */
@@ -93,6 +95,11 @@ export function GoalCard({
   // urgensi (deadline tercapai — terlambat atau tidak tidak lagi relevan).
   const overdue = deadline && !completed ? isDeadlineOverdue(deadline) : false;
   const urgent = deadline && !completed ? isDeadlineUrgent(deadline) : false;
+
+  // TASK 45 — milestone berikutnya (next action): langkah paling dekat yang
+  // belum selesai; jadi benang cerita aspirational kartu, bukan bar bisu.
+  const nextMilestoneIdx = milestones.findIndex((m) => !m.done);
+  const nextMilestone = nextMilestoneIdx >= 0 ? milestones[nextMilestoneIdx] : null;
 
   // Avatar chip status (pola 2-c): teal aktif / emerald selesai / slate batal.
   const statusIcon = cancelled ? XCircle : completed ? CheckCircle2 : Target;
@@ -165,7 +172,7 @@ export function GoalCard({
                     ? `Aktifkan kembali tujuan ${goal.title}`
                     : `Tandai tujuan ${goal.title} selesai`
                 }
-                onClick={() => onComplete(goal)}
+                onClick={(e) => onComplete(goal, e.currentTarget)}
               >
                 {completed ? (
                   <RotateCcw className="h-4 w-4" />
@@ -222,6 +229,27 @@ export function GoalCard({
           )}
         </div>
 
+        {/* TASK 45 — LANGKAH BERIKUTNYA (next action): kotak lembut yang
+            menyorot milestone terdekat — goals terasa seperti perjalanan
+            yang menanti, bukan formulir progress bar. */}
+        {!completed && !cancelled && nextMilestone && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-primary/25 bg-primary/[0.06] px-3 py-2.5">
+            <Footprints className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="premium-label text-[9px] leading-none">Langkah berikutnya</p>
+              <p className="mt-1 truncate text-[13px] font-medium text-foreground">
+                {nextMilestone.text}
+              </p>
+            </div>
+          </div>
+        )}
+        {completed && (
+          <p className="flex items-center gap-1.5 text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
+            <Check className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={3} />
+            Tercapai — nikmati momen ini 🌳
+          </p>
+        )}
+
         {/* Progress otomatis dari % milestone */}
         <div className="flex items-center gap-3">
           <Progress value={pct} className="premium-progress anim-progress-fill h-2 flex-1" aria-label={`Progres ${pct}%`} />
@@ -232,6 +260,30 @@ export function GoalCard({
             </span>
           )}
         </div>
+
+        {/* TASK 45 — trajectory dots: jejak langkah perjalanan selalu
+            terlihat (done = segmen emerald, next = ditandai ring, sisanya
+            redup) — “visual trajectory” brief Goals. */}
+        {milestones.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5" aria-hidden="true">
+            {milestones.slice(0, 12).map((m, i) => (
+              <span
+                key={`dot-${i}`}
+                className={cn(
+                  'h-1.5 rounded-full transition-all duration-300',
+                  m.done
+                    ? 'w-5 bg-gradient-to-r from-teal-400 to-emerald-500'
+                    : i === nextMilestoneIdx
+                      ? 'w-6 bg-primary/35 ring-2 ring-primary/30 ring-offset-1'
+                      : 'w-3 bg-muted',
+                )}
+              />
+            ))}
+            {milestones.length > 12 && (
+              <span className="text-[10px] text-muted-foreground">+{milestones.length - 12}</span>
+            )}
+          </div>
+        )}
 
         {/* Expand milestone */}
         {milestones.length > 0 && (
@@ -252,7 +304,8 @@ export function GoalCard({
               <ul className="divide-y divide-border/60 rounded-xl border border-border/60 bg-muted/20 px-3 py-1">
                 {milestones.map((m, i) => (
                   <li key={`${i}-${m.text}`} className="flex items-center gap-2.5 py-2">
-                    {/* Checkbox bulat gradien (pola 2-b/2-c) */}
+                    {/* Checkbox bulat gradien — TASK 45: hit-area 44px (visual
+                        24px anak span), konsisten dgn checkbox habit. */}
                     <button
                       type="button"
                       role="checkbox"
@@ -260,13 +313,20 @@ export function GoalCard({
                       aria-label={`Tandai milestone ${m.text}`}
                       onClick={() => onToggleMilestone(goal, i)}
                       className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                        m.done
-                          ? 'border-transparent bg-gradient-to-br from-teal-400 to-emerald-500 shadow-[0_0_10px_-2px_rgba(16,185,129,0.55)]'
-                          : 'border-muted-foreground/40 hover:border-primary/60',
+                        'grid h-11 w-11 shrink-0 place-items-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        i === nextMilestoneIdx && !m.done && 'anim-nav-icon-pop',
                       )}
                     >
-                      {m.done && <Check className="h-3 w-3 text-white" aria-hidden="true" />}
+                      <span
+                        className={cn(
+                          'grid h-6 w-6 place-items-center rounded-full border-2 transition-all duration-200',
+                          m.done
+                            ? 'border-transparent bg-gradient-to-br from-teal-400 to-emerald-500 shadow-[0_0_10px_-2px_rgba(16,185,129,0.55)]'
+                            : 'border-muted-foreground/40 hover:border-primary/60',
+                        )}
+                      >
+                        {m.done && <Check className="h-3 w-3 text-white" aria-hidden="true" />}
+                      </span>
                     </button>
                     <span
                       className={cn(

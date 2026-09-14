@@ -6,13 +6,14 @@
 // ---------------------------------------------------------------------------
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/components/ui/page-header';
 import { Briefcase, CalendarDays, Check, Clock, Columns3, NotebookPen, Repeat, Sparkles, Umbrella } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/timezone';
+import { useAppStore } from '@/store/app-store';
 import { useSetDayFlag, useWorkBoard, useWorkData } from './use-work-api';
 import { WorkToday } from './work-today';
 import { WorkRoutines } from './work-routines';
@@ -37,6 +38,30 @@ export default function WorkDesk() {
   const boardQuery = useWorkBoard(today);
   const setDayFlag = useSetDayFlag(today);
   const [editorState, setEditorState] = useState<TaskEditorState>({ task: null });
+
+  // TASK 45 — quick-add 'task' dari FAB global: pindah ke sub-tab hari ini
+  // lalu buka editor tugas kosong. Pola "latest ref" (pola useEvent):
+  // assignment ref di dalam effect #1 (berjalan tiap commit, SEBELUM effect
+  // konsumsi #2 — urutan deklarasi) → lolos react-hooks/refs DAN
+  // set-state-in-effect tanpa disable komentar apa pun.
+  const quickAddAction = useAppStore((s) => s.quickAddAction);
+  const clearQuickAdd = useAppStore((s) => s.clearQuickAdd);
+  const openNewTask = useCallback(() => {
+    setSubTab('today');
+    // draftTitle terdefinisi (kosong) = buka editor tugas BARU —
+    // lihat WorkTaskEditor: open = task !== null || draftTitle !== undefined.
+    setEditorState({ task: null, draftTitle: '' });
+  }, []);
+  const openNewTaskRef = useRef(openNewTask);
+  useEffect(() => {
+    openNewTaskRef.current = openNewTask;
+  });
+  useEffect(() => {
+    if (quickAddAction === 'task') {
+      openNewTaskRef.current();
+      clearQuickAdd();
+    }
+  }, [quickAddAction, clearQuickAdd]);
 
   const stats = data?.stats;
   const holiday = data?.holiday ?? false;

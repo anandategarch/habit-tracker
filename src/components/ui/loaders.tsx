@@ -250,11 +250,15 @@ export function TreeProgress({
   className,
   size = 96,
   growth = 0,
+  streak = 0,
 }: {
   className?: string;
   size?: number;
   /** Progres hari ini 0..1 (mis. 4 dari 6 habit = 0.667). */
   growth?: number;
+  /** Streak global berjalan (hari) — ≥7 menyalakan halo hangat "momentum"
+   *  (TASK 45: pohon = signature; streak mengubah visual state pohon). */
+  streak?: number;
 }) {
   const g = clamp01(growth);
   const oTrunk = stage(g, 0.05, 0.22);
@@ -271,13 +275,32 @@ export function TreeProgress({
   const done = g >= 0.999;
 
   const pctLabel = Math.round(g * 100);
+  // TASK 45 — tahap tumbuh (seed → sprout → small → mature → flourishing).
+  // Label emosional untuk aria; visual tetap geometri bertahap yang sama.
+  const stageLabel =
+    g <= 0.001
+      ? 'benih menunggu'
+      : g < 0.22
+        ? 'tunas mulai tumbuh'
+        : g < 0.44
+          ? 'pohon kecil'
+          : g < 0.93
+            ? 'tumbuh subur'
+            : 'mekar penuh';
 
   return (
     <div
-      className={cn('relative flex items-center justify-center', className)}
+      className={cn(
+        'relative flex items-center justify-center',
+        // Halo streak ≥7 hari — momentum hangat menyala di sekeliling pohon.
+        streak >= 7 && 'tree-heat',
+        // Hari tuntas — bloom emerald mengelilingi tajuk.
+        done && 'tree-bloom',
+        className
+      )}
       style={{ width: size, height: size }}
       role="img"
-      aria-label={`Pohon rutinitas: ${pctLabel}% tumbuh hari ini`}
+      aria-label={`Pohon rutinitas: ${stageLabel} — ${pctLabel}% hari ini`}
     >
       {/* Wrapper HTML — skala halus mengikuti growth (transform ter-composite,
           murah). tree-part memberi transisi yang sama dengan bagian SVG. */}

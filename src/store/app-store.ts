@@ -16,7 +16,7 @@
 import { create } from 'zustand';
 import { jakartaDateString } from '@/lib/timezone';
 
-export type TabId = 'dashboard' | 'tracker' | 'work' | 'finance' | 'goals' | 'settings';
+export type TabId = 'dashboard' | 'tracker' | 'progress' | 'work' | 'finance' | 'goals' | 'settings';
 // MERGE Task 32 (Opsi A): sub-tab 'explorer' (Eksplorasi) dan 'categories'
 // (Kategori) digabung menjadi satu sub-tab 'analysis' (Analisis) — keduanya
 // 70% kembar. Nilai lama bisa tersisa sesaat pada hot-reload (state module
@@ -36,7 +36,9 @@ const LEGACY_FINANCE_SUB_TAB: Record<string, FinanceSubTab> = {
 const normalizeFinanceSubTab = (sub: FinanceSubTab): FinanceSubTab =>
   LEGACY_FINANCE_SUB_TAB[sub] ?? sub;
 export type FinanceFocus = { category?: string; sourceId?: string };
-export type QuickAddAction = 'expense' | 'income' | 'habit' | 'transfer';
+// TASK 45: 'task' — quick-add tugas kerja (FAB → Meja Kerja buka editor
+// tugas baru). Aksi lama tidak berubah.
+export type QuickAddAction = 'expense' | 'income' | 'habit' | 'transfer' | 'task';
 export type TrackerViewMode = 'today' | 'history';
 export type SettingsSection = 'umum' | 'habits' | 'data';
 

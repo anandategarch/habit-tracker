@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 // Toaster sonner — SEMUA komponen memakai `toast` dari 'sonner' (tracker,
 // habit-master, finance, …). Toaster radix lama tidak punya konsumen
@@ -17,6 +17,19 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// TASK 45 (Design System v2) — Fraunces: serif editorial variabel (optical
+// size + "soft" axis) untuk momen emosional: sapaan hero, angka "X dari Y",
+// kutipan, dan refleksi. Typografi 3 lapis brief: Display (Fraunces) /
+// Sans (Geist) / Serif kontekstual (Fraunces). Georgia hardcoded di
+// .premium-quote-text & .work-serif kini memakai variable ini.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  // Sumbu variable font — SOFT memberi karakter hangat "wonky" pada display,
+// opsz menyesuaikan kontras secara otomatis per ukuran.
+  axes: ["SOFT", "opsz", "WONK"],
 });
 
 export const metadata: Metadata = {
@@ -56,7 +69,7 @@ export default function RootLayout({
     // lang="id": seluruh UI berbahasa Indonesia (fix a11y screen reader).
     <html lang="id" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased bg-background text-foreground`}
       >
         <Providers>{children}</Providers>
         <SWRegister />

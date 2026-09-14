@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { HeartPulse, Minus, Plus } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { MOOD_EMOJIS, ENERGY_EMOJIS } from '@/lib/mood';
 import { jakartaDateString } from '@/lib/timezone';
@@ -161,27 +161,36 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
       className="premium-card premium-card-sheen rounded-2xl p-4 sm:p-5 premium-fade-up"
       aria-label="Check-in harian"
     >
-      <div className="flex items-center gap-2.5 mb-4">
-        <span className="chip-soft chip-soft-teal h-8 w-8" aria-hidden="true">
-          <HeartPulse className="h-4 w-4" />
-        </span>
-        <h3 className="text-sm font-semibold">Check-in Harian</h3>
+      {/* TASK 45 — check-in sebagai PERCAKAPAN dengan diri sendiri (bukan
+          form): pertanyaan judul serif display, tiap baris punya pertanyaan
+          bahasa natural, tombol emoji 44px (WCAG; dulu 36px), micro-reward
+          anim-stage-pop saat memilih. Logika simpan (FIFO/optimistic/rollback)
+          TIDAK disentuh. */}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display text-lg font-semibold leading-snug">
+            Bagaimana harimu?
+          </h3>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
+            Percakapan kecil dengan dirimu sendiri
+          </p>
+        </div>
         <span
           className={
-            'ml-auto text-[11px] font-medium ' +
-            (filled ? 'text-muted-foreground' : 'text-muted-foreground/70')
+            'shrink-0 rounded-full border border-border/70 px-2.5 py-1 text-[11px] font-medium ' +
+            (filled ? 'bg-primary/10 text-primary' : 'text-muted-foreground/70')
           }
         >
           {filled ? 'Tersimpan otomatis' : 'Belum diisi'}
         </span>
       </div>
 
-      <div className="space-y-3.5">
-        {/* ── Mood ── */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="premium-label shrink-0 w-14">Mood</span>
+      <div className="space-y-4">
+        {/* ── Mood — pertanyaan natural ── */}
+        <div>
+          <p className="premium-label mb-2">Mood-mu hari ini?</p>
           <div
-            className="flex items-center gap-1 sm:gap-1.5"
+            className="flex items-center justify-between gap-1 sm:gap-1.5"
             role="group"
             aria-label="Pilih mood hari ini"
           >
@@ -196,25 +205,27 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
                   aria-label={MOOD_LABELS[n]}
                   aria-pressed={active}
                   className={
-                    'h-9 w-9 rounded-xl text-lg grid place-items-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ' +
+                    'h-11 w-11 rounded-2xl text-xl grid place-items-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ' +
                     (active
-                      ? 'bg-primary/20 ring-2 ring-primary/50 scale-110 shadow-[0_2px_12px_-2px_hsl(160_70%_45%/0.5)] ' +
+                      ? 'bg-primary/20 ring-2 ring-primary/50 shadow-[0_2px_12px_-2px_hsl(160_70%_45%/0.5)] ' +
                         (grayed ? 'opacity-50 ' : '')
                       : 'hover:bg-muted')
                   }
                 >
-                  <span aria-hidden="true">{MOOD_EMOJIS[n]}</span>
+                  <span aria-hidden="true" className={active && !grayed ? 'anim-stage-pop' : undefined}>
+                    {MOOD_EMOJIS[n]}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* ── Energi ── */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="premium-label shrink-0 w-14">Energi</span>
+        {/* ── Energi — pertanyaan natural ── */}
+        <div>
+          <p className="premium-label mb-2">Energimu bagaimana?</p>
           <div
-            className="flex items-center gap-1 sm:gap-1.5"
+            className="flex items-center justify-between gap-1 sm:gap-1.5"
             role="group"
             aria-label="Pilih energi hari ini"
           >
@@ -229,36 +240,38 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
                   aria-label={ENERGY_LABELS[n]}
                   aria-pressed={active}
                   className={
-                    'h-9 w-9 rounded-xl text-lg grid place-items-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ' +
+                    'h-11 w-11 rounded-2xl text-xl grid place-items-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ' +
                     (active
-                      ? 'bg-primary/20 ring-2 ring-primary/50 scale-110 shadow-[0_2px_12px_-2px_hsl(160_70%_45%/0.5)] ' +
+                      ? 'bg-primary/20 ring-2 ring-primary/50 shadow-[0_2px_12px_-2px_hsl(160_70%_45%/0.5)] ' +
                         (grayed ? 'opacity-50 ' : '')
                       : 'hover:bg-muted')
                   }
                 >
-                  <span aria-hidden="true">{ENERGY_EMOJIS[n]}</span>
+                  <span aria-hidden="true" className={active && !grayed ? 'anim-stage-pop' : undefined}>
+                    {ENERGY_EMOJIS[n]}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* ── Tidur (stepper 0,5 jam) ── */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="premium-label shrink-0 w-14">Tidur</span>
-          <div className="flex items-center gap-2.5">
+        {/* ── Tidur (stepper 0,5 jam, target 44px) ── */}
+        <div>
+          <p className="premium-label mb-2">Tidur semalam cukup?</p>
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => handleSleep(-SLEEP_STEP)}
               aria-label="Kurangi tidur setengah jam"
-              className="h-9 w-9 rounded-xl grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+              className="h-11 w-11 rounded-2xl grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
               disabled={draft.sleep != null && draft.sleep <= SLEEP_MIN}
             >
               <Minus className="h-4 w-4" />
             </button>
             <span
               className={
-                'text-sm font-semibold tabular-nums min-w-[64px] text-center ' +
+                'font-display text-base font-semibold tabular-nums min-w-[72px] text-center ' +
                 (draft.sleep == null ? 'text-muted-foreground/70' : 'text-foreground')
               }
               aria-label={`Tidur ${formatSleep(effSleep)}`}
@@ -269,11 +282,14 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
               type="button"
               onClick={() => handleSleep(SLEEP_STEP)}
               aria-label="Tambah tidur setengah jam"
-              className="h-9 w-9 rounded-xl grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+              className="h-11 w-11 rounded-2xl grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
               disabled={draft.sleep != null && draft.sleep >= SLEEP_MAX}
             >
               <Plus className="h-4 w-4" />
             </button>
+            <span className="ml-auto hidden text-[11px] text-muted-foreground/70 sm:block">
+              jam semalam
+            </span>
           </div>
         </div>
       </div>

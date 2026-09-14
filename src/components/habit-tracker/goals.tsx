@@ -20,6 +20,7 @@ import { GoalCard } from './goal-card';
 import { GoalFormDialog } from './goal-form-dialog';
 import { GoalsSkeleton } from './goals-skeleton';
 import { CountUpNumber } from './count-up';
+import { smallPop } from '@/lib/confetti';
 import { nextStatusForMilestones, type Goal, type GoalMilestone } from './goals-helpers';
 
 /** Body PUT lengkap dari goal (partial-safe di API). */
@@ -118,16 +119,19 @@ export default function Goals() {
     [putGoal],
   );
 
-  /** Tandai selesai (semua milestone ikut selesai) / aktifkan kembali. */
+  /** Tandai selesai (semua milestone ikut selesai) / aktifkan kembali.
+   *  TASK 45: celebration sejajar completion habit — confetti kecil dari
+   *  tombol asal + toast yang lebih personal. Logika PUT tidak berubah. */
   const handleCompleteGoal = useCallback(
-    (goal: Goal) => {
+    (goal: Goal, originEl?: HTMLElement | null) => {
       if (goal.status === 'completed') {
         void putGoal(goal, { status: 'active' });
         return;
       }
       const milestones: GoalMilestone[] = (goal.milestones ?? []).map((m) => ({ ...m, done: true }));
       void putGoal(goal, { milestones, status: 'completed' });
-      toast.success('Selamat, tujuan selesai! 🎉');
+      if (originEl && typeof window !== 'undefined') smallPop(originEl);
+      toast.success(`Selamat, "${goal.title}" tercapai! 🎉 Nikmati momen ini.`);
     },
     [putGoal],
   );

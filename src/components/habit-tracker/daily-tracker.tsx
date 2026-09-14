@@ -951,24 +951,11 @@ export default function DailyTracker() {
             />
           )}
 
-          {/* ───────────── Daily Check-in (GELOMBANG 1) ─────── */}
-          {/* Mood / energi / tidur — di atas daftar habit; optimistic +
-              promise-chain save per field (lihat daily-check-in-card).
-              KEY remount: sinkronisasi nilai server saat (tanggal, kehadiran
-              baris) berubah TANPA setState dalam effect — refetch biasa
-              (row → row) tidak me-reset draft optimistic. */}
-          <DailyCheckInCard
-            key={`${selectedDate}|${checkInValue ? 'row' : 'none'}`}
-            date={selectedDate}
-            value={checkInValue}
-          />
-
-          {/* ─────────────────── Daily Notes (full-width) ────────── */}
-          <DailyNotesCard
-            notes={notes}
-            onChange={handleNotesChange}
-            charCount={notesCharCount}
-          />
+          {/* TASK 45 — REORDER "DO FIRST": Habit Grid kini SEBELUM check-in
+              & catatan. Audit: dulu 6 kartu bertumpuk (toggle → tanggal → KPI →
+              comeback → check-in → notes) mengubur aksi utama di bawah layar
+              pertama mobile. Refleksi (check-in/notes) turun ke bawah — urutan
+              DO → REWARD → REFLECT. */}
 
           {/* ─────────────────── Habit Grid ─────────────────────── */}
           <HabitGridSection
@@ -1003,6 +990,25 @@ export default function DailyTracker() {
               triggerQuickAdd('habit');
               setActiveTab('settings');
             }}
+          />
+
+          {/* ───────────── Daily Check-in (GELOMBANG 1) ─────── */}
+          {/* Mood / energi / tidur — kini SETELAH grid (refleksi); optimistic +
+              promise-chain save per field (lihat daily-check-in-card).
+              KEY remount: sinkronisasi nilai server saat (tanggal, kehadiran
+              baris) berubah TANPA setState dalam effect — refetch biasa
+              (row → row) tidak me-reset draft optimistic. */}
+          <DailyCheckInCard
+            key={`${selectedDate}|${checkInValue ? 'row' : 'none'}`}
+            date={selectedDate}
+            value={checkInValue}
+          />
+
+          {/* ─────────────────── Daily Notes (full-width) ────────── */}
+          <DailyNotesCard
+            notes={notes}
+            onChange={handleNotesChange}
+            charCount={notesCharCount}
           />
 
           {/* ── Time Confirmation Dialog ── */}
