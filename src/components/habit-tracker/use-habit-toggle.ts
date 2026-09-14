@@ -173,6 +173,15 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
         queryClient.invalidateQueries({ queryKey: ['habits'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+        // CONNECTED-APP: ekosistem ikut tahu habit baru saja selesai —
+        // kalender Riwayat (dots), analisis waktu, streak di dialog meta,
+        // insight mingguan, dan heatmap jam (semuanya membaca data yang
+        // berubah karena completion ini).
+        queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
+        queryClient.invalidateQueries({ queryKey: ['time-analysis'] });
+        queryClient.invalidateQueries({ queryKey: ['habit-meta'] });
+        queryClient.invalidateQueries({ queryKey: ['ai-insights'] });
+        queryClient.invalidateQueries({ queryKey: ['hourly-consistency'] });
 
         if (next) {
           // BUG-FIX-COMP-HIGH #1: For "avoid" habits (habitType === 'avoid'),
@@ -367,6 +376,15 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
         queryClient.invalidateQueries({ queryKey: ['habits'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+        // CONNECTED-APP: ekosistem ikut tahu habit baru saja selesai —
+        // kalender Riwayat (dots), analisis waktu, streak di dialog meta,
+        // insight mingguan, dan heatmap jam (semuanya membaca data yang
+        // berubah karena completion ini).
+        queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
+        queryClient.invalidateQueries({ queryKey: ['time-analysis'] });
+        queryClient.invalidateQueries({ queryKey: ['habit-meta'] });
+        queryClient.invalidateQueries({ queryKey: ['ai-insights'] });
+        queryClient.invalidateQueries({ queryKey: ['hourly-consistency'] });
 
         if (nextCompleted && !wasCompleted) {
           // Task 44: +XP tampil juga di milestone amount (konsisten toggle biner).

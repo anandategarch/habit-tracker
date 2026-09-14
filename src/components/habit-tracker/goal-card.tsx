@@ -13,6 +13,7 @@
 //   hapus tujuan + hapus milestone dikonfirmasi via AlertDialog.
 
 import { useState } from 'react';
+import { useAppStore } from '@/store/app-store';
 import {
   Target,
   CheckCircle2,
@@ -56,6 +57,11 @@ import {
 
 export interface GoalCardProps {
   goal: Goal;
+  /** CONNECTED-APP (Task 49) — habit yang mendukung tujuan ini (dari
+   *  Habit.goalId) + status selesai-hari-ini masing-masing. */
+  supportingHabits?: { id: string; name: string; emoji: string; completedToday: boolean }[];
+  /** CONNECTED-APP — sorot saat deep-link openGoalFocus(id) mendarat. */
+  highlight?: boolean;
   /** Buka dialog edit. */
   onEdit: (goal: Goal) => void;
   /** Tandai selesai / aktifkan kembali. TASK 45: originEl = tombol asal
@@ -74,6 +80,8 @@ const ICON_BTN =
 
 export function GoalCard({
   goal,
+  supportingHabits,
+  highlight = false,
   onEdit,
   onComplete,
   onDelete,
@@ -81,6 +89,12 @@ export function GoalCard({
   onDeleteMilestone,
 }: GoalCardProps) {
   const [expanded, setExpanded] = useState(false);
+  // CONNECTED-APP: deep-link openGoalFocus → milestone otomatis terlihat
+  // selama disorot (derived state — tanpa setState dalam effect); begitu
+  // sorot lepas, kembali ke kontrol expand lokal user.
+  const showMilestones = expanded || highlight;
+  // CONNECTED-APP: baris rutinitas pendukung → tracker (habit terfokus).
+  const openHabitFocus = useAppStore((s) => s.openHabitFocus);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteMilestoneIndex, setDeleteMilestoneIndex] = useState<number | null>(null);
 
@@ -111,10 +125,13 @@ export function GoalCard({
 
   return (
     <div
+      id={goal.id}
       className={cn(
-        'premium-card premium-card-hover premium-card-sheen group relative rounded-2xl',
+        'premium-card premium-card-hover premium-card-sheen group relative scroll-mt-20 rounded-2xl',
         completed && 'opacity-90',
         cancelled && 'opacity-55',
+        // CONNECTED-APP: sorot deep-link openGoalFocus — ring lembut.
+        highlight && 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background',
       )}
     >
       {/* Wash overlay state — child div (tint TIDAK boleh bg-* di elemen premium-card). */}
@@ -285,22 +302,64 @@ export function GoalCard({
           </div>
         )}
 
+        {/* CONNECTED-APP (Task 49) — Rutinitas Pendukung: habit yang
+            tertaut ke tujuan ini; status selesai-hari-ini ikut tercermin
+            (completion habit ↔ konteks goal). Baris → tracker terfokus. */}
+        {(supportingHabits?.length ?? 0) > 0 && (
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5">
+            <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
+              <span className="premium-label">Rutinitas Pendukung</span>
+              <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+                {supportingHabits!.filter((h) => h.completedToday).length}/
+                {supportingHabits!.length} selesai hari ini
+              </span>
+            </div>
+            <div className="space-y-1">
+              {supportingHabits!.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => openHabitFocus(h.id)}
+                  aria-label={`Buka rutinitas ${h.name} di tracker`}
+                  className={cn(
+                    'flex w-full cursor-pointer items-center gap-2.5 rounded-lg border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                    h.completedToday
+                      ? 'border-emerald-500/25 bg-emerald-500/[0.06] hover:border-primary/30'
+                      : 'border-border/60 hover:border-primary/30 hover:bg-muted/50',
+                  )}
+                >
+                  <span className="text-base shrink-0" aria-hidden="true">{h.emoji}</span>
+                  <span className={cn('flex-1 min-w-0 truncate text-[13px] font-medium', h.completedToday && 'text-muted-foreground')}>
+                    {h.name}
+                  </span>
+                  {h.completedToday && (
+                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                      Selesai
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Expand milestone */}
         {milestones.length > 0 && (
           <div className="space-y-1">
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
+              aria-expanded={showMilestones}
               className="flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <span>{expanded ? 'Sembunyikan milestone' : 'Lihat milestone'}</span>
+              <span>{showMilestones ? 'Sembunyikan milestone' : 'Lihat milestone'}</span>
               <ChevronDown
-                className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')}
+                className={cn('h-4 w-4 transition-transform', showMilestones && 'rotate-180')}
                 aria-hidden="true"
               />
             </button>
-            {expanded && (
+            {showMilestones && (
               <ul className="divide-y divide-border/60 rounded-xl border border-border/60 bg-muted/20 px-3 py-1">
                 {milestones.map((m, i) => (
                   <li key={`${i}-${m.text}`} className="flex items-center gap-2.5 py-2">

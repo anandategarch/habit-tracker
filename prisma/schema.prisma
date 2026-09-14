@@ -56,6 +56,11 @@ model Habit {
   trackTime    Boolean     @default(false)
   groupId      String?
   group        HabitGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  // CONNECTED-APP (Task 49) — Habit ↔ Goal: habit boleh mendukung satu
+  // tujuan (nullable). Additive; habit lama tidak terpengaruh. Saat tujuan
+  // dihapus, API membersihkan link (goalId → null) supaya tidak menggantung.
+  goalId       String?
+  goal         Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
   sortOrder    Int         @default(0)
   isActive     Boolean     @default(true)
   isArchived   Boolean     @default(false)
@@ -222,6 +227,8 @@ model Goal {
   milestones  String   @default("[]") // JSON [{ text, done }]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // CONNECTED-APP (Task 49) — habit yang mendukung tujuan ini.
+  habits      Habit[]
 }
 
 // ── Meja Kerja (Task 17-a) ─────────────────────────────────────────────────

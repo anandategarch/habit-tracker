@@ -17,6 +17,8 @@ export interface HabitFieldResult {
   data: Record<string, unknown>;
   /** groupId baru yang harus divalidasi ke tabel HabitGroup (null = tidak dikirim). */
   pendingGroupId: string | null | undefined;
+  /** CONNECTED-APP — true bila body mengirim goalId (untuk invalidasi ['goals']). */
+  hasGoalId: boolean;
 }
 
 /**
@@ -241,7 +243,28 @@ export async function parseHabitFields(
     }
   }
 
-  return { data, pendingGroupId };
+  // CONNECTED-APP (Task 49): goalId — link habit → tujuan. String kosong /
+  // null melepas link. Nilai divalidasi ke tabel Goal (404-style 400 bila
+  // tujuan tidak ada) supaya link menggantung tidak pernah tersimpan.
+  let hasGoalId = false;
+  if ('goalId' in body) {
+    hasGoalId = true;
+    const raw = body.goalId;
+    if (raw === null || raw === '' || raw === 'null') {
+      data.goalId = null;
+    } else {
+      const goalId = asString(raw);
+      if (goalId === null || !goalId.trim() || goalId.trim().length > 64) {
+        throw badRequest('Tujuan tidak valid');
+      }
+      const goalIdTrimmed = goalId.trim();
+      const goal = await db.goal.findUnique({ where: { id: goalIdTrimmed }, select: { id: true } });
+      if (!goal) throw badRequest('Tujuan tidak ditemukan');
+      data.goalId = goalIdTrimmed;
+    }
+  }
+
+  return { data, pendingGroupId, hasGoalId };
 }
 
 export { DIFFICULTIES };

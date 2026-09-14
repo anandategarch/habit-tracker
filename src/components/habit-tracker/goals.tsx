@@ -9,8 +9,9 @@
 //   cabang isError skeleton tampil selamanya saat fetch gagal).
 // - CRUD goal via /api/goals + /api/goals/[id] (kontrak API).
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAppStore } from '@/store/app-store';
 import { Target, CheckCircle2, Flame, Plus, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,58 @@ export default function Goals() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  // ── CONNECTED-APP (Task 49): fokus tujuan (deep-link openGoalFocus) ──
+  // Consume-and-clear: scroll ke kartu + sorot ring (prop highlight).
+  const focusGoalId = useAppStore((s) => s.focusGoalId);
+  const clearGoalFocus = useAppStore((s) => s.clearGoalFocus);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusGoalId) {
+      setHighlightId(focusGoalId);
+      clearGoalFocus();
+      // Scroll setelah render kartu (requestAnimationFrame menunggu paint).
+      requestAnimationFrame(() => {
+        document.getElementById(focusGoalId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      // Sorot 2.5 detik — cukup terlihat, tidak menjadi noise permanen.
+      const t = setTimeout(() => setHighlightId(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [focusGoalId, clearGoalFocus]);
+
+  // ── CONNECTED-APP (Task 49): habit pendukung per tujuan ──
+  // ['habits'] cache terbagih dengan tracker; status selesai-hari-ini dari
+  // ['dashboard','all',…] (key sama dengan Beranda → cache terbagih).
+  const refreshKey = useAppStore((s) => s.refreshKey);
+  const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null }[]>({
+    queryKey: ['habits'],
+    queryFn: async () => {
+      const res = await fetch('/api/habits');
+      if (!res.ok) throw new Error('Gagal memuat habit');
+      const json = await res.json();
+      return json.habits ?? [];
+    },
+    staleTime: 30_000,
+  });
+  const { data: todayData } = useQuery({
+    queryKey: ['dashboard', 'all', refreshKey, 0],
+    queryFn: async () => {
+      const res = await fetch('/api/dashboard?period=all');
+      if (!res.ok) return null;
+      return res.json() as Promise<{ focusToday?: { id: string; completed?: boolean }[] } | null>;
+    },
+    staleTime: 30_000,
+    select: (raw) => ({ todayHabits: raw?.focusToday ?? [] }),
+  });
+  const todayDoneIds = new Set((todayData?.todayHabits ?? []).filter((h) => h.completed).map((h) => h.id));
+  const supportingByGoal = new Map<string, { id: string; name: string; emoji: string; completedToday: boolean }[]>();
+  for (const h of habits) {
+    if (!h.goalId) continue;
+    const arr = supportingByGoal.get(h.goalId) ?? [];
+    arr.push({ id: h.id, name: h.name, emoji: h.emoji, completedToday: todayDoneIds.has(h.id) });
+    supportingByGoal.set(h.goalId, arr);
+  }
 
   // ── Query goals ────────────────────────────────────────────────────────
   const {
@@ -148,6 +201,9 @@ export default function Goals() {
         queryClient.setQueryData<Goal[]>(['goals'], (prev) =>
           (prev ?? []).filter((g) => g.id !== goal.id),
         );
+        // CONNECTED-APP: server melepas Habit.goalId yang mengarah ke tujuan
+        // ini — segarkan cache habit supaya chip "Tujuan" hilang segera.
+        queryClient.invalidateQueries({ queryKey: ['habits'] });
         toast.success('Tujuan berhasil dihapus');
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Gagal menghapus tujuan');
@@ -246,6 +302,8 @@ export default function Goals() {
             >
               <GoalCard
                 goal={goal}
+                supportingHabits={supportingByGoal.get(goal.id)}
+                highlight={highlightId === goal.id}
                 onEdit={openEditForm}
                 onComplete={handleCompleteGoal}
                 onDelete={(g) => void handleDelete(g)}

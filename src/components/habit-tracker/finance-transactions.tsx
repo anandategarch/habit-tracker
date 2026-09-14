@@ -17,8 +17,10 @@ import { jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import { format } from '@/lib/date-utils';
 import { toast } from 'sonner';
 import { formatRupiah, capitalize } from './finance-types';
+import { formatDateShort } from '@/lib/finance-helpers';
 import type { Transaction } from './finance-types';
 import { parseTags } from './finance-types';
+import { useAppStore } from '@/store/app-store';
 
 interface GroupedTransaction {
  dateKey: string;
@@ -35,6 +37,10 @@ interface FinanceTransactionsProps {
  groupedTransactions: GroupedTransaction[];
  selectedTxIds: Set<string>;
  txFilter: { type: string; category: string; source: string; search: string };
+ /** CONNECTED-APP — filter tanggal aktif dari drill-down (heatmap / hari ini). */
+ focusDate?: string | null;
+ /** Lepas chip filter tanggal (kembali ke seluruh bulan). */
+ onClearFocusDate?: () => void;
  getCategoryList: (type: string) => { value: string; emoji: string; color: string }[];
  getActiveSources: () => { id: string; name: string; emoji: string; order: number }[];
  getCategoryMeta: (cat: string) => { emoji: string; color: string };
@@ -117,6 +123,8 @@ export default function FinanceTransactions({
  groupedTransactions,
  selectedTxIds,
  txFilter,
+ focusDate,
+ onClearFocusDate,
  getCategoryList,
  getActiveSources,
  getCategoryMeta,
@@ -131,6 +139,8 @@ export default function FinanceTransactions({
  onGoToPrevMonth,
 }: FinanceTransactionsProps) {
  const [showFilters, setShowFilters] = useState(false);
+ // CONNECTED-APP: drill-down "hari ini" (footer) → transaksi terfilter.
+ const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
  const [multiSelect, setMultiSelect] = useState(false);
  // SHADCN-PHASE-2: tracks which transaction card is currently tap-expanded
  // (shows notes + tags). Null = all collapsed. At most one card expands at
@@ -284,6 +294,19 @@ export default function FinanceTransactions({
          Filter
          <ChevronDown className={cn('h-3 w-3 transition-transform', showFilters && 'rotate-180')} />
        </button>
+       {/* CONNECTED-APP — chip tanggal drill-down (heatmap / "hari ini"):
+           tampil hanya bila ada, bisa dilepas untuk kembali ke seluruh bulan. */}
+       {focusDate && (
+         <button
+           type="button"
+           className="tx-chip tx-chip-active flex items-center gap-1"
+           onClick={() => onClearFocusDate?.()}
+           aria-label={`Hapus filter tanggal ${focusDate}`}
+         >
+           {formatDateShort(focusDate)}
+           <X className="h-3 w-3" aria-hidden="true" />
+         </button>
+       )}
        <button
          className={cn(
            'tx-chip',
@@ -489,10 +512,17 @@ export default function FinanceTransactions({
              (filteredTransactions is scoped to selectedMonth) — showing
              "Rp 0" was misleading. */}
          {isCurrentMonth ? (
-           <div>
+           /* CONNECTED-APP: "pengeluaran hari ini" → transaksi hari ini yang
+              difilter (brief #12 — Today's spending → Finance today). */
+           <button
+             type="button"
+             onClick={() => openFinanceFocus({ date: today, txType: 'expense' })}
+             aria-label="Lihat transaksi pengeluaran hari ini"
+             className="text-left cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+           >
              <p className="premium-label">Total Pengeluaran Hari Ini</p>
-             <p className="text-lg font-bold text-destructive premium-stat">{formatRupiah(todayExpense)}</p>
-           </div>
+             <p className="text-lg font-bold text-destructive premium-stat transition-opacity hover:opacity-80">{formatRupiah(todayExpense)}</p>
+           </button>
          ) : (
            <div />
          )}
@@ -554,6 +584,8 @@ function TransactionRow({
  const isExpanded = expandedTxId === tx.id;
  const tags = parseTags(tx.tags);
  const hasExpandContent = !!(tx.notes || tags.length > 0);
+ // CONNECTED-APP: apakah baris ini benar-benar merespons tap? (lihat className)
+ const hasTapAction = multiSelect || hasExpandContent || tx.type !== 'transfer';
  return (
    <div className="relative anim-stagger" style={{ animationDelay: `${Math.min(txIdx, 8) * 30}ms` }}>
      {/* Timeline node — warna diharmonisasi dengan amount (rose / emerald /
@@ -578,7 +610,10 @@ function TransactionRow({
      <div
        className={cn(
          'premium-list-item group relative mb-1.5 flex-wrap px-4! py-3!',
-         'cursor-pointer active:scale-[0.99]'
+         // CONNECTED-APP (button audit): baris transfer tanpa konten expand
+         // TIDAK punya aksi tap — jangan tampilkan affordance pointer/aktif
+         // (dulu terlihat klikabel padahal tap = no-op).
+         hasTapAction ? 'cursor-pointer active:scale-[0.99]' : ''
        )}
        onClick={() => {
          if (multiSelect) {

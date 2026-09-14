@@ -337,6 +337,14 @@ export async function GET(req: Request) {
         emoji: h.emoji,
         priority: h.priority,
         completed: todayCompleted.has(h.id),
+        // CONNECTED-APP: kapabilitas habit — dipakai Beranda untuk memutuskan
+        // bisa-diselesaikan-1-tap (normal) vs butuh tracker (amount/trackTime/
+        // avoid). Additive; klien lama mengabaikan field tambahan.
+        habitType: h.habitType,
+        trackTime: !!h.trackTime,
+        difficulty: h.difficulty,
+        target: h.target ?? 0,
+        value: logsByHabit.get(h.id)?.find((l) => l.ymd === todayYmd)?.value ?? 0,
       }));
 
     // ── Terakhir dikerjakan + streak ──

@@ -541,10 +541,10 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
      const res = await fetch(`/api/finance/sources/${sourceId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: val }) });
      if (res.ok) {
        const data = await res.json();
-       // Invalidate both sources + transactions (adjustment creates a tx)
-       queryClient.invalidateQueries({ queryKey: ['finance', 'sources'] });
-       queryClient.invalidateQueries({ queryKey: ['finance', 'transactions'] });
-       queryClient.invalidateQueries({ queryKey: ['finance', 'daily-recap'] });
+       // CONNECTED-APP: edit saldo mengubah KPI Keuangan (total saldo,
+       // runway, budget) + kartu keuangan tab Progres — invalidasi penuh
+       // ['finance'] + triggerRefresh (dulu hanya 3 key sempit → KPI stale).
+       invalidateFinance();
        // Show informative toast based on whether an adjustment was made
        if (data?.adjustment) {
          const adj = data.adjustment;

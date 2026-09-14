@@ -1,34 +1,39 @@
 'use client';
 
-// components/habit-tracker/dashboard.tsx — TASK 45 "TODAY" (destructive v2).
+// components/habit-tracker/dashboard.tsx — TASK 45 "TODAY" + CONNECTED-APP
+// (Task 47).
 //
-// DESTRUCTIVE REDESIGN: Beranda dibongkar lagi setelah Task 44. Seluruh
-// analitik "Perjalananmu" (13 KPI, cincin, 5 chart, heatmap, tabel
-// per-habit, insight, overview keuangan) DIPINDAH ke tab PROGRES baru
-// (progress.tsx) — brief: "Jangan memasukkan seluruh analytics ke Home".
+// Beranda = siklus hari ini — FEEL → DO → REWARD → REFLECT → GROW — dan
+// kini setiap elemen pentingnya TERHUBUNG ke konteks lanjutannya:
+//   ① FEEL    TodayHero — progres → Tracker hari ini; streak → Riwayat;
+//              level → Progres
+//   ② DO      Rutinitas Hari Ini — completion 1-TAP langsung dari Beranda
+//              (habit biner normal; amount/trackTime/avoid → tracker) +
+//              strip "Tugas Hari Ini" (jendela ke Meja Kerja)
+//   ③ REFLECT Check-in Harian — tautan riwayat mood (kalender) + jurnal
+//   ④ REFLECT Quote
+//   ⑤ GROW    Tinjauan Mingguan — CTA "Buka Progres"
+//   ⑥ GROW    strip "Keuangan bulan ini" (jendela ke tab Keuangan) +
+//              kartu "Sekilas Perjalananmu"
 //
-// Beranda kini murni siklus hari ini — FEEL → DO → REWARD → REFLECT → GROW:
-//   ① FEEL    TodayHero — sapaan personal + pohon + progres + streak/level
-//   ② DO      Rutinitas Hari Ini — pending dulu, done dirayakan
-//   ③ REFLECT Check-in Harian — percakapan mood/energi/tidur
-//   ④ REFLECT Quote — pengingat pribadi (serif Fraunces)
-//   ⑤ GROW    Tinjauan Mingguan — momentum
-//   ⑥ GROW    Kartu "Sekilas Perjalananmu" — jendela mungil ke tab Progres
-//             (streak + tingkat selesai + CTA), BUKAN 12 kartu analytics.
-//
-// GreetingHero (pra-Task 44) & zona analytics Task 44 dihapus dari file ini.
-// Logika data (query /api/dashboard, kontrak, check-in FIFO) TIDAK berubah.
+// Logika data (query /api/dashboard, kontrak, check-in FIFO) TIDAK berubah;
+// mutation completion memakai endpoint yang sama dengan tracker
+// (POST /api/habits/{id}/logs) + invalidasi ekosistem penuh.
 
 import { useRef, useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Flame, RefreshCw } from 'lucide-react';
+import { ArrowRight, Flame, RefreshCw, Wallet, ClipboardList } from 'lucide-react';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { WeeklyReview } from '@/components/habit-tracker/weekly-review';
 import { toDashboardData } from '@/lib/dashboard/contract';
 import { jakartaDateString } from '@/lib/jakarta-date';
+import { jakartaNowIso } from '@/lib/timezone';
+import { xpForHabit } from '@/lib/dashboard-helpers';
+import { burstFromElement } from '@/lib/confetti';
 import { type MotivationalQuote } from './dashboard-types';
 import { DEFAULT_DATA } from './dashboard-default-data';
 import { QuoteDisplay } from './dashboard-helpers';
@@ -39,13 +44,31 @@ import { DailyCheckInCard } from './daily-check-in-card';
 /** Payload ringan GET /api/daily-logs?date= untuk kartu check-in Beranda. */
 type DailyLogPayloadLite = { date?: string; mood?: number; energy?: number; sleep?: number } | null;
 
+/** Payload ringan GET /api/work?date= untuk strip tugas hari ini.
+ *  Key SAMA dengan useWorkData (['work', date]) → cache terbagih. */
+type WorkPayloadLite = {
+  tasks?: { id: string; title: string; completedAt?: string | null }[] | null;
+} | null;
+
+/** Rp ringkas untuk strip keuangan (tanpa dependency formatRupiah berat). */
+const rpLite = (n: number) =>
+  n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)} jt`
+    : n >= 1_000
+      ? `${Math.round(n / 1_000)} rb`
+      : String(n);
+
 export default function Dashboard() {
   const refreshKey = useAppStore(s => s.refreshKey);
+  const queryClient = useQueryClient();
   // Deep-link 1-klik (pola lama teruji): baris habit → tracker / analisis.
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
   const openTrackerDate = useAppStore((s) => s.openTrackerDate);
-  // Jalur CTA empty-state — sama dengan FAB "Habit Baru".
+  const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
+  const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
+  // Jalur CTA empty-state — sama dengan FAB "Habit Baru" (kembali ke
+  // Beranda setelah simpan via quickAddReturnTab).
   const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
   const todayStr = jakartaDateString();
   const [retryCount, setRetryCount] = useState(0);
@@ -53,6 +76,67 @@ export default function Dashboard() {
   // fetch baru membawa ?refresh=1&exclude=<teks sekarang> (non-repeat).
   const [quoteTick, setQuoteTick] = useState(0);
   const currentQuoteTextRef = useRef<string | null>(null);
+
+  // ── CONNECTED-APP: completion 1-tap dari Beranda ────────────────────────
+  // Overlay optimistik lokal (hidup selama tab Beranda terpasang — tab
+  // switch me-remount, jadi tidak pernah bentrok dengan data segar).
+  const [doneOverlay, setDoneOverlay] = useState<Record<string, boolean>>({});
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+
+  const handleCompleteFromHome = async (
+    habit: { id: string; name: string; difficulty?: string },
+    el: HTMLElement | null,
+  ) => {
+    if (completingIds.has(habit.id)) return;
+    setCompletingIds((p) => new Set(p).add(habit.id));
+    setDoneOverlay((p) => ({ ...p, [habit.id]: true }));
+    // Haptic ringan (guard — paritas dengan kartu tracker).
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(12);
+    }
+    try {
+      const res = await fetch(`/api/habits/${habit.id}/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: todayStr,
+          completed: true,
+          completedAt: jakartaNowIso(),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || `HTTP ${res.status}`);
+      }
+      // Ekosistem ikut tahu — kumpulan invalidasi yang sama dengan
+      // use-habit-toggle (dashboard, kalender, analisis, insight, heatmap).
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
+      queryClient.invalidateQueries({ queryKey: ['time-analysis'] });
+      queryClient.invalidateQueries({ queryKey: ['habit-meta'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-insights'] });
+      queryClient.invalidateQueries({ queryKey: ['hourly-consistency'] });
+      const xp = xpForHabit({ difficulty: habit.difficulty ?? 'Medium' });
+      toast.success(`Habit selesai! +${xp} XP 🎉`);
+      burstFromElement(el, { count: 20 });
+    } catch (e) {
+      // Rollback overlay optimistik.
+      setDoneOverlay((p) => {
+        const np = { ...p };
+        delete np[habit.id];
+        return np;
+      });
+      toast.error(e instanceof Error ? e.message : 'Gagal menandai habit');
+    } finally {
+      setCompletingIds((p) => {
+        const s = new Set(p);
+        s.delete(habit.id);
+        return s;
+      });
+    }
+  };
 
   // ── Dashboard data (TanStack Query) ────────────────────────────────────
   // Period tetap 'all' (Beranda hanya butuh data today + streak). QueryKey
@@ -68,6 +152,22 @@ export default function Dashboard() {
     },
     retry: 1,
   });
+
+  // ── CONNECTED-APP: tugas hari ini (Meja Kerja) — key sama dengan
+  // useWorkData supaya cache terbagih; Beranda jadi jendela ke Work.
+  const { data: workData } = useQuery<WorkPayloadLite>({
+    queryKey: ['work', todayStr],
+    queryFn: async () => {
+      const res = await fetch(`/api/work?date=${todayStr}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+  const openTasks = useMemo(
+    () => (workData?.tasks ?? []).filter((t) => !t.completedAt),
+    [workData],
+  );
 
   // ── Motivational quote (TanStack Query) ────────────────────────────────
   const { data: quoteData, isLoading: quoteLoading } = useQuery<{
@@ -138,16 +238,36 @@ export default function Dashboard() {
 
   const displayData = data || DEFAULT_DATA;
 
+  // Merge overlay optimistik → daftar & hitungan hari ini.
+  const todayHabits = displayData.todayHabits.map((h) =>
+    doneOverlay[h.id] ? { ...h, completed: true } : h,
+  );
+  const newlyDone = todayHabits.filter(
+    (h) => doneOverlay[h.id] && !displayData.todayHabits.find((o) => o.id === h.id)?.completed,
+  ).length;
+  const todayCompleted = displayData.todayCompletedCount + newlyDone;
+
+  // Strip keuangan — hanya bila ada aktivitas bulan ini (jangan menagih
+  // user yang belum memakai fitur keuangan).
+  const fin = displayData.financeOverview;
+  const showFinanceStrip = fin.monthExpense > 0 || fin.budgetTotal > 0;
+  const budgetPct =
+    fin.budgetTotal > 0 ? Math.min(999, Math.round((fin.budgetSpent / fin.budgetTotal) * 100)) : 0;
+  const budgetOver = fin.budgetTotal > 0 && fin.budgetSpent > fin.budgetTotal;
+
   return (
     <div className="app-ambience relative space-y-6">
       {/* ① FEEL — Today Hero (sapaan personal + pohon + progres + streak) */}
       <TodayHero
         userName={displayData.userName}
-        completed={displayData.todayCompletedCount}
+        completed={todayCompleted}
         total={displayData.todayTotalCount}
         currentStreak={displayData.currentStreak}
         level={displayData.currentLevel}
         levelProgress={displayData.levelProgress}
+        onOpenToday={() => openTrackerDate(todayStr)}
+        onOpenHistory={() => openTrackerHistory(todayStr.slice(0, 7))}
+        onOpenProgress={() => setActiveTab('progress')}
       />
 
       {fetchError && !fetching && (
@@ -160,23 +280,60 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ② DO — Rutinitas Hari Ini (pending dulu, done dirayakan) */}
+      {/* ② DO — Rutinitas Hari Ini (completion 1-tap + yang selesai dirayakan) */}
       <TodayHabitsCard
-        habits={displayData.todayHabits}
+        habits={todayHabits}
         todayStr={todayStr}
         onOpenTracker={openTrackerDate}
         onOpenHabit={openHabitFocus}
         onAddHabit={() => {
-          triggerQuickAdd('habit');
+          // CONNECTED-APP: bawa asal — setelah habit baru tersimpan, user
+          // otomatis kembali ke Beranda (bukan terdampar di Pengaturan).
+          triggerQuickAdd('habit', 'dashboard');
           setActiveTab('settings');
         }}
+        onCompleteHabit={handleCompleteFromHome}
+        completingIds={completingIds}
       />
 
-      {/* ③ REFLECT — Check-in Harian (percakapan, mood/energi/tidur) */}
+      {/* ②.5 DO — Tugas Hari Ini (jendela kecil ke Meja Kerja; hanya bila
+            ada tugas terbuka — tidak membuat "kartu nol" artifisial). */}
+      {openTasks.length > 0 && (
+        <ScrollReveal>
+          <button
+            type="button"
+            onClick={() => setActiveTab('work')}
+            aria-label={`Buka Meja Kerja — ${openTasks.length} tugas terbuka hari ini`}
+            className="group premium-card-quiet relative w-full cursor-pointer rounded-2xl p-4 text-left transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <div className="flex items-center gap-3">
+              <span className="chip-soft chip-soft-violet h-9 w-9 shrink-0" aria-hidden="true">
+                <ClipboardList className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold">Tugas Hari Ini</h3>
+                <p className="mt-1 truncate text-[13px] text-muted-foreground">
+                  {openTasks.length} tugas terbuka
+                  {openTasks[0] ? ` — ${openTasks[0].title}` : ''}
+                  {openTasks.length > 1 ? ` +${openTasks.length - 1} lagi` : ''}
+                </p>
+              </div>
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </div>
+          </button>
+        </ScrollReveal>
+      )}
+
+      {/* ③ REFLECT — Check-in Harian (percakapan + jendela riwayat & jurnal) */}
       <DailyCheckInCard
         key={`${todayStr}|${checkInValue ? 'row' : 'none'}`}
         date={todayStr}
         value={checkInValue}
+        onOpenJournal={() => openTrackerDate(todayStr)}
+        onOpenHistory={() => openTrackerHistory(todayStr.slice(0, 7))}
       />
 
       {/* ④ REFLECT — Quote (pengingat pribadi, serif Fraunces) */}
@@ -196,10 +353,75 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ⑤ GROW — Tinjauan Mingguan (momentum) */}
+      {/* ⑤ GROW — Tinjauan Mingguan (momentum + CTA ke Progres) */}
       <ScrollReveal>
-        <WeeklyReview />
+        <WeeklyReview onOpenProgress={() => setActiveTab('progress')} />
       </ScrollReveal>
+
+      {/* ⑤.5 GROW — Keuangan bulan ini: jendela kecil ke tab Keuangan
+            (budget jadi tombol menuju sub-tab Anggaran saat terlampaui). */}
+      {showFinanceStrip && (
+        <ScrollReveal delay={40}>
+          <button
+            type="button"
+            onClick={() => openFinanceSubTab('overview')}
+            aria-label="Buka tab Keuangan"
+            className="group premium-card-quiet relative w-full cursor-pointer rounded-2xl p-4 text-left transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <div className="flex items-center gap-3">
+              <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0" aria-hidden="true">
+                <Wallet className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold">Keuangan Bulan Ini</h3>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+                  <span className="text-muted-foreground">
+                    Pengeluaran{' '}
+                    <span className={cnNum('font-bold', budgetOver ? 'text-rose-600 dark:text-rose-400' : 'text-foreground')}>
+                      Rp {rpLite(fin.monthExpense)}
+                    </span>
+                  </span>
+                  {fin.budgetTotal > 0 && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFinanceSubTab('budgets');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          openFinanceSubTab('budgets');
+                        }
+                      }}
+                      aria-label={`Buka anggaran — terpakai ${budgetPct}%`}
+                      className="cursor-pointer text-muted-foreground underline decoration-dotted underline-offset-4 transition-colors hover:text-primary"
+                    >
+                      Anggaran <span className="font-bold">{budgetPct}%</span>
+                    </span>
+                  )}
+                </div>
+                {fin.budgetTotal > 0 && (
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                    <div
+                      className={
+                        'h-full rounded-full transition-[width] duration-700 ' +
+                        (budgetOver ? 'bg-rose-500' : budgetPct >= 80 ? 'bg-amber-500' : 'bg-emerald-500')
+                      }
+                      style={{ width: `${Math.min(100, budgetPct)}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </div>
+          </button>
+        </ScrollReveal>
+      )}
 
       {/* ⑥ GROW — Sekilas Perjalananmu: jendela mungil ke tab Progres.
             Pengganti 12+ kartu analytics lama di Beranda: satu kartu dengan
@@ -238,4 +460,9 @@ export default function Dashboard() {
       </ScrollReveal>
     </div>
   );
+}
+
+/** cn-lite lokal (hindari import cn hanya untuk 2 kelas kondisional). */
+function cnNum(...parts: (string | false | undefined)[]) {
+  return parts.filter(Boolean).join(' ');
 }

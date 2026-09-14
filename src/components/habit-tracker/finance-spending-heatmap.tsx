@@ -32,6 +32,8 @@ export function SpendingHeatmap({
   selectedMonth: string;
 }) {
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+  // CONNECTED-APP: sel hari → transaksi tanggal itu.
+  const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
 
   const { cells, maxAmount, activeDays, monthTitle } = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -127,18 +129,23 @@ export function SpendingHeatmap({
                     ? `${cell.day} — ${formatRupiah(cell.amount)}`
                     : `${cell.day} — tanpa pengeluaran`;
                   return (
-                    <span
+                    /* CONNECTED-APP: sel hari → transaksi tanggal itu
+                       (drill-down chart #10; dulu cuma tooltip). */
+                    <button
+                      type="button"
                       key={cell.key}
                       title={title}
+                      onClick={() => openFinanceFocus({ date: cell.key, txType: 'expense' })}
+                      aria-label={title}
                       className={cn(
-                        'h-7 w-7 rounded-lg grid place-items-center text-[10px] font-semibold tabular-nums transition-transform',
+                        'h-7 w-7 rounded-lg grid place-items-center text-[10px] font-semibold tabular-nums transition-transform cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         level(cell.amount),
                         cell.amount > 0 && 'hover:scale-105',
                         textColor(cell.amount)
                       )}
                     >
                       {cell.day}
-                    </span>
+                    </button>
                   );
                 })}
               </div>

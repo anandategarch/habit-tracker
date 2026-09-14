@@ -124,6 +124,8 @@ export function toDashboardData(payload: DashboardApiPayload, period: Period): D
       label: period === '7d' ? eeeIdFormatter(day) : mmmDdIdFormatter(day),
       completed: num(d.completed),
       missed: num(d.missed),
+      // CONNECTED-APP — tanggal sumber untuk drill-down bar bertumpuk.
+      date: d.date,
     };
   });
 
@@ -168,6 +170,12 @@ export function toDashboardData(payload: DashboardApiPayload, period: Period): D
       icon: h.emoji || '✅',
       priority: typeof h.priority === 'string' ? h.priority : undefined,
       completed: h.completed === true,
+      // CONNECTED-APP — kapabilitas habit (lihat TodayHabitItem).
+      habitType: typeof h.habitType === 'string' ? h.habitType : undefined,
+      trackTime: h.trackTime === true,
+      difficulty: typeof h.difficulty === 'string' ? h.difficulty : undefined,
+      target: num(h.target),
+      value: num(h.value),
     }));
   const todayCompletedCount = todayHabits.filter((h) => h.completed).length;
   const todayTotalCount = todayHabits.length;

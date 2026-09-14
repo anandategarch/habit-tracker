@@ -129,7 +129,9 @@ export default function FinanceSavingsGoals() {
   );
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['finance', 'savings'] });
+  //   CONNECTED-APP: KPI Keuangan membaca data yang sama — invalidasi
+  //   prefix ['finance'] supaya seluruh domain ikut segar.
+    queryClient.invalidateQueries({ queryKey: ['finance'] });
   };
 
   // ── Quick-chip: PUT { delta } ────────────────────────────────────────────

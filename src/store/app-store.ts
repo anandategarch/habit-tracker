@@ -3,14 +3,26 @@
 //
 // API NAVIGASI 1-KLIK (WAJIB dipakai oleh semua komponen — jangan bikin
 // mekanisme navigasi sendiri; pola consume-and-clear untuk deep-link):
-//   openHabitFocus(habitId)      -> tab tracker + dialog Analisis Waktu habit
-//   openTrackerDate('yyyy-MM-dd')-> tab tracker grid, tanggal terpilih
-//   openFinanceSubTab(sub)       -> tab finance + sub-tab target
-//   openFinanceFocus({category}) -> tab finance sub-tab transactions + filter
-//   triggerQuickAdd(action)      -> quick-add FAB action
-//   setActiveTab(tab)            -> pindah tab utama
+//   setActiveTab(tab)              -> pindah tab utama
+//   openTrackerDate('yyyy-MM-dd')  -> tab tracker grid + tanggal terpilih
+//                                     (bulan kalender ikut disinkronkan)
+//   openTrackerHistory('yyyy-MM')? -> tab tracker mode Riwayat/kalender
+//   openHabitFocus(habitId)        -> tab tracker + dialog Analisis Waktu habit
+//   openGoalFocus(goalId)          -> tab Tujuan + sorot tujuan terkait
+//   openFinanceSubTab(sub)         -> tab finance + sub-tab target
+//   openFinanceFocus({category?, sourceId?, date?})
+//                                  -> tab finance sub-tab transactions + filter
+//   triggerQuickAdd(action, returnTab?)
+//                                  -> quick-add FAB action + tab asal yang
+//                                     dikembalikan setelah aksi selesai
+//
 // State yang diangkat ke store supaya survive pergantian tab:
-//   trackerViewMode, selectedDate, financeSubTab, selectedMonth, settingsSection.
+//   trackerViewMode, selectedDate, trackerMonth (kalender habit — TERPISAH
+//   dari selectedMonth finance), financeSubTab, selectedMonth, settingsSection,
+//   progressPeriod.
+//
+// CONNECTED-APP (Task 46): setiap objek penting punya jalur ke konteksnya —
+// lihat komentar per primitive di bawah.
 // ---------------------------------------------------------------------------
 
 import { create } from 'zustand';
@@ -29,18 +41,35 @@ export type FinanceSubTab =
   | 'recurring'
   | 'rules'
   | 'savings';
+export const FINANCE_SUB_TABS: ReadonlySet<string> = new Set<FinanceSubTab>([
+  'overview', 'transactions', 'budgets', 'analysis', 'recurring', 'rules', 'savings',
+]);
 const LEGACY_FINANCE_SUB_TAB: Record<string, FinanceSubTab> = {
   explorer: 'analysis',
   categories: 'analysis',
 };
 const normalizeFinanceSubTab = (sub: FinanceSubTab): FinanceSubTab =>
   LEGACY_FINANCE_SUB_TAB[sub] ?? sub;
-export type FinanceFocus = { category?: string; sourceId?: string };
+
+/** Filter transaksi yang dibawa saat drill-down (chart → transaksi). */
+export interface FinanceFocus {
+  category?: string;
+  sourceId?: string;
+  /** 'yyyy-MM-dd' — filter tanggal (heatmap / pengeluaran hari ini). */
+  date?: string;
+  /** Type transaksi untuk drill-down yang hanya relevan satu arah
+   *  (mis. "pengeluaran hari ini" → expense). */
+  txType?: 'all' | 'expense' | 'income';
+}
+
 // TASK 45: 'task' — quick-add tugas kerja (FAB → Meja Kerja buka editor
 // tugas baru). Aksi lama tidak berubah.
 export type QuickAddAction = 'expense' | 'income' | 'habit' | 'transfer' | 'task';
 export type TrackerViewMode = 'today' | 'history';
 export type SettingsSection = 'umum' | 'habits' | 'data';
+/** Periode filter tab Progres — diangkat ke store supaya deep-link/KPI
+ *  bisa mengganti periode tanpa context hilang saat pindah tab. */
+export type ProgressPeriod = '7d' | '1m' | '3m' | 'all';
 
 interface AppState {
   // tab utama
@@ -54,20 +83,42 @@ interface AppState {
   setTrackerViewMode: (mode: TrackerViewMode) => void;
   selectedDate: string; // 'yyyy-MM-dd' Jakarta
   setSelectedDate: (date: string) => void;
+  /** Buka tracker mode hari ini pada tanggal tertentu. Bulan kalender
+   *  (trackerMonth) ikut disinkronkan supaya toggle Riwayat menampilkan
+   *  bulan yang benar — dulu openTrackerDate tidak menyentuh bulan. */
   openTrackerDate: (date: string) => void;
+  /** Bulan kalender Riwayat (TERPISAH dari selectedMonth finance — dulu
+   *  satu state dibagi dua domain: ganti bulan di Keuangan diam-diam
+   *  menggeser kalender habit, dan sebaliknya). */
+  trackerMonth: string; // 'yyyy-MM' Jakarta
+  setTrackerMonth: (month: string) => void;
+  /** Buka tracker langsung di mode Riwayat (kalender) — tujuan drill-down
+   *  dari Progress (streak, mood, pola mingguan) dan check-in history. */
+  openTrackerHistory: (month?: string) => void;
   focusHabitId: string | null;
   openHabitFocus: (habitId: string) => void;
   clearHabitFocus: () => void;
+
+  // goals (CONNECTED-APP: Habit ↔ Tujuan dua arah)
+  focusGoalId: string | null;
+  /** Buka tab Tujuan dengan tujuan tertentu disorot + ter-expand —
+   *  tujuan drill-down dari chip "Tujuan" pada kartu habit tracker. */
+  openGoalFocus: (goalId: string) => void;
+  clearGoalFocus: () => void;
 
   // finance
   financeSubTab: FinanceSubTab;
   setFinanceSubTab: (sub: FinanceSubTab) => void;
   openFinanceSubTab: (sub: FinanceSubTab) => void;
-  selectedMonth: string; // 'yyyy-MM' Jakarta
+  selectedMonth: string; // 'yyyy-MM' Jakarta (domain finance)
   setSelectedMonth: (month: string) => void;
   financeFocus: FinanceFocus | null;
   openFinanceFocus: (focus: FinanceFocus) => void;
   clearFinanceFocus: () => void;
+
+  // progress
+  progressPeriod: ProgressPeriod;
+  setProgressPeriod: (period: ProgressPeriod) => void;
 
   // settings
   settingsSection: SettingsSection;
@@ -75,8 +126,12 @@ interface AppState {
 
   // quick add (FAB)
   quickAddAction: QuickAddAction | null;
-  triggerQuickAdd: (action: QuickAddAction) => void;
+  /** Tab asal quick-add habit — setelah habit baru tersimpan, user
+   *  dikembalikan ke konteks asal (dulu terdampar di Pengaturan). */
+  quickAddReturnTab: TabId | null;
+  triggerQuickAdd: (action: QuickAddAction, returnTab?: TabId) => void;
   clearQuickAdd: () => void;
+  clearQuickAddReturn: () => void;
 
   // refresh global (dashboard refresh button)
   refreshKey: number;
@@ -94,11 +149,30 @@ export const useAppStore = create<AppState>((set) => ({
   selectedDate: jakartaDateString(),
   setSelectedDate: (date) => set({ selectedDate: date }),
   openTrackerDate: (date) =>
-    set({ activeTab: 'tracker', trackerViewMode: 'today', selectedDate: date }),
+    set({
+      activeTab: 'tracker',
+      trackerViewMode: 'today',
+      selectedDate: date,
+      // Sinkronkan bulan kalender supaya toggle Riwayat konsisten dengan
+      // tanggal yang barusaja dibuka (CONNECTED-APP #6).
+      trackerMonth: date.slice(0, 7),
+    }),
+  trackerMonth: jakartaDateString().slice(0, 7),
+  setTrackerMonth: (month) => set({ trackerMonth: month }),
+  openTrackerHistory: (month) =>
+    set((s) => ({
+      activeTab: 'tracker',
+      trackerViewMode: 'history',
+      trackerMonth: month ?? s.trackerMonth,
+    })),
   focusHabitId: null,
   openHabitFocus: (habitId) =>
     set({ activeTab: 'tracker', trackerViewMode: 'today', focusHabitId: habitId }),
   clearHabitFocus: () => set({ focusHabitId: null }),
+
+  focusGoalId: null,
+  openGoalFocus: (goalId) => set({ activeTab: 'goals', focusGoalId: goalId }),
+  clearGoalFocus: () => set({ focusGoalId: null }),
 
   financeSubTab: 'overview',
   setFinanceSubTab: (sub) => set({ financeSubTab: normalizeFinanceSubTab(sub) }),
@@ -110,12 +184,18 @@ export const useAppStore = create<AppState>((set) => ({
     set({ activeTab: 'finance', financeSubTab: 'transactions', financeFocus: focus }),
   clearFinanceFocus: () => set({ financeFocus: null }),
 
+  progressPeriod: 'all',
+  setProgressPeriod: (period) => set({ progressPeriod: period }),
+
   settingsSection: 'umum',
   setSettingsSection: (section) => set({ settingsSection: section }),
 
   quickAddAction: null,
-  triggerQuickAdd: (action) => set({ quickAddAction: action }),
+  quickAddReturnTab: null,
+  triggerQuickAdd: (action, returnTab) =>
+    set({ quickAddAction: action, quickAddReturnTab: returnTab ?? null }),
   clearQuickAdd: () => set({ quickAddAction: null }),
+  clearQuickAddReturn: () => set({ quickAddReturnTab: null }),
 
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),

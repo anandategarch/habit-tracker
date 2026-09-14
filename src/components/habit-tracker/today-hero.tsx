@@ -33,6 +33,10 @@ interface TodayHeroProps {
   level: number;
   /** Progres XP menuju level berikutnya (0–100). */
   levelProgress: number;
+  // CONNECTED-APP — setiap elemen penting hero punya konteks lanjutan:
+  onOpenToday?: () => void; // blok progres "X dari Y" → Tracker hari ini
+  onOpenHistory?: () => void; // chip streak → Riwayat/kalender habit
+  onOpenProgress?: () => void; // chip level → tab Progres (XP/Level)
 }
 
 /** Sapaan waktu-sadar Jakarta — jam dinding, bukan jam server. */
@@ -80,6 +84,9 @@ export function TodayHero({
   currentStreak,
   level,
   levelProgress,
+  onOpenToday,
+  onOpenHistory,
+  onOpenProgress,
 }: TodayHeroProps) {
   const { greeting, dateLabel } = useJakartaGreeting();
   const hour = typeof window === 'undefined' ? 12 : jakartaNowParts().hour;
@@ -132,8 +139,16 @@ export function TodayHero({
         <div className="premium-fade-up" style={{ animationDelay: '100ms' }}>
           <p className="text-sm font-medium leading-relaxed opacity-95">{narrative}</p>
           {total > 0 && (
-            <div className="mt-3">
-              <div className="flex items-baseline justify-between gap-3">
+            /* CONNECTED-APP: blok progres "X dari Y" membuka Tracker hari ini
+               (destination berguna — lanjut menyelesaikan sisanya). */
+            <button
+              type="button"
+              onClick={onOpenToday}
+              disabled={!onOpenToday}
+              aria-label={`Buka tracker hari ini — ${completed} dari ${total} rutinitas selesai (${pct}%)`}
+              className="mt-3 w-full rounded-xl text-left transition-[background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-default enabled:cursor-pointer enabled:hover:bg-white/10 enabled:active:scale-[0.99]"
+            >
+              <div className="flex items-baseline justify-between gap-3 px-1">
                 <p className="font-display text-[13px] font-semibold">
                   <CountUpNumber value={completed} className="font-display text-[1.65rem] font-bold leading-none" />
                   <span className="opacity-80"> dari {total} rutinitas</span>
@@ -154,7 +169,7 @@ export function TodayHero({
                   style={{ width: `${pct}%` }}
                 />
               </div>
-            </div>
+            </button>
           )}
         </div>
 
@@ -164,7 +179,15 @@ export function TodayHero({
           style={{ animationDelay: '160ms' }}
         >
           {currentStreak > 0 && (
-            <span className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[13px] font-semibold">
+            /* CONNECTED-APP: streak → kalender Riwayat (konteks yang
+               menghasilkan angka streak itu). */
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              disabled={!onOpenHistory}
+              aria-label={`Streak ${currentStreak} hari berturut-turut — buka riwayat kalender`}
+              className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[13px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-default enabled:cursor-pointer enabled:hover:bg-white/20"
+            >
               <Flame
                 className={currentStreak >= 3 ? 'anim-flame-pulse h-4 w-4 text-amber-200' : 'h-4 w-4 text-amber-200'}
                 aria-hidden="true"
@@ -173,10 +196,17 @@ export function TodayHero({
                 {currentStreak} hari berturut-turut
                 {currentStreak >= 3 && currentStreak < 7 ? ' — momentummu sedang tumbuh' : ''}
               </span>
-            </span>
+            </button>
           )}
-          <span className="flex min-w-[150px] flex-1 items-center gap-2.5 sm:max-w-[220px]">
-            <span className="shrink-0 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[13px] font-semibold">
+          {/* CONNECTED-APP: level & XP → tab Progres (KPI Total XP/Level). */}
+          <button
+            type="button"
+            onClick={onOpenProgress}
+            disabled={!onOpenProgress}
+            aria-label={`Level ${level}, ${Math.round(levelProgress)}% menuju level berikutnya — buka tab Progres`}
+            className="group flex min-w-[150px] flex-1 items-center gap-2.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-default enabled:cursor-pointer sm:max-w-[220px]"
+          >
+            <span className="shrink-0 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[13px] font-semibold transition-colors duration-200 group-hover:bg-white/20">
               Level {level}
             </span>
             <span
@@ -195,7 +225,7 @@ export function TodayHero({
             <span className="shrink-0 text-[12px] font-semibold opacity-90 tabular-nums">
               {Math.round(levelProgress)}%
             </span>
-          </span>
+          </button>
         </div>
       </div>
     </section>

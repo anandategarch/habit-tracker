@@ -36,6 +36,12 @@ interface DailyCheckInCardProps {
   date: string;
   /** Nilai tersimpan (null = baris belum ada / masih dimuat). */
   value: CheckInValue | null;
+  /** CONNECTED-APP — "Lihat riwayat" → kalender Riwayat (emoji mood
+   *  per hari). Opsional: Beranda & Tracker sama-sama memakai kartu ini. */
+  onOpenHistory?: () => void;
+  /** CONNECTED-APP — "Tulis jurnal" → kartu catatan harian tanggal yang
+   *  sama (check-in dan jurnal = dua bagian refleksi satu hari). */
+  onOpenJournal?: () => void;
 }
 
 interface Draft {
@@ -74,7 +80,7 @@ function formatSleep(hours: number): string {
   })} jam`;
 }
 
-export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
+export function DailyCheckInCard({ date, value, onOpenHistory, onOpenJournal }: DailyCheckInCardProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft>(() => ({
     mood: value?.mood ?? null,
@@ -104,6 +110,11 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
           // Segarkan cache daily-logs (dipakai notes/panel lain) — key-remount
           // tidak terpicu karena kehadiran baris tidak berubah.
           void queryClient.invalidateQueries({ queryKey: ['daily-logs', date] });
+          // CONNECTED-APP: check-in memberi makan KPI mood/tidur/energi di
+          // tab Progres + emoji mood pada kalender Riwayat — keduanya ikut
+          // disegarkan (dulu tetap stale sampai pull-to-refresh).
+          void queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
+          void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         })
         .catch(() => {
           toast.error('Gagal menyimpan check-in');
@@ -293,6 +304,31 @@ export function DailyCheckInCard({ date, value }: DailyCheckInCardProps) {
           </div>
         </div>
       </div>
+
+      {/* CONNECTED-APP — refleksi tidak berakhir di kartu ini: riwayat mood
+          hidup di kalender, jurnal hidup di catatan harian tanggal sama. */}
+      {(onOpenHistory || onOpenJournal) && (
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/60 pt-3">
+          {onOpenJournal && (
+            <button
+              type="button"
+              onClick={onOpenJournal}
+              className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+            >
+              ✍️ Tulis jurnal hari ini
+            </button>
+          )}
+          {onOpenHistory && (
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+            >
+              📅 Lihat riwayat mood
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }

@@ -165,8 +165,8 @@ const HEATMAP_LEGEND: { label: string; color: string }[] = [
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function CalendarView() {
-  const selectedMonth = useAppStore((s) => s.selectedMonth);
-  const setSelectedMonth = useAppStore((s) => s.setSelectedMonth);
+  const selectedMonth = useAppStore((s) => s.trackerMonth); // CONNECTED-APP: bulan kalender habit — TERPISAH dari bulan Keuangan
+  const setSelectedMonth = useAppStore((s) => s.setTrackerMonth);
   // Day-cell tap → tracker grid dengan tanggal terpilih (1-klik).
   const openTrackerDate = useAppStore((s) => s.openTrackerDate);
   const queryClient = useQueryClient();
@@ -613,8 +613,15 @@ export default function CalendarView() {
                     </p>
                   </div>
 
+                  {/* CONNECTED-APP: kartu Hari Terbaik/Terburuk membuka tracker
+                      pada tanggal itu — angka baru punya konteks aslinya. */}
                   {monthSummary.best && (
-                    <div className="premium-card p-3.5 sm:p-4">
+                    <button
+                      type="button"
+                      onClick={() => openTrackerDate(monthSummary.best!.dayStr)}
+                      aria-label={`Buka hari terbaik ${mmmDdIdFormatter(monthSummary.best.date)} — ${monthSummary.best.completionRate}% selesai`}
+                      className="premium-card w-full cursor-pointer p-3.5 text-left transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:p-4"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="chip-soft chip-soft-amber h-8 w-8 shrink-0">
                           <Flame className="h-4 w-4" />
@@ -632,11 +639,16 @@ export default function CalendarView() {
                           {monthSummary.best.completionRate}% selesai
                         </Badge>
                       </p>
-                    </div>
+                    </button>
                   )}
 
                   {monthSummary.worst && (
-                    <div className="premium-card p-3.5 sm:p-4">
+                    <button
+                      type="button"
+                      onClick={() => openTrackerDate(monthSummary.worst!.dayStr)}
+                      aria-label={`Buka hari terburuk ${mmmDdIdFormatter(monthSummary.worst.date)} — ${monthSummary.worst.completionRate}% selesai`}
+                      className="premium-card w-full cursor-pointer p-3.5 text-left transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:p-4"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="chip-soft chip-soft-rose h-8 w-8 shrink-0">
                           <Droplets className="h-4 w-4" />
@@ -654,7 +666,7 @@ export default function CalendarView() {
                           {monthSummary.worst.completionRate}% selesai
                         </Badge>
                       </p>
-                    </div>
+                    </button>
                   )}
                 </div>
 

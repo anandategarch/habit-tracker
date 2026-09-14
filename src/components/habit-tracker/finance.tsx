@@ -211,6 +211,10 @@ export default function Finance() {
 
  // Filter states (declared early because useQuery depends on txFilter)
  const [txFilter, setTxFilter] = useState<{ type: string; category: string; source: string; search: string }>({ type: 'all', category: 'all', source: 'all', search: '' });
+ // CONNECTED-APP: filter tanggal dari drill-down (heatmap hari tertentu /
+ // "pengeluaran hari ini") — client-side, ditampilkan sebagai chip yang bisa
+ // dilepas di sub-tab Transaksi.
+ const [txFocusDate, setTxFocusDate] = useState<string | null>(null);
 
  // ONE-CLICK-4: consume the global finance focus (set by openFinanceFocus
  // anywhere in the app — dashboard cards, budget cards, daily recap…).
@@ -219,14 +223,31 @@ export default function Finance() {
  // a NAME string, matching txFilter.category semantics.
  const financeFocus = useAppStore(s => s.financeFocus);
  const clearFinanceFocus = useAppStore(s => s.clearFinanceFocus);
+ // Latest-ref untuk sources — diisi oleh effect SETELAH query sumber dinyatakan
+ // (deklarasi di bawah; hoisting tidak berlaku untuk const). applyFinanceFocus
+ // harus identitasnya stabil (pola latest-ref), jadi resolve sourceId lewat ref.
+ const sourcesRef = useRef<FundSource[]>([]);
  const applyFinanceFocus = useCallback((focus: FinanceFocus) => {
    setTxFilter(prev => ({
      ...prev,
-     type: 'all',
-     source: 'all',
+     // CONNECTED-APP: drill-down kini membawa type + sumber + tanggal:
+     //  * txType ('expense' untuk "pengeluaran hari ini", dst.)
+     //  * sourceId → resolve nama (semantik txFilter.source)
+     //  * date → filter tanggal harian (chip di sub-tab Transaksi)
+     type: focus.txType ?? 'all',
+     source: focus.sourceId
+       ? (sourcesRef.current.find(s => s.id === focus.sourceId)?.name ?? 'all')
+       : 'all',
      search: '',
      category: focus.category ?? 'all',
    }));
+   setTxFocusDate(focus.date ?? null);
+   if (focus.date) {
+     // Sinkronkan bulan supaya transaksi tanggal itu benar-benar termuat
+     // (daftar transaksi dibatasi selectedMonth).
+     const m = focus.date.slice(0, 7);
+     if (m !== useAppStore.getState().selectedMonth) setSelectedMonth(m);
+   }
  }, []);
  // Stable latest-ref: applyFinanceFocus has empty deps (never changes
  // identity), so the ref is initialized once and never reassigned.
@@ -263,6 +284,9 @@ export default function Finance() {
  // dan kondisi "tanpa sumber" jujur menampilkan daftar kosong (transaksi
  // tetap bisa disimpan tanpa sumber; sumber bisa ditambah di Sumber Dana).
  const getActiveSources = useCallback(() => sources, [sources]);
+ // Sinkronkan latest-ref sumber untuk applyFinanceFocus (deklarasi ref ada
+ // di atas; assignment di sini — setelah `sources` benar-benar dideklarasikan).
+ useEffect(() => { sourcesRef.current = sources; }, [sources]);
 
  // ── Mutations hook (SPLIT-PHASE2-UI) ──
  // All dialog/form state + CRUD handlers live in this hook.
@@ -475,6 +499,8 @@ export default function Finance() {
  // ── Render Helpers ────────────────────────────────────────────────────────
 
  const filteredTransactions = useMemo(() => transactions.filter(tx => {
+   // CONNECTED-APP: filter tanggal drill-down (H3: YMD = komponen UTC ISO).
+   if (txFocusDate && tx.date.slice(0, 10) !== txFocusDate) return false;
    if (txFilter.type !== 'all' && tx.type !== txFilter.type) return false;
    if (txFilter.category !== 'all' && tx.category !== txFilter.category) return false;
    // M1: API mengirim sourceName (tx.source selalu undefined) — filter
@@ -500,7 +526,7 @@ export default function Finance() {
      if (!matches) return false;
    }
    return true;
- }), [transactions, txFilter]);
+ }), [transactions, txFilter, txFocusDate]);
 
  const groupedTransactions = useMemo(() => {
    const sorted = [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -620,6 +646,7 @@ export default function Finance() {
        setActiveSubTab(v as FinanceSubTab);
        if (v !== 'transactions') {
          setTxFilter({ type: 'all', category: 'all', source: 'all', search: '' });
+         setTxFocusDate(null); // CONNECTED-APP: chip tanggal ikut bersih
        }
      }}>
        <TabsList className="flex w-full gap-0.5 overflow-x-auto scrollbar-hide rounded-xl bg-muted/60 p-1 h-auto">
@@ -652,6 +679,8 @@ export default function Finance() {
            groupedTransactions={groupedTransactions}
            selectedTxIds={mutations.selectedTxIds}
            txFilter={txFilter}
+           focusDate={txFocusDate}
+           onClearFocusDate={() => setTxFocusDate(null)}
            getCategoryList={getCategoryList}
            getActiveSources={getActiveSources}
            getCategoryMeta={getCategoryMeta}

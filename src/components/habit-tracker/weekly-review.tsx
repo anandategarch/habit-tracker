@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Wallet,
   AlertTriangle,
+  ArrowRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
@@ -42,7 +43,7 @@ const TYPE_META: Record<InsightType, { icon: LucideIcon; chip: string; accent: s
   finance: { icon: Wallet, chip: 'chip-soft-teal', accent: '#10b981' },
 };
 
-export function WeeklyReview() {
+export function WeeklyReview({ onOpenProgress }: { onOpenProgress?: () => void }) {
   const refreshKey = useAppStore((s) => s.refreshKey);
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
 
@@ -72,6 +73,18 @@ export function WeeklyReview() {
           Tinjauan Mingguan
           <ChartInfo text="Insight otomatis dari data habit, mood, tidur, streak, dan keuangan kamu. Bila insight terkait habit tertentu, tombol 'Lihat habit' membuka analisisnya di tracker." />
         </h3>
+        {/* CONNECTED-APP: jendela ke tab Progres — insight mingguan adalah
+            benang cerita yang sama dengan analitik jangka panjang. */}
+        {onOpenProgress && (
+          <button
+            type="button"
+            onClick={onOpenProgress}
+            className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-border/70 bg-muted/60 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            Buka Progres
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {isLoading ? (

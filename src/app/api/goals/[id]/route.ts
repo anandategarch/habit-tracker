@@ -69,6 +69,10 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     const { id } = await ctx.params;
     const goal = await db.goal.findUnique({ where: { id }, select: { id: true } });
     if (!goal) throw notFound('Goal tidak ditemukan');
+    // CONNECTED-APP (Task 49): lepas link habit → tujuan ini SEBELUM hapus,
+    // supaya kartu habit tidak menampilkan chip tujuan yang sudah tidak ada
+    // (schema onDelete: SetNull juga menangani, ini lapisan eksplisit).
+    await db.habit.updateMany({ where: { goalId: id }, data: { goalId: null } });
     await db.goal.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {

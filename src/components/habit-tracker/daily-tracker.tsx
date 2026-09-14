@@ -98,6 +98,23 @@ export default function DailyTracker() {
   // Opsi label habit (kategori/prioritas/difficulty) — query tunggal; peta
   // kategori diturunkan lokal (bobot XP langsung dari lib/dashboard-helpers).
   const { data: habitOptions = [] } = useHabitOptions();
+  // CONNECTED-APP (Task 49): judul tujuan untuk chip "Tujuan" pada kartu
+  // habit (key ['goals'] — cache terbagih dengan tab Tujuan & form habit).
+  const { data: goalsList = [] } = useQuery<{ id: string; title: string }[]>({
+    queryKey: ['goals'],
+    queryFn: async () => {
+      const res = await fetch('/api/goals');
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : (json.goals ?? []);
+    },
+    staleTime: 60_000,
+  });
+  const goalTitleById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const g of goalsList) map[g.id] = g.title;
+    return map;
+  }, [goalsList]);
   const { themeColor } = useThemeColor();
   const categoryMap = useMemo(() => {
     const map: Record<string, { label: string; color?: string | null }> = {};
@@ -154,11 +171,31 @@ export default function DailyTracker() {
   // per worklog note when this block was touched).
   const openAnalysis = useCallback((id: string) => setAnalysisHabitId(id), []);
   useEffect(() => {
-    if (focusHabitId) {
+    if (!focusHabitId) return;
+    // CONNECTED-APP: fokus habit dibuka SESUAI KAPABILITAS — habit trackTime
+    // → dialog Analisis Waktu; habit lain → gulir ke kartunya di grid
+    // (dialog analisis cuma buntu "tidak mencatat waktu" untuk mereka;
+    // kartu grid memuat riwayat 7-hari + stepper + tombol analisis).
+    const focused = habits.find((h) => h.id === focusHabitId);
+    if (focused?.trackTime) {
       openAnalysis(focusHabitId);
-      clearHabitFocus();
+    } else {
+      requestAnimationFrame(() => {
+        document
+          .getElementById(focusHabitId)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     }
+    clearHabitFocus();
+    // `habits` sengaja tidak masuk deps: fokus adalah peristiwa sekali-jalan
+    // (consume-and-clear) — cukup dibaca saat fokus datang.
   }, [focusHabitId, clearHabitFocus, openAnalysis]);
+  // CONNECTED-APP: ganti mode tampilan (Hari Ini ↔ Riwayat) menutup dialog
+  // analisis yang masih terbuka — dulu analysisHabitId bertahan sehingga
+  // kembali ke "Hari Ini" memunculkan ulang dialog secara tak terduga.
+  useEffect(() => {
+    setAnalysisHabitId(null);
+  }, [viewMode]);
 
   // ---- refs (notes autosave) ----
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -960,6 +997,7 @@ export default function DailyTracker() {
           {/* ─────────────────── Habit Grid ─────────────────────── */}
           <HabitGridSection
             activeHabits={activeHabits}
+            goalTitleById={goalTitleById}
             scheduledHabits={scheduledHabits}
             filteredHabits={filteredHabits}
             nextOccurrences={nextOccurrences}
@@ -987,7 +1025,7 @@ export default function DailyTracker() {
             onOpenAnalysis={handleOpenAnalysis}
             onGraduate={handleGraduate}
             onQuickAddHabit={() => {
-              triggerQuickAdd('habit');
+              triggerQuickAdd('habit', 'tracker'); // CONNECTED-APP: kembali ke Tracker setelah simpan
               setActiveTab('settings');
             }}
           />
@@ -1002,14 +1040,23 @@ export default function DailyTracker() {
             key={`${selectedDate}|${checkInValue ? 'row' : 'none'}`}
             date={selectedDate}
             value={checkInValue}
+            // CONNECTED-APP: check-in ↔ jurnal — dua bagian refleksi satu
+            // tanggal; tautan menggulir ke kartu catatan (anchor #notes).
+            onOpenJournal={() => {
+              document
+                .getElementById('daily-notes-card')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
           />
 
           {/* ─────────────────── Daily Notes (full-width) ────────── */}
-          <DailyNotesCard
-            notes={notes}
-            onChange={handleNotesChange}
-            charCount={notesCharCount}
-          />
+          <div id="daily-notes-card" className="scroll-mt-20">
+            <DailyNotesCard
+              notes={notes}
+              onChange={handleNotesChange}
+              charCount={notesCharCount}
+            />
+          </div>
 
           {/* ── Time Confirmation Dialog ── */}
           <TimeConfirmDialog

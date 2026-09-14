@@ -71,7 +71,16 @@ export interface DashboardApiPayload {
   /** Sumber "Pola Mingguan" — harian 90 hari terakhir (M-3). */
   patternChart?: DashboardApiDay[] | null;
   categoryChart?: { category?: string; count?: number }[] | null;
-  focusToday?: (DashboardApiHabitLite & { completed?: boolean; priority?: string })[] | null;
+  focusToday?: (DashboardApiHabitLite & {
+    completed?: boolean;
+    priority?: string;
+    /** CONNECTED-APP — kapabilitas habit untuk completion 1-tap di Beranda. */
+    habitType?: string;
+    trackTime?: boolean;
+    difficulty?: string;
+    target?: number;
+    value?: number;
+  })[] | null;
   lastDone?: (DashboardApiHabitLite & { lastDate?: string | null; streak?: number })[] | null;
   timeTracked?: (DashboardApiHabitLite & { minutes?: number })[] | null;
   quote?: { text?: string; author?: string } | null;
@@ -112,6 +121,8 @@ export interface StackedBarDatum {
   label: string;
   completed: number;
   missed: number;
+  /** CONNECTED-APP — tanggal sumber (drill-down bar → tracker tanggal itu). */
+  date?: string;
 }
 
 export interface WeeklyPatternDatum {
@@ -231,4 +242,13 @@ export interface TodayHabitItem {
   icon: string;
   priority?: string;
   completed: boolean;
+  /** CONNECTED-APP — kapabilitas (dari /api/dashboard focusToday):
+   *  normal+!trackTime → bisa diselesaikan 1-tap dari Beranda;
+   *  amount/trackTime/avoid → baris membuka tracker (butuh konteks penuh). */
+  habitType?: string;
+  trackTime?: boolean;
+  difficulty?: string;
+  target?: number;
+  /** Progres amount hari ini (mis. 3 dari 20). */
+  value?: number;
 }

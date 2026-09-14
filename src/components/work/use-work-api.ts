@@ -240,7 +240,7 @@ export function useToggleRoutineLog(date: string) {
       toast.error('Gagal menyimpan status rutinitas');
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['work', date] });
+      qc.invalidateQueries({ queryKey: ['work'] }); // CONNECTED-APP: prefix penuh — papan & pencarian ikut segar
     },
   });
 }
@@ -337,7 +337,7 @@ export function useToggleTaskDone(date: string) {
       toast.error('Gagal menyimpan status tugas');
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['work', date] });
+      qc.invalidateQueries({ queryKey: ['work'] }); // CONNECTED-APP: prefix penuh — papan & pencarian ikut segar
     },
   });
 }

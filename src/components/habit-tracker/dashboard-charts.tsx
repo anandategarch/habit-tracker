@@ -136,6 +136,17 @@ export default function DashboardCharts({
     }
   };
 
+  // CONNECTED-APP: drill-down generik — tiap chart yang datum-nya membawa
+  // tanggal (tren area & bar bertumpuk) kini membuka tracker pada tanggal
+  // itu (pola defensif sama dengan batang mingguan).
+  const handleDatumClick = (data: unknown) => {
+    const d = data as { date?: string; payload?: { date?: string } } | null | undefined;
+    const dateKey = d?.payload?.date ?? d?.date;
+    if (typeof dateKey === 'string' && isValidYMD(dateKey)) {
+      openTrackerDate(dateKey);
+    }
+  };
+
   const monthlyData = useMemo(
     () =>
       monthlyChartData.map((d) => ({
@@ -255,16 +266,16 @@ export default function DashboardCharts({
           icon={TrendingUp}
           title={`Tren Penyelesaian — ${chartLabel}`}
           chipClass="chip-soft-teal"
-          info={trendInfo}
+          info={`${trendInfo} Klik titik untuk membuka tracker pada tanggal tersebut.`}
         />
         {monthlyData.length === 0 ? (
           <ChartEmpty text="Belum ada data tren" />
         ) : (
           <ChartContainer
             config={{ completed: { label: 'Penyelesaian', color: 'var(--primary)' } }}
-            className="h-72 w-full"
+            className="h-72 w-full cursor-pointer"
             role="img"
-            aria-label="Grafik tren jumlah habit selesai per hari"
+            aria-label="Grafik tren jumlah habit selesai per hari — klik untuk membuka tanggal"
           >
             <AreaChart data={monthlyData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <defs>
@@ -305,6 +316,7 @@ export default function DashboardCharts({
                 stroke="var(--primary)"
                 strokeWidth={2}
                 fill="url(#dashMonthlyFill)"
+                onClick={handleDatumClick}
               />
             </AreaChart>
           </ChartContainer>
@@ -332,16 +344,16 @@ export default function DashboardCharts({
                 completed: { label: 'Penyelesaian', color: 'var(--primary)' },
                 missed: { label: 'Terlewat', color: 'var(--muted-foreground)' },
               }}
-              className="h-64 w-full"
+              className="h-64 w-full cursor-pointer"
               role="img"
-              aria-label="Grafik bertumpuk habit selesai dan terlewat per hari"
+              aria-label="Grafik bertumpuk habit selesai dan terlewat per hari — klik untuk membuka tanggal"
             >
               <BarChart data={stackedBarData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={12} />
                 <YAxis hide />
                 <ChartTooltip cursor={{ fill: 'var(--muted)', opacity: 0.4 }} content={<ChartTooltipContent />} />
-                <Bar dataKey="completed" name="Penyelesaian" stackId="detail" fill="var(--primary)" />
+                <Bar dataKey="completed" name="Penyelesaian" stackId="detail" fill="var(--primary)" onClick={handleDatumClick} />
                 <Bar
                   dataKey="missed"
                   name="Terlewat"

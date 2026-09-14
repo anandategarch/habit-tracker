@@ -84,6 +84,9 @@ export function CashflowTrendChart({
   stagger,
 }: Stagger & { trend: NonNullable<DashboardData['cashflowTrend']>; selectedMonth: string }) {
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+  // CONNECTED-APP: kolom bulan dapat diklik untuk berpindah bulan — dulu
+  // bulan terpilih hanya ditandai ring tanpa cara memindahkannya dari chart.
+  const setSelectedMonth = useAppStore(s => s.setSelectedMonth);
   const hasData = trend.some(m => m.income > 0 || m.expense > 0);
   const max = Math.max(1, ...trend.map(m => Math.max(m.income, m.expense)));
 
@@ -133,7 +136,7 @@ export function CashflowTrendChart({
             className="grid grid-cols-6 gap-1 sm:gap-2"
             role="img"
             aria-label={trend
-              .map(m => `${monthLabel(m.month)}: masuk ${compactRupiah(m.income)}, keluar ${compactRupiah(m.expense)}, selisih ${compactRupiah(m.net)}`)
+              .map(m => `${monthLabel(m.month)}: masuk ${compactRupiah(m.income)}, keluar ${compactRupiah(m.expense)}, selisih ${compactRupiah(m.net)} — pilih bulan`)
               .join('; ')}
           >
             {trend.map(m => {
@@ -141,11 +144,16 @@ export function CashflowTrendChart({
               const incomeH = m.income > 0 ? Math.max(4, Math.round((m.income / max) * 100)) : 0;
               const expenseH = m.expense > 0 ? Math.max(4, Math.round((m.expense / max) * 100)) : 0;
               return (
-                <div
+                <button
+                  type="button"
                   key={m.month}
+                  onClick={() => setSelectedMonth(m.month)}
+                  aria-label={`Lihat bulan ${monthLabel(m.month)} — masuk ${compactRupiah(m.income)}, keluar ${compactRupiah(m.expense)}`}
+                  aria-pressed={isSel}
                   className={cn(
-                    'flex flex-col items-center rounded-xl pt-2 pb-1.5 min-w-0 transition-colors',
-                    isSel && 'bg-primary/5 ring-1 ring-primary/25'
+                    'flex flex-col items-center rounded-xl pt-2 pb-1.5 min-w-0 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                    isSel && 'bg-primary/5 ring-1 ring-primary/25',
+                    !isSel && 'hover:bg-muted/50'
                   )}
                 >
                   <div className="w-full h-24 flex items-end justify-center gap-1" aria-hidden="true">
@@ -178,7 +186,7 @@ export function CashflowTrendChart({
                   >
                     {compactRupiah(m.net)}
                   </p>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -238,6 +246,8 @@ export function MonthStatsGrid({
   stagger,
 }: Stagger & { dashboardData: DashboardData; selectedMonth: string }) {
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+  // CONNECTED-APP: drill-down kategori untuk kartu "Pengeluaran Terbesar".
+  const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
   const txCount = dashboardData?.txCount ?? 0;
   const incomeCount = dashboardData?.incomeCount ?? 0;
   const expenseCount = dashboardData?.expenseCount ?? 0;
@@ -279,8 +289,10 @@ export function MonthStatsGrid({
         sub={biggest ? biggest.description : 'belum ada transaksi'}
         chip="chip-icon chip-rose"
         icon={Flame}
-        onClick={biggest ? () => openFinanceSubTab('transactions') : undefined}
-        ariaLabel="Buka transaksi — pengeluaran terbesar bulan ini"
+        // CONNECTED-APP: bawa kategori pengeluaran terbesar sebagai filter
+        // (dulu cuma pindah sub-tab — konteks kategori hilang).
+        onClick={biggest ? () => openFinanceFocus({ category: biggest.category ?? undefined, txType: 'expense' }) : undefined}
+        ariaLabel="Buka transaksi kategori pengeluaran terbesar bulan ini"
       />
       <StatCard
         label="Hari Tanpa Belanja"
@@ -397,6 +409,8 @@ export function BudgetDetailList({
   stagger,
 }: Stagger & { budgetDetail: NonNullable<DashboardData['budgetDetail']> }) {
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+  // CONNECTED-APP: baris budget → transaksi kategori (drill-down).
+  const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
   if (budgetDetail.length === 0) return null;
   const items = budgetDetail.slice(0, 6);
 
@@ -438,7 +452,16 @@ export function BudgetDetailList({
               ? 'text-rose-600 dark:text-rose-400'
               : 'text-muted-foreground';
           return (
-            <div key={b.category} className="px-2 py-1.5 rounded-xl hover:bg-muted/50 transition-colors">
+            /* CONNECTED-APP: baris budget di Ringkasan kini drill-down ke
+               transaksi kategori itu (dulu hover palsu tanpa onClick —
+               ketidakselarasan vs sub-tab Anggaran yang sudah terhubung). */
+            <button
+              type="button"
+              key={b.category}
+              onClick={() => openFinanceFocus({ category: b.category, txType: 'expense' })}
+              aria-label={`Lihat transaksi kategori ${b.category} — terpakai ${pct}%`}
+              className="w-full cursor-pointer rounded-xl px-2 py-1.5 text-left hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
               <div className="flex items-center gap-2 min-w-0">
                 <span
                   className="h-8 w-8 rounded-lg grid place-items-center text-sm shrink-0 ring-1 ring-black/5 dark:ring-white/10"
@@ -466,7 +489,7 @@ export function BudgetDetailList({
                   style={{ width: `${Math.min(100, Math.max(pct > 0 ? 3 : 0, pct))}%` }}
                 />
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

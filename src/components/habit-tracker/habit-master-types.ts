@@ -43,6 +43,8 @@ export interface HabitFormData {
   scheduleDates: number[];
   targetType: string;
   groupId: string | null;
+  /** CONNECTED-APP (Task 49) — tujuan yang didukung habit (null = bebas). */
+  goalId: string | null;
   reminder: string | null;
   status: 'active' | 'paused';
   /** 'yyyy-MM-dd' (Jakarta). */
@@ -80,6 +82,7 @@ export function emptyForm(): HabitFormData {
     scheduleDates: [],
     targetType: 'daily',
     groupId: null,
+    goalId: null,
     reminder: null,
     status: 'active',
     startDate: jakartaDateString(),
@@ -103,6 +106,7 @@ export function habitToForm(h: {
   scheduleJson?: string | null;
   targetType?: string | null;
   groupId?: string | null;
+  goalId?: string | null;
   reminder?: string | null;
   isActive: boolean;
   startDate: string;
@@ -132,6 +136,7 @@ export function habitToForm(h: {
     })(),
     targetType: h.targetType ?? 'daily',
     groupId: h.groupId ?? null,
+    goalId: h.goalId ?? null,
     reminder: h.reminder ?? null,
     status: h.isActive ? 'active' : 'paused',
     // slice(0,10): startDate ISO → kunci YMD (konvensi kunci hari client).

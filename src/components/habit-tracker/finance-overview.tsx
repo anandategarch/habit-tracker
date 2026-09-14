@@ -72,6 +72,8 @@ interface LastDoneRow {
   meta: string;
   amount: number | null;
   isIncome: boolean;
+  /** CONNECTED-APP — kategori untuk drill-down baris. */
+  category?: string;
 }
 
 const MAX_LAST_DONE_ROWS = 5;
@@ -84,11 +86,17 @@ export default function FinanceOverview({
   selectedMonth,
 }: FinanceOverviewProps) {
   const openFinanceSubTab = useAppStore(s => s.openFinanceSubTab);
+  // CONNECTED-APP: baris "Terakhir Transaksi" membawa kategorinya sendiri
+  // sebagai filter (dulu cuma pindah sub-tab — konteks kategori hilang).
+  const openFinanceFocus = useAppStore(s => s.openFinanceFocus);
 
   // Total saldo hero — query terpisah dengan unwrap `.sources` (defensif:
   // selalu jatuh ke 0 bila API gagal, tidak pernah crash).
   const { data: heroSources = [] } = useQuery<FundSource[]>({
-    queryKey: ['finance', 'sources', 'overview'],
+    // CONNECTED-APP: key dipersatukan dengan finance.tsx (['finance','sources'])
+    // — dulu key 'overview' duplikat memicu fetch jaringan ganda untuk
+    // endpoint yang sama tiap Ringkasan terpasang.
+    queryKey: ['finance', 'sources'],
     queryFn: async () => {
       const res = await fetch('/api/finance/sources');
       if (!res.ok) return [];
@@ -126,6 +134,7 @@ export default function FinanceOverview({
           meta: metaParts.filter(Boolean).join(' · '),
           amount,
           isIncome: item.type === 'income',
+          category: item.category ?? undefined,
         };
       });
     if (fromApi.length > 0) return fromApi.slice(0, MAX_LAST_DONE_ROWS);
@@ -148,6 +157,7 @@ export default function FinanceOverview({
           meta: metaParts.filter(Boolean).join(' · '),
           amount: tx.amount ?? null,
           isIncome: tx.type === 'income',
+          category: tx.category ?? undefined,
         };
       });
   }, [lastDoneData, transactions, getCategoryMeta]);
@@ -294,8 +304,8 @@ export default function FinanceOverview({
                 type="button"
                 className="premium-list-item w-full px-3! py-2.5! text-left cursor-pointer active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 style={{ '--stagger': idx } as CSSProperties}
-                onClick={() => openFinanceSubTab('transactions')}
-                aria-label={`Lihat transaksi ${row.title}`}
+                onClick={() => openFinanceFocus({ category: row.category })}
+                aria-label={`Lihat transaksi kategori ${row.category ?? row.title}`}
               >
                 <span
                   className="h-10 w-10 rounded-xl grid place-items-center text-base shrink-0 ring-1 ring-black/5 dark:ring-white/10"

@@ -70,6 +70,7 @@ import { jakartaDateString, jakartaDateKey } from '@/lib/timezone';
 import { cn } from '@/lib/utils';
 import type { CSSProperties } from 'react';
 import type { RecurringTransaction } from './finance-types';
+import { useAppStore } from '@/store/app-store';
 
 interface FinanceRecurringProps {
   getCategoryList: (type: string) => Array<{ value: string; emoji: string; color: string }>;
@@ -129,6 +130,7 @@ export default function FinanceRecurring({
   getActiveSources,
   getCategoryMeta,
 }: FinanceRecurringProps) {
+  const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<RecurringFormState>(emptyRecurringForm);
@@ -161,6 +163,9 @@ export default function FinanceRecurring({
   const invalidate = () => {
     // Recurring + transaksi + dashboard — semua bisa berubah setelah proses.
     queryClient.invalidateQueries({ queryKey: ['finance'] });
+    // CONNECTED-APP: "Proses Sekarang" membuat transaksi nyata — kartu
+    // keuangan di tab Progres (['dashboard', …, refreshKey]) ikut menyala.
+    triggerRefresh();
   };
 
   // ── Dialog helpers ──────────────────────────────────────────────────────

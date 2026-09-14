@@ -1,21 +1,23 @@
 'use client';
 
-// components/habit-tracker/today-habits.tsx — Task 44 "Today's Habits".
+// components/habit-tracker/today-habits.tsx — Task 44 "Today's Habits"
+// + CONNECTED-APP (Task 47) completion 1-tap.
 //
 // Seksi konten Beranda (tier 2): SELURUH rutinitas terjadwal hari ini —
 // yang belum selesai (aksi) DAN yang sudah (dirayakan, ceklis hijau).
-// Pengganti seksi lama "Fokus Hari Ini" yang hanya menampilkan sisi
-// negatif (yang belum selesai).
 //
-// Interaksi mengikuti pola 1-klik yang sudah teruji di seksi lama:
-// - baris utama → openTrackerDate(hari ini)   → grid tracker siap diselesaikan
-// - tombol ikon → openHabitFocus(id)           → dialog analisis waktu habit
-// - CTA kosong  → triggerQuickAdd('habit') + tab settings (jalur FAB "Habit Baru")
+// CONNECTED-APP — dua level aksi per baris habit:
+//  * PRIMARY   tombol ceklis 44px → langsung selesai dari Beranda
+//              (hanya habit biner normal; feedback <500ms: ripple,
+//              haptic, toast +XP, confetti). Habit amount/trackTime/
+//              avoid BUTUH konteks tracker → tombol membuka tracker
+//              tanggal hari ini (stepper/dialog/relapse ada di sana).
+//  * SECONDARY baris / ikon grafik → tracker / dialog analisis.
 //
 // Data murni props (dari /api/dashboard focusToday via contract) — tidak
-// ada fetch, tidak mengubah logic completion apa pun.
+// ada fetch; mutation completion dipegang parent (dashboard.tsx).
 
-import { BarChart3, Check, Sunrise } from 'lucide-react';
+import { BarChart3, Check, Sunrise, Clock, ShieldAlert, MinusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,11 @@ interface TodayHabitsCardProps {
   onOpenHabit: (habitId: string) => void;
   /** Jalur FAB: triggerQuickAdd('habit') + pindah tab settings. */
   onAddHabit: () => void;
+  /** CONNECTED-APP — completion 1-tap dari Beranda (habit biner normal).
+   *  Menerima elemen tombol untuk posisi confetti. */
+  onCompleteHabit: (habit: TodayHabitItem, el: HTMLElement | null) => void;
+  /** ID habit yang sedang dalam round-trip completion (tombol berdenyut). */
+  completingIds?: ReadonlySet<string>;
 }
 
 const priorityVariant = (p?: string) => {
@@ -45,16 +52,25 @@ const priorityVariant = (p?: string) => {
   }
 };
 
+/** Habit yang AMAN diselesaikan 1-tap dari Beranda: biner 'normal'.
+ *  amount (butuh stepper), trackTime (butuh dialog durasi), dan avoid
+ *  (cek = catat kambuh — butuh konteks penuh tracker) dinavigasikan. */
+const canOneTap = (h: TodayHabitItem) =>
+  !h.completed && h.habitType === 'normal' && !h.trackTime;
+
 export function TodayHabitsCard({
   habits,
   todayStr,
   onOpenTracker,
   onOpenHabit,
   onAddHabit,
+  onCompleteHabit,
+  completingIds,
 }: TodayHabitsCardProps) {
   // Yang belum selesai dulu (bisa ditindak), lalu yang sudah (dirayakan).
   const pending = habits.filter((h) => !h.completed);
   const done = habits.filter((h) => h.completed);
+  const completing = completingIds ?? new Set<string>();
 
   return (
     <section
@@ -100,36 +116,94 @@ export function TodayHabitsCard({
         </div>
       ) : (
         <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-          {pending.map((habit) => (
-            <div key={habit.id} className="group/row flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onOpenTracker(todayStr)}
-                aria-label={`Buka tracker hari ini untuk menyelesaikan rutinitas ${habit.name}`}
-                className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base" aria-hidden="true">
-                    {habit.icon}
+          {pending.map((habit) => {
+            const oneTap = canOneTap(habit);
+            const isAvoid = habit.habitType === 'avoid';
+            const isAmount = habit.habitType === 'amount';
+            const isTime = !!habit.trackTime;
+            const busy = completing.has(habit.id);
+            return (
+              <div key={habit.id} className="group/row flex items-center gap-1.5">
+                {/* Baris utama — secondary action: buka tracker hari ini. */}
+                <button
+                  type="button"
+                  onClick={() => onOpenTracker(todayStr)}
+                  aria-label={`Buka tracker hari ini untuk rutinitas ${habit.name}`}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/70 p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base" aria-hidden="true">
+                      {habit.icon}
+                    </span>
+                    <span className="truncate text-sm font-medium">{habit.name}</span>
+                  </div>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {/* Kapabilitas habit → petunjuk kontekstual (bukan badge kosong). */}
+                    {isAmount && (habit.target ?? 0) > 0 && (
+                      <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+                        {habit.value ?? 0}/{habit.target}
+                      </span>
+                    )}
+                    {isTime && (
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden="true" />
+                    )}
+                    {isAvoid && (
+                      <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden="true" />
+                    )}
+                    {habit.priority && !isAmount && !isTime && !isAvoid && (
+                      <Badge variant={priorityVariant(habit.priority)} className="text-xs">
+                        {habit.priority}
+                      </Badge>
+                    )}
                   </span>
-                  <span className="truncate text-sm font-medium">{habit.name}</span>
-                </div>
-                {habit.priority && (
-                  <Badge variant={priorityVariant(habit.priority)} className="shrink-0 text-xs">
-                    {habit.priority}
-                  </Badge>
+                </button>
+                {/* PRIMARY — complete 1-tap (hanya habit biner normal);
+                    habit amount/trackTime/avoid: panah membuka tracker
+                    (stepper / dialog waktu / konteks relapse ada di sana). */}
+                {oneTap ? (
+                  <button
+                    type="button"
+                    onClick={(e) => onCompleteHabit(habit, e.currentTarget)}
+                    disabled={busy}
+                    aria-label={`Tandai rutinitas ${habit.name} selesai`}
+                    aria-busy={busy}
+                    className={cn(
+                      'relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl',
+                      'border border-primary/35 bg-primary/[0.08] text-primary',
+                      'transition-all hover:bg-primary/15 hover:border-primary/50',
+                      'active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                      'motion-reduce:transition-none',
+                      busy && 'animate-pulse',
+                    )}
+                  >
+                    <span className="rt-check-ripple" aria-hidden="true" />
+                    <Check className="h-4.5 w-4.5" strokeWidth={2.6} aria-hidden="true" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onOpenTracker(todayStr)}
+                    aria-label={`Selesaikan rutinitas ${habit.name} di tracker`}
+                    className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-border/70 text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <Check className="h-4.5 w-4.5" strokeWidth={2.2} aria-hidden="true" />
+                  </button>
                 )}
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenHabit(habit.id)}
-                aria-label={`Lihat analisis waktu rutinitas ${habit.name}`}
-                className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-visible:opacity-100"
-              >
-                <BarChart3 className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          ))}
+                {/* SECONDARY — analisis waktu (hanya habit trackTime; habit
+                    lain dialognya buntu "tidak mencatat waktu"). */}
+                {habit.trackTime && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenHabit(habit.id)}
+                    aria-label={`Lihat analisis waktu rutinitas ${habit.name}`}
+                    className="hidden h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:grid sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-visible:opacity-100"
+                  >
+                    <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
 
           {done.length > 0 && pending.length > 0 && (
             <div className="premium-label px-1 pt-2" aria-hidden="true">
@@ -137,46 +211,69 @@ export function TodayHabitsCard({
             </div>
           )}
 
-          {done.map((habit) => (
-            <div key={habit.id} className="group/row flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onOpenTracker(todayStr)}
-                aria-label={`Rutinitas ${habit.name} sudah selesai hari ini — buka tracker`}
-                className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base opacity-80" aria-hidden="true">
-                    {habit.icon}
-                  </span>
-                  <span className="truncate text-sm font-medium text-muted-foreground">
-                    {habit.name}
-                  </span>
-                </div>
-                <span
-                  className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
-                  aria-label={`${habit.name} selesai`}
+          {done.map((habit) => {
+            // Habit avoid yang "selesai" = kambuh tercatat — TIDAK dirayakan
+            // (chip emerald akan merayakan keputusan buruk). Netral & lembut.
+            const isAvoid = habit.habitType === 'avoid';
+            return (
+              <div key={habit.id} className="group/row flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onOpenTracker(todayStr)}
+                  aria-label={`Rutinitas ${habit.name} sudah selesai hari ini — buka tracker`}
+                  className={cn(
+                    'flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                    isAvoid
+                      ? 'border-border/60 bg-muted/30'
+                      : 'border-emerald-500/25 bg-emerald-500/[0.06]',
+                  )}
                 >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-                  Selesai
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenHabit(habit.id)}
-                aria-label={`Lihat analisis waktu rutinitas ${habit.name}`}
-                className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-visible:opacity-100"
-              >
-                <BarChart3 className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          ))}
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="chip-soft chip-soft-teal h-9 w-9 shrink-0 text-base opacity-80" aria-hidden="true">
+                      {habit.icon}
+                    </span>
+                    <span className="truncate text-sm font-medium text-muted-foreground">
+                      {habit.name}
+                    </span>
+                  </div>
+                  {isAvoid ? (
+                    <span
+                      className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+                      aria-label={`${habit.name} tercatat hari ini`}
+                    >
+                      <MinusCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                      Tercatat
+                    </span>
+                  ) : (
+                    <span
+                      className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+                      aria-label={`${habit.name} selesai`}
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+                      Selesai
+                    </span>
+                  )}
+                </button>
+                {habit.trackTime && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenHabit(habit.id)}
+                    aria-label={`Lihat analisis waktu rutinitas ${habit.name}`}
+                    className="hidden h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:grid sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-visible:opacity-100"
+                  >
+                    <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       {habits.length > 0 && pending.length > 0 && (
         <p className={cn('mt-3 text-center text-[12px] text-muted-foreground')}>
-          Ketuk rutinitas untuk membuka tracker dan menyelesaikannya.
+          Ketuk ceklis untuk menyelesaikan langsung — rutinitas berjumlah/waktu
+          membuka tracker.
         </p>
       )}
     </section>

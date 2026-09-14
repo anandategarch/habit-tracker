@@ -32,6 +32,11 @@ const NEW_COLUMNS: { name: string; ddl: string }[] = [
     name: 'scheduleJson',
     ddl: `ALTER TABLE "Habit" ADD COLUMN "scheduleJson" TEXT`,
   },
+  {
+    // CONNECTED-APP (Task 49): Habit.goalId — link habit → tujuan (nullable).
+    name: 'goalId',
+    ddl: `ALTER TABLE "Habit" ADD COLUMN "goalId" TEXT`,
+  },
 ];
 
 const globalForHabitDdl = globalThis as unknown as {

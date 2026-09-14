@@ -25,6 +25,7 @@ import {
   Plus,
   Shield,
   X,
+  Target,
 } from 'lucide-react';
 import type { Habit, HabitLog } from './daily-tracker-types';
 import { computeStreakDetail, shiftYmdKey, toDateString } from './daily-tracker-helpers';
@@ -37,10 +38,13 @@ import {
   scheduleLabel,
 } from '@/lib/habit-schedule';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 
 export interface HabitCardProps {
   habit: Habit;
   idx: number;
+  /** CONNECTED-APP (Task 49) — judul tujuan yang didukung habit (bila ada). */
+  goalTitle?: string;
   isDone: boolean;
   isToggling: boolean;
   justCompleted: boolean;
@@ -108,6 +112,7 @@ interface DayCell {
 
 function HabitCardInner({
   habit,
+  goalTitle,
   isDone,
   isToggling,
   justCompleted,
@@ -125,6 +130,8 @@ function HabitCardInner({
   onGraduate,
 }: HabitCardProps) {
   const [flipped, setFlipped] = useState(false);
+  // CONNECTED-APP (Task 49): chip tujuan → tab Tujuan (fokus + sorot).
+  const openGoalFocus = useAppStore((s) => s.openGoalFocus);
   const isAvoid = habit.habitType === 'avoid';
   const isAmount = habit.habitType === 'amount';
   const target = Math.max(1, habit.target || 1);
@@ -216,7 +223,7 @@ function HabitCardInner({
     : `${value}/${target}${habit.unit ? ` ${habit.unit}` : ''} menuju target`;
 
   return (
-    <div className="relative [perspective:1200px]">
+    <div id={habit.id} className="relative scroll-mt-24 [perspective:1200px]">
       <div
         className={cn(
           'habit-flip-wrap relative transition-transform duration-500 [transform-style:preserve-3d]',
@@ -280,6 +287,23 @@ function HabitCardInner({
                   <span className="inline-flex items-center rounded-full border border-border/70 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                     {habit.category}
                   </span>
+                  {/* CONNECTED-APP (Task 49): tujuan yang didukung habit —
+                      1 klik ke tab Tujuan (fokus + sorot + expand). */}
+                  {habit.goalId && goalTitle && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openGoalFocus(habit.goalId!);
+                      }}
+                      title={`Mendukung tujuan: ${goalTitle}`}
+                      aria-label={`Buka tujuan ${goalTitle}`}
+                      className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
+                    >
+                      <Target className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                      <span className="max-w-[8rem] truncate normal-case">{goalTitle}</span>
+                    </button>
+                  )}
                   {/* Task 36 — chip Hari Aman: sisa kuota bolong yang diampuni */}
                   {/* bulan ini (2/bulan). Tooltip menjelaskan aturannya. */}
                   {!isAvoid && (

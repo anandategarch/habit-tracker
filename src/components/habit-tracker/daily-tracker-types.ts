@@ -22,6 +22,8 @@ export interface Habit {
   notes?: string | null;
   trackTime: boolean;
   groupId?: string | null;
+  /** CONNECTED-APP (Task 49) — tujuan yang didukung habit ini (null = bebas). */
+  goalId?: string | null;
   sortOrder: number;
   isActive: boolean;
   isArchived: boolean;

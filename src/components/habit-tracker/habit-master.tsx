@@ -144,6 +144,19 @@ export default function HabitMaster() {
    staleTime: 60_000,
  });
 
+ // CONNECTED-APP (Task 49): daftar tujuan untuk select "Tujuan Terkait"
+ // di form habit (key ['goals'] — cache terbagih dengan tab Tujuan).
+ const { data: goals = [] } = useQuery<{ id: string; title: string }[]>({
+   queryKey: ['goals'],
+   queryFn: async () => {
+     const res = await fetch('/api/goals');
+     if (!res.ok) return [];
+     const json = await res.json();
+     return Array.isArray(json) ? json : (json.goals ?? []);
+   },
+   staleTime: 60_000,
+ });
+
  const invalidateHabits = useCallback(() => {
    queryClient.invalidateQueries({ queryKey: ['habits'] });
    queryClient.invalidateQueries({ queryKey: ['habit-groups'] });
@@ -225,6 +238,12 @@ export default function HabitMaster() {
  // stabil — dipanggil langsung, tanpa render-phase ref assignment.)
  const quickAddAction = useAppStore(s => s.quickAddAction);
  const clearQuickAdd = useAppStore(s => s.clearQuickAdd);
+ // CONNECTED-APP: tab asal quick-add habit — setelah habit baru tersimpan,
+ // user kembali ke konteks asal (Beranda/Tracker), bukan terdampar di
+ // Pengaturan → Habit Master.
+ const quickAddReturnTab = useAppStore(s => s.quickAddReturnTab);
+ const clearQuickAddReturn = useAppStore(s => s.clearQuickAddReturn);
+ const setActiveTab = useAppStore(s => s.setActiveTab);
  useEffect(() => {
    if (quickAddAction === 'habit') {
      openAdd();
@@ -289,6 +308,8 @@ export default function HabitMaster() {
        // but we don't overwrite legacy values on save (BUG-14 minimal fix).
        targetType: form.targetType || 'daily',
        groupId: form.groupId || null,
+       // CONNECTED-APP (Task 49): link habit → tujuan (null = lepas).
+       goalId: form.goalId || null,
        sortOrder: editingHabit ? (editingHabit.sortOrder ?? habits.length) : habits.length,
        // Status form aktif/dijeda → flag schema; arsip dipertahankan saat edit.
        isActive: form.status === 'active',
@@ -331,6 +352,13 @@ export default function HabitMaster() {
        // Optimistic update
        queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
        toast.success('Habit berhasil dibuat');
+       // CONNECTED-APP: pulangkan user ke konteks asal quick-add (Hari Ini /
+       // Tracker) — dulu setelah "Tambah Rutinitas Pertama" user terdampar
+       // di Pengaturan dan harus navigasi manual kembali.
+       if (quickAddReturnTab) {
+         setActiveTab(quickAddReturnTab);
+         clearQuickAddReturn();
+       }
      }
 
      setDialogOpen(false);
@@ -352,6 +380,11 @@ export default function HabitMaster() {
      if (!res.ok) throw new Error('Failed to delete habit');
      // Optimistic update
      queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => (prev).filter((h) => h.id !== deleteId));
+     // CONNECTED-APP: kalender Riwayat + batch log bulanan masih memuat log
+     // habit yang dihapus — ikut di-invalidate (triggerRefresh hanya
+     // menyegarkan dashboard/insight, bukan react-query kalender).
+     queryClient.invalidateQueries({ queryKey: ['habit-logs-batch'] });
+     queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
      // fix 6-d FOCUS-STALE-1: bersihkan fokus deep-link bila mengarah ke
      // habit yang barusan dihapus (tracker tidak mem-mount dialog 404).
      if (focusHabitId === deleteId) clearHabitFocus();
@@ -632,6 +665,28 @@ export default function HabitMaster() {
                      {groups.map((g) => (
                        <SelectItem key={g.id} value={g.id}>
                          {g.name}
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               {/* CONNECTED-APP (Task 49): tujuan yang didukung habit ini —
+                   muncul sebagai chip pada kartu habit & daftar "Rutinitas
+                   Pendukung" pada kartu tujuan (dua arah). */}
+               <div className="space-y-2">
+                 <Label>Tujuan Terkait</Label>
+                 <Select
+                   value={form.goalId || '__none__'}
+                   onValueChange={(v) => updateForm('goalId', v === '__none__' ? null : v)}
+                 >
+                   <SelectTrigger className="rounded-xl">
+                     <SelectValue placeholder="Tanpa Tujuan" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="__none__">Tanpa Tujuan</SelectItem>
+                     {goals.map((g) => (
+                       <SelectItem key={g.id} value={g.id}>
+                         {g.title}
                        </SelectItem>
                      ))}
                    </SelectContent>

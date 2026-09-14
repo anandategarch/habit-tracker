@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAppStore, type TabId } from '@/store/app-store';
+import { useAppStore, type TabId, type FinanceSubTab, FINANCE_SUB_TABS } from '@/store/app-store';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -128,9 +128,64 @@ const VALID_TAB_IDS = new Set<string>([
  'finance', 'settings',
 ]);
 
+// ── CONNECTED-APP (Task 46): URL = konteks yang shareable ─────────────────
+// Deep-link yang didukung (hanya konteks yang memang layak dibagikan —
+// bukan seluruh transient state):
+//   ?tab=tracker|progress|work|finance|goals|settings
+//   ?date=yyyy-MM-dd   → tanggal tracker terpilih (bila ≠ hari ini)
+//   ?sub=transactions|budgets|… → sub-tab Keuangan (bila ≠ overview)
+// Browser Back kini bersejarah: pergantian tab membuat entry history baru
+// (pushState) sehingga perjalanan Hari Ini → Tujuan → Habit bisa mundur
+// alami (dulu replaceState → tombol Back langsung keluar aplikasi).
+const URL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Terapkan parameter URL → store (dipakai saat mount awal & popstate). */
+function applyUrlToStore() {
+ const params = new URLSearchParams(window.location.search);
+ const s = useAppStore.getState();
+ const tab = params.get('tab');
+ const nextTab = tab && VALID_TAB_IDS.has(tab) ? (tab as TabId) : 'dashboard';
+ if (nextTab !== s.activeTab) s.setActiveTab(nextTab);
+ const date = params.get('date');
+ if (date && URL_DATE_RE.test(date) && date !== s.selectedDate) {
+  s.setSelectedDate(date);
+  if (date.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(date.slice(0, 7));
+ }
+ const sub = params.get('sub');
+ if (
+  nextTab === 'finance' &&
+  sub &&
+  FINANCE_SUB_TABS.has(sub) &&
+  sub !== s.financeSubTab
+ ) {
+  s.setFinanceSubTab(sub as FinanceSubTab);
+ }
+}
+
+/** Susun URL konteks untuk state saat ini (tab aktif + konteksnya). */
+function buildContextUrl(tab: TabId): URL {
+ const url = new URL(window.location.href);
+ url.searchParams.delete('tab');
+ url.searchParams.delete('date');
+ url.searchParams.delete('sub');
+ if (tab !== 'dashboard') url.searchParams.set('tab', tab);
+ const s = useAppStore.getState();
+ if (tab === 'tracker' && s.selectedDate !== jakartaDateString()) {
+  url.searchParams.set('date', s.selectedDate);
+ }
+ if (tab === 'finance' && s.financeSubTab !== 'overview') {
+  url.searchParams.set('sub', s.financeSubTab);
+ }
+ return url;
+}
+
 export default function Home() {
  const activeTab = useAppStore(s => s.activeTab);
  const setActiveTab = useAppStore(s => s.setActiveTab);
+ // CONNECTED-APP: konteks URL — tanggal tracker & sub-tab keuangan ikut
+ // diserialisasi ke ?date= / ?sub= (deep-link + tombol Back).
+ const selectedDate = useAppStore(s => s.selectedDate);
+ const financeSubTab = useAppStore(s => s.financeSubTab);
  const sidebarOpen = useAppStore(s => s.sidebarOpen);
  const setSidebarOpen = useAppStore(s => s.setSidebarOpen);
  const triggerRefresh = useAppStore(s => s.triggerRefresh);
@@ -201,32 +256,40 @@ const [showSplash, setShowSplash] = useState(true);
    return () => clearInterval(id);
  }, []);
 
- // BUGHUNT-OTHER-1 BUG-M14: deep-link `?tab=` from URL on first mount.
- // This makes tabs shareable and survives reload. The replaceState below
- // also updates the URL whenever the user changes tabs (without breaking
- // the back button — we use replace, not push).
- // Intentionally run once on mount — we don't want to override the
- // store when the URL changes via setActiveTab's replaceState.
+ // CONNECTED-APP: deep-link URL saat mount pertama (?tab= + ?date= + ?sub=,
+ // validasi ketat — konteks dipulihkan tanpa reload).
  useEffect(() => {
-   if (typeof window === 'undefined') return;
-   const params = new URLSearchParams(window.location.search);
-   const tab = params.get('tab');
-   if (tab && VALID_TAB_IDS.has(tab) && tab !== activeTab) {
-     setActiveTab(tab as TabId);
-   }
+  if (typeof window === 'undefined') return;
+  applyUrlToStore();
  }, []);
 
- // Sync activeTab → URL (replaceState so back button still works).
+ // CONNECTED-APP: sinkronisasi store → URL. Pergantian TAB membuat entry
+ // history baru (pushState → tombol Back mundur antar tab secara alami);
+ // perubahan param konteks saja (tanggal tracker / sub-tab keuangan) memakai
+ // replaceState supaya history tidak dibanjiri entry kecil. popstate sudah
+ // meng-update store, jadi cabang ini jadi no-op saat Back (URL sama).
+ const prevTabRef = useRef<TabId | null>(null);
  useEffect(() => {
-   if (typeof window === 'undefined') return;
-   const url = new URL(window.location.href);
-   if (activeTab === 'dashboard') {
-     url.searchParams.delete('tab'); // keep URLs clean for the default tab
+  if (typeof window === 'undefined') return;
+  const url = buildContextUrl(activeTab);
+  const isTabSwitch = prevTabRef.current !== null && prevTabRef.current !== activeTab;
+  if (url.search !== window.location.search) {
+   if (isTabSwitch) {
+    window.history.pushState({ rutinaTab: activeTab }, '', url.toString());
    } else {
-     url.searchParams.set('tab', activeTab);
+    window.history.replaceState({ rutinaTab: activeTab }, '', url.toString());
    }
-   window.history.replaceState(null, '', url.toString());
- }, [activeTab]);
+  }
+  prevTabRef.current = activeTab;
+ }, [activeTab, selectedDate, financeSubTab]);
+
+ // CONNECTED-APP: tombol Back browser → pulihkan konteks dari URL ke store
+ // (mundur antar tab tanpa reload — dulu Back selalu keluar aplikasi).
+ useEffect(() => {
+  const onPop = () => applyUrlToStore();
+  window.addEventListener('popstate', onPop);
+  return () => window.removeEventListener('popstate', onPop);
+ }, []);
 
  // Auto-open sidebar on desktop (≥768px) on first mount.
  // Default is closed to avoid jarring overlay on mobile first load.
@@ -701,7 +764,7 @@ function PremiumBottomNav({
            <button
              role="menuitem"
              className="anim-fab-item anim-fab-item-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-[background-color,transform] duration-150 hover:bg-slate-900/[0.05] dark:hover:bg-white/10 active:scale-[0.97]"
-             onClick={() => { triggerQuickAdd('habit'); onNavClick('settings'); setFabOpen(false); }}
+             onClick={() => { triggerQuickAdd('habit', activeTab); onNavClick('settings'); setFabOpen(false); }}
            >
              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_4px_10px_-2px_rgba(245,158,11,0.5)]">
                <Sprout className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
