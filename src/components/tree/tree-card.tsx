@@ -9,7 +9,9 @@
 // tampil selalu data ASLI, bukan teks statis aset).
 //
 // CONNECTED-APP: kartu ini bukan dekorasi —
-//   • tap kartu        → Progres "Jalan Pertumbuhan" (roadmap + sinyal)
+//   • tap kartu        → TASK 55: tab POHON (rumah interaktif pohon —
+//                        panggung bisa disapa/disiram; roadmap Progres
+//                        tetap tersedia dari dalam tab Pohon)
 //   • chip berbunga    → Riwayat kalender (konteks streak yang menumbuhkan)
 //   • chip dorman      → Habit Master (satu-satunya tempat kelola mode libur)
 //   • chip daun kuning → fokus habit yang sedang melemah (analisis waktu)
@@ -71,11 +73,11 @@ export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, o
       className="anim-stagger relative overflow-hidden rounded-2xl border border-teal-900/60 shadow-[0_18px_44px_-18px_rgba(2,20,17,0.55)]"
       style={{ background: 'linear-gradient(135deg,#071715,#05110F)' }}
     >
-      {/* Area utama — tap menuju Jalan Pertumbuhan */}
+      {/* Area utama — TASK 55: tap menuju tab POHON (pengalaman interaktif) */}
       <button
         type="button"
         onClick={onOpenTree}
-        aria-label={`Buka Jalan Pertumbuhan — pohonmu tahap ${tree.stage.label}`}
+        aria-label={`Buka tab Pohon — rawat pohonmu tahap ${tree.stage.label}`}
         className="group relative flex w-full cursor-pointer items-stretch text-left transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63E6BE]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.995]"
       >
         {/* Konteks kiri */}
@@ -91,7 +93,8 @@ export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, o
             {narrative}
           </p>
           <span className="mt-2.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#63E6BE] opacity-80 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-            Jalan Pertumbuhan
+            {/* TASK 55: gerbang utama ke tab Pohon interaktif */}
+            Rawat pohonmu
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         </div>

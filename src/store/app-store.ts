@@ -28,7 +28,7 @@
 import { create } from 'zustand';
 import { jakartaDateString } from '@/lib/timezone';
 
-export type TabId = 'dashboard' | 'tracker' | 'progress' | 'work' | 'finance' | 'goals' | 'settings';
+export type TabId = 'dashboard' | 'tracker' | 'progress' | 'work' | 'finance' | 'goals' | 'settings' | 'pohon';
 // MERGE Task 32 (Opsi A): sub-tab 'explorer' (Eksplorasi) dan 'categories'
 // (Kategori) digabung menjadi satu sub-tab 'analysis' (Analisis) — keduanya
 // 70% kembar. Nilai lama bisa tersisa sesaat pada hot-reload (state module

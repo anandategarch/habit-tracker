@@ -24,6 +24,7 @@ import {
  Briefcase,
  LineChart,
  ClipboardList,
+ TreePine,
 } from 'lucide-react';
 import { jakartaDateString } from '@/lib/jakarta-date';
 
@@ -75,6 +76,11 @@ const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: f
 // lepas + catatan kilat + Asisten AI. Loader sama (TreeGrow) seperti tab lain.
 const WorkDesk = dynamic(() => import('@/components/work/work-desk'), { ssr: false, loading: tabLoading });
 
+// TASK 55 (POHON TAB): tab pohon interaktif — rumah baru pohon Rutina
+// (panggung yang bisa disapa + disiram + panen buah emas). Key dashboard
+// keluarga sama dgn Beranda → cache terbagih.
+const PohonScreen = dynamic(() => import('@/components/tree/pohon-screen'), { ssr: false, loading: tabLoading });
+
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
 
@@ -96,6 +102,10 @@ const NAV_SECTIONS: {
       { id: 'dashboard', label: 'Hari Ini', icon: Sunrise },
       { id: 'tracker', label: 'Tracker', icon: ListChecks },
       { id: 'progress', label: 'Progres', icon: LineChart },
+      // TASK 55: Pohon — tujuan GROW baru di antara Progres & Tujuan
+      // (drawer mobile + sidebar desktop; dock mobile sengaja TIDAK — 5
+      // label tak muat di 320px, gerbang utamanya kartu "Pohonmu" Beranda).
+      { id: 'pohon', label: 'Pohon', icon: TreePine },
       { id: 'goals', label: 'Tujuan', icon: Target },
       { id: 'finance', label: 'Keuangan', icon: Wallet },
     ],
@@ -124,6 +134,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
  progress: ProgressTab,
  work: WorkDesk,
  goals: Goals,
+ pohon: PohonScreen,
 
  finance: Finance,
  settings: SettingsTab,
@@ -132,13 +143,13 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
  'dashboard', 'tracker', 'progress', 'work', 'goals',
- 'finance', 'settings',
+ 'finance', 'settings', 'pohon',
 ]);
 
 // ── CONNECTED-APP (Task 46): URL = konteks yang shareable ─────────────────
 // Deep-link yang didukung (hanya konteks yang memang layak dibagikan —
 // bukan seluruh transient state):
-//   ?tab=tracker|progress|work|finance|goals|settings
+//   ?tab=tracker|progress|work|finance|goals|settings|pohon
 //   ?date=yyyy-MM-dd   → tanggal tracker terpilih (bila ≠ hari ini)
 //   ?sub=transactions|budgets|… → sub-tab Keuangan (bila ≠ overview)
 // Browser Back kini bersejarah: pergantian tab membuat entry history baru

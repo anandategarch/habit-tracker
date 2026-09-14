@@ -69,9 +69,10 @@ export default function Dashboard() {
   const openTrackerNotes = useAppStore((s) => s.openTrackerNotes);
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
   const openFinanceSubTab = useAppStore((s) => s.openFinanceSubTab);
-  // POHON (Task 53): kartu "Pohonmu" → roadmap Progres; chip state →
-  // konteks masing-masing (riwayat streak / Habit Master / fokus habit).
-  const openProgressTree = useAppStore((s) => s.openProgressTree);
+  // POHON (Task 53 → Task 55): kartu "Pohonmu" kini membuka TAB POHON
+  // interaktif (setActiveTab); chip state → konteks masing-masing (riwayat
+  // streak / Habit Master / fokus habit). openProgressTree tidak lagi
+  // dibutuhkan di sini — tab Pohon yang menyambung ke roadmap Progres.
   const openHabitFocusForTree = useAppStore((s) => s.openHabitFocus);
   const openTrackerHistoryForTree = useAppStore((s) => s.openTrackerHistory);
   const setSettingsSection = useAppStore((s) => s.setSettingsSection);
@@ -315,10 +316,13 @@ export default function Dashboard() {
             kembali begitu retry berhasil membawa data asli. */}
       {data && (
         <ScrollReveal>
+          {/* TASK 55: gerbang utama tab Pohon interaktif (panggung sapamu/
+              siram/panen); roadmap "Jalan Pertumbuhan" tetap terjangkau
+              dari dalam tab Pohon + tab Progres. */}
           <TreeCard
             tree={treeState}
             level={displayData.currentLevel}
-            onOpenTree={openProgressTree}
+            onOpenTree={() => setActiveTab('pohon')}
             onOpenBloom={() => openTrackerHistoryForTree(todayStr.slice(0, 7))}
             onOpenDorman={() => {
               setSettingsSection('habits');

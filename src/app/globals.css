@@ -997,6 +997,77 @@
 .tree-instant .tree-leaf-f2 { opacity: 1; animation: tree-leaf-drift-alt 4.4s ease-in-out 0.5s infinite; }
 .tree-instant .tree-leaf-f3 { opacity: 1; animation: tree-leaf-drift 4.8s ease-in-out 1s infinite; }
 
+/* ── POHON TAB (Task 55): panggung pohon interaktif ─────────────────────
+  Animasi khusus layar Pohon — tap pohon (sway + daun gugur), penyiraman
+  (tetesan), perayaan (sparkle), kunang-kunang malam, daun ambient.
+  Semua one-shot memakai `forwards`; partikel dirender kondisional dari
+  React (state) sehingga bersih sendiri setelah durasinya. */
+@keyframes pohon-tap-sway {
+  0%   { transform: rotate(0deg) scale(1); }
+  25%  { transform: rotate(1.8deg) scale(1.012); }
+  55%  { transform: rotate(-1.5deg) scale(0.996); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+.anim-pohon-sway {
+  transform-origin: 50% 78%;
+  will-change: transform;
+  animation: pohon-tap-sway 0.9s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+@keyframes pohon-leaf-fall {
+  0%   { transform: translate(0, -6px) rotate(0deg); opacity: 0; }
+  12%  { opacity: 0.9; }
+  100% { transform: translate(var(--pohon-dx, 24px), 150px) rotate(300deg); opacity: 0; }
+}
+.anim-pohon-leaf {
+  animation: pohon-leaf-fall var(--pohon-dur, 2.2s) cubic-bezier(0.3, 0.6, 0.7, 1) forwards;
+  will-change: transform, opacity;
+}
+@keyframes pohon-drop-fall {
+  0%   { transform: translateY(-46px) scale(0.6); opacity: 0; }
+  25%  { opacity: 1; }
+  85%  { transform: translateY(96px) scale(1); opacity: 0.9; }
+  100% { transform: translateY(112px) scale(1.12); opacity: 0; }
+}
+.anim-pohon-drop {
+  animation: pohon-drop-fall 1.05s cubic-bezier(0.4, 0.1, 0.7, 1) var(--pohon-delay, 0s) forwards;
+  will-change: transform, opacity;
+}
+@keyframes pohon-sparkle-pop {
+  0%   { transform: scale(0) rotate(0deg); opacity: 0; }
+  35%  { transform: scale(1.18) rotate(40deg); opacity: 1; }
+  100% { transform: scale(0.35) translateY(-34px) rotate(120deg); opacity: 0; }
+}
+.anim-pohon-sparkle {
+  animation: pohon-sparkle-pop var(--pohon-dur, 1.6s) cubic-bezier(0.2, 0.9, 0.4, 1) var(--pohon-delay, 0s) forwards;
+  will-change: transform, opacity;
+}
+@keyframes pohon-firefly {
+  0%, 100% { transform: translate(0, 0); opacity: 0.25; }
+  50%      { transform: translate(10px, -14px); opacity: 0.85; }
+}
+.anim-pohon-firefly {
+  animation: pohon-firefly var(--pohon-dur, 5s) ease-in-out var(--pohon-delay, 0s) infinite;
+}
+@keyframes pohon-ambient-drift {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50%      { transform: translateY(-10px) rotate(10deg); }
+}
+.anim-pohon-drift {
+  animation: pohon-ambient-drift var(--pohon-dur, 6s) ease-in-out var(--pohon-delay, 0s) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-pohon-sway,
+  .anim-pohon-leaf,
+  .anim-pohon-drop,
+  .anim-pohon-sparkle,
+  .anim-pohon-firefly,
+  .anim-pohon-drift { animation: none !important; }
+  /* Partikel one-shot disembunyikan total (bukan menggantung di opacity 0 awal) */
+  .anim-pohon-leaf,
+  .anim-pohon-drop,
+  .anim-pohon-sparkle { opacity: 0 !important; }
+}
+
 /* ── FEAT-SPLASH-REVEAL: Splash enter + exit + content reveal animations ─
   Inspired by motion-splash repo. Smooth transition dari splash → app
   instead of hard cut.
