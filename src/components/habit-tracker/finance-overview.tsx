@@ -2,15 +2,21 @@
 
 // components/habit-tracker/finance-overview.tsx — sub-tab "Ringkasan" Finance.
 //
-// Struktur (worklog 2-c + 4-b):
+// Struktur (worklog 2-c + 4-b; Task 42 PERDETAIL-FIN untuk sektor detail):
 //  - Hero "TOTAL SALDO" (div.premium-hero.premium-hero-bubbles, klik →
 //    sub-tab Transaksi) — CountUpRupiah besar + subteks arus kas bulan +
 //    chip Pemasukan/Pengeluaran VERTIKAL (chip-icon + label di baris atas;
 //    nominal premium-stat text-sm di baris sendiri — tidak ter-truncate di
 //    400px) + strip Rata-rata harian / Proyeksi.
+//  - Dashboard KPI (Task 40) — 4 kartu + insight strip.
+//  - Arus Kas 6 Bulan (Task 42) — bar ganda masuk/keluar + selisih.
+//  - Statistik Bulan (Task 42) — jumlah/rata-rata/terbesar/hari bersih.
 //  - SourceBalance (komponen existing, self-contained + tombol Transfer;
 //    konsumsi quickAddAction 'transfer' HANYA di situ — tidak diduplikasi
 //    di sini).
+//  - Top Kategori (Task 42) — top 5 + bar + chip MoM per kategori.
+//  - Budget per Kategori (Task 42) — bar tone + sisa/lewat.
+//  - Tagihan Mendatang (Task 42) — berulang ≤30 hari + terlambat.
 //  - SpendingHeatmap (komponen existing — byDay dari dashboardData).
 //  - "Terakhir Transaksi" (div.premium-card rounded-2xl) — baris
 //    premium-list-item dengan avatar emoji kategori squircle tint; klik →
@@ -32,6 +38,13 @@ import { SourceBalance } from './source-balance';
 import { SpendingHeatmap } from './finance-spending-heatmap';
 import { CountUpRupiah } from './count-up-rupiah';
 import FinanceKpiDashboard from './finance-kpi-dashboard';
+import {
+  BudgetDetailList,
+  CashflowTrendChart,
+  CategoryTopList,
+  MonthStatsGrid,
+  UpcomingRecurringList,
+} from './finance-detail-sections';
 import { formatRupiah, monthLabel } from './finance-types';
 import { tintFromColor, formatDateShort } from '@/lib/finance-helpers';
 import { cn } from '@/lib/utils';
@@ -232,9 +245,28 @@ export default function FinanceOverview({
       {/* ── Dashboard Keuangan KPI (Task 40, DASHBOARD-FIN) ── */}
       <FinanceKpiDashboard dashboardData={dashboardData} selectedMonth={selectedMonth} />
 
+      {/* ── Arus Kas 6 Bulan (Task 42, PERDETAIL-FIN) ── */}
+      <CashflowTrendChart
+        trend={dashboardData?.cashflowTrend ?? []}
+        selectedMonth={selectedMonth}
+        stagger={1}
+      />
+
+      {/* ── Statistik Bulan (Task 42, PERDETAIL-FIN) ── */}
+      <MonthStatsGrid dashboardData={dashboardData} selectedMonth={selectedMonth} stagger={2} />
+
       {/* ── Sumber Dana + Transfer (self-contained, konsumsi quickAdd
           'transfer' ada di SourceBalance — jangan duplikat) ── */}
       <SourceBalance />
+
+      {/* ── Top Kategori + MoM (Task 42, PERDETAIL-FIN) ── */}
+      <CategoryTopList dashboardData={dashboardData} stagger={3} />
+
+      {/* ── Budget per Kategori (Task 42, PERDETAIL-FIN) ── */}
+      <BudgetDetailList budgetDetail={dashboardData?.budgetDetail ?? []} stagger={4} />
+
+      {/* ── Tagihan Mendatang (Task 42, PERDETAIL-FIN) ── */}
+      <UpcomingRecurringList upcoming={dashboardData?.upcomingRecurring ?? []} stagger={5} />
 
       {/* ── Heatmap Pengeluaran ── */}
       <SpendingHeatmap
@@ -243,7 +275,7 @@ export default function FinanceOverview({
       />
 
       {/* ── Terakhir Transaksi ── */}
-      <div className="premium-card rounded-2xl anim-stagger" style={{ '--stagger': 2 } as CSSProperties}>
+      <div className="premium-card rounded-2xl anim-stagger" style={{ '--stagger': 6 } as CSSProperties}>
         <div className="flex items-center justify-between gap-2 p-4 pb-2 sm:p-5 sm:pb-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="chip-icon chip-amber h-8 w-8 shrink-0" aria-hidden="true">

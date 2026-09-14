@@ -130,7 +130,16 @@ export interface DashboardData {
   monthIncome: number;
   monthExpense: number;
   monthNet: number;
-  byCategory: Array<{ category: string; amount: number; emoji: string; color: string }>;
+  byCategory: Array<{
+    category: string;
+    amount: number;
+    emoji: string;
+    color: string;
+    /** Pengeluaran kategori yang sama bulan lalu (PERDETAIL-FIN). */
+    prevAmount?: number;
+    /** Δ% vs bulan lalu — null saat bulan lalu 0 (PERDETAIL-FIN). */
+    momPct?: number | null;
+  }>;
   byDay: Array<{ date: string; amount: number }>;
   dailyAvg: number;
   projection: number;
@@ -145,6 +154,47 @@ export interface DashboardData {
   totalBalance?: number;
   runwayDays?: number | null; // hari tertutup rata-rata pengeluaran — null saat dailyAvg 0
   topCategory: { category: string; amount: number } | null;
+  // ── Detail dashboard (Task 42, PERDETAIL-FIN) — optional & defensif ──
+  /** Jumlah transaksi bulan terpilih (income+expense). */
+  txCount?: number;
+  incomeCount?: number;
+  expenseCount?: number;
+  /** Rata-rata nominal per transaksi pengeluaran. */
+  avgPerExpense?: number;
+  biggestExpense?: {
+    description: string;
+    amount: number;
+    category: string;
+    date: string;
+    emoji: string;
+    color: string;
+  } | null;
+  /** Tren arus kas 6 bulan berakhir di bulan terpilih. */
+  cashflowTrend?: Array<{ month: string; income: number; expense: number; net: number }>;
+  /** Rincian budget per kategori bulan terpilih (urut pct desc). */
+  budgetDetail?: Array<{
+    category: string;
+    amount: number;
+    spent: number;
+    remaining: number;
+    pct: number;
+    emoji: string;
+    color: string;
+  }>;
+  /** Tagihan/pemasukan berulang ≤30 hari mendatang + terlambat. */
+  upcomingRecurring?: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category: string;
+    emoji: string;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    nextDate: string; // 'yyyy-MM-dd'
+    overdue: boolean;
+    notStarted: boolean;
+    sourceName: string | null;
+  }>;
 }
 
 // ── /api/finance/last-done → baris "Terakhir Transaksi" di overview.

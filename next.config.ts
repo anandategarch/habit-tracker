@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  // FIX HYDRATION PREVIEW: panel preview sandbox mem-proxy app lewat origin
+  // lintas-domain (preview-chat-*.space-z.ai). Tanpa whitelist ini, dev
+  // server Next 16 menolak request /_next/* lintas-origin — chunk JS bisa
+  // gagal/tertunda saat hidrasi berjalan → React melihat DOM berubah →
+  // "Hydration failed because the server rendered text didn't match the
+  // client" (recoverable error, tree diregenerasi). Whitelist pola domain
+  // preview supaya dev assets selalu diizinkan.
+  allowedDevOrigins: ["*.space-z.ai", "https://*.space-z.ai"],
 };
 
 export default nextConfig;
