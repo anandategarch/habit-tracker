@@ -7,6 +7,24 @@ import {
   type HabitSchedule,
 } from '@/lib/habit-schedule';
 
+/** Opsi walk streak (Task 60-c — dipakai server & tracker via helper bersama).
+ *
+ *  - startDate: YMD mulai habit — hari SEBELUMNYA bukan bolong (tidak
+ *    mengonsumsi kuota hari aman); menyetarakan streak dashboard dengan
+ *    kartu tracker (audit 59-b2: angka beda antar layar).
+ *  - onVacation: LEGACY — mode libur AKTIF tanpa interval tercatat (habit
+ *    pra-Task 60): ekor hari kosong tidak memutus streak (beku sampai log
+ *    selesai terakhir).
+ *  - vacationDay: predikat hari NETRAL permanen (interval liburan tercatat
+ *    di Habit.vacationIntervals — lihat lib/habit-vacation): tidak menambah
+ *    streak, tidak putus, tidak makan hari aman, bahkan SETELAH liburan
+ *    berakhir — janji UI "streak menyala kembali" (audit 59-b2 HIGH). */
+export interface StreakWalkOpts {
+  startDate?: string | null;
+  onVacation?: boolean;
+  vacationDay?: (ymd: string) => boolean;
+}
+
 /** Bobot XP per difficulty habit.
  *
  * M1-fix: label Indonesia (Mudah/Sedang/Sulit — dipakai seed & habit-options)
@@ -81,6 +99,8 @@ export function computeStreakWithShields(
   /** Task 37 — jadwal habit: hari tidak terjadwal dilewati (tidak putus,
    *  tidak konsumsi hari aman, tidak dihitung). Menerima objek atau JSON mentah. */
   schedule?: HabitSchedule | string | null,
+  /** Task 60-c — lantai start, libur legacy, dan hari netral interval liburan. */
+  opts: StreakWalkOpts = {},
 ): StreakShieldInfo {
   const sched =
     schedule === undefined || schedule === null
@@ -90,13 +110,17 @@ export function computeStreakWithShields(
         : schedule;
   const notScheduled = (ymd: string): boolean =>
     !!sched && sched.kind !== 'daily' && !isScheduledOn(sched, ymd);
+  const isVacation = opts.vacationDay ?? (() => false);
+  const floor = opts.startDate ?? null;
 
   const usedByMonth = new Map<string, number>();
   const shieldedDays: string[] = [];
 
   let cursor = endYmd;
   // Jika hari ini belum ada, mulai dari kemarin (streak belum putus).
-  if (!doneDays.has(cursor)) {
+  // Task 60-c: hari ini NETRAL (libur) → jangan mundurkan — loop akan
+  // melewati ekor libur sebagai hari netral.
+  if (!doneDays.has(cursor) && !opts.onVacation && !isVacation(cursor)) {
     cursor = shiftYmd(cursor, -1);
   }
 
@@ -105,8 +129,10 @@ export function computeStreakWithShields(
   let guard = 0;
   while (guard < STREAK_HARD_CAP) {
     // Task 37: hari tidak terjadwal → lewati (habit mingguan tidak putus
-    // oleh hari Selasa bila jadwalnya hanya Senin).
-    if (notScheduled(cursor)) {
+    // oleh hari Selasa bila jadwalnya hanya Senin). Task 60-c: hari libur
+    // (interval) → netral dengan semantik sama — SEBELUM cek done supaya
+    // hari libur konsisten "tak tercatat" (pola notScheduled).
+    if (notScheduled(cursor) || isVacation(cursor)) {
       cursor = shiftYmd(cursor, -1);
       guard += 1;
       continue;
@@ -115,7 +141,16 @@ export function computeStreakWithShields(
       streak += 1;
       consecutiveMissed = 0;
       cursor = shiftYmd(cursor, -1);
-    } else if (shieldsPerMonth > 0) {
+    } else if (opts.onVacation) {
+      // LEGACY ekor libur tanpa interval: hari kosong netral (tanpa kuota);
+      // berhenti bila melewati lantai start (streak memang belum pernah ada).
+      if (floor && cursor < floor) break;
+      cursor = shiftYmd(cursor, -1);
+    } else {
+      // Batas bawah: hari sebelum habit ada bukan "bolong" — jangan pakai
+      // hari aman untuk hari sebelum mulai (Task 60-c: kini juga di sisi
+      // server, dulu hanya helper tracker).
+      if (floor && cursor < floor) break;
       // Hari kosong → coba hari aman (kuota per bulan kalender hari itu).
       const month = cursor.slice(0, 7);
       const used = usedByMonth.get(month) ?? 0;
@@ -133,8 +168,6 @@ export function computeStreakWithShields(
       usedByMonth.set(month, used + 1);
       shieldedDays.push(cursor);
       cursor = shiftYmd(cursor, -1);
-    } else {
-      break;
     }
     guard += 1;
   }
@@ -145,8 +178,51 @@ export function computeStreakFromSet(
   doneDays: Set<string>,
   endYmd: string,
   schedule?: HabitSchedule | string | null,
+  opts?: StreakWalkOpts,
 ): number {
-  return computeStreakWithShields(doneDays, endYmd, SHIELDS_PER_MONTH, schedule).streak;
+  return computeStreakWithShields(doneDays, endYmd, SHIELDS_PER_MONTH, schedule, opts).streak;
+}
+
+/** Streak habit 'avoid' — hari BERSIH berturut-turut (log completed = kambuh).
+ *
+ * Task 60-d (audit 59-b2 LOW-MED): hari bersih HARI INI ikut dihitung
+ * (sejak 00:01 — sinkron dengan isSuccess/KPI yang memakai semantik itu;
+ * dulu walk mulai dari endYmd-1 → off-by-one konsisten vs dashboard).
+ * Habit libur (interval) = netral: tidak dihitung, tidak memutus.
+ * Dibatasi lantai startDate; hari tak terjadwal tidak dihitung (pola tracker). */
+export function computeAvoidStreak(
+  relapseDays: Set<string>,
+  endYmd: string,
+  schedule?: HabitSchedule | string | null,
+  opts: StreakWalkOpts = {},
+): number {
+  const sched =
+    schedule === undefined || schedule === null
+      ? null
+      : typeof schedule === 'string'
+        ? parseSchedule(schedule)
+        : schedule;
+  const notScheduled = (ymd: string): boolean =>
+    !!sched && sched.kind !== 'daily' && !isScheduledOn(sched, ymd);
+  const isVacation = opts.vacationDay ?? (() => false);
+  const floor = opts.startDate ?? null;
+
+  let cursor = endYmd;
+  let streak = 0;
+  let guard = 0;
+  while (guard < STREAK_HARD_CAP) {
+    if (floor && cursor < floor) break; // sebelum habit ada
+    if (isVacation(cursor)) {
+      cursor = shiftYmd(cursor, -1);
+      guard += 1;
+      continue;
+    }
+    if (relapseDays.has(cursor)) break; // kambuh di luar libur → putus
+    if (!notScheduled(cursor)) streak += 1; // hari tak terjadwal tidak dihitung
+    cursor = shiftYmd(cursor, -1);
+    guard += 1;
+  }
+  return streak;
 }
 
 /** Aritmetika YMD string UTC-safe (tidak lewat Date lokal). */

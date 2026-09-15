@@ -220,10 +220,21 @@ export default function FinanceTransactions({
  }, [hasRows]);
 
  // Ukur offset list dalam konten scroll (scroll-invariant: rect +
- // scrollTop saling meniadakan). Dihitung tiap render (murah — dua
- // getBoundingClientRect) karena konten di atas list bisa berubah
- // (filter expand/collapse, badge pencarian). setState dengan nilai sama
- // = no-op React, jadi tidak ada render loop.
+ // scrollTop saling meniadakan). TASK 60-a #3 (temuan 59-b3): efek ini dulu
+ // TANPA dependency array → getBoundingClientRect dipaksa TIAP render,
+ // termasuk tiap frame scroll (virtualizer me-render ulang saat range
+ // bergeser → forced layout per frame). Hasil ukur hanya berubah bila:
+ //   (1) anchor tersedia / berganti — scrollerEl resolusi (efek di atas,
+ //       termasuk saat baris pertama hadir setelah loading) — tetap jalan
+ //       saat mount & pergantian sub-tab (komponen remount);
+ //   (2) konten DI ATAS list berubah tinggi — panel filter expand/collapse
+ //       (showFilters), toolbar multi-select (multiSelect + jumlah
+ //       terpilih), badge pencarian (txFilter.search), chip tanggal
+ //       drill-down (focusDate), atau pergantian data (flatRows — identitas
+ //       useMemo berubah tiap data baru).
+ // Scroll TIDAK termasuk — itulah penghematan utamanya (scroll-invariant).
+ // setState dengan nilai sama = no-op React, jadi tidak ada render loop.
+ // Perilaku ukur TIDAK berubah — hanya frekuensinya.
  useEffect(() => {
    if (!scrollerEl || !listRef.current) return;
    const next =
@@ -231,7 +242,7 @@ export default function FinanceTransactions({
      scrollerEl.scrollTop -
      scrollerEl.getBoundingClientRect().top;
    setScrollMargin((m) => (m === next ? m : next));
- });
+ }, [scrollerEl, showFilters, multiSelect, selectedTxIds.size, txFilter.search, focusDate, flatRows]);
 
  const virtualizer = useVirtualizer({
    count: flatRows.length,

@@ -30,7 +30,8 @@ import { ArrowRight, Flame, RefreshCw, Wallet, ClipboardList } from 'lucide-reac
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { WeeklyReview } from '@/components/habit-tracker/weekly-review';
 import { toDashboardData } from '@/lib/dashboard/contract';
-import { jakartaDateString } from '@/lib/jakarta-date';
+// Task 60-e — "hari ini" ber-tick lintas tengah malam Jakarta.
+import { useJakartaToday } from './use-jakarta-today';
 import { jakartaNowIso } from '@/lib/timezone';
 import { xpForHabit } from '@/lib/dashboard-helpers';
 import { burstFromElement } from '@/lib/confetti';
@@ -79,7 +80,10 @@ export default function Dashboard() {
   // Jalur CTA empty-state — sama dengan FAB "Habit Baru" (kembali ke
   // Beranda setelah simpan via quickAddReturnTab).
   const triggerQuickAdd = useAppStore((s) => s.triggerQuickAdd);
-  const todayStr = jakartaDateString();
+  // Task 60-e (audit 59-b2 LOW): "hari ini" ber-tick lintas tengah malam WIB —
+  // query ['work', todayStr] / ['daily-logs', todayStr] & label Hari Ini
+  // berganti otomatis pada tab PWA yang dibiarkan terbuka (dulu basi).
+  const todayStr = useJakartaToday();
   const [retryCount, setRetryCount] = useState(0);
   // Tick kutipan — queryKey berganti tiap klik "Ganti kutipan" sehingga
   // fetch baru membawa ?refresh=1&exclude=<teks sekarang> (non-repeat).

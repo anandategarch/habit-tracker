@@ -16,11 +16,14 @@ import {
   transactionDate,
 } from '@/app/api/_lib/api-utils';
 import { isValidYMD } from '@/lib/timezone';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const body = await readJsonBody(req);
 
     const fromSourceId = asString(body.fromSourceId);

@@ -10,11 +10,14 @@ import {
   sourceInfoMap,
 } from '@/app/api/_lib/api-utils';
 import { parseTransactionFields } from '@/app/api/_lib/finance-fields';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const { id } = await ctx.params;
     const existing = await db.transaction.findUnique({ where: { id } });
     if (!existing) throw notFound('Transaksi tidak ditemukan');
@@ -36,6 +39,8 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const { id } = await ctx.params;
     const existing = await db.transaction.findUnique({ where: { id }, select: { id: true, type: true, transferPairId: true } });
     if (!existing) throw notFound('Transaksi tidak ditemukan');

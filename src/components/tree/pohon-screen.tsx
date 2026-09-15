@@ -33,6 +33,7 @@ import {
   LineChart,
   Palmtree,
   Quote,
+  RefreshCw,
   Sparkles,
   TreePine,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ import {
 import { toDashboardData } from '@/lib/dashboard/contract';
 import { jakartaDateString } from '@/lib/timezone';
 import { PageHeader } from '@/components/ui/page-header';
+import { Button } from '@/components/ui/button';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { TreeGrowSplash } from '@/components/ui/loaders';
 import { cn } from '@/lib/utils';
@@ -161,8 +163,20 @@ export default function PohonScreen() {
   // ── Data (semua cache terbagih dengan tab lain) ───────────────────────
   // Key persis keluarga Beranda (['dashboard','all',refreshKey,…]) supaya
   // berpindah Beranda ↔ Pohon tidak memicu fetch ulang.
-  const { data: dash, isLoading } = useQuery({
-    queryKey: ['dashboard', 'all', refreshKey, 0],
+  // TASK 60-a #2b (temuan 59-b4): elemen-4 kini retryCount LOKAL (dulu
+  // hardcoded 0) — struktur kunci IDENTIK dengan dashboard.tsx
+  // (['dashboard','all',refreshKey,retryCount]); setelah "Coba Lagi" di
+  // salah satu layar, kunci tidak lagi bercabang permanen dari cache
+  // Beranda (dulu key Pohon selalu berakhiran 0 → cache terpisah + fetch
+  // ganda setelah retry Beranda sukses).
+  const [retryCount, setRetryCount] = useState(0);
+  // TASK 60-a #2a (temuan 59-b4, paritas BUGHUNT-54 3-c #5b Beranda):
+  // state error ikut dibaca — React Query v5: setelah retry gagal,
+  // isLoading=false dengan dash=undefined; dulu gate render hanya
+  // `isLoading && !dash` → UI pohon penuh dirender dengan artwork dorman
+  // PALSU + narasi kosong. Kini cabang error di bawah menangkapnya.
+  const { data: dash, isLoading, isError: fetchError, isFetching: fetching } = useQuery({
+    queryKey: ['dashboard', 'all', refreshKey, retryCount],
     queryFn: async () => {
       const res = await fetch('/api/dashboard?period=all');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -390,6 +404,33 @@ export default function PohonScreen() {
     );
   }
 
+  // ── Error (TASK 60-a #2a) ────────────────────────────────────────────
+  // React Query v5: retry habis → isLoading=false, dash=undefined. Tanpa
+  // cabang ini UI pohon penuh dirender dari data kosong (artwork dorman
+  // palsu + narasi kosong — persis bug yang ditutup di Beranda oleh
+  // BUGHUNT-54 3-c #5b: sembunyikan konten fabricated + banner "Coba
+  // Lagi"). Tombol retry menaikkan retryCount → queryKey baru → fetch
+  // ulang (loading gate di atas otomatis mengambil alih saat key berganti).
+  if (fetchError && !dash) {
+    return (
+      <div className="app-ambience space-y-5">
+        <PageHeader
+          eyebrow="Rutina"
+          title="Pohonmu"
+          subtitle="Cermin pertumbuhan seumur hidupmu — sapa, siram, dan panen."
+          icon={TreePine}
+        />
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">
+          <p className="text-sm text-destructive">Gagal memuat data pohon</p>
+          <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Coba Lagi
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-ambience space-y-5">
       <PageHeader
@@ -398,6 +439,20 @@ export default function PohonScreen() {
         subtitle="Cermin pertumbuhan seumur hidupmu — sapa, siram, dan panen."
         icon={TreePine}
       />
+
+      {/* TASK 60-a #2a (paritas Beranda): refetch latar belakang gagal
+          saat data lama MASIH ada → data nyata tetap dirender + banner
+          ringkas (tanpa "Coba Lagi" saat fetch ulang sedang berjalan —
+          kondisi !fetching, pola yang sama dengan dashboard.tsx). */}
+      {fetchError && !fetching && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">
+          <p className="text-sm text-destructive">Gagal memuat data terbaru</p>
+          <Button variant="outline" size="sm" onClick={() => setRetryCount((c) => c + 1)}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Coba Lagi
+          </Button>
+        </div>
+      )}
 
       {/* ══ ① PANGGUNG INTERAKTIF ══════════════════════════════════════ */}
       <ScrollReveal>

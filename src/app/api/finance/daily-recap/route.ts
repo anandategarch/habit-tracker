@@ -10,11 +10,14 @@ import {
   transactionDayRange,
 } from '@/app/api/_lib/api-utils';
 import { isValidYMD, jakartaDateString } from '@/lib/timezone';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const dateParam = new URL(req.url).searchParams.get('date');
     const date = dateParam ?? jakartaDateString();
     if (!isValidYMD(date)) throw badRequest('Parameter date tidak valid (format yyyy-MM-dd)');

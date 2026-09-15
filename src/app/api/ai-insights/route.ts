@@ -4,12 +4,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, round1, ymdOf } from '@/app/api/_lib/api-utils';
-import { computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
+import { computeAvoidStreak, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { isScheduledOn, parseSchedule } from '@/lib/habit-schedule';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
+import { parseVacationIntervals, vacationDayPredicate } from '@/lib/habit-vacation';
 import ZAI from 'z-ai-web-dev-sdk';
 
 export const dynamic = 'force-dynamic';
+
+// Task 60-d (audit 59-b5 LOW-MED): timeout LLM 20s > durasi default fungsi
+// Vercel → fallback statis tak pernah sempat jalan (user kena 504 duluan).
+// 60 detik = batas Hobby plan.
+export const maxDuration = 60;
 
 type InsightType = 'mood' | 'sleep' | 'performance' | 'streak' | 'finance';
 
@@ -57,6 +64,10 @@ function validInsight(item: Record<string, unknown>): boolean {
 
 export async function GET() {
   try {
+    // Task 60-d (audit 59-b5): select memuat kolom hasil DDL runtime
+    // (scheduleJson dsb.) — pastikan dulu kolomnya ada di DB produksi segar
+    // (pola /api/habits; tanpa ini route 500 pada instance pertama).
+    await ensureHabitGraduation();
     const todayYmd = jakartaDateString();
     const startYmd30 = shiftYmd(todayYmd, -29);
     const startYmd14 = shiftYmd(todayYmd, -13);
@@ -66,9 +77,25 @@ export async function GET() {
       db.appSettings.findUnique({ where: { id: 'singleton' }, select: { userName: true } }),
       // Task 39 (#8): habit LULUS keluar dari pool insight — dulu masih
       // dibandingkan dengan habit berjalan (rate/streak campur).
+      // Task 60-d (audit 59-b2 MED): habitType + startDate + liburan ikut
+      // di-select supaya statistik avoid INVERS (kambuh ≠ sukses) dan
+      // streak sadar-liburan — dulu insight MEMUJI kambuh ("terbaik 100%",
+      // "sudah N hari") karena relapse dihitung sebagai done.
       db.habit.findMany({
         where: { isActive: true, isArchived: false, graduatedAt: null },
-        select: { id: true, name: true, emoji: true, category: true, difficulty: true, trackTime: true, scheduleJson: true },
+        select: {
+          id: true,
+          name: true,
+          emoji: true,
+          category: true,
+          difficulty: true,
+          habitType: true,
+          trackTime: true,
+          scheduleJson: true,
+          startDate: true,
+          vacationMode: true,
+          vacationIntervals: true,
+        },
         orderBy: { sortOrder: 'asc' },
       }),
       // Task 39 (#8): log TANPA batas 30 hari — window 30 hari tetap
@@ -97,27 +124,57 @@ export async function GET() {
       if (ymd < startYmd30 || ymd > todayYmd) continue;
       doneByHabit.set(log.habitId, (doneByHabit.get(log.habitId) ?? 0) + 1);
     }
+    // Streak berjalan per habit (riwayat penuh — Task 39 #8).
+    const habitLogsYmd = new Map<string, Set<string>>();
+    for (const log of allLogs) {
+      const ymd = ymdOf(log.date as Date);
+      if (!habitLogsYmd.has(log.habitId)) habitLogsYmd.set(log.habitId, new Set());
+      habitLogsYmd.get(log.habitId)!.add(ymd);
+    }
     // Guard 11-c: nama habit yang dikirim ke PROMPT LLM dipotong 40 char
     // (payload ringkas, tahan nama panjang/aneh — output tetap divalidasi;
     // fallback statis memakai nama penuh).
     const llmName = (name: string): string => (name.length > 40 ? `${name.slice(0, 40)}…` : name);
+    // Task 60-c: predikat hari-libur per habit (interval permanen — hari
+    // netral untuk rate & streak; habit libur TIDAK jadi kandidat best/worst
+    // karena rate-nya menyesatkan, pola dashboard BUGHUNT-54 3-c #1b).
+    const vacPredByHabit = new Map<string, (ymd: string) => boolean>();
+    for (const h of habits) {
+      vacPredByHabit.set(
+        h.id,
+        vacationDayPredicate(parseVacationIntervals(h.vacationIntervals), todayYmd),
+      );
+    }
     const habitStats = habits.map((h) => {
       // Task 39 (#8): denominator rate30 = hari TERJADWAL dalam 30 hari
       // (bukan 30 mentah) — habit 1×/minggu yang konsisten dinilai 23%
       // padahal sebenarnya 100%. Clamp 100 seperti dashboard.
+      // Task 60-d: untuk habit AVOID semantik INVERS — done = hari BERSIH
+      // (tanpa log kambuh), bukan jumlah kambuh; hari libur keluar dari
+      // denominator supaya tidak difitnah "buruk" saat sedang istirahat.
       const sched = parseSchedule(h.scheduleJson);
+      const isAvoid = h.habitType === 'avoid';
+      const vacDay = vacPredByHabit.get(h.id) ?? (() => false);
       let scheduledDays = 0;
       for (let c = startYmd30; c <= todayYmd; c = shiftYmd(c, 1)) {
-        if (isScheduledOn(sched, c)) scheduledDays += 1;
+        if (isScheduledOn(sched, c) && !vacDay(c)) scheduledDays += 1;
       }
-      const done = doneByHabit.get(h.id) ?? 0;
+      // Relapse days dalam jendela (hanya yang terjadwal & tidak libur).
+      const relapseDays = (habitLogsYmd.get(h.id) ?? new Set<string>());
+      const relapsesWindow = [...relapseDays].filter(
+        (d) => d >= startYmd30 && d <= todayYmd && isScheduledOn(sched, d) && !vacDay(d),
+      ).length;
+      const doneWindow = isAvoid
+        ? Math.max(0, scheduledDays - relapsesWindow)
+        : doneByHabit.get(h.id) ?? 0;
       return {
         id: h.id,
         name: h.name,
         category: h.category,
         difficulty: h.difficulty,
-        doneLast30: done,
-        rate30: scheduledDays > 0 ? Math.min(100, Math.round((done / scheduledDays) * 100)) : 0,
+        tipe: isAvoid ? 'avoid' : 'biasa',
+        doneLast30: doneWindow,
+        rate30: scheduledDays > 0 ? Math.min(100, Math.round((doneWindow / scheduledDays) * 100)) : 0,
       };
     });
 
@@ -135,13 +192,6 @@ export async function GET() {
     const monthNet = monthIncome - monthExpense;
     const savingRate = monthIncome > 0 ? Math.round((monthNet / monthIncome) * 100) : null;
 
-    // Streak berjalan per habit (riwayat penuh — Task 39 #8).
-    const habitLogsYmd = new Map<string, Set<string>>();
-    for (const log of allLogs) {
-      const ymd = ymdOf(log.date as Date);
-      if (!habitLogsYmd.has(log.habitId)) habitLogsYmd.set(log.habitId, new Set());
-      habitLogsYmd.get(log.habitId)!.add(ymd);
-    }
     interface HabitStreak {
       id: string;
       name: string;
@@ -153,7 +203,21 @@ export async function GET() {
       // selalu sepakat dengan kartu habit & dashboard — dulu loop manual
       // di sini bisa menilai "streak putus" padahal kartu bilang masih hidup.
       // Task 37: streak sadar jadwal (hari di luar jadwal tidak putus).
-      return { id: h.id, name: h.name, streak: computeStreakFromSet(days, todayYmd, h.scheduleJson) };
+      // Task 60-d: avoid = hari BERSIH (invers — dulu kambuh dihitung
+      // sebagai streak "sudah N hari"); + sadar-liburan & lantai start.
+      const walkOpts = {
+        startDate: h.startDate ? jakartaDateString(h.startDate as Date) : null,
+        onVacation: !!h.vacationMode,
+        vacationDay: vacPredByHabit.get(h.id),
+      };
+      return {
+        id: h.id,
+        name: h.name,
+        streak:
+          h.habitType === 'avoid'
+            ? computeAvoidStreak(days, todayYmd, h.scheduleJson, walkOpts)
+            : computeStreakFromSet(days, todayYmd, h.scheduleJson, walkOpts),
+      };
     });
     const topStreak: HabitStreak | null = streaks.reduce<HabitStreak | null>(
       (best, s) => (best === null || s.streak > best.streak ? s : best),
@@ -164,9 +228,17 @@ export async function GET() {
     const fallback: InsightItem[] = [];
     const genId = insightCounter();
 
-    const sortedByRate = [...habitStats].sort((a, b) => b.rate30 - a.rate30);
+    const sortedByRate = [...habitStats]
+      // Task 60-c (pola dashboard 3-c #1b): habit yang SEDANG libur bukan
+      // kandidat terbaik/terburuk — rate-nya menyesatkan selama istirahat.
+      .filter((s) => {
+        const h = habits.find((hh) => hh.id === s.id);
+        return !h?.vacationMode;
+      })
+      .sort((a, b) => b.rate30 - a.rate30);
     const bestHabit = sortedByRate[0] ?? null;
     const worstHabit = sortedByRate.length >= 2 ? sortedByRate[sortedByRate.length - 1] : null;
+    const statUnit = (s: { tipe: string }) => (s.tipe === 'avoid' ? 'hari bersih' : 'selesai');
 
     if (moodAvg !== null) {
       fallback.push({
@@ -199,7 +271,7 @@ export async function GET() {
         id: genId(),
         type: 'performance',
         title: 'Habit terbaik bulan ini',
-        text: `"${bestHabit.name}" selesai ${bestHabit.doneLast30} dari 30 hari terakhir (rate ${bestHabit.rate30}%${energyAvg !== null ? `, energi rata-rata ${energyAvg.toFixed(1)}` : ''}). Gunakan momentum ini untuk menautkan habit baru yang lebih sulit.`,
+        text: `"${bestHabit.name}" ${statUnit(bestHabit)} ${bestHabit.doneLast30} dari 30 hari terakhir (rate ${bestHabit.rate30}%${energyAvg !== null ? `, energi rata-rata ${energyAvg.toFixed(1)}` : ''}). Gunakan momentum ini untuk menautkan habit baru yang lebih sulit.`,
         habitId: bestHabit.id,
       });
     }
@@ -208,16 +280,18 @@ export async function GET() {
         id: genId(),
         type: 'performance',
         title: 'Habit yang perlu perhatian',
-        text: `"${worstHabit.name}" baru selesai ${worstHabit.doneLast30} dari 30 hari (${worstHabit.rate30}%). Kecilkan target jadi versi 2 menit dulu — naikkan lagi setelah 5 hari berturut-turut.`,
+        text: `"${worstHabit.name}" baru ${statUnit(worstHabit)} ${worstHabit.doneLast30} dari 30 hari (${worstHabit.rate30}%). Kecilkan target jadi versi 2 menit dulu — naikkan lagi setelah 5 hari berturut-turut.`,
         habitId: worstHabit.id,
       });
     }
     if (topStreak && topStreak.streak >= 2) {
+      // Task 60-d: avoid — "N hari" berarti hari BERSIH (bukan hari selesai).
+      const topIsAvoid = habits.find((h) => h.id === topStreak.id)?.habitType === 'avoid';
       fallback.push({
         id: genId(),
         type: 'streak',
         title: 'Streak terpanjang berjalan',
-        text: `"${topStreak.name}" sudah ${topStreak.streak} hari berturut-turut. Jangan putus hari ini — satu centang kecil cukup untuk menjaga rantainya.`,
+        text: `"${topStreak.name}" sudah ${topStreak.streak} hari ${topIsAvoid ? 'bersih ' : ''}berturut-turut. Jangan putus hari ini — satu centang kecil cukup untuk menjaga rantainya.`,
         habitId: topStreak.id,
       });
     } else {
@@ -256,6 +330,8 @@ export async function GET() {
         pengguna: userName,
         periodeHabit: '30 hari terakhir',
         habit: habitStats.map((h) => ({ ...h, name: llmName(h.name) })),
+        catatanHabitAvoid:
+          "Habit bertipe 'avoid' berarti MENJAUHI sesuatu: doneLast30 = jumlah hari BERSIH tanpa kambuh dan rate30 = persen hari bersih. JANGAN memuji kambuh; kalau angkanya buruk, bicara tentang hari bersih/strategy menghindar, bukan 'selesai'.",
         moodRata14Hari: moodAvg,
         tidurRata14Hari: sleepAvg,
         energiRata14Hari: energyAvg,
@@ -278,7 +354,8 @@ export async function GET() {
               'Kamu adalah asisten analitik pribadi pada aplikasi Rutina (habit tracker + keuangan, pengguna Indonesia). ' +
               'Balas HANYA dengan array JSON (tanpa teks lain) berisi 4-6 insight dari data pengguna. ' +
               'Setiap elemen: {"type": "mood" | "sleep" | "performance" | "streak" | "finance", "title": string (maks 60 karakter), "text": string (1-3 kalimat), "habitId": string (opsional, id habit terkait)}. ' +
-              'Seluruh teks WAJIB bahasa Indonesia yang hangat, spesifik dengan angka dari data, membangun, tanpa label Inggris.',
+              'Seluruh teks WAJIB bahasa Indonesia yang hangat, spesifik dengan angka dari data, membangun, tanpa label Inggris. ' +
+              "Habit tipe 'avoid' = habit MENJAUHI: doneLast30/rate30-nya mengukur hari BERSIH tanpa kambuh — pujilah hari bersih, jangan pernah menyebut kambuh sebagai pencapaian.",
           },
           {
             role: 'user',

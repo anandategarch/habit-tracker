@@ -2,6 +2,7 @@
 // PUT body {delta} → quick-chip (currentAmount += delta, clamp 0..target,
 // completedAt terisi bila target tercapai). Body penuh → update field biasa.
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import {
   asNumber,
@@ -29,16 +30,28 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     if ('delta' in body && body.delta !== undefined && body.delta !== null) {
       const delta = asNumber(body.delta);
       if (delta === null || delta === 0) throw badRequest('Nilai delta tidak valid');
-      const target = Math.max(0, goal.targetAmount);
-      const next = Math.min(target, Math.max(0, goal.currentAmount + delta));
-      const reached = target > 0 && next >= target;
-      const updated = await db.savingsGoal.update({
-        where: { id },
-        data: {
-          currentAmount: next,
-          completedAt: reached ? (goal.completedAt ?? new Date()) : null,
-        },
+      // Task 60-b (audit 59-b5): dulunya baca currentAmount → tulis hasil
+      // jumlah (read-modify-write) → lost update saat retry/concurrent
+      // (quick-chip frontend non-idempotent). Kini baca+tulis dalam SATU
+      // interactive $transaction: adapter libsql memegang mutex koneksi dari
+      // BEGIN sampai COMMIT/ROLLBACK, jadi nilai yang dibaca di dalam
+      // transaksi tidak bisa ditimpa tulisan lain di proses yang sama.
+      // Semantik clamp (0..target) + completedAt dipertahankan persis.
+      const updated = await db.$transaction(async (tx: Prisma.TransactionClient) => {
+        const fresh = await tx.savingsGoal.findUnique({ where: { id } });
+        if (!fresh) return null;
+        const target = Math.max(0, fresh.targetAmount);
+        const next = Math.min(target, Math.max(0, fresh.currentAmount + delta));
+        const reached = target > 0 && next >= target;
+        return tx.savingsGoal.update({
+          where: { id },
+          data: {
+            currentAmount: next,
+            completedAt: reached ? (fresh.completedAt ?? new Date()) : null,
+          },
+        });
       });
+      if (updated === null) throw notFound('Target tabungan tidak ditemukan');
       return NextResponse.json(serializeSavings(updated));
     }
 

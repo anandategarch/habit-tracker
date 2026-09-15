@@ -29,6 +29,9 @@ export interface Habit {
   isArchived: boolean;
   vacationMode: boolean;
   vacationUntil?: string | null;
+  /** Task 60-c — JSON interval liburan [{s,u}] (lihat lib/habit-vacation):
+   *  hari dalam interval = NETRAL permanen bagi streak. null = habit lama. */
+  vacationIntervals?: string | null;
   startDate: string;
   createdAt?: string;
   updatedAt?: string;

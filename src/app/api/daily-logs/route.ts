@@ -77,6 +77,12 @@ async function upsertDailyLog(req: Request) {
     create.sleep = update.sleep;
   }
   if ('notes' in body && body.notes !== undefined) {
+    // Task 60-b (audit 59-b5): field teks opsional non-string dulunya
+    // disimpan senyap sebagai null (menghapus catatan lama bila dipanggil
+    // via API langsung) — kini ditolak 400. Null/string tetap diterima.
+    if (body.notes !== null && typeof body.notes !== 'string') {
+      throw badRequest('Catatan harus berupa teks');
+    }
     const notes = asString(body.notes);
     if (notes !== null && notes.length > 10_000) throw badRequest('Catatan terlalu panjang');
     update.notes = notes ?? null;

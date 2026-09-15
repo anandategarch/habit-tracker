@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 import { NextResponse } from 'next/server';
 import { shiftYmd } from '@/lib/dashboard-helpers';
-import { dateFromYMD } from '@/lib/timezone';
+import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
 
 // ── Tipe struktural baris transaksi (subset kolom Prisma) ───────────────────
 // Dipakai helper transfer/saldo agar route bisa mengoper hasil findMany
@@ -27,6 +27,8 @@ export interface TxRow {
   notes: string | null;
   tags: string;
   date: Date;
+  // Task 60-f (audit 59-b3): penanda kelompok hasil Split (nullable).
+  groupId?: string | null;
   transferPairId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -250,6 +252,10 @@ export function serializeTransaction(
     notes: tx.notes ?? null,
     tags: tx.tags ?? '',
     date: tx.date.toISOString(),
+    // Task 60-f: badge "Split" di daftar transaksi akhirnya punya sumber
+    // data (dulu dead-code — tipenya ada di frontend, nilainya tidak pernah
+    // dikirim). Additif: klien lama mengabaikan field baru.
+    groupId: tx.groupId ?? null,
     transferPairId: m?.pairId ?? null,
     transferDirection: m?.direction ?? null,
     pairedSourceName: pairSource?.name ?? null,
@@ -303,9 +309,13 @@ export const MOTIVATIONAL_QUOTES: Array<{ text: string; author: string }> = [
   { text: 'Tandai satu kotak kecil setiap hari; setahun kemudian kamu tak akan mengenali dirimu.', author: 'Rutina' },
 ];
 
-/** Kutipan deterministik per hari (stabil seharian, berganti tiap hari). */
+/** Kutipan deterministik per hari JAKARTA (stabil seharian, berganti
+ *  tepat tengah malam WIB).
+ * Task 60-f (audit 59-b5 LOW): dulu memakai tanggal UTC → kutipan berganti
+ *  pukul 07:00 WIB (bukan tengah malam Jakarta) — kontradiksi dengan komentar
+ *  "per hari" konvensi aplikasi. */
 export function pickDailyQuote(): { text: string; author: string } {
-  const today = dateFromYMD(new Date().toISOString().slice(0, 10));
+  const today = dateFromYMD(jakartaDateString());
   // Hari sejak epoch UTC — cukup sebagai indeks harian yang stabil.
   const dayIndex = Math.floor(today.getTime() / 86_400_000);
   return MOTIVATIONAL_QUOTES[dayIndex % MOTIVATIONAL_QUOTES.length];

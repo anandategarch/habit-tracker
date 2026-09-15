@@ -2,11 +2,17 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { badRequest, handleApiError, notFound } from '@/app/api/_lib/api-utils';
+import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    // Task 60-b (audit 59-b5): pola habit-ensure — route yang menyentuh tabel
+    // Habit memanggil ensureHabitGraduation() SEBELUM query Prisma (kolom
+    // targetDays/graduatedAt/scheduleJson/goalId hasil DDL runtime bisa belum
+    // ada di DB produksi segar → 500). Sama persis seperti /api/habits.
+    await ensureHabitGraduation();
     const { id } = await ctx.params;
     const habit = await db.habit.findUnique({ where: { id }, select: { id: true } });
     if (!habit) throw notFound('Habit tidak ditemukan');

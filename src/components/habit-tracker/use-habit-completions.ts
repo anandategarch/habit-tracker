@@ -1,9 +1,21 @@
 // components/habit-tracker/use-habit-completions.ts — sinkronisasi log habit
-// per bulan (cache ±2 bulan) + peta completion/amount hari berjalan.
+// per bulan (cache jendela 12 bulan) + peta completion/amount hari berjalan.
 //
 // Task 38 (split god file): DIEKSTRAKSI VERBATIM dari daily-tracker.tsx —
 // perilaku (guard race RACE-1, invalidasi cache BUG-16, gabungan prev+current
 // M4, filter habit lulus Task 36) dan urutan efek identik dengan versi lama.
+//
+// Task 60-e (audit 59-b2):
+//  * JENDELA 12 BULAN (med-low): dulu hanya prev+current (±2 bulan) → streak
+//    tracker terpotong ±61 hari padahal dashboard menghitung riwayat penuh
+//    (angka streak panjang beda antar layar). Kini SATU request rentang
+//    [bulan-11 .. akhir bulan] via param aditif `from` (kompatibel mundur:
+//    tanpa from, route berperilaku lama). Streak > ±1 tahun tetap terpotong
+//    — kompromi payload yang disengaja; dashboard tetap sumber > 1 tahun.
+//  * SEMESTA PENUH (med): log habit LULUS/DIJESA ikut diambil — completionMap
+//    kini menutupi semua habit non-arsip sehingga "XP Hari Ini" tracker
+//    sepakat dengan /api/dashboard (dulu XP turun tepat setelah "Luluskan!").
+//    UI grid tetap hanya menampilkan habit aktif (parent memfilter).
 
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { Habit, HabitLog } from './daily-tracker-types';
@@ -13,6 +25,13 @@ import {
   prevMonthKey,
   groupBatchLogs,
 } from './daily-tracker-helpers';
+
+/** Task 60-e — geser kunci bulan 'yyyy-MM' sebanyak -n bulan. */
+function monthShift(month: string, delta: number): string {
+  let key = month;
+  for (let i = 0; i < delta; i += 1) key = prevMonthKey(key);
+  return key;
+}
 
 export interface HabitCompletionsState {
   loading: boolean;
@@ -98,9 +117,10 @@ export function useHabitCompletions(
       const map: Record<string, boolean> = {};
       const atMap: Record<string, string> = {};
       const valueMap: Record<string, number> = {};
+      // Task 60-e: semesta penuh — SEMUA habit non-arsip (aktif + dijesa +
+      // lulus) masuk peta completion (untuk XP hari ini sepakat dashboard).
       habitList
-        // Task 36: habit lulus tidak diambil/tidak masuk peta completion.
-        .filter((h) => h.isActive && !h.isArchived && !h.graduatedAt)
+        .filter((h) => !h.isArchived)
         .forEach((h) => {
           const logs = cache[h.id] || [];
           const dayLog = logs.find((l) => toDateString(l.date) === date);
@@ -116,33 +136,27 @@ export function useHabitCompletions(
       return;
     }
 
-    // Task 36: habit lulus keluar dari batch fetch log (tidak dipakai UI).
-    const active = habitList.filter((h) => h.isActive && !h.isArchived && !h.graduatedAt);
+    // Task 60-e: semesta penuh — log habit lulus/dijesa ikut diambil
+    // (completionMap menutupi semua non-arsip; grid tetap memfilter aktif).
+    const active = habitList.filter((h) => !h.isArchived);
     const ids = active.map((h) => h.id);
 
-    // M4-fix (streak & flip-card terpotong batas bulan): cache hanya bulan
-    // tampil membuat streak putus di hari 1 bulan + flip 7 hari menandai log
-    // bulan lalu sebagai miss. Solusi: log bulan SEBELUMNYA ikut diambil
-    // (query paralel; keduanya sekali per bulan karena berbasis cache) lalu
-    // cache bulan berjalan MENYIMPAN GABUNGAN prev+current — seluruh
-    // konsumen (computeStreak, bestStreak, flip 7 hari) membaca cache seperti
-    // biasa tanpa perubahan. Catatan batas: streak > ±2 bulan tetap terpotong
-    // (hanya 2 bulan yang diambil) — kompromi yang disengaja demi hemat query.
-    const prevMonth = prevMonthKey(month);
+    // Task 60-e (jendela 12 bulan): SATU request rentang [bulan-11 .. akhir
+    // bulan] via param aditif `from` — menggantikan pola dua-request
+    // prev+current (M4) dengan cakupan yang jauh lebih lebar untuk streak
+    // (dulu ±2 bulan → angka streak panjang beda antar layar). Cache bulan
+    // berjalan menyimpan seluruh rentang — konsumen (computeStreak,
+    // bestStreak, flip 7 hari) membaca seperti biasa.
+    const fromMonth = monthShift(month, 11);
     let groupedLogs: Record<string, HabitLog[]> = {};
-    let groupedPrevLogs: Record<string, HabitLog[]> = {};
     try {
-      const [res, prevRes] = await Promise.all([
-        fetch(`/api/habits/batch-logs?month=${month}&ids=${ids.join(',')}`),
-        fetch(`/api/habits/batch-logs?month=${prevMonth}&ids=${ids.join(',')}`),
-      ]);
+      const res = await fetch(
+        `/api/habits/batch-logs?month=${month}&from=${fromMonth}&ids=${ids.join(',')}`,
+      );
       if (res.ok) {
         // Normalisasi bentuk payload ({ logs } flat / grouped lama) ada di
         // helper groupBatchLogs (daily-tracker-helpers).
         groupedLogs = groupBatchLogs(await res.json());
-      }
-      if (prevRes.ok) {
-        groupedPrevLogs = groupBatchLogs(await prevRes.json());
       }
     } catch {
       // fall through to empty defaults
@@ -161,8 +175,8 @@ export function useHabitCompletions(
 
     active.forEach((habit) => {
       const logs = groupedLogs[habit.id] || [];
-      // M4: gabungan prev+current — prev dulu supaya terurut kronologis.
-      monthCache[habit.id] = [...(groupedPrevLogs[habit.id] ?? []), ...logs];
+      // Task 60-e: rentang from..akhir-bulan utuh (kronologis dari route).
+      monthCache[habit.id] = logs;
       const dayLog = logs.find((l) => toDateString(l.date) === date);
       map[habit.id] = dayLog?.completed ?? false;
       valueMap[habit.id] = dayLog?.value ?? 0;

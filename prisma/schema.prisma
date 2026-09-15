@@ -66,6 +66,15 @@ model Habit {
   isArchived   Boolean     @default(false)
   vacationMode Boolean     @default(false)
   vacationUntil DateTime?
+  // Task 60-c (audit 59-b2 HIGH): riwayat interval liburan — JSON array
+  // [{"s":"yyyy-MM-dd","u":"yyyy-MM-dd"|null}] (hingga 50). Sebelumnya hanya
+  // vacationMode/vacationUntil yang hidup SAAT mode aktif; setelah kadaluarsa
+  // hari libur menjadi miss → streak putus ke 0 (janji UI "streak menyala
+  // kembali" tidak ditepati). Kolom ini membuat hari libur NETRAL permanen
+  // di hitungan streak (frontend tracker, dashboard, ai-insights). Aditif &
+  // nullable — habit lama (null) tidak terpengaruh; di-produksi via DDL
+  // runtime ensureHabitGraduation() (pola Task 36/37/49).
+  vacationIntervals String?
   startDate    DateTime    @default(now())
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -128,6 +137,12 @@ model Transaction {
   notes          String?
   tags           String       @default("") // dipisah koma
   date           DateTime // 12:00Z dari hari Jakarta (TZ-safe)
+  // Task 60-f (audit 59-b3 MED): penanda kelompok hasil "Split" — badge
+  // "Split" di daftar transaksi dulunya dead-code (tidak pernah ada
+  // kolom/pengirimnya). Diiisi oleh POST /api/finance/transactions/split
+  // (satu id dibagi ke seluruh baris hasil pecahan). Nullable; transaksi
+  // biasa = null. Produksi via DDL runtime ensureTransactionGroupId().
+  groupId        String?
   transferPairId String?    @unique
   transferPair   Transaction? @relation("TransferPair", fields: [transferPairId], references: [id], onDelete: SetNull)
   transferPaired Transaction? @relation("TransferPair")

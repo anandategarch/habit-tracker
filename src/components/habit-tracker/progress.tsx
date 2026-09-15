@@ -26,7 +26,8 @@ import dynamic from 'next/dynamic';
 import { CountUpNumber } from '@/components/habit-tracker/count-up';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { toDashboardData } from '@/lib/dashboard/contract';
-import { jakartaDateString } from '@/lib/jakarta-date';
+// Task 60-e — "hari ini" ber-tick lintas tengah malam Jakarta.
+import { useJakartaToday } from './use-jakarta-today';
 import {
   Target,
   CheckCircle,
@@ -83,7 +84,9 @@ export default function ProgressTab() {
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
   const setSettingsSection = useAppStore((s) => s.setSettingsSection);
   const [retryCount, setRetryCount] = useState(0);
-  const todayStr = jakartaDateString();
+  // Task 60-e: "hari ini" ber-tick lintas tengah malam Jakarta (dulu basi
+  // pada tab PWA yang dibiarkan terbuka — guard tanggal future meleset).
+  const todayStr = useJakartaToday();
 
   // Query key IDENTIK dengan Beranda — cache terbagih antar tab.
   const { data: data, isFetching: fetching, isError: fetchError } = useQuery({

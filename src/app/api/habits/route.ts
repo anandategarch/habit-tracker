@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { handleApiError, readJsonBody } from '@/app/api/_lib/api-utils';
 import { parseHabitFields } from '@/app/api/_lib/habit-fields';
 import { ensureHabitGraduation, expireHabitVacations } from '@/app/api/_lib/habit-ensure';
+import { jakartaDateString } from '@/lib/timezone';
+import { serializeVacationIntervals } from '@/lib/habit-vacation';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +56,12 @@ export async function POST(req: Request) {
     await ensureHabitGraduation();
     const body = await readJsonBody(req);
     const { data } = await parseHabitFields(body, 'create');
+    // Task 60-c: habit baru dibuat langsung berlibur → interval dibuka hari
+    // ini (rare via form, tapi API memungkinkan) supaya streaknya netral.
+    if (data.vacationMode === true) {
+      const until = data.vacationUntil ? jakartaDateString(data.vacationUntil as Date) : null;
+      data.vacationIntervals = serializeVacationIntervals([{ start: jakartaDateString(), until }]);
+    }
     const habit = await db.habit.create({
       data: data as Parameters<typeof db.habit.create>[0]['data'],
     });

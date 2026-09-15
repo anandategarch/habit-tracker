@@ -37,7 +37,8 @@ import {
 // Task 37 — Jadwal Tampil: heatmap kalender hanya menghitung habit yang
 // jadwalnya hari itu.
 import { isScheduledOn, parseSchedule } from '@/lib/habit-schedule';
-import { jakartaYmdOf } from './daily-tracker-helpers';
+import { jakartaYmdOf, vacationIntervalsOf } from './daily-tracker-helpers';
+import { vacationDayPredicate } from '@/lib/habit-vacation';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -257,17 +258,31 @@ export default function CalendarView() {
   }, [dailyLogs]);
 
   // ── Lookup log habit per YMD ──────────────────────────────────────────
+  // Task 60-d (audit 59-b2 HIGH): kini PER-HABIT (bukan agregat jumlah) —
+  // habit 'avoid' bersemantik TERBALIK: log completed = KAMBUH (gagal),
+  // hari tanpa log = hari BERSIH (sukses). Dulu agregat counts membuat hari
+  // kambuh tampil hijau 100% dan hari bersih tampil "belum ada data"
+  // (kebalikan dari tracker/dashboard — Task 39 #4 tertinggal di kalender).
   const habitLogMap = useMemo(() => {
-    const map: Record<string, { completed: number; total: number }> = {};
+    const map: Record<string, Record<string, boolean>> = {};
     habitLogs.forEach((log) => {
       const key = log.date?.slice(0, 10);
-      if (!key) return;
-      if (!map[key]) map[key] = { completed: 0, total: 0 };
-      map[key].total++;
-      if (log.completed) map[key].completed++;
+      if (!key || !log.habitId) return;
+      (map[key] ||= {})[log.habitId] = !!log.completed;
     });
     return map;
   }, [habitLogs]);
+
+  // Task 60-c: predikat hari-libur per habit (interval permanen; tanpa cap
+  // openEnd — kalender menilai hari lampau, interval terbuka hanya relevan
+  // untuk hari berjalan yang juga di-guard vacationMode).
+  const vacPredByHabit = useMemo(() => {
+    const m = new Map<string, (ymd: string) => boolean>();
+    for (const h of habits) {
+      m.set(h.id, vacationDayPredicate(vacationIntervalsOf(h)));
+    }
+    return m;
+  }, [habits]);
 
   // ── Sel kalender ──────────────────────────────────────────────────────
   const calendarDays = useMemo<DayData[]>(() => {
@@ -282,7 +297,10 @@ export default function CalendarView() {
     // YMD string — TZ-safe, tanpa parse lokal).
     // Task 37: hanya habit yang JADWALNYA hari itu (habit mingguan tidak
     // dihitung "due" di hari kosongnya — heatmap % jadi jujur).
-    const activeHabitCountOnDay = (dayStr: string): number =>
+    // Task 60-c: habit yang sedang LIBUR pada hari itu juga tidak due —
+    // dulu hari-hari libur mengecat heatmap merah 0% padahal habitnya
+    // memang sedang diistirahatkan (interval permanen + mode aktif).
+    const dueHabitsOnDay = (dayStr: string): Habit[] =>
       habits.filter((h) => {
         if (h.isArchived) return false;
         // BUGHUNT-54 (3-b #1): habit dijeda tidak dihitung "due" di kalender
@@ -297,27 +315,38 @@ export default function CalendarView() {
         // adalah momen nyata; kejadian 00:00–06:59 Jakarta salah hari di UTC.
         const start = h.startDate ? jakartaYmdOf(h.startDate) : null;
         if (start && start > dayStr) return false;
+        if (h.vacationMode || vacPredByHabit.get(h.id)?.(dayStr)) return false;
         return isScheduledOn(parseSchedule(h.scheduleJson), dayStr);
-      }).length;
+      });
 
     return days.map((d) => {
       const dayStr = format(d, 'yyyy-MM-dd');
-      const hLogs = habitLogMap[dayStr];
+      const dayLogs = habitLogMap[dayStr];
       const dLog = dailyLogMap[dayStr];
       const inMonth = isSameMonth(d, monthDate);
       const isFuture = isBefore(today, startOfDay(d)) && !isToday(d);
 
-      const totalHabitsOnDay = inMonth && !isFuture ? activeHabitCountOnDay(dayStr) : 0;
+      // Task 60-d: sukses per-habit dengan semantik avoid INVERS — avoid
+      // sukses = TIDAK kambuh; normal/amount sukses = log completed. Konsisten
+      // dengan tracker (isSuccess), dashboard (activeToday), dan kalender dot.
+      const dueHabits = inMonth && !isFuture ? dueHabitsOnDay(dayStr) : [];
+      const totalHabitsOnDay = dueHabits.length;
+      const completedCount = dueHabits.filter((h) => {
+        const done = !!dayLogs?.[h.id];
+        return h.habitType === 'avoid' ? !done : done;
+      }).length;
 
       let completionRate: number | null = null;
       if (!inMonth || isFuture) {
         completionRate = null;
-      } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay > 0) {
+      } else if (totalHabitsOnDay > 0) {
         // Task 39 (#3 lanjutan): clamp 100 — log habit yang wisuda di hari
         // terakhirnya bisa membuat numerator > denominator (habit keluar
         // semesta due, lognya masih terhitung).
-        completionRate = Math.min(100, Math.round((hLogs.completed / totalHabitsOnDay) * 100));
-      } else if (hLogs && hLogs.total > 0 && totalHabitsOnDay === 0) {
+        completionRate = Math.min(100, Math.round((completedCount / totalHabitsOnDay) * 100));
+      } else if (dayLogs && Object.values(dayLogs).some(Boolean)) {
+        // Tidak ada habit due, tapi ada log completed (mis. habit yang lalu
+        // diwisuda/dijeda setelah mencatat hari itu) → hari tetap hijau penuh.
         completionRate = 100;
       } else {
         completionRate = null;
@@ -332,10 +361,10 @@ export default function CalendarView() {
         completionRate,
         mood: dLog?.mood ?? null,
         totalHabits: totalHabitsOnDay,
-        completedHabits: hLogs?.completed ?? 0,
+        completedHabits: completedCount,
       };
     });
-  }, [monthDate, habits, habitLogMap, dailyLogMap, weekStartsOn]);
+  }, [monthDate, habits, habitLogMap, dailyLogMap, weekStartsOn, vacPredByHabit]);
 
   // ── Ringkasan bulan ───────────────────────────────────────────────────
   const monthSummary = useMemo(() => {

@@ -2,6 +2,7 @@
 // Guard race (CAS): updateMany where lastRun = nilai yang terbaca; hanya 1
 // panggilan paralel yang berhasil melewati gerbang, lainnya 409.
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import {
   badRequest,
@@ -14,6 +15,7 @@ import {
 } from '@/app/api/_lib/api-utils';
 import { jakartaDateKey, jakartaDateString, jakartaNowParts } from '@/lib/timezone';
 import { shiftYmd } from '@/lib/dashboard-helpers';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +38,8 @@ function addIntervalYMD(ymd: string, frequency: string): string {
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const { id } = await ctx.params;
     const rt = await db.recurringTransaction.findUnique({ where: { id } });
     if (!rt) throw notFound('Transaksi berulang tidak ditemukan');
@@ -65,37 +69,48 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       );
     }
 
-    // ── CAS gate: hanya pemanggil yang lastRun masih sama yang lanjut ──
-    const claimed = await db.recurringTransaction.updateMany({
-      where: { id, lastRun: rt.lastRun },
-      data: { lastRun: now },
+    // ── CAS gate + instance: SATU transaction (Task 60-b / audit 59-b5) ──
+    // Dulunya CAS (update lastRun) dijalankan DI LUAR transaction sebelum
+    // create transaksi: bila create gagal setelah CAS sukses, instance
+    // "terbakar" (harus tunggu interval penuh, uang tak tercatat). Kini
+    // create + CAS komit bersama — kegagalan create me-roll-back lastRun.
+    // Interactive $transaction terbukti dipakai driver libsql adapter ini
+    // di route lain (transfer/split/bulk-delete/transactions[id]/import/
+    // reset-all/habit-options[id]/categories[id]); adapter memegang mutex
+    // koneksi dari BEGIN sampai COMMIT/ROLLBACK sehingga tidak berbalap
+    // dengan query lain pada proses yang sama.
+    // Instance: hari Jakarta berjalan + jam dinding Jakarta sekarang.
+    const todayYmd = jakartaDateString();
+    const { hour, minute } = jakartaNowParts();
+    const created = await db.$transaction(async (tx: Prisma.TransactionClient) => {
+      const claimed = await tx.recurringTransaction.updateMany({
+        where: { id, lastRun: rt.lastRun },
+        data: { lastRun: now },
+      });
+      if (claimed.count === 0) return null;
+      return tx.transaction.create({
+        data: {
+          type: rt.type,
+          amount: rt.amount,
+          category: rt.category,
+          sourceId: rt.sourceId,
+          description: rt.name,
+          notes: `Diproses otomatis dari transaksi berulang "${rt.name}"`,
+          tags: 'berulang',
+          date: transactionDate(todayYmd, `${pad2(hour)}:${pad2(minute)}`),
+        },
+      });
     });
-    if (claimed.count === 0) {
+    if (created === null) {
       return NextResponse.json(
         { error: 'Transaksi berulang baru saja diproses — coba lagi nanti' },
         { status: 409 },
       );
     }
 
-    // Instance: hari Jakarta berjalan + jam dinding Jakarta sekarang.
-    const todayYmd = jakartaDateString();
-    const { hour, minute } = jakartaNowParts();
-    const tx = await db.transaction.create({
-      data: {
-        type: rt.type,
-        amount: rt.amount,
-        category: rt.category,
-        sourceId: rt.sourceId,
-        description: rt.name,
-        notes: `Diproses otomatis dari transaksi berulang "${rt.name}"`,
-        tags: 'berulang',
-        date: transactionDate(todayYmd, `${pad2(hour)}:${pad2(minute)}`),
-      },
-    });
-
     const sources = await db.fundSource.findMany();
-    const meta = buildTransferMeta(tx.type === 'transfer' ? [tx] : []);
-    return NextResponse.json(serializeTransaction(tx, sourceInfoMap(sources), meta), { status: 201 });
+    const meta = buildTransferMeta(created.type === 'transfer' ? [created] : []);
+    return NextResponse.json(serializeTransaction(created, sourceInfoMap(sources), meta), { status: 201 });
   } catch (error) {
     return handleApiError(error, 'finance/recurring/[id]/process:POST');
   }

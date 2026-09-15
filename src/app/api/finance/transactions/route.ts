@@ -10,6 +10,7 @@ import {
   sourceInfoMap,
   transactionMonthRange,
 } from '@/app/api/_lib/api-utils';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 import { parseTransactionFields } from '@/app/api/_lib/finance-fields';
 import { isValidMonth, jakartaMonthString } from '@/lib/timezone';
 
@@ -19,6 +20,9 @@ const TYPE_FILTERS = new Set(['income', 'expense', 'transfer', 'all']);
 
 export async function GET(req: Request) {
   try {
+    // Task 60-f: findMany tanpa select membaca semua kolom (termasuk groupId
+    // baru) — pastikan kolomnya ada di DB produksi (DDL idempoten).
+    await ensureTransactionGroupId();
     const params = new URL(req.url).searchParams;
     const search = (params.get('search') ?? '').trim().toLowerCase();
 
@@ -67,10 +71,10 @@ export async function GET(req: Request) {
     // server hanya memeriksa description/notes/tags/category → hasil
     // server∩client membuang match-sumber-saja: baris "BCA/Kas" sempat
     // muncul saat mengetik lalu HILANG setelah refetch debounced.
-    const sourcesForSearch = await db.fundSource.findMany({
-      select: { id: true, name: true },
-    });
-    const sourceNameById = new Map(sourcesForSearch.map((s) => [s.id, s.name.toLowerCase()]));
+    // Task 60-f (audit 59-b3 LOW): SATU findMany FundSource (dulu dua kali
+    // per request — untuk pencarian nama & untuk info sumber serialization).
+    const sources = await db.fundSource.findMany();
+    const sourceNameById = new Map(sources.map((s) => [s.id, s.name.toLowerCase()]));
 
     let filtered = rows;
     if (search) {
@@ -85,7 +89,6 @@ export async function GET(req: Request) {
     const totalIncome = filtered.reduce((s, t) => s + (t.type === 'income' ? t.amount : 0), 0);
     const totalExpense = filtered.reduce((s, t) => s + (t.type === 'expense' ? t.amount : 0), 0);
 
-    const sources = await db.fundSource.findMany();
     const meta = buildTransferMeta(rows.filter((r) => r.type === 'transfer'));
     const sourceMap = sourceInfoMap(sources);
 
@@ -93,6 +96,10 @@ export async function GET(req: Request) {
       transactions: limited.map((t) => serializeTransaction(t, sourceMap, meta)),
       totalIncome: Math.round(totalIncome),
       totalExpense: Math.round(totalExpense),
+      // Task 60-f (audit 59-b3): kontrak jujur — totals dihitung dari SEMUA
+      // hasil filter, sedangkan `transactions` dipotong `limit` (default 500):
+      // truncated=true memberi tahu klien bahwa daftar tidak lengkap.
+      truncated: filtered.length > limited.length,
     });
   } catch (error) {
     return handleApiError(error, 'finance/transactions:GET');
@@ -101,6 +108,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    // Task 60-f: serialize membaca baris penuh (groupId) — DDL idempoten.
+    await ensureTransactionGroupId();
     const body = await readJsonBody(req);
     const data = await parseTransactionFields(body, 'create');
     const tx = await db.transaction.create({

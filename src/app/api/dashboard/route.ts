@@ -14,7 +14,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, pickDailyQuote, round1, xpForDifficulty, ymdOf } from '@/app/api/_lib/api-utils';
-import { calcLevel, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
+import { calcLevel, computeAvoidStreak, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import { ensureHabitGraduation, expireHabitVacations } from '@/app/api/_lib/habit-ensure';
 import {
@@ -22,6 +22,7 @@ import {
   parseSchedule,
   type HabitSchedule,
 } from '@/lib/habit-schedule';
+import { parseVacationIntervals, vacationDayPredicate } from '@/lib/habit-vacation';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
       }),
       db.habit.findMany({
         where: { isArchived: false },
-        select: { id: true, difficulty: true },
+        select: { id: true, difficulty: true, habitType: true },
       }),
       db.habitLog.findMany({
         where: { completed: true },
@@ -196,27 +197,70 @@ export async function GET(req: Request) {
     // pernah dicabut; level = kenangan kemenangan, bukan sewa bulanan.
     // BUGHUNT-54 (3-c #1a): iterasi `xpHabits` (non-arsip: aktif + dijesa) —
     // jeda = istirahat terencana, BUKAN penghapusan sejarah XP.
+    // Task 60-e (audit 59-b2): todayXp MENGECUALIKAN log kambuh habit 'avoid'
+    // — kartu habit & toast selalu menjanjikan "avoid tidak berhak XP";
+    // totalXp ALL-TIME tetap menghitung semua log (level tidak boleh turun
+    // karena keputusan tampilan hari ini).
     let totalXp = 0;
     let todayXp = 0;
     for (const h of xpHabits) {
       const logs = logsByHabit.get(h.id) ?? [];
       const weight = xpForDifficulty(h.difficulty);
       totalXp += logs.length * weight;
-      if (todayCompleted.has(h.id)) todayXp += weight;
+      if (todayCompleted.has(h.id) && h.habitType !== 'avoid') todayXp += weight;
     }
     const currentLevel = calcLevel(totalXp);
 
     // ── Streak GLOBAL (M-1) ──
     // currentStreak: hari berturut dengan ≥1 habit selesai hingga hari ini
     // (hari ini belum selesai tidak memutus — konvensi computeStreakFromSet).
-    const currentStreak = computeStreakFromSet(globalDoneDays, todayYmd);
+    // Task 60-c (audit 59-b2 MED): sadar-liburan — hari ketika SEMUA habit yang
+    // jatuh tempo sedang libur = NETRAL (tidak putus, tanpa hari aman), jadi
+    // hero "Streak Aktif" tidak lagi jatuh 0/2 saat user meliburkan SEMUA
+    // habitnya padahal kartu tracker membekukan angka lama. Konsumen:
+    // Progres (Streak Aktif/Rekor) & sinyal pohon.
+    const vacPredByHabit = new Map<string, (ymd: string) => boolean>();
+    for (const h of tracking) {
+      vacPredByHabit.set(
+        h.id,
+        vacationDayPredicate(parseVacationIntervals(h.vacationIntervals), todayYmd),
+      );
+    }
+    // Hari kandidat = union hari dalam interval liburan mana pun (≤ hari ini).
+    const candidateVacDays = new Set<string>();
+    for (const h of tracking) {
+      for (const v of parseVacationIntervals(h.vacationIntervals)) {
+        for (let c = v.start; c <= todayYmd; c = shiftYmd(c, 1)) {
+          if (v.until !== null && c > v.until) break;
+          candidateVacDays.add(c);
+        }
+      }
+    }
+    const allVacationDays = new Set<string>();
+    for (const day of candidateVacDays) {
+      // Habit yang jatuh tempo hari itu (abaikan liburan) → semua libur?
+      const due = tracking.filter(
+        (h) =>
+          jakartaDateString(h.startDate as Date) <= day &&
+          isScheduledOn(schedByHabit.get(h.id) ?? { kind: 'daily' }, day),
+      );
+      if (due.length > 0 && due.every((h) => vacPredByHabit.get(h.id)?.(day) === true)) {
+        allVacationDays.add(day);
+      }
+    }
+    const globalVacationDay = (ymd: string) => allVacationDays.has(ymd);
+    const currentStreak = computeStreakFromSet(globalDoneDays, todayYmd, undefined, {
+      vacationDay: globalVacationDay,
+    });
     // bestStreak: run terpanjang all-time — computeStreakFromSet(set, D) =
     // panjang run yang BERAKHIR di D; cukup menguji ujung run (hari
     // sesudahnya tidak selesai) → O(hari selesai), bukan O(n²).
     let bestStreak = 0;
     for (const day of globalDoneDays) {
       if (globalDoneDays.has(shiftYmd(day, 1))) continue;
-      const streak = computeStreakFromSet(globalDoneDays, day);
+      const streak = computeStreakFromSet(globalDoneDays, day, undefined, {
+        vacationDay: globalVacationDay,
+      });
       if (streak > bestStreak) bestStreak = streak;
     }
 
@@ -378,32 +422,25 @@ export async function GET(req: Request) {
       const lastDate = logs.length ? logs.map((l) => l.ymd).sort().at(-1) ?? null : null;
       // Task 37: streak per-habit sadar jadwal (hari di luar jadwal tidak putus).
       // Task 39 (#4c): habit avoid — streak = hari BERSIH berturut sejak
-      // kambuh terakhir (invers), konsisten dengan kartu tracker. Dulu:
-      // kambuh 5 hari berturut tampil "streak 5" di dashboard.
+      // kambuh terakhir (invers), konsisten dengan kartu tracker.
+      // Task 60-c: streak per-habit kini juga (a) sadar-liburan — interval
+      // permanen = hari netral, mode aktif legacy = beku (dulu hero streak
+      // 0/2 saat semua habit libur padahal kartu tracker membekukan 10);
+      // (b) dibatasi lantai startDate (dulu habit baru bisa "streak lintas
+      // masa" bila ada log pra-mulai); (c) avoid memakai computeAvoidStreak
+      // bersama yang menghitung hari bersih HARI INI (audit 59-b2 off-by-one).
       const sched = schedByHabit.get(h.id);
       const logSet = new Set(logs.map((l) => l.ymd));
-      let streak: number;
-      if (h.habitType === 'avoid') {
-        if (logSet.has(todayYmd)) {
-          streak = 0; // kambuh hari ini
-        } else {
-          const floor = jakartaDateString(h.startDate as Date);
-          let cursor = shiftYmd(todayYmd, -1);
-          let s = 0;
-          let guard = 0;
-          while (!logSet.has(cursor) && guard < 4_000) {
-            if (cursor < floor) break; // sebelum habit ada
-            if (!sched || sched.kind === 'daily' || isScheduledOn(sched, cursor)) {
-              s += 1; // hari tak terjadwal tidak dihitung (pola tracker)
-            }
-            cursor = shiftYmd(cursor, -1);
-            guard += 1;
-          }
-          streak = s;
-        }
-      } else {
-        streak = computeStreakFromSet(logSet, todayYmd, sched);
-      }
+      const vacPred = vacPredByHabit.get(h.id);
+      const walkOpts = {
+        startDate: jakartaDateString(h.startDate as Date),
+        onVacation: !!h.vacationMode,
+        vacationDay: vacPred,
+      };
+      const streak =
+        h.habitType === 'avoid'
+          ? computeAvoidStreak(logSet, todayYmd, sched, walkOpts)
+          : computeStreakFromSet(logSet, todayYmd, sched, walkOpts);
       return { id: h.id, name: h.name, emoji: h.emoji, lastDate, streak };
     });
 

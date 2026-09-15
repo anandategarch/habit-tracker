@@ -20,6 +20,7 @@ import { createClient, type Client } from '@libsql/client';
 import { workLibsqlConfig } from '@/app/api/_lib/work-ensure';
 import { db } from '@/lib/db';
 import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
+import { serializeVacationIntervals } from '@/lib/habit-vacation';
 
 const NEW_COLUMNS: { name: string; ddl: string }[] = [
   {
@@ -38,6 +39,13 @@ const NEW_COLUMNS: { name: string; ddl: string }[] = [
     // CONNECTED-APP (Task 49): Habit.goalId — link habit → tujuan (nullable).
     name: 'goalId',
     ddl: `ALTER TABLE "Habit" ADD COLUMN "goalId" TEXT`,
+  },
+  {
+    // Task 60-c (audit 59-b2 HIGH): Habit.vacationIntervals — riwayat interval
+    // liburan JSON supaya hari libur NETRAL permanen di hitungan streak
+    // ("streak menyala kembali" setelah libur, bukan putus ke 0).
+    name: 'vacationIntervals',
+    ddl: `ALTER TABLE "Habit" ADD COLUMN "vacationIntervals" TEXT`,
   },
 ];
 
@@ -81,9 +89,42 @@ export function ensureHabitGraduation(): Promise<void> {
  *  sampai dimatikan manual. Dipanggil dari route baca habit utama
  *  (GET /api/habits + GET /api/dashboard) — idempoten & murah: updateMany
  *  hanya menyentuh baris libur yang benar-benar kedaluwarsa.
- *  Logika bisnis streak/XP TIDAK diubah — ini penegakan janji UI yang ada. */
+ *
+ * Task 60-c (audit 59-b2 HIGH): sebelum mematikan mode, liburan yang sedang
+ *  berjalan DIBUKUKAN sebagai interval permanen (Habit.vacationIntervals) —
+ *  tanpa ini hari-hari libur berubah jadi miss begitu mode mati dan streak
+ *  jatuh ke 0 (janji "streak menyala kembali" tidak pernah ditepati).
+ *  Start interval disintesis dari LOG SELESAI TERAKHIR + 1 (persis perilaku
+ *  beku yang selama ini dipakai tracker saat mode aktif); habit tanpa log →
+ *  start = hari ini (interval kosong — streak memang 0). Hanya menyentuh
+ *  baris mode-on TANPA interval tercatat (habit pra-Task 60) — idempoten. */
 export async function expireHabitVacations(): Promise<void> {
   const todayStart = dateFromYMD(jakartaDateString());
+  const todayYmd = jakartaDateString();
+
+  // Task 60-c: bukukan dulu liburan legacy yang masih berjalan (SEBELUM mode
+  // dimatikan) supaya intervalnya permanen saat kadaluarsa.
+  const legacy = await db.habit.findMany({
+    where: { vacationMode: true, vacationIntervals: null },
+    select: { id: true, vacationUntil: true },
+  });
+  for (const h of legacy) {
+    // Start = log completed terakhir + 1 hari (ekor beku tracker), fallback
+    // hari ini. Until = tanggal akhir tersimpan (null = terbuka).
+    const lastLog = await db.habitLog.findFirst({
+      where: { habitId: h.id, completed: true },
+      orderBy: { date: 'desc' },
+      select: { date: true },
+    });
+    const lastYmd = lastLog ? jakartaDateString(lastLog.date as Date) : null;
+    const start = lastYmd ? jakartaDateString(new Date(dateFromYMD(lastYmd).getTime() + 86_400_000)) : todayYmd;
+    const until = h.vacationUntil ? jakartaDateString(h.vacationUntil as Date) : null;
+    await db.habit.update({
+      where: { id: h.id },
+      data: { vacationIntervals: serializeVacationIntervals([{ start, until }]) },
+    });
+  }
+
   await db.habit.updateMany({
     where: {
       vacationMode: true,

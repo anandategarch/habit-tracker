@@ -203,6 +203,16 @@ function applyUrlToStore() {
     s.setSelectedDate(today);
     if (today.slice(0, 7) !== s.trackerMonth) s.setTrackerMonth(today.slice(0, 7));
    }
+   // TASK 60-a #4b (temuan 59-b1 — paritas VERIFY-48): entry TANPA ?date juga
+   // menjanjikan TAMPILAN DEFAULT (hari ini), bukan view-mode basi. Semantik
+   // cabang ber-date (VERIFY-48 48-b): "entry ?date=X menjanjikan TAMPILAN
+   // HARI itu — reset viewMode ke setiap popstate/mount bertanggal"; dulu
+   // hanya cabang itu yang me-reset — Back dari tab lain ke entry tracker
+   // TANPA ?date (tanggal = hari ini) masih bisa mendarat di kalender
+   // Riwayat yang basi. Kedua cabang kini konsisten: URL = sumber kebenaran
+   // saat Back/deep-link; view-mode hanya "survive pergantian tab" lewat
+   // klik nav (jalur pushState tidak memanggil fungsi ini).
+   if (s.trackerViewMode !== 'today') s.setTrackerViewMode('today');
   }
  }
  const sub = params.get('sub');
@@ -432,20 +442,85 @@ const [showSplash, setShowSplash] = useState(true);
  }, [setSidebarOpen]);
 
  // BUGHUNT-54 (3-d #3): deteksi mobile via matchMedia dulu dipakai kondisi
- // `inert` sidebar. TASK 59-b1 #2: kondisi disederhanakan — inert kini
- // berlaku setiap kali drawer tertutup (mobile & desktop) — state +
- // listener matchMedia ini tidak lagi diperlukan dan dihapus.
+ // `inert` sidebar. TASK 59-b1 #2: state itu dihapus saat kondisi inert
+ // disederhanakan. TASK 60-a #4a (temuan 59-b1): matchMedia DIBUAT KEMBALI
+ // — kini untuk semantik MODAL drawer mobile: focus trap + inert konten di
+ // belakang overlay hanya berlaku saat drawer terbuka di viewport mobile
+ // (<768px — overlay dim terlihat). Di desktop sidebar adalah panel docked
+ // (bukan modal): Tab harus tetap mengalir normal antara sidebar & konten.
+ // Listener matchMedia independen — tidak menyentuh listener resize
+ // breakpoint-crossing di atas.
+ const [isMobileViewport, setIsMobileViewport] = useState(false);
+ useEffect(() => {
+   const mq = window.matchMedia('(min-width: 768px)');
+   const update = () => setIsMobileViewport(!mq.matches);
+   update();
+   mq.addEventListener('change', update);
+   return () => mq.removeEventListener('change', update);
+ }, []);
 
  // BUGHUNT-54 (3-d #3b): Escape menutup drawer saat terbuka — paritas a11y
  // dengan pola Escape menu FAB (PremiumBottomNav) yang sudah ada.
+ // TASK 60-a #4a (temuan 59-b1): drawer mobile kini MODAL penuh (pola
+ // WAI-ARIA dialog): saat terbuka di viewport mobile — simpan
+ // document.activeElement, pindahkan fokus ke elemen focusable pertama di
+ // drawer, Tab/Shift+Tab berputar DI DALAM drawer (focus trap), Escape
+ // menutup, dan fokus dikembalikan ke elemen tersimpan saat tertutup
+ // (fallback: tombol toggle header — saat drawer dibuka via klik,
+ // browser Safari tidak memfokuskan tombol; dan saat inert main aktif,
+ // browser mem-blur tombol). SATU handler terpadu menggantikan listener
+ // Escape lama — tidak ada handler dobel/close ganda. Di desktop hanya
+ // perilaku Escape lama yang berlaku (panel docked, bukan modal).
+ const drawerRef = useRef<HTMLElement>(null);
+ const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+ const drawerReturnFocusRef = useRef<HTMLElement | null>(null);
  useEffect(() => {
    if (!sidebarOpen) return;
+   const drawer = drawerRef.current;
+   if (!drawer) return;
+   const focusables = () =>
+     Array.from(
+       drawer.querySelectorAll<HTMLElement>(
+         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+       ),
+     );
+   const isModalDrawer = isMobileViewport;
+   if (isModalDrawer) {
+     const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+     drawerReturnFocusRef.current =
+       active && active !== document.body ? active : sidebarToggleRef.current;
+     focusables()[0]?.focus();
+   }
    const onKey = (e: KeyboardEvent) => {
-     if (e.key === 'Escape') setSidebarOpen(false);
+     if (e.key === 'Escape') {
+       setSidebarOpen(false);
+       return;
+     }
+     if (!isModalDrawer || e.key !== 'Tab') return;
+     const list = focusables();
+     if (list.length === 0) return;
+     const first = list[0];
+     const last = list[list.length - 1];
+     const activeEl = document.activeElement;
+     if (e.shiftKey) {
+       if (activeEl === first || !drawer.contains(activeEl)) {
+         e.preventDefault();
+         last.focus();
+       }
+     } else if (activeEl === last || !drawer.contains(activeEl)) {
+       e.preventDefault();
+       first.focus();
+     }
    };
    window.addEventListener('keydown', onKey);
-   return () => window.removeEventListener('keydown', onKey);
- }, [sidebarOpen, setSidebarOpen]);
+   return () => {
+     window.removeEventListener('keydown', onKey);
+     if (isModalDrawer) {
+       drawerReturnFocusRef.current?.focus?.();
+       drawerReturnFocusRef.current = null;
+     }
+   };
+ }, [sidebarOpen, isMobileViewport, setSidebarOpen]);
 
  const handleNavClick = useCallback((id: TabId) => {
    setActiveTab(id);
@@ -522,6 +597,7 @@ const [showSplash, setShowSplash] = useState(true);
            WCAG 2.4.3/2.4.7). Tombol toggle di header tetap aktif untuk
            membuka kembali. */}
        <aside
+         ref={drawerRef}
          {...(!sidebarOpen ? { inert: true } : {})}
          className={cn(
            'fixed top-0 left-0 z-50 h-dvh w-64 flex flex-col',
@@ -592,6 +668,7 @@ const [showSplash, setShowSplash] = useState(true);
            height so a future bounded-height layout produces a real scroll
            container instead of growing to fit content. */}
        <main
+         {...(sidebarOpen && isMobileViewport ? { inert: true } : {})}
          className={cn(
            'flex-1 min-w-0 min-h-0 flex flex-col transition-[margin] duration-300 ease-in-out',
            sidebarOpen ? 'md:ml-64' : 'md:ml-0'
@@ -602,6 +679,7 @@ const [showSplash, setShowSplash] = useState(true);
            <Tooltip>
              <TooltipTrigger asChild>
                <Button
+                 ref={sidebarToggleRef}
                  variant="ghost"
                  size="icon"
                  onClick={toggleSidebar}
@@ -669,6 +747,7 @@ const [showSplash, setShowSplash] = useState(true);
        <PremiumBottomNav
          activeTab={activeTab}
          onNavClick={handleNavClick}
+         inertBehindDrawer={sidebarOpen && isMobileViewport}
        />
      </div>
      </AppLockGate>
@@ -737,9 +816,15 @@ function dockTabMetrics(id: TabId): { left: number; width: number } | undefined 
 function PremiumBottomNav({
  activeTab,
  onNavClick,
+ inertBehindDrawer,
 }: {
  activeTab: TabId;
  onNavClick: (id: TabId) => void;
+ /** TASK 60-a #4a: dock ikut non-interactive saat drawer mobile terbuka
+     (modal penuh — konten di belakang overlay tidak boleh tersentuh
+     pointer/keyboard; fokus dikembalikan trap drawer). Desktop tidak
+     terpengaruh (prop hanya true saat viewport <768px). */
+ inertBehindDrawer?: boolean;
 }) {
  const dockRef = useRef<HTMLDivElement>(null);
  const [dockW, setDockW] = useState(0);
@@ -759,31 +844,65 @@ function PremiumBottomNav({
    return () => observer.disconnect();
  }, []);
 
- // Close popup on Escape (a11y parity with the tap-to-close backdrop).
- useEffect(() => {
-   if (!fabOpen) return;
-   const onKey = (e: KeyboardEvent) => {
-     if (e.key === 'Escape') setFabOpen(false);
-   };
-   window.addEventListener('keydown', onKey);
-   return () => window.removeEventListener('keydown', onKey);
- }, [fabOpen]);
-
  // FIX FAB-FOCUS: menu role=menu kini menerima fokus keyboard — item
  // pertama difokuskan saat buka, fokus kembali ke FAB saat tutup
  // (guard wasOpenRef supaya tidak mencuri fokus saat mount awal).
+ // TASK 60-a #4a (temuan 59-b1): menu kini patuh pola WAI-ARIA Menu penuh
+ // — SATU handler terpadu (menggabungkan listener Escape lama + efek
+ // FIX FAB-FOCUS, tanpa handler dobel): Escape menutup; Tab/Shift+Tab
+ // BERPUTAR di antara item menu (focus trap — konten di belakang
+ // backdrop tidak menerima fokus keyboard); ArrowDown/ArrowUp/Home/End
+ // memindahkan fokus antar role="menuitem" (roving focus pola APG).
  const menuRef = useRef<HTMLDivElement | null>(null);
  const fabBtnRef = useRef<HTMLButtonElement | null>(null);
  const wasOpenRef = useRef(false);
  useEffect(() => {
-   if (fabOpen) {
-     wasOpenRef.current = true;
-     const first = menuRef.current?.querySelector<HTMLButtonElement>('button[role="menuitem"]');
-     first?.focus();
-   } else if (wasOpenRef.current) {
-     wasOpenRef.current = false;
-     fabBtnRef.current?.focus();
+   if (!fabOpen) {
+     if (wasOpenRef.current) {
+       wasOpenRef.current = false;
+       fabBtnRef.current?.focus();
+     }
+     return;
    }
+   wasOpenRef.current = true;
+   const items = () =>
+     Array.from(
+       menuRef.current?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]') ?? [],
+     );
+   items()[0]?.focus();
+   const onKey = (e: KeyboardEvent) => {
+     if (e.key === 'Escape') {
+       setFabOpen(false);
+       return;
+     }
+     const list = items();
+     if (list.length === 0) return;
+     const idx = list.findIndex((el) => el === document.activeElement);
+     if (e.key === 'Tab') {
+       // Trap: berputar di antara item menu saja (preventDefault — tanpa
+       // ini Tab melompat ke tombol dock di belakang backdrop dim).
+       e.preventDefault();
+       const nextIdx = e.shiftKey
+         ? idx <= 0
+           ? list.length - 1
+           : idx - 1
+         : idx < 0 || idx >= list.length - 1
+           ? 0
+           : idx + 1;
+       list[nextIdx]?.focus();
+       return;
+     }
+     let next = -1;
+     if (e.key === 'ArrowDown') next = idx < 0 ? 0 : (idx + 1) % list.length;
+     else if (e.key === 'ArrowUp') next = idx < 0 ? list.length - 1 : (idx - 1 + list.length) % list.length;
+     else if (e.key === 'Home') next = 0;
+     else if (e.key === 'End') next = list.length - 1;
+     else return;
+     e.preventDefault();
+     list[next]?.focus();
+   };
+   window.addEventListener('keydown', onKey);
+   return () => window.removeEventListener('keydown', onKey);
  }, [fabOpen]);
 
  // Liquid indicator geometry. GPU-friendly: fixed width per tab +
@@ -839,7 +958,10 @@ function PremiumBottomNav({
  };
 
  return (
-   <div className="fixed bottom-0 inset-x-0 z-40 md:hidden">
+   <div
+     {...(inertBehindDrawer ? { inert: true } : {})}
+     className="fixed bottom-0 inset-x-0 z-40 md:hidden"
+   >
      {/* Dimmed backdrop while the quick-add popup is open — tap to close.
          Rendered OUTSIDE the animated nav element (no transformed
          ancestor) so position:fixed is always viewport-correct. */}

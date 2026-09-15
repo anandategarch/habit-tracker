@@ -13,6 +13,8 @@ import {
   sanitizeRow,
 } from '@/app/api/_lib/import-utils';
 import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
+import { ensureWorkTables } from '@/app/api/_lib/work-ensure';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +23,12 @@ export async function POST(req: Request) {
     // Task 36: INSERT habit bisa memuat kolom targetDays/graduatedAt dari
     // backup baru — pastikan kolom ada sebelum transaksi.
     await ensureHabitGraduation();
+    // Task 60-b (audit 59-b5): backup baru memuat 5 tabel Meja Kerja —
+    // pastikan tabelnya ada dulu (ensure-DDL runtime, no-op lokal) supaya
+    // deleteMany/create di transaksi bawah tidak 500 di DB produksi segar.
+    await ensureWorkTables();
+    // Task 60-f: INSERT Transaction bisa memuat groupId dari backup baru.
+    await ensureTransactionGroupId();
     const body = await readJsonBody(req);
     const data = body.data;
     if (data === null || typeof data !== 'object' || Array.isArray(data)) {
@@ -80,6 +88,14 @@ export async function POST(req: Request) {
         await tx.recurringTransaction.deleteMany();
         await tx.transactionRule.deleteMany();
         await tx.goal.deleteMany();
+        // Meja Kerja (Task 60-b): log dulu baru rutinitas (FK routineId).
+        // Backup LAMA tanpa kunci work* tetap bisa diimpor — deleteMany di
+        // tabel kosong = no-op (skip senyap, backward-compatible).
+        await tx.workRoutineLog.deleteMany();
+        await tx.workRoutine.deleteMany();
+        await tx.workTask.deleteMany();
+        await tx.workNote.deleteMany();
+        await tx.workDayFlag.deleteMany();
         await tx.appSettings.deleteMany();
 
         // Insert urut dependensi.
@@ -107,6 +123,18 @@ export async function POST(req: Request) {
           await tx.transactionRule.create({ data: rule as Parameters<typeof tx.transactionRule.create>[0]['data'] });
         for (const goal of tables.get('goals') ?? [])
           await tx.goal.create({ data: goal as Parameters<typeof tx.goal.create>[0]['data'] });
+        // Meja Kerja (Task 60-b): urut dependensi — rutinitas dulu baru log-nya
+        // (FK routineId); tugas/catatan/penanda hari bebas urutan.
+        for (const routine of tables.get('workRoutines') ?? [])
+          await tx.workRoutine.create({ data: routine as Parameters<typeof tx.workRoutine.create>[0]['data'] });
+        for (const log of tables.get('workRoutineLogs') ?? [])
+          await tx.workRoutineLog.create({ data: log as Parameters<typeof tx.workRoutineLog.create>[0]['data'] });
+        for (const task of tables.get('workTasks') ?? [])
+          await tx.workTask.create({ data: task as Parameters<typeof tx.workTask.create>[0]['data'] });
+        for (const note of tables.get('workNotes') ?? [])
+          await tx.workNote.create({ data: note as Parameters<typeof tx.workNote.create>[0]['data'] });
+        for (const flag of tables.get('workDayFlags') ?? [])
+          await tx.workDayFlag.create({ data: flag as Parameters<typeof tx.workDayFlag.create>[0]['data'] });
         for (const habit of tables.get('habits') ?? [])
           await tx.habit.create({ data: habit as Parameters<typeof tx.habit.create>[0]['data'] });
         for (const log of tables.get('dailyLogs') ?? [])

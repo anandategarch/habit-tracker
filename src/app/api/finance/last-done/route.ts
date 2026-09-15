@@ -3,11 +3,14 @@
 // LastDoneItem (field longgar — lihat finance-types.ts).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const rows = await db.transaction.findMany({
       // BUGHUNT-54 (3-a #1): bentuk objek 2-kunci DITOLAK Prisma 7
       // (PrismaClientValidationError) — pakai bentuk array.

@@ -3,11 +3,14 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { badRequest, handleApiError } from '@/app/api/_lib/api-utils';
 import { seedDemoData } from '@/app/api/_lib/seed-data';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
   try {
+    // Task 60-f: query baris Transaction penuh (kolom groupId via DDL runtime).
+    await ensureTransactionGroupId();
     const [
       habits,
       habitLogs,

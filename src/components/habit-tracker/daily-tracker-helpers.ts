@@ -9,9 +9,16 @@
 import type { HabitLog } from './daily-tracker-types';
 // Aritmetika YMD string UTC-safe + kuota hari aman dari lib (implementasi
 // bersama — dipakai juga oleh /api/dashboard & lencana milestone).
-import { shiftYmd, SHIELDS_PER_MONTH } from '@/lib/dashboard-helpers';
-import { isScheduledOn, type HabitSchedule } from '@/lib/habit-schedule';
+import {
+  computeAvoidStreak,
+  computeStreakWithShields,
+  shiftYmd,
+  SHIELDS_PER_MONTH,
+  type StreakWalkOpts,
+} from '@/lib/dashboard-helpers';
+import { type HabitSchedule } from '@/lib/habit-schedule';
 import { jakartaDateString } from '@/lib/timezone';
+import { parseVacationIntervals, vacationDayPredicate, type VacationInterval } from '@/lib/habit-vacation';
 
 /** Kunci YMD 'yyyy-MM-dd' dari tanggal log (ISO string UTC-midnight atau Date). */
 export function toDateString(date: string | Date): string {
@@ -91,9 +98,14 @@ export function formatJakartaTime(iso: string): string {
 // Opsi:
 //  - invert   : habit 'avoid' → streak = hari berturut-turut TANPA kambuh
 //               (log completed = kambuh), dibatasi startDate habit.
+//               Task 60-d: hari bersih HARI INI ikut dihitung (sinkron KPI
+//               isSuccess — dulu mulai endYmd-1 → off-by-one).
 //  - startDate: YMD/ISO mulai habit — batas bawah hitungan.
-//  - onVacation: habit sedang libur → ekor hari tanpa log TIDAK memutus
-//               streak (jalan mundur sampai log selesai terakhir).
+//  - onVacation: LEGACY — habit sedang libur TANPA interval tercatat → ekor
+//               hari tanpa log TIDAK memutus streak (beku).
+//  - vacation : Task 60-c — interval liburan tercatat (Habit.vacationIntervals):
+//               hari dalam [start..until] NETRAL permanen (tidak putus, tanpa
+//               hari aman) — "streak menyala kembali" setelah libur berakhir.
 //  - schedule (Task 37): jadwal tampil habit — hari TIDAK terjadwal dilewati
 //               (tidak putus, tidak konsumsi hari aman, tidak dihitung).
 // Hari ini belum selesai tidak memutus streak (konvensi lama).
@@ -104,16 +116,20 @@ export function formatJakartaTime(iso: string): string {
 // hitungan streak. Hari sebelum startDate tidak dihitung miss → tidak
 // mengonsumsi kuota. Habit 'avoid' tidak memakai hari aman (hari tanpa log
 // = hari bersih, bukan bolong).
+//
+// Task 60-c: walk kini didelegasikan ke lib/dashboard-helpers (satu sumber
+// kebenaran bersama server — dulu dua implementasi kembar harus disinkron
+// manual lewat komentar Task 39 #1).
 // ---------------------------------------------------------------------------
 export interface ComputeStreakOptions {
   invert?: boolean;
   startDate?: string | null;
   onVacation?: boolean;
+  /** Task 60-c — interval liburan (parse dari habit.vacationIntervals). */
+  vacation?: VacationInterval[];
   /** Task 37 — Jadwal Tampil: hari tidak terjadwal dilewati dalam walk. */
   schedule?: HabitSchedule;
 }
-
-const STREAK_HARD_CAP = 4_000; // pengaman loop (± 11 tahun)
 
 /** Hasil detail streak + info hari aman (dipakai kartu habit). */
 export interface StreakDetail {
@@ -134,86 +150,38 @@ export function computeStreakDetail(
     if (log?.completed) marks.add(toDateString(log.date));
   }
   const floor = opts.startDate ? jakartaYmdOf(opts.startDate) : null;
-  // Task 37: hari di luar jadwal → bukan bolong (dilewati, tanpa kuota).
   const sched = opts.schedule;
-  const notScheduled = (ymd: string): boolean =>
-    !!sched && sched.kind !== 'daily' && !isScheduledOn(sched, ymd);
 
-  // Habit 'avoid': hari tanpa kambuh dihitung berturut sejak habit mulai.
+  // Opsi walk bersama (lib/dashboard-helpers — Task 60-c).
+  const walkOpts: StreakWalkOpts = {
+    startDate: floor,
+    onVacation: opts.onVacation,
+    vacationDay: opts.vacation?.length
+      ? vacationDayPredicate(opts.vacation, endYmd)
+      : undefined,
+  };
+
+  // Habit 'avoid': hari tanpa kambuh dihitung berturut sejak habit mulai
+  // (Termasuk HARI INI bila bersih — Task 60-d, sinkron isSuccess/KPI).
   if (opts.invert) {
-    if (marks.has(endYmd)) return { streak: 0, shieldedDays: [], shieldsLeftThisMonth: SHIELDS_PER_MONTH };
-    let cursor = shiftYmd(endYmd, -1);
-    let streak = 0;
-    let guard = 0;
-    while (!marks.has(cursor) && guard < STREAK_HARD_CAP) {
-      if (floor && cursor < floor) break; // sebelum habit ada
-      if (!notScheduled(cursor)) streak += 1; // hari tak terjadwal tidak dihitung
-      cursor = shiftYmd(cursor, -1);
-      guard += 1;
-    }
+    const streak = computeAvoidStreak(marks, endYmd, sched, walkOpts);
     return { streak, shieldedDays: [], shieldsLeftThisMonth: SHIELDS_PER_MONTH };
   }
 
-  // Habit normal/amount: hari selesai berturut-turut + hari aman.
-  const usedByMonth = new Map<string, number>();
-  const shieldedDays: string[] = [];
-  const endMonth = endYmd.slice(0, 7);
-
-  let cursor = endYmd;
-  if (!marks.has(cursor)) {
-    if (opts.onVacation) {
-      // Mode libur: lompati ekor hari kosong sampai log selesai terakhir.
-      let guard = 0;
-      while (!marks.has(cursor) && guard < STREAK_HARD_CAP) {
-        if (floor && cursor < floor) return { streak: 0, shieldedDays: [], shieldsLeftThisMonth: SHIELDS_PER_MONTH - (usedByMonth.get(endMonth) ?? 0) };
-        cursor = shiftYmd(cursor, -1);
-        guard += 1;
-      }
-    } else {
-      // Hari ini belum selesai → mulai dari kemarin (belum putus).
-      cursor = shiftYmd(cursor, -1);
-    }
-  }
-
-  let streak = 0;
-  let consecutiveMissed = 0;
-  let guard = 0;
-  while (guard < STREAK_HARD_CAP) {
-    // Task 37: hari tidak terjadwal → lewati total (habit mingguan tidak
-    // putus oleh hari-hari kosong di luar jadwalnya).
-    if (notScheduled(cursor)) {
-      cursor = shiftYmd(cursor, -1);
-      guard += 1;
-      continue;
-    }
-    if (marks.has(cursor)) {
-      streak += 1;
-      consecutiveMissed = 0;
-      cursor = shiftYmd(cursor, -1);
-    } else {
-      // Batas bawah: hari sebelum habit ada bukan "bolong" — jangan pakai
-      // hari aman untuk hari sebelum mulai.
-      if (floor && cursor < floor) break;
-      const month = cursor.slice(0, 7);
-      const used = usedByMonth.get(month) ?? 0;
-      if (used >= SHIELDS_PER_MONTH) break; // kuota bulan habis → putus
-      // Task 39 (#1): sama seperti lib/dashboard-helpers — kuota kalender
-      // tak pernah habis utk habit jarang terjadwal (bulanan 1-2 tgl/bulan)
-      // → streak tak pernah putus. Batasi bolong terjadwal BERTURUT-TURUT
-      // maksimal SHIELDS_PER_MONTH; miss ke-3 berturut memutus.
-      if (consecutiveMissed >= SHIELDS_PER_MONTH) break;
-      consecutiveMissed += 1;
-      usedByMonth.set(month, used + 1);
-      shieldedDays.push(cursor);
-      cursor = shiftYmd(cursor, -1);
-    }
-    guard += 1;
-  }
+  // Habit normal/amount: hari selesai berturut-turut + hari aman (lib).
+  const info = computeStreakWithShields(marks, endYmd, SHIELDS_PER_MONTH, sched, walkOpts);
   return {
-    streak,
-    shieldedDays,
-    shieldsLeftThisMonth: SHIELDS_PER_MONTH - (usedByMonth.get(endMonth) ?? 0),
+    streak: info.streak,
+    shieldedDays: info.shieldedDays,
+    shieldsLeftThisMonth: SHIELDS_PER_MONTH - info.usedThisMonth,
   };
+}
+
+/** Interval liburan habit dari bentukan serialisasi API (toleran null). */
+export function vacationIntervalsOf(habit: {
+  vacationIntervals?: string | null;
+}): VacationInterval[] {
+  return parseVacationIntervals(habit.vacationIntervals);
 }
 
 export function computeStreak(

@@ -28,7 +28,7 @@ import {
   Target,
 } from 'lucide-react';
 import type { Habit, HabitLog } from './daily-tracker-types';
-import { computeStreakDetail, jakartaYmdOf, shiftYmdKey, toDateString } from './daily-tracker-helpers';
+import { computeStreakDetail, jakartaYmdOf, shiftYmdKey, toDateString, vacationIntervalsOf } from './daily-tracker-helpers';
 import { xpForHabit } from '@/lib/dashboard-helpers';
 import { dateFromYMD } from '@/lib/timezone';
 import { eeeIdFormatter } from '@/lib/date-utils';
@@ -181,10 +181,13 @@ function HabitCardInner({
   // sepakat dengan bestStreak tracker, dashboard, dan insight AI (helper
   // bersama; hari kosong mengonsumsi kuota 2 hari aman/bulan).
   // Task 37: hari di luar jadwal tidak memutus rantai.
+  // Task 60-c: interval liburan permanen → hari libur NETRAL (streak
+  // menyala kembali setelah libur, bukan putus ke 0).
   const streakInfo = computeStreakDetail(monthLogs ?? [], selectedDate, {
     invert: isAvoid,
     startDate: habit.startDate,
     onVacation: !!habit.vacationMode,
+    vacation: vacationIntervalsOf(habit),
     schedule,
   });
   const streak = streakInfo.streak;

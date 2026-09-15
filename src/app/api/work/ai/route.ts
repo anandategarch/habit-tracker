@@ -10,6 +10,12 @@ import { WORK_TITLE_MAX, WORK_NOTES_MAX } from '@/app/api/_lib/work-fields';
 
 export const dynamic = 'force-dynamic';
 
+// Task 60-b (audit 59-b5): timeout LLM 45 detik (×2 attempt) melebihi durasi
+// default fungsi Vercel → user mendapat 504 SEBELUM fallback graceful jalan.
+// Angkat batas ke maksimum Hobby plan supaya pesan Indonesia yang bisa
+// ditindaklanjuti sempat dikirim.
+export const maxDuration = 60;
+
 const LLM_TIMEOUT_MS = 45_000;
 const MAX_TASKS = 8;
 const MAX_ATTEMPTS = 2;

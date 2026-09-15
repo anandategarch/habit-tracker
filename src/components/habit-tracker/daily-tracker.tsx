@@ -31,7 +31,6 @@ import { jakartaNowIso, jakartaNowParts, dateFromYMD } from '@/lib/timezone';
 import TimeAnalysisDialog from '@/components/habit-tracker/time-analysis';
 import { useHabitOptions } from '@/hooks/use-habit-options';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { jakartaDateString } from '@/lib/jakarta-date';
 import { xpForHabit } from '@/lib/dashboard-helpers';
 import { burstFromElement } from '@/lib/confetti';
 import { THEME_PRESETS } from '@/lib/theme-utils';
@@ -46,7 +45,10 @@ import {
   shiftYmdKey,
   saveDailyLog,
   htmlToPlainText,
+  vacationIntervalsOf,
 } from './daily-tracker-helpers';
+// Task 60-e — "hari ini" yang ber-tick lintas tengah malam Jakarta.
+import { useJakartaToday } from './use-jakarta-today';
 import { DateNav } from './daily-tracker-date-nav';
 import { DailySummary } from './daily-tracker-daily-summary';
 import { LoadingSkeleton } from './daily-tracker-skeleton';
@@ -137,7 +139,10 @@ export default function DailyTracker() {
   // todayStr = "2025-01-15" while Jakarta is already 2025-01-16 — selecting
   // "Today" would jump to the wrong date. Dideklarasikan di awal karena
   // dibutuhkan useHabitToggle (guard tanggal future) sebelum memo turunan.
-  const todayStr = jakartaDateString();
+  // Task 60-e (audit 59-b2 LOW): kini via useJakartaToday — tab PWA yang
+  // melewati tengah malam WIB berganti "hari ini" dalam ≤30 detik (dulu
+  // dihitung sekali per render → tanggal basi sampai refresh manual).
+  const todayStr = useJakartaToday();
 
   // ---- state ----
   const [notes, setNotes] = useState('');
@@ -630,17 +635,23 @@ export default function DailyTracker() {
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const todayXP = useMemo(() => {
-    // M1-fix (semantik XP == dashboard): SETIAP log completed memberi XP apa
-    // pun habitType-nya — termasuk habit 'avoid' yang dicatat kambuh, persis
-    // seperti agregasi todayXp /api/dashboard (log completed mentah × bobot).
+    // Task 60-e (audit 59-b2 MED — semesta & avoid):
+    // (1) Semesta = SEMUA habit non-arsip (aktif + dijesa + lulus), persis
+    //     xpHabits /api/dashboard — dulu memakai activeHabits sehingga "XP
+    //     Hari Ini" TURUN tepat setelah menekan "Luluskan!"/menjeda habit
+    //     yang barusan diselesaikan hari itu (lognya tetap ada tapi keluar
+    //     dari semesta tracker). completionMap kini juga membawa habit
+    //     lulus/dijesa (use-habit-completions Task 60-e).
+    // (2) Log kambuh habit 'avoid' TIDAK dibayar XP — konsisten dengan
+    //     kartu habit ("avoid tidak berhak XP", tanpa chip +XP) & toast
+    //     kambuh; /api/dashboard todayXp memakai aturan yang sama.
     // "Selesai X/Y" & persentase tetap memakai isSuccess (avoid sukses =
-    // TIDAK kambuh); universe habit juga disamakan dengan dashboard (semua
-    // habit aktif, tanpa filter libur) supaya angka XP tidak berbeda aturan hitung.
-    return activeHabits.reduce((sum, h) => {
-      if (completionMap[h.id]) return sum + xpForHabit(h);
+    // TIDAK kambuh) lewat trackableHabits.
+    return habits.reduce((sum, h) => {
+      if (h.habitType !== 'avoid' && completionMap[h.id]) return sum + xpForHabit(h);
       return sum;
     }, 0);
-  }, [activeHabits, completionMap]);
+  }, [habits, completionMap]);
 
   // GELOMBANG 1: XP TOTAL all-time — Level TIDAK lagi reset harian.
   // Sumber: completedLogCount per habit dari /api/habits × bobot difficulty
@@ -724,8 +735,10 @@ export default function DailyTracker() {
       // PHASE3-HABIT: pass invert + startDate for "avoid" habits so the
       // streak counts consecutive days WITHOUT a relapse.
       // Task 37: pass schedule so non-scheduled days don't break the chain.
+      // Task 60-c: pass vacation intervals (hari libur netral permanen).
       const s = computeStreak(logs, selectedDate, {
         onVacation: !!h.vacationMode,
+        vacation: vacationIntervalsOf(h),
         invert: h.habitType === 'avoid',
         startDate: h.startDate,
         schedule: parseSchedule(h.scheduleJson),

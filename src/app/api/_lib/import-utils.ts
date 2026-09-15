@@ -34,7 +34,12 @@ export const IMPORT_TABLES: TableSpec[] = [
   },
   {
     key: 'habits',
-    columns: ['id', 'name', 'emoji', 'category', 'priority', 'difficulty', 'habitType', 'target', 'unit', 'targetType', 'targetDays', 'graduatedAt', 'scheduleJson', 'reminder', 'notes', 'trackTime', 'groupId', 'sortOrder', 'isActive', 'isArchived', 'vacationMode', 'vacationUntil', 'startDate', 'createdAt', 'updatedAt'],
+    // Task 60-b (audit 59-b5): goalId (Task 49 habit↔tujuan) HILANG senyap saat
+    // restore — /api/data/export mengeksportnya tapi allow-list ini tidak
+    // memuatnya. goalId = string id (bukan kolom tanggal).
+    // Task 60-c: vacationIntervals (JSON string riwayat liburan) ikut — tanpa
+    // ini restore backup memutus janji "streak menyala kembali".
+    columns: ['id', 'name', 'emoji', 'category', 'priority', 'difficulty', 'habitType', 'target', 'unit', 'targetType', 'targetDays', 'graduatedAt', 'scheduleJson', 'reminder', 'notes', 'trackTime', 'groupId', 'goalId', 'sortOrder', 'isActive', 'isArchived', 'vacationMode', 'vacationUntil', 'vacationIntervals', 'startDate', 'createdAt', 'updatedAt'],
     dateColumns: ['vacationUntil', 'graduatedAt', 'startDate', 'createdAt', 'updatedAt'],
   },
   {
@@ -49,7 +54,8 @@ export const IMPORT_TABLES: TableSpec[] = [
   },
   {
     key: 'transactions',
-    columns: ['id', 'type', 'amount', 'category', 'sourceId', 'description', 'notes', 'tags', 'date', 'transferPairId', 'createdAt', 'updatedAt'],
+    // Task 60-f: groupId (badge Split) ikut backup-restore.
+    columns: ['id', 'type', 'amount', 'category', 'sourceId', 'description', 'notes', 'tags', 'date', 'transferPairId', 'groupId', 'createdAt', 'updatedAt'],
     dateColumns: ['date', 'createdAt', 'updatedAt'],
   },
   {
@@ -75,6 +81,37 @@ export const IMPORT_TABLES: TableSpec[] = [
   {
     key: 'goals',
     columns: ['id', 'title', 'description', 'priority', 'status', 'deadline', 'milestones', 'createdAt', 'updatedAt'],
+    dateColumns: ['createdAt', 'updatedAt'],
+  },
+  // ── Meja Kerja (Task 60-b / audit 59-b5): 5 tabel ikut backup-restore. ──
+  // Kunci mengikuti konvensi payload export (camelCase jamak). dayKey = STRING
+  // 'yyyy-MM-dd' Jakarta (konvensi schema Meja Kerja) — sengaja BUKAN
+  // dateColumns supaya tetap string saat diimpor; doneAt/dueAt/completedAt
+  // adalah DateTime → ISO string dikonversi ke Date seperti kolom lain.
+  // Backup LAMA tanpa kunci ini tetap bisa diimpor (route skip senyap).
+  {
+    key: 'workRoutines',
+    columns: ['id', 'title', 'timeOfDay', 'active', 'sortOrder', 'createdAt', 'updatedAt'],
+    dateColumns: ['createdAt', 'updatedAt'],
+  },
+  {
+    key: 'workRoutineLogs',
+    columns: ['id', 'routineId', 'dayKey', 'done', 'doneAt', 'createdAt'],
+    dateColumns: ['doneAt', 'createdAt'],
+  },
+  {
+    key: 'workTasks',
+    columns: ['id', 'title', 'notes', 'status', 'dayKey', 'dueAt', 'completedAt', 'createdAt', 'updatedAt'],
+    dateColumns: ['dueAt', 'completedAt', 'createdAt', 'updatedAt'],
+  },
+  {
+    key: 'workNotes',
+    columns: ['id', 'content', 'tag', 'pinned', 'createdAt', 'updatedAt'],
+    dateColumns: ['createdAt', 'updatedAt'],
+  },
+  {
+    key: 'workDayFlags',
+    columns: ['id', 'dayKey', 'holiday', 'createdAt', 'updatedAt'],
     dateColumns: ['createdAt', 'updatedAt'],
   },
 ];

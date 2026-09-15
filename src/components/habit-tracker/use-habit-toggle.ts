@@ -13,7 +13,7 @@ import { xpForHabit } from '@/lib/dashboard-helpers';
 import { computeStreak } from './daily-tracker-helpers';
 import { parseSchedule } from '@/lib/habit-schedule';
 import { milestoneForStreak, burstFromElement } from '@/lib/confetti';
-import { toDateString, formatJakartaTime } from './daily-tracker-helpers';
+import { toDateString, formatJakartaTime, vacationIntervalsOf } from './daily-tracker-helpers';
 import type { Habit, HabitLog } from './daily-tracker-types';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
@@ -231,6 +231,7 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
                   invert: isAvoid,
                   startDate: habit.startDate,
                   onVacation: !!habit.vacationMode,
+                  vacation: vacationIntervalsOf(habit),
                   schedule: parseSchedule(habit.scheduleJson),
                 })
               : 0;
@@ -416,6 +417,7 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
             ? computeStreak(cache[habitId] || [], selectedDate, {
                 startDate: habit.startDate,
                 onVacation: !!habit.vacationMode,
+                vacation: vacationIntervalsOf(habit),
                 schedule: parseSchedule(habit.scheduleJson),
               })
             : 0;

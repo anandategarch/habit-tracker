@@ -17,6 +17,7 @@ import {
   readJsonBody,
   transactionDate,
 } from '@/app/api/_lib/api-utils';
+import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 import { resolveDateAndTime } from '@/app/api/_lib/finance-fields';
 import { dateFromYMDNoon, isValidYMD } from '@/lib/timezone';
 
@@ -50,6 +51,9 @@ function parseRows(raw: unknown, min: number): SplitRow[] {
 
 export async function POST(req: Request) {
   try {
+    // Task 60-f: kolom groupId (badge "Split") via DDL runtime idempoten —
+    // no-op lokal (db push), ALTER TABLE saat pertama di Turso produksi.
+    await ensureTransactionGroupId();
     const body = await readJsonBody(req);
 
     // ── Mode 1: split transaksi existing ─────────────────────────────────
@@ -60,6 +64,10 @@ export async function POST(req: Request) {
       if (base.type === 'transfer') throw badRequest('Transaksi transfer tidak bisa dipecah');
 
       const parsed = parseRows(body.rows, 2);
+      // Task 60-f: satu groupId dibagi ke seluruh baris pecahan supaya
+      // daftar transaksi bisa menampilkan badge "Split" (satu pembayaran
+      // yang dipecah ke beberapa kategori — dulu nilainya tidak pernah ada).
+      const groupId = crypto.randomUUID();
 
       await db.$transaction(async (tx) => {
         await tx.transaction.createMany({
@@ -72,6 +80,7 @@ export async function POST(req: Request) {
             notes: base.notes,
             tags: base.tags,
             date: base.date,
+            groupId,
           })),
         });
         await tx.transaction.delete({ where: { id: base.id } });
@@ -120,6 +129,8 @@ export async function POST(req: Request) {
       resolvedSourceId = found.id;
     }
 
+    // Task 60-f: satu groupId untuk seluruh baris hasil pecahan (badge Split).
+    const groupId = crypto.randomUUID();
     await db.transaction.createMany({
       data: parsed.map((p) => ({
         type,
@@ -128,6 +139,7 @@ export async function POST(req: Request) {
         sourceId: resolvedSourceId,
         description,
         date,
+        groupId,
       })),
     });
     return NextResponse.json({ created: parsed.length });
