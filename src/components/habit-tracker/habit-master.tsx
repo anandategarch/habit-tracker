@@ -244,8 +244,23 @@ export default function HabitMaster() {
 
  // BUGHUNT-47 (47-d #4): dialog ditutup tanpa create sukses (Batal/Escape/
  // overlay) → returnTab quick-add tidak boleh tersimpan basi di store.
+ // Task 61-f (audit 61-b P2): dialog yang DIBUKA via quick-add lalu DIBATALKAN
+ // (Batal/X/Escape/overlay) kini memulangkan user ke tab asal — dulu hanya
+ // jalur SIMPAN yang memulangkan (handleSubmit), sehingga batal meninggalkan
+ // user terdampar di tab Pengaturan. Jalur simpan tidak dobel-restore:
+ // handleSubmit memanggil setDialogOpen(false) LANGSUNG (bukan lewat handler
+ // ini) dan sudah clearQuickAddReturn() lebih dulu.
  function handleDialogOpenChange(open: boolean) {
-   if (!open) clearQuickAddReturn();
+   if (!open) {
+     if (openedViaQuickAddRef.current && quickAddReturnTab) {
+       setActiveTab(quickAddReturnTab);
+     }
+     openedViaQuickAddRef.current = false;
+     clearQuickAddReturn();
+     // Task 61-f (audit 61-a P3): popover emoji ikut ditutup — dulu bisa
+     // tersisa terbuka saat dialog ditutup via Escape (tanpa pointer).
+     setFormEmojiPicker(false);
+   }
    setDialogOpen(open);
  }
 
@@ -278,6 +293,22 @@ export default function HabitMaster() {
      clearQuickAdd();
    }
  }, [quickAddAction, clearQuickAdd, openAdd]);
+
+ // Task 61 (audit 61-a P3, revisi pusat): tutup KEDUA popover emoji (form
+ // dialog + quick-add bar) saat pointer down di luar area masing-masing.
+ // Penanda bersama data-emoji-popover-wrap dipakai karena popover quick-add
+ // bar dirender komponen terpisah (habit-quick-add.tsx) tanpa akses ref.
+ useEffect(() => {
+   if (!formEmojiPicker && !showEmojiPicker) return;
+   const onPointerDown = (e: PointerEvent) => {
+     const t = e.target as HTMLElement | null;
+     if (t?.closest('[data-emoji-popover-wrap]')) return;
+     if (formEmojiPicker) setFormEmojiPicker(false);
+     if (showEmojiPicker) setShowEmojiPicker(false);
+   };
+   document.addEventListener('pointerdown', onPointerDown);
+   return () => document.removeEventListener('pointerdown', onPointerDown);
+ }, [formEmojiPicker, showEmojiPicker]);
 
  // fix 6-d FOCUS-STALE-1: deep-link openHabitFocus(id) yang belum terkonsumsi
  // bisa mengarah ke habit yang barusan dihapus — handleDelete membersihkan
@@ -367,6 +398,10 @@ export default function HabitMaster() {
            h.id === editingId ? { ...h, ...payload, updatedAt: new Date().toISOString() } : h
          )
        );
+       // Task 61-f (audit 61-d P2): rekonsiliasi server — setQueryData
+       // optimistik tercemar field form (normalisasi/default API tidak
+       // tercermin); tanpa invalidasi cache ['habits'] tak pernah dicek ulang.
+       queryClient.invalidateQueries({ queryKey: ['habits'] });
        toast.success('Habit berhasil diperbarui');
      } else {
        // Create
@@ -379,6 +414,9 @@ export default function HabitMaster() {
        const newHabit = await res.json();
        // Optimistic update
        queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
+       // Task 61-f (audit 61-d P2): rekonsiliasi server pasca-create (urut
+       // sortOrder + normalisasi payload — putusan akhir ada di server).
+       queryClient.invalidateQueries({ queryKey: ['habits'] });
        toast.success('Habit berhasil dibuat');
        // CONNECTED-APP: pulangkan user ke konteks asal quick-add (Hari Ini /
        // Tracker) — dulu setelah "Tambah Rutinitas Pertama" user terdampar
@@ -445,6 +483,9 @@ export default function HabitMaster() {
        body: JSON.stringify({ isActive: newActive }),
      });
      if (!res.ok) throw new Error();
+     // Task 61-f (audit 61-d P2): rekonsiliasi server pasca-toggle (setQueryData
+     // optimistik di atas hanya menulis isActive).
+     queryClient.invalidateQueries({ queryKey: ['habits'] });
      toast.success(`Habit ${statusLabel}`);
      triggerRefresh();
    } catch {
@@ -467,6 +508,9 @@ export default function HabitMaster() {
        body: JSON.stringify({ isArchived: newArchived }),
      });
      if (!res.ok) throw new Error();
+     // Task 61-f (audit 61-d P2): rekonsiliasi server pasca-arsip/pulihkan
+     // (setQueryData optimistik di atas hanya menulis isArchived).
+     queryClient.invalidateQueries({ queryKey: ['habits'] });
      toast.success(`Habit ${label}`);
      triggerRefresh();
    } catch {
@@ -509,6 +553,9 @@ export default function HabitMaster() {
      if (!res.ok) throw new Error();
      const newHabit = await res.json();
      queryClient.setQueryData<Habit[]>(['habits'], (prev = []) => [...prev, newHabit]);
+     // Task 61-f (audit 61-d P2): jalur create ke-5 (quick-add bar) — pola
+     // rekonsiliasi server yang sama dengan create/edit di atas.
+     queryClient.invalidateQueries({ queryKey: ['habits'] });
      setQuickName('');
      toast.success('Habit berhasil ditambah!');
      triggerRefresh();
@@ -605,7 +652,7 @@ export default function HabitMaster() {
                </div>
                <div className="space-y-2">
                  <Label htmlFor="habit-emoji">Emoji</Label>
-                 <div className="relative">
+                 <div className="relative" data-emoji-popover-wrap>
                    <Input
                      id="habit-emoji"
                      className="w-20 text-center text-xl rounded-xl"

@@ -571,8 +571,15 @@ export function WorkBoard({
   }
 
   const showBoardError = boardError && !board;
-  const totalOpen = board.stats.todo + board.stats.jalan + board.stats.nunggu + openRoutines.length;
-  const doneCount = board.stats.selesaiHariIni + doneRoutines.length;
+  // Task 61-f (audit 61-a P1): React Query v5 — fetch gagal tanpa cache →
+  // isLoading=false, board=undefined. Dulu `board.stats.todo` langsung
+  // didereferensi di sini → TypeError mematikan seluruh tab Meja Kerja
+  // SEBELUM kartu error showBoardError sempat dirender. Guard `{board && …}`
+  // di JSX hanya melindungi render, bukan derivasi di atas.
+  const totalOpen = board
+    ? board.stats.todo + board.stats.jalan + board.stats.nunggu + openRoutines.length
+    : 0;
+  const doneCount = board ? board.stats.selesaiHariIni + doneRoutines.length : 0;
 
   const summaryText = holiday
     ? totalOpen > 0

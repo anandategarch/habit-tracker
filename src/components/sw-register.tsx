@@ -10,6 +10,12 @@ import { useEffect, useRef } from 'react';
  * Pola anti-loop: flag `refreshing` + listener 'controllerchange' sekali
  * di module scope; bfcache (pageshow persisted) juga men-trigger reload
  * bila controller masih beda versi.
+ *
+ * Task 61-i: SW hanya dipasang di PRODUCTION. Di development chunk
+ * /_next/static berganti tiap HMR — ikut ter-cache strategi SWR membuat
+ * aset basi & membingungkan; sisa registrasi lama di-unregister + cache
+ * SW dibersihkan (pola aman standar). Logika update/reload production
+ * TIDAK diubah.
  */
 
 const FALLBACK_VERSION = 'habit-tracker-v15';
@@ -42,6 +48,25 @@ export function SWRegister() {
     if (onceRef.current) return;
     onceRef.current = true;
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    // DEV (Task 61-i): jangan pasang SW di development. Kalau ada SW sisa
+    // sesi lama (dari era tanpa guard ini / build production di origin
+    // sama), unregister + bersihkan semua cache SW supaya aset HMR tidak
+    // terkunci — unregister tidak men-trigger controllerchange, jadi aman
+    // dari loop reload listener di module scope.
+    if (process.env.NODE_ENV !== 'production') {
+      (async () => {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+      })().catch(() => {
+        /* cleanup dev gagal — tidak fatal, refresh biasa cukup */
+      });
+      return;
+    }
 
     let currentVersion: string | null = null;
     try {

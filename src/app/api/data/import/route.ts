@@ -135,8 +135,28 @@ export async function POST(req: Request) {
           await tx.workNote.create({ data: note as Parameters<typeof tx.workNote.create>[0]['data'] });
         for (const flag of tables.get('workDayFlags') ?? [])
           await tx.workDayFlag.create({ data: flag as Parameters<typeof tx.workDayFlag.create>[0]['data'] });
-        for (const habit of tables.get('habits') ?? [])
+        // Task 61-h: id Goal/HabitGroup yang benar-benar diimpor — dipakai
+        // untuk menolkan referensi habit yang menggantung (mirror pairLinks).
+        const goalIds = new Set<string>();
+        for (const goal of tables.get('goals') ?? []) {
+          if (typeof goal.id === 'string' && goal.id) goalIds.add(goal.id);
+        }
+        const habitGroupIds = new Set<string>();
+        for (const group of tables.get('habitGroups') ?? []) {
+          if (typeof group.id === 'string' && group.id) habitGroupIds.add(group.id);
+        }
+        for (const habit of tables.get('habits') ?? []) {
+          // Task 61-h (audit 61-c P3-13): mirror pola pairLinks — referensi
+          // goalId/groupId yang tujuannya TIDAK ikut diimpor dinolkan (bukan
+          // disimpan menggantung) supaya chip tujuan/grup di UI tidak yatim.
+          if (typeof habit.goalId === 'string' && habit.goalId && !goalIds.has(habit.goalId)) {
+            habit.goalId = null;
+          }
+          if (typeof habit.groupId === 'string' && habit.groupId && !habitGroupIds.has(habit.groupId)) {
+            habit.groupId = null;
+          }
           await tx.habit.create({ data: habit as Parameters<typeof tx.habit.create>[0]['data'] });
+        }
         for (const log of tables.get('dailyLogs') ?? [])
           await tx.dailyLog.create({ data: log as Parameters<typeof tx.dailyLog.create>[0]['data'] });
         for (const log of tables.get('habitLogs') ?? [])
@@ -163,8 +183,16 @@ export async function POST(req: Request) {
       });
     } catch (txError) {
       if (txError instanceof Error && 'status' in txError) throw txError;
-      console.error('[api:data/import:POST] prisma', txError);
-      throw badRequest('Data impor tidak valid — periksa kembali struktur backup');
+      // Task 61-h (audit 61-c P3-12): HANYA error Prisma known-request
+      // (mis. P2002 unik / P2003 FK / P2025) yang berarti data impor memang
+      // tidak valid → 400. Kegagalan lain (DB down, koneksi, infra) diteruskan
+      // supaya handleApiError mengembalikan 500 generik yang jujur — dulunya
+      // SEMUA error dipetakan 400 sehingga diagnosis infra tertutup.
+      if (txError instanceof Prisma.PrismaClientKnownRequestError) {
+        console.error('[api:data/import:POST] prisma', txError);
+        throw badRequest('Data impor tidak valid — periksa kembali struktur backup');
+      }
+      throw txError;
     }
 
     for (const [key, rows] of tables.entries()) counts[key] = rows.length;

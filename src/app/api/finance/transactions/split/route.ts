@@ -19,7 +19,7 @@ import {
 } from '@/app/api/_lib/api-utils';
 import { ensureTransactionGroupId } from '@/app/api/_lib/transaction-ensure';
 import { resolveDateAndTime } from '@/app/api/_lib/finance-fields';
-import { dateFromYMDNoon, isValidYMD } from '@/lib/timezone';
+import { dateFromYMDNoon, isValidYMD, jakartaDateString } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,11 +106,15 @@ export async function POST(req: Request) {
       if (!resolved) throw badRequest('Tanggal tidak valid');
       date = transactionDate(resolved.ymd, resolved.time);
     } else if (rawDate) {
-      const probe = new Date(rawDate);
-      if (Number.isNaN(probe.getTime())) throw badRequest('Tanggal tidak valid');
-      date = probe;
+      // Task 61-h (audit 61-c P3-4): format asing (bukan YMD/ISO penuh)
+      // DITOLAK 400 — konsisten dengan konvensi parseTransactionFields di
+      // transactions POST/PUT. Dulunya epoch mentah tersimpan sehingga bisa
+      // bergeser hari bila server TZ ≠ UTC.
+      throw badRequest('Format tanggal tidak valid (yyyy-MM-dd)');
     } else {
-      date = dateFromYMDNoon(new Date().toISOString().slice(0, 10));
+      // Task 61-h (audit 61-c P3-3): default = hari INI menurut Jakarta —
+      // BUKAN tanggal UTC (WIB 00:00–06:59 UTC-date masih kemarin).
+      date = dateFromYMDNoon(jakartaDateString());
     }
 
     const sourceId = asString(body.source) || asString(body.sourceId);

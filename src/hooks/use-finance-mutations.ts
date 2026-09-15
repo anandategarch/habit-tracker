@@ -629,7 +629,9 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
      }
    } catch { toast.error('Gagal update saldo'); }
    setBalanceEditId(null); setBalanceEditValue('');
- }, [balanceEditValue, getActiveSources, queryClient]);
+   // 61-g (audit 61-d P3): deps dirapikan — body memakai invalidateFinance
+   // (bukan queryClient langsung); queryClient tidak dipakai di callback ini.
+ }, [balanceEditValue, getActiveSources, invalidateFinance]);
 
  // ── Bulk Delete ─────────────────────────────────────────────────────────
 

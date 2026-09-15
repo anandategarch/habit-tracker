@@ -38,6 +38,10 @@ import { formatRupiah, formatNominalInput, amountFromInput } from './finance-typ
 import type { TxFormState, SplitRow, Transaction } from './finance-types';
 import { cn } from '@/lib/utils';
 
+// Task 61-f (audit 61-a P3): penghasil key stabil baris split — counter uid
+// modul (unik sepanjang sesi, tanpa dependency baru).
+let splitRowUid = 0;
+
 interface FinanceTxDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -83,6 +87,38 @@ export function FinanceTxDialog({
   // FIX-6 (6-b): draft tag tidak boleh bocor ke pembukaan dialog berikutnya —
   // komponen selalu ter-mount, jadi reset dilakukan di event handler tutup.
   const [tagInput, setTagInput] = useState('');
+
+  // Task 61-f (audit 61-a P3): key stabil baris split. splitRows dimiliki
+  // parent (use-finance-mutations) tanpa id — dialog memelihara daftar key
+  // paralel: tambah/hapus lewat wrapper lokal (idx persis), perubahan panjang
+  // eksternal (reset saat dialog dibuka ulang) disinkronkan lewat pola
+  // adjust-state-during-render (pola prevOpen CalculatorDialog di bawah).
+  const [splitKeys, setSplitKeys] = useState<string[]>(() =>
+    splitRows.map(() => `split-${++splitRowUid}`)
+  );
+  const [prevSplitCount, setPrevSplitCount] = useState(splitRows.length);
+  if (splitRows.length !== prevSplitCount) {
+    setPrevSplitCount(splitRows.length);
+    setSplitKeys((prev) => {
+      if (splitRows.length >= prev.length) {
+        return [
+          ...prev,
+          ...Array.from({ length: splitRows.length - prev.length }, () => `split-${++splitRowUid}`),
+        ];
+      }
+      return prev.slice(0, splitRows.length);
+    });
+  }
+
+  const handleAddSplitRow = () => {
+    setSplitKeys((prev) => [...prev, `split-${++splitRowUid}`]);
+    addSplitRow();
+  };
+
+  const handleRemoveSplitRow = (idx: number) => {
+    setSplitKeys((prev) => prev.filter((_, i) => i !== idx));
+    removeSplitRow(idx);
+  };
 
   const handleOpenChange = (next: boolean) => {
     if (!next) setTagInput('');
@@ -219,7 +255,7 @@ export function FinanceTxDialog({
             {splitMode && (
               <div className="space-y-2">
                 {splitRows.map((row, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
+                  <div key={splitKeys[idx] ?? `split-fallback-${idx}`} className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <Select
                         value={row.category}
@@ -255,7 +291,7 @@ export function FinanceTxDialog({
                       variant="ghost"
                       size="icon"
                       className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
-                      onClick={() => removeSplitRow(idx)}
+                      onClick={() => handleRemoveSplitRow(idx)}
                       disabled={submitting || splitRows.length <= 2}
                       aria-label={`Hapus baris split ${idx + 1}`}
                     >
@@ -269,7 +305,7 @@ export function FinanceTxDialog({
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs"
-                    onClick={addSplitRow}
+                    onClick={handleAddSplitRow}
                     disabled={submitting || splitRows.length >= 10}
                   >
                     <Plus className="h-3 w-3" /> Tambah baris

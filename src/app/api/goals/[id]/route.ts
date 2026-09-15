@@ -72,8 +72,13 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     // CONNECTED-APP (Task 49): lepas link habit → tujuan ini SEBELUM hapus,
     // supaya kartu habit tidak menampilkan chip tujuan yang sudah tidak ada
     // (schema onDelete: SetNull juga menangani, ini lapisan eksplisit).
-    await db.habit.updateMany({ where: { goalId: id }, data: { goalId: null } });
-    await db.goal.delete({ where: { id } });
+    // Task 61-h (audit 61-c P3-8): bungkus updateMany + delete dalam SATU
+    // $transaction array — dulunya dua round-trip terpisah sehingga kegagalan
+    // di tengah meninggalkan goal tanpa link (self-heal via SetNull).
+    await db.$transaction([
+      db.habit.updateMany({ where: { goalId: id }, data: { goalId: null } }),
+      db.goal.delete({ where: { id } }),
+    ]);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return handleApiError(error, 'goals/[id]:DELETE');

@@ -106,6 +106,11 @@ export async function parseHabitFields(
       data.targetDays = null;
     }
   }
+  // Task 61-h (audit 61-c P3-20): PUT yang MENGGANTI habitType ke 'avoid'
+  // TANPA mengirim targetDays juga harus membersihkan nilai lama — dulunya
+  // nilai basi tersisa sehingga habit avoid bisa "lulus" via targetDays sisa
+  // (graduation avoid tak bermakna: hari tanpa log = bersih, tanpa garis finis).
+  if (body.habitType === 'avoid') data.targetDays = null;
   // Task 36 — kelulusan: kirim ISO/YMD untuk luluskan, null untuk batalkan.
   // Dikirim eksplisit (bukan dari form biasa) supaya edit habit tidak
   // kebetulan menghapus status lulus.

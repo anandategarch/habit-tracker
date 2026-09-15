@@ -31,8 +31,11 @@ export interface HabitMobileCardsProps {
   onDelete: (id: string) => void;
 }
 
+// Task 61-f (audit 61-a P3): tombol aksi kartu mobile 36px → 40px (aksi
+// termasuk HAPUS destruktif; guard pointer:coarse di globals.css tidak
+// mencocokkan h-9).
 const ACTION_BTN =
-  'inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+  'inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 
 function BadgeDot({ option, fallback }: { option?: HabitOptionRow; fallback: string }) {
   return (
@@ -129,7 +132,9 @@ export function HabitMobileCards({
                     }}
                     title={`Mendukung tujuan: ${goalMap.get(h.goalId)}`}
                     aria-label={`Buka tujuan ${goalMap.get(h.goalId)}`}
-                    className="mt-1 inline-flex max-w-full items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
+                    // Task 61-f (audit 61-a P2): chip Tujuan = tombol — target
+                    // sentuh min 24px (py-1 min-h-6), visual tetap chip kecil.
+                    className="mt-1 inline-flex min-h-6 max-w-full items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-1 text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
                   >
                     <Target className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
                     <span className="max-w-[10rem] truncate normal-case">{goalMap.get(h.goalId)}</span>

@@ -310,7 +310,10 @@ function HabitCardInner({
                       }}
                       title={`Mendukung tujuan: ${goalTitle}`}
                       aria-label={`Buka tujuan ${goalTitle}`}
-                      className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
+                      // Task 61-f (audit 61-a P2): chip Tujuan adalah tombol —
+                      // naikkan target sentuh ke min 24px (py-1 min-h-6);
+                      // chip non-interaktif di sekitarnya tetap py-px.
+                      className="inline-flex min-h-6 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-1 text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
                     >
                       <Target className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
                       <span className="max-w-[8rem] truncate normal-case">{goalTitle}</span>

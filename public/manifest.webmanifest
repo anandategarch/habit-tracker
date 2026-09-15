@@ -1,6 +1,9 @@
 {
   "name": "Rutina — Habit & Finance Tracker",
   "short_name": "Rutina",
+  "id": "/",
+  "lang": "id",
+  "dir": "ltr",
   "description": "Pelacak habit dan keuangan pribadi. Bangun rutinitas, kelola budget, tabungan, dan tujuan.",
   "start_url": "/",
   "display": "standalone",

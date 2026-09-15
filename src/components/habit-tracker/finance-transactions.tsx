@@ -108,6 +108,14 @@ const TYPE_OPTIONS = [
  { value: 'expense', label: 'Pengeluaran', arrow: '↓' },
 ] as const;
 
+// TASK 61-g (audit 61-a P3): anim-stagger HANYA untuk batch render awal.
+// Dulunya kelas itu dipasang di tiap TransactionRow virtualizer — baris
+// yang baru mount saat scroll cepat selalu memutar ulang fade-up 0.5s
+// sehingga daftar panjang terasa berkedip. Kini hanya ±22 baris datar
+// pertama (≈ viewport awal + overscan, lihat komentar BUGHUNT-47 di
+// bawah) yang dianimasikan; baris hasil scroll mount tanpa animasi.
+const ENTRY_ANIM_FLAT_ROW_LIMIT = 22;
+
 // PERF-FIX: estimateSize callbacks must be stable (not re-created each
 // render) — the virtualizer uses referential equality to decide whether
 // to re-measure. Hoisting to module scope also avoids a fresh closure
@@ -256,6 +264,8 @@ export default function FinanceTransactions({
  return (
    <div className="mt-4 space-y-3">
      {/* ── Search Bar ────────────────────────────────────────── */}
+     {/* 61-g (audit 61-a P2): tombol X icon-only kini ber-aria-label —
+         kembarannya di badge hasil pencarian di bawah sudah memilikinya. */}
      <div className="relative">
        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
        <Input
@@ -268,6 +278,7 @@ export default function FinanceTransactions({
          <button
            onClick={() => onFilterChange({ ...txFilter, search: '' })}
            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+           aria-label="Hapus pencarian"
          >
            <X className="h-4 w-4" />
          </button>
@@ -528,6 +539,7 @@ export default function FinanceTransactions({
                    <TransactionRow
                      tx={row.tx}
                      txIdx={row.txIdx}
+                     animateEntry={vItem.index < ENTRY_ANIM_FLAT_ROW_LIMIT}
                      multiSelect={multiSelect}
                      selectedTxIds={selectedTxIds}
                      expandedTxId={expandedTxId}
@@ -593,6 +605,9 @@ export default function FinanceTransactions({
 interface TransactionRowProps {
  tx: Transaction;
  txIdx: number;
+ /** 61-g: baris termasuk batch render awal → boleh anim-stagger; baris
+     yang mount akibat scroll TIDAK dianimasikan (anti-kedip). */
+ animateEntry: boolean;
  multiSelect: boolean;
  selectedTxIds: Set<string>;
  // SHADCN-PHASE-2: expand support. expandedTxId is the currently-expanded
@@ -609,6 +624,7 @@ interface TransactionRowProps {
 function TransactionRow({
  tx,
  txIdx,
+ animateEntry,
  multiSelect,
  selectedTxIds,
  expandedTxId,
@@ -636,7 +652,10 @@ function TransactionRow({
  // CONNECTED-APP: apakah baris ini benar-benar merespons tap? (lihat className)
  const hasTapAction = multiSelect || hasExpandContent || tx.type !== 'transfer';
  return (
-   <div className="relative anim-stagger" style={{ animationDelay: `${Math.min(txIdx, 8) * 30}ms` }}>
+   <div
+     className={cn('relative', animateEntry && 'anim-stagger')}
+     style={animateEntry ? { animationDelay: `${Math.min(txIdx, 8) * 30}ms` } : undefined}
+   >
      {/* Timeline node — warna diharmonisasi dengan amount (rose / emerald /
          violet netral untuk transfer) */}
      <div

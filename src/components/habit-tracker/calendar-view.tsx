@@ -232,7 +232,13 @@ export default function CalendarView() {
       const res = await fetch(
         `/api/habits/batch-logs?month=${selectedMonth}&ids=${habitIds}`,
       );
-      if (!res.ok) return [];
+      // 61-g (audit 61-d P2): dulunya `return []` saat !res.ok — error
+      // server tersimpan sebagai "data kosong" sukses di cache, sehingga
+      // isError (fetchError) tidak pernah true dan kartu error + tombol
+      // "Coba Lagi" di bawah jadi dead code. Lempar agar React Query masuk
+      // error state (retry bawaan 1× lalu UI error hidup); bentuk data
+      // sukses tidak berubah.
+      if (!res.ok) throw new Error(`Gagal memuat log habit (HTTP ${res.status})`);
       const json = (await res.json()) as unknown;
       // Kontrak: { logs: HabitLog[] } (flat). Toleransi bentuk grouped lama.
       if (Array.isArray(json)) return json as HabitLog[];

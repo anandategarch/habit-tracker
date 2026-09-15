@@ -46,7 +46,7 @@ import {
   type TreeGrowthState,
 } from '@/lib/tree-growth';
 import { toDashboardData } from '@/lib/dashboard/contract';
-import { jakartaDateString } from '@/lib/timezone';
+import { useJakartaToday } from '@/components/habit-tracker/use-jakarta-today';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
@@ -158,7 +158,12 @@ export default function PohonScreen() {
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
   const refreshKey = useAppStore((s) => s.refreshKey);
 
-  const todayStr = jakartaDateString();
+  // Task 60-e/61-f (audit 61-a P2): "hari ini" yang HIDUP via useJakartaToday
+  // (tick 30 dtk, hanya re-render saat YMD Jakarta berganti) — paritas dengan
+  // dashboard.tsx / daily-tracker.tsx / progress.tsx. Dulu jakartaDateString()
+  // per render tanpa tick: tab Pohon yang dibiarkan terbuka melewati tengah
+  // malam WIB menampilkan tetes penyiraman x/y + tombol Rutinitas basi.
+  const todayStr = useJakartaToday();
 
   // ── Data (semua cache terbagih dengan tab lain) ───────────────────────
   // Key persis keluarga Beranda (['dashboard','all',refreshKey,…]) supaya
@@ -596,7 +601,10 @@ export default function PohonScreen() {
             <p className="text-[11px] font-bold tabular-nums text-[#63E6BE]">{pct}%</p>
           </div>
           <div
-            className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#10362E]"
+            // Task 61-f (audit 61-a P3): track memakai token bg-muted (theme
+            // aware) — dulu hex gelap #10362E (khusus kartu panggung gelap)
+            // tampak berat/tak nyambung di kartu bg-card mode terang.
+            className="mt-2.5 h-2 overflow-hidden rounded-full bg-muted"
             role="progressbar"
             aria-valuenow={pct}
             aria-valuemin={0}

@@ -364,26 +364,36 @@ export async function GET() {
         ],
         thinking: { type: 'disabled' },
       });
-
+      // Task 61-h (audit 61-c P2-1): handler no-op supaya rejeksi llmPromise
+      // yang kalah race (timeout menang duluan) tidak menjadi
+      // unhandledRejection pasca-response; hasil Promise.race tidak berubah.
+      llmPromise.catch(() => {});
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS);
+        timeoutId = setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS);
       });
-      const completion = await Promise.race([llmPromise, timeoutPromise]);
-      const content = String((completion as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content ?? '');
-      const parsed = content ? parseInsightsArray(content) : null;
+      try {
+        const completion = await Promise.race([llmPromise, timeoutPromise]);
+        const content = String((completion as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content ?? '');
+        const parsed = content ? parseInsightsArray(content) : null;
 
-      if (parsed && parsed.length > 0) {
-        const valid = parsed.filter(validInsight).slice(0, 8);
-        if (valid.length > 0) {
-          const llmId = insightCounter();
-          insights = valid.map((item) => ({
-            id: llmId(),
-            type: item.type as InsightType,
-            title: (item.title as string).trim(),
-            text: (item.text as string).trim(),
-            habitId: typeof item.habitId === 'string' && habits.some((h) => h.id === item.habitId) ? item.habitId : undefined,
-          }));
+        if (parsed && parsed.length > 0) {
+          const valid = parsed.filter(validInsight).slice(0, 8);
+          if (valid.length > 0) {
+            const llmId = insightCounter();
+            insights = valid.map((item) => ({
+              id: llmId(),
+              type: item.type as InsightType,
+              title: (item.title as string).trim(),
+              text: (item.text as string).trim(),
+              habitId: typeof item.habitId === 'string' && habits.some((h) => h.id === item.habitId) ? item.habitId : undefined,
+            }));
+          }
         }
+      } finally {
+        // Task 61-h: timer harus mati begitu race selesai — tanpa ini instance
+        // tetap hidup 20 dtk setelah response (boros waktu serverless).
+        clearTimeout(timeoutId);
       }
     } catch (llmError) {
       // SDK gagal / timeout / respons tidak valid → pakai fallback statis.

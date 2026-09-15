@@ -79,6 +79,14 @@ export async function POST(req: Request) {
     const name = requireNonEmptyString(body.name, 'Nama sumber dana wajib diisi');
     if (name.length > 80) throw badRequest('Nama sumber dana terlalu panjang');
 
+    // Task 61-h (audit 61-c P3-6): FundSource.name TIDAK unique di schema,
+    // tapi simpan transaksi resolve sumber by-ID LALU by-name (findFirst) —
+    // nama kembar membuat transaksi bisa masuk ke sumber yang salah (pilihan
+    // arbitrer). Tolak nama yang sudah dipakai. Jalur import/seed/GET-trio
+    // memakai db.fundSource.create langsung (bukan route ini) → tak terdampak.
+    const dup = await db.fundSource.findFirst({ where: { name }, select: { id: true } });
+    if (dup) throw badRequest('Nama sumber dana sudah dipakai');
+
     const emoji = asString(body.emoji);
     if (emoji !== null && emoji.length > 16) throw badRequest('Emoji tidak valid');
 

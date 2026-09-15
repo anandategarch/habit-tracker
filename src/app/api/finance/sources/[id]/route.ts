@@ -2,6 +2,7 @@
 // PATCH (body {balance}) menyetel saldo dengan menggeser initialBalance —
 // tidak membuat transaksi penyesuaian.
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import {
   asBool,
@@ -66,7 +67,21 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     if (Object.keys(data).length === 0) throw badRequest('Tidak ada field yang bisa diperbarui');
 
     const updated = await db.fundSource.update({ where: { id }, data });
-    return NextResponse.json(updated);
+    // Task 61-h (audit 61-c P3-7): POST mengembalikan {...source, balance} —
+    // PUT kini ikut menyertakan saldo terhitung (field ADDITIF, klien lama
+    // mengabaikannya). Dihitung dengan fungsi yang sama dengan GET/PATCH.
+    const [sources, txs] = await Promise.all([
+      db.fundSource.findMany({ select: { id: true, initialBalance: true } }),
+      db.transaction.findMany({
+        where: { sourceId: id },
+        select: { id: true, type: true, amount: true, sourceId: true, transferPairId: true, category: true },
+      }),
+    ]);
+    const balances = computeSourceBalances(sources, txs);
+    return NextResponse.json({
+      ...updated,
+      balance: Math.round((balances.get(id) ?? updated.initialBalance) * 100) / 100,
+    });
   } catch (error) {
     return handleApiError(error, 'finance/sources/[id]:PUT');
   }
@@ -105,17 +120,24 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     // memakai kategori 'Transfer Masuk' hardcoded — pasangan transfer legacy
     // (tanpa kategori itu, arah hanya dari penunjukan transferPairId)
     // terhitung keluar sehingga saldo bergeser.
-    const [sources, txs] = await Promise.all([
-      db.fundSource.findMany({ select: { id: true, initialBalance: true } }),
-      db.transaction.findMany({
+    // Task 61-h (audit 61-c P2-4): baca (sumber + transaksi) & tulis kini
+    // dalam SATU interactive $transaction (pola 60-b savings-goals/[id]) —
+    // dulunya read-modify-write terpisah → dua PATCH bersamaan saling
+    // menimpa (lost update). Bentuk response TIDAK berubah.
+    const updated = await db.$transaction(async (tx: Prisma.TransactionClient) => {
+      const fresh = await tx.fundSource.findUnique({ where: { id } });
+      if (!fresh) return null;
+      const sources = await tx.fundSource.findMany({ select: { id: true, initialBalance: true } });
+      const txs = await tx.transaction.findMany({
         where: { sourceId: id },
         select: { id: true, type: true, amount: true, sourceId: true, transferPairId: true, category: true },
-      }),
-    ]);
-    const balances = computeSourceBalances(sources, txs);
-    const net = (balances.get(id) ?? source.initialBalance) - source.initialBalance;
-    const newInitial = Math.round((target - net) * 100) / 100;
-    const updated = await db.fundSource.update({ where: { id }, data: { initialBalance: newInitial } });
+      });
+      const balances = computeSourceBalances(sources, txs);
+      const net = (balances.get(id) ?? fresh.initialBalance) - fresh.initialBalance;
+      const newInitial = Math.round((target - net) * 100) / 100;
+      return tx.fundSource.update({ where: { id }, data: { initialBalance: newInitial } });
+    });
+    if (updated === null) throw notFound('Sumber dana tidak ditemukan');
     return NextResponse.json({ ...updated, balance: target, adjustment: null });
   } catch (error) {
     return handleApiError(error, 'finance/sources/[id]:PATCH');

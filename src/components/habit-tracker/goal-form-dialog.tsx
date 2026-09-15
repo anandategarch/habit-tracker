@@ -52,13 +52,22 @@ function emptyMilestones(editing: Goal | null): GoalMilestone[] {
   return editing?.milestones ? editing.milestones.map((m) => ({ ...m })) : [];
 }
 
+// Task 61-f (audit 61-a P3): key stabil baris milestone — key={idx} membuat
+// hapus baris tengah "melompatkan" fokus/animasi ke baris berikutnya. _key
+// lokal dan otomatis dilepas saat submit (cleanMilestones hanya mengirim
+// text+done).
+type LocalMilestone = GoalMilestone & { _key: string };
+let milestoneUid = 0;
+const nextMilestoneKey = () => `ms-${++milestoneUid}`;
+
 export function GoalFormDialog({ open, onOpenChange, editing }: GoalFormDialogProps) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(() => editing?.title ?? '');
   const [description, setDescription] = useState(() => editing?.description ?? '');
   const [priority, setPriority] = useState(() => editing?.priority ?? 'Sedang');
   const [deadline, setDeadline] = useState(() => editing?.deadline ?? '');
-  const [milestones, setMilestones] = useState<GoalMilestone[]>(() => emptyMilestones(editing));
+  const [milestones, setMilestones] = useState<LocalMilestone[]>(() =>
+    emptyMilestones(editing).map((m) => ({ ...m, _key: nextMilestoneKey() })));
   const [submitting, setSubmitting] = useState(false);
 
   const updateMilestone = (index: number, patch: Partial<GoalMilestone>) => {
@@ -66,7 +75,7 @@ export function GoalFormDialog({ open, onOpenChange, editing }: GoalFormDialogPr
   };
 
   const addMilestone = () => {
-    setMilestones((prev) => [...prev, { text: '', done: false }]);
+    setMilestones((prev) => [...prev, { text: '', done: false, _key: nextMilestoneKey() }]);
   };
 
   const removeMilestone = (index: number) => {
@@ -205,21 +214,28 @@ export function GoalFormDialog({ open, onOpenChange, editing }: GoalFormDialogPr
             </div>
             <div className="space-y-2">
               {milestones.map((m, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={m._key} className="flex items-center gap-2">
+                  {/* Task 61-f (audit 61-a P3): hit-area 44px dengan visual 20px
+                      sebagai anak span — pola goal-card.tsx (checkbox 20px polos
+                      jauh di bawah standar sentuh app sendiri). */}
                   <button
                     type="button"
                     role="checkbox"
                     aria-checked={m.done}
                     aria-label={`Tandai milestone ${m.text || `ke-${i + 1}`}`}
                     onClick={() => updateMilestone(i, { done: !m.done })}
-                    className={cn(
-                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                      m.done
-                        ? 'border-transparent bg-gradient-to-br from-teal-400 to-emerald-500 shadow-[0_0_10px_-2px_rgba(16,185,129,0.55)]'
-                        : 'border-muted-foreground/40 hover:border-primary/60',
-                    )}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
-                    {m.done && <Check className="h-3 w-3 text-white" aria-hidden="true" />}
+                    <span
+                      className={cn(
+                        'flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all',
+                        m.done
+                          ? 'border-transparent bg-gradient-to-br from-teal-400 to-emerald-500 shadow-[0_0_10px_-2px_rgba(16,185,129,0.55)]'
+                          : 'border-muted-foreground/40 hover:border-primary/60',
+                      )}
+                    >
+                      {m.done && <Check className="h-3 w-3 text-white" aria-hidden="true" />}
+                    </span>
                   </button>
                   <Input
                     value={m.text}

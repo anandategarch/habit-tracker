@@ -141,16 +141,29 @@ export default function Settings() {
  });
 
  // Sync settings → form state
+ // 61-g (audit 61-d P3): dirty-guard sederhana. Dulunya efek ini menimpa
+ // form setiap data ['settings'] berganti identitas — termasuk refetch
+ // pasca-handleSave (invalidate ['settings']) yang mendarat ±0,5 dtk
+ // kemudian, sehingga ketikan user di jendela itu hilang. Kini form hanya
+ // ditimpa bila isinya masih identik dengan snapshot sinkronisasi
+ // terakhir (user belum menyentuh apa pun); begitu user mengetik, efek
+ // menyerah (snapshot tidak berubah → perbandingan tetap valid).
+ const lastSyncedFormRef = useRef<SettingsFormState | null>(null);
  useEffect(() => {
-   if (settings) {
-     setForm({
-       userName: settings.userName || '',
-       theme: settings.theme || 'system',
-       themeColor: settings.themeColor || 'teal',
-       weekStart: typeof settings.weekStart === 'number' ? settings.weekStart : 1,
-     });
-   }
- }, [settings]);
+   if (!settings) return;
+   const next: SettingsFormState = {
+     userName: settings.userName || '',
+     theme: settings.theme || 'system',
+     themeColor: settings.themeColor || 'teal',
+     weekStart: typeof settings.weekStart === 'number' ? settings.weekStart : 1,
+   };
+   const untouched =
+     !lastSyncedFormRef.current ||
+     JSON.stringify(form) === JSON.stringify(lastSyncedFormRef.current);
+   if (!untouched) return; // user sedang mengedit — jangan timpa
+   lastSyncedFormRef.current = next;
+   setForm((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+ }, [settings, form]);
 
  // ── Fetch DB stats (shares cache with other components) ──
  const { data: habitsData = [] } = useQuery<unknown[]>({

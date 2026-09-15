@@ -190,7 +190,16 @@ export function TodayHabitsCard({
                       busy && 'animate-pulse',
                     )}
                   >
-                    <span className="rt-check-ripple" aria-hidden="true" />
+                    {/* Task 61-f (audit 61-a P2): ripple satu-tembakan hanya
+                        saat habit SEDANG diselesaikan (busy) — pola benar di
+                        daily-tracker-habit-card (justCompleted && isDone + key).
+                        Dulu span ini dirender permanen di semua baris pending →
+                        animasi 0.6s berjalan sekali SAAT MOUNT (kilau palsu
+                        tiap load Beranda) dan tidak pernah diputar ulang saat
+                        habit benar-benar diselesaikan. */}
+                    {busy && (
+                      <span key={`ripple-${habit.id}`} className="rt-check-ripple" aria-hidden="true" />
+                    )}
                     <Check className="h-4.5 w-4.5" strokeWidth={2.6} aria-hidden="true" />
                   </button>
                 ) : (

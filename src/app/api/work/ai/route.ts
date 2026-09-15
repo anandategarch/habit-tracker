@@ -140,14 +140,26 @@ export async function POST(req: Request) {
         messages,
         thinking: { type: 'disabled' },
       });
+      // Task 61-h (audit 61-c P2-1): pasang handler no-op SEBELUM race supaya
+      // rejeksi llmPromise yang kalah race (timeout menang duluan) tidak
+      // menjadi unhandledRejection pasca-response. Promise.race tetap
+      // memasang handler-nya sendiri → hasil race TIDAK berubah.
+      llmPromise.catch(() => {});
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS);
+        timeoutId = setTimeout(() => reject(new Error('LLM timeout')), LLM_TIMEOUT_MS);
       });
-      const completion = await Promise.race([llmPromise, timeoutPromise]);
-      const content = String(
-        (completion as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content ?? ''
-      );
-      parsed = parseAiPayload(content);
+      try {
+        const completion = await Promise.race([llmPromise, timeoutPromise]);
+        const content = String(
+          (completion as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content ?? ''
+        );
+        parsed = parseAiPayload(content);
+      } finally {
+        // Task 61-h: timer harus mati begitu race selesai — tanpa ini instance
+        // tetap hidup 45 dtk setelah response (boros waktu serverless).
+        clearTimeout(timeoutId);
+      }
       if (!parsed && attempt < MAX_ATTEMPTS) {
         // Percobaan kedua: tegaskan format JSON mentah tanpa teks lain.
         messages.push({ role: 'user', content: 'Balas ULANGI HANYA JSON valid: {"tasks":[{"title":"..."}],"notes":[{"content":"..."}]} — tanpa kalimat pembuka/penutup.' });

@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
+  ApiError,
   asString,
   badRequest,
   handleApiError,
@@ -45,8 +46,11 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     try {
       await db.weeklyBudget.update({ where: { id }, data });
     } catch (e) {
+      // Task 61-h (audit 61-c P3-1): duplikat (category, month) saat rename
+      // → 409, BUKAN 400 — konsisten dengan POST (fix 60-b). Frontend membaca
+      // err.error pada !res.ok → status 400/409 sama-sama non-ok, aman.
       if ((e as { code?: string }).code === 'P2002') {
-        throw badRequest('Budget untuk kategori dan bulan tersebut sudah ada');
+        throw new ApiError(409, 'Budget untuk kategori dan bulan tersebut sudah ada');
       }
       throw e;
     }

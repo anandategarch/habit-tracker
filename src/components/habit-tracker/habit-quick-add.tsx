@@ -32,8 +32,9 @@ export function QuickAddBar({
   return (
     <div className="premium-card rounded-2xl p-3 sm:p-4">
       <div className="flex items-center gap-2">
-        {/* Tombol emoji → picker grid */}
-        <div className="relative shrink-0">
+        {/* Tombol emoji → picker grid — data-emoji-popover-wrap: penanda
+            efek tutup-klik-luar di habit-master (Task 61, revisi pusat) */}
+        <div className="relative shrink-0" data-emoji-popover-wrap>
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}

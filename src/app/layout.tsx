@@ -37,6 +37,15 @@ export const metadata: Metadata = {
   description:
     "Rutina: pelacak habit dan keuangan pribadi. Bangun rutinitas, catat mood & energi, kelola budget, tabungan, dan tujuan.",
   applicationName: "Rutina",
+  // TASK 61-i: meta iOS standalone — tanpa ini Next tidak emit
+  // apple-mobile-web-app-capable/-status-bar-style/-title; status bar
+  // standalone iOS memakai style terang default yang bentrok dengan dark
+  // mode + viewportFit cover (sudah ada di export viewport di bawah).
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Rutina",
+  },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

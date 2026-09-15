@@ -42,6 +42,9 @@ export async function POST(req: Request) {
     if (!to) throw badRequest('Sumber tujuan tidak ditemukan');
 
     const amount = requirePositiveNumber(body.amount, 'Jumlah transfer harus lebih dari 0');
+    // Task 61-h (audit 61-c P3-2): cap 1e12 — selaras guard nominal di
+    // transactions POST/split (validasi tambahan, non-breaking).
+    if (amount > 1e12) throw badRequest('Jumlah transfer tidak valid');
     const feeRaw = body.fee;
     const fee = feeRaw === undefined || feeRaw === null ? 0 : asNumber(feeRaw);
     if (fee === null || fee < 0 || fee > 1e12) throw badRequest('Biaya transfer tidak valid');

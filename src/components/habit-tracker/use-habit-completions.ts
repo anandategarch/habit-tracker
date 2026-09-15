@@ -149,6 +149,11 @@ export function useHabitCompletions(
     // bestStreak, flip 7 hari) membaca seperti biasa.
     const fromMonth = monthShift(month, 11);
     let groupedLogs: Record<string, HabitLog[]> = {};
+    // Task 61-f (audit 61-d P1): kegagalan fetch TIDAK boleh jatuh ke default
+    // kosong — dulu peta completion DINOLKAN semua + cache bulan DITULIS
+    // kosong (semua habit tampak belum selesai tanpa error, dan cache teracun
+    // membuat muat ulang berikutnya short-circuit ke data kosong yang sama).
+    let fetchFailed = false;
     try {
       const res = await fetch(
         `/api/habits/batch-logs?month=${month}&from=${fromMonth}&ids=${ids.join(',')}`,
@@ -157,9 +162,11 @@ export function useHabitCompletions(
         // Normalisasi bentuk payload ({ logs } flat / grouped lama) ada di
         // helper groupBatchLogs (daily-tracker-helpers).
         groupedLogs = groupBatchLogs(await res.json());
+      } else {
+        fetchFailed = true;
       }
     } catch {
-      // fall through to empty defaults
+      fetchFailed = true;
     }
 
     // RACE-1: a newer fetch may have resolved while this one was in flight.
@@ -167,6 +174,12 @@ export function useHabitCompletions(
     // current date's state, (b) flipping cachedMonthRef back to the stale
     // month (which would only cost a redundant re-fetch later, but still).
     if (isCancelled?.()) return;
+
+    // Task 61-f: gagal fetch → pertahankan data lama utuh (peta + cache bulan
+    // tidak disentuh) sehingga ceklis yang sudah tampil tidak "hilang" dan
+    // percobaan muat ulang berikutnya mencoba fetch lagi, bukan membaca cache
+    // kosong.
+    if (fetchFailed) return;
 
     const monthCache: Record<string, HabitLog[]> = {};
     const map: Record<string, boolean> = {};

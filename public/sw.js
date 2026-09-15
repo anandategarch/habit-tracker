@@ -1,9 +1,21 @@
-// Rutina Service Worker — v27 (TASK 59: loading antar tab = animasi tumbuh).
+// Rutina Service Worker — v28 (TASK 61-i: robustness fetch handler).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v27';
+const CACHE_NAME = 'habit-tracker-v28';
 // Riwayat versi:
+//  v28 — Task 61-i (bug-hunt PWA robustness): (1) fallback navigasi offline
+//        kini BERANTAI sampai shell '/' + 503 darurat — respondWith tidak
+//        pernah lagi menerima undefined; (2) SEMUA cache.put di fetch
+//        handler didaftarkan ke event.waitUntil sel event masih aktif —
+//        browser tidak boleh meng-terminate SW sebelum tulis cache selesai
+//        (termasuk revalidasi background SWR yang berjalan setelah
+//        respondWith settle); (3) aset yang offline & belum pernah di-cache
+//        dijawab 503 generik, bukan undefined (TypeError respondWith).
+//        Satu deploy bersama: vercel.json (buang immutable utk file
+//        non-hash), manifest (+id/lang/dir), layout (appleWebApp iOS),
+//        sw-register (SW hanya production). Bump versi agar update terpasang
+//        serentak + cache v27 dibersihkan saat activate.
 //  v27 — TASK 59 + bug-hunt 59-b4 #1: splash (Task 58) DAN tab-loading
 //        (Task 59) kini TreeGrowSplash — 4 aset sekuens tumbuh
 //        /tree/grow-1-tunas … grow-4-berbunga.svg WAJIB di-precache
@@ -115,6 +127,15 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
+// 61-i: lapis darurat terakhir semua fallback offline — respondWith tidak
+// boleh pernah menerima undefined (TypeError); jawab 503 jujur.
+function offlineResponse() {
+  return new Response('Offline — koneksi tidak tersedia. Buka ulang saat online.', {
+    status: 503,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -135,16 +156,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML: network-first dengan fallback cache.
+  // HTML: network-first dengan fallback cache berantai (61-i #1: turun
+  // match(req) -> match('/') -> 503 darurat — tak pernah resolve undefined).
   if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+          // 61-i #2: waitUntil — SW dijamin hidup sampai tulis cache selesai.
+          event.waitUntil(
+            caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {}),
+          );
           return res;
         })
-        .catch(() => caches.match(req, { ignoreSearch: true })),
+        .catch(() =>
+          caches
+            .match(req, { ignoreSearch: true })
+            .then((cached) => cached || caches.match('/'))
+            .then((shell) => shell || offlineResponse())
+            .catch(() => offlineResponse()),
+        ),
     );
     return;
   }
@@ -152,16 +183,23 @@ self.addEventListener('fetch', (event) => {
   // Assets: stale-while-revalidate.
   event.respondWith(
     caches.match(req).then((cached) => {
-      const network = fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
+      const network = fetch(req);
+      // 61-i #2: rantai tulis-cache didaftarkan ke waitUntil SEKARANG, sel
+      // event masih aktif (respondWith belum settle) — mencakup juga
+      // revalidasi background SWR setelah respondWith menjawab dari cache.
+      const putChain = network.then((res) => {
+        if (!res.ok) return;
+        const copy = res.clone();
+        return caches
+          .open(CACHE_NAME)
+          .then((c) => c.put(req, copy))
+          .catch(() => {});
+      });
+      event.waitUntil(putChain.catch(() => {}));
+
+      if (cached) return cached; // SWR: instan dari cache, revalidate di belakang.
+      // 61-i #3: cache kosong + offline -> 503 generik, bukan undefined.
+      return network.catch(() => offlineResponse());
     }),
   );
 });

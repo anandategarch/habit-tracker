@@ -63,12 +63,13 @@ export function FiltersBar({
         )}
       </div>
 
-      {/* Segmen kategori (Semua + label kategori) */}
-      <div
-        className="premium-segment flex-wrap"
-        role="group"
-        aria-label="Filter kategori habit"
-      >
+      {/* Segmen kategori (Semua + label kategori) — sembunyikan saat tak ada kategori agar tidak ada chip "Semua" yatim */}
+      {categories.length > 0 && (
+        <div
+          className="premium-segment flex-wrap"
+          role="group"
+          aria-label="Filter kategori habit"
+        >
         <button
           type="button"
           onClick={() => setCategoryFilter('all')}
@@ -100,7 +101,8 @@ export function FiltersBar({
             </button>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {/* Segmen status (aktif / dijeda / arsip) */}
       <div

@@ -40,6 +40,12 @@ function reconcileVacationIntervals(
     if (!habit.vacationMode) {
       const until = untilRaw ? jakartaDateString(untilRaw) : null;
       intervals.push({ start: todayYmd, until });
+      // Task 61-h (audit 61-c P3-10): re-enable TANPA vacationUntil di body →
+      // kolom lama (tanggal yang sudah lewat) harus dibersihkan EKSPLISIT.
+      // Tanpa ini vacationUntil basi tetap tersimpan sehingga
+      // expireHabitVacations mematikan mode lagi pada GET berikutnya
+      // (interval terbuka tetap tercatat, tapi badge 🏖 libur padam sendiri).
+      if (untilRaw === undefined) data.vacationUntil = null;
     } else if (untilRaw !== undefined) {
       setLastOpenVacationUntil(intervals, untilRaw ? jakartaDateString(untilRaw) : null);
     }

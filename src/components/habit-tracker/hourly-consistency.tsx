@@ -142,7 +142,10 @@ function HourlyConsistencyPanel({ periodDays }: { periodDays: number }) {
             <div
               role="group"
               aria-label="Peta konsistensi per jam, 0 sampai 23"
-              className="grid grid-cols-12 gap-1.5"
+              // Task 61-f (audit 61-a P2): 24 sel jam @320px dengan 12 kolom
+              // hanya ±15-18px/sel — mustahil disentuh. 8 kolom di mobile
+              // (3 baris, ±30px/sel), kembali 12 kolom dari breakpoint sm.
+              className="grid grid-cols-8 gap-1.5 sm:grid-cols-12"
             >
               {byHour.map((h) => {
                 const isSelected = selectedHour === h.hour;

@@ -73,6 +73,15 @@ export default function Goals() {
   // bentuk cache → goals membaca focusToday=[] (status pendukung selalu
   // "belum") atau Beranda membaca todayHabits=undefined → crash render.
   const refreshKey = useAppStore((s) => s.refreshKey);
+  // 61-g (audit 61-d P3, paritas 60-a #2b / pohon-screen): elemen-4 key
+  // dashboard kini retryCount LOKAL (dulu hardcoded 0) — struktur kunci
+  // IDENTIK dengan dashboard.tsx/pohon-screen.tsx; setelah "Coba Lagi"
+  // (Beranda ataupun di bawah), kunci tidak bercabang permanen dari cache
+  // Beranda (dulu key Tujuan selalu berakhiran 0 → cache terpisah + fetch
+  // ganda setelah retry Beranda sukses). Tombol Coba Lagi lokal ikut
+  // menaikkan retryCount agar status pendukung (['dashboard','all',…])
+  // ikut disegarkan saat user mencoba ulang.
+  const [retryCount, setRetryCount] = useState(0);
   const { data: habits = [] } = useQuery<{ id: string; name: string; emoji: string; goalId?: string | null; graduatedAt?: string | null; isActive?: boolean }[]>({
     queryKey: ['habits'],
     queryFn: async () => {
@@ -84,7 +93,7 @@ export default function Goals() {
     staleTime: 30_000,
   });
   const { data: todayData } = useQuery({
-    queryKey: ['dashboard', 'all', refreshKey, 0],
+    queryKey: ['dashboard', 'all', refreshKey, retryCount],
     queryFn: async () => {
       const res = await fetch('/api/dashboard?period=all');
       if (!res.ok) return null;
@@ -338,7 +347,7 @@ export default function Goals() {
           <p className="max-w-sm text-xs text-muted-foreground/70 -mt-0.5">
             Terjadi kendala saat mengambil data tujuan. Periksa koneksi kamu lalu coba lagi.
           </p>
-          <Button size="sm" variant="outline" onClick={() => void refetch()} className="mt-2">
+          <Button size="sm" variant="outline" onClick={() => { void refetch(); setRetryCount((c) => c + 1); }} className="mt-2">
             <Loader2 className="h-4 w-4" aria-hidden="true" />
             Coba Lagi
           </Button>
