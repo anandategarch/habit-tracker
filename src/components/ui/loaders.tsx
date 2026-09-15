@@ -1,47 +1,10 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-
-/** Loader "sprout" legacy — dipertahankan untuk kompatibilitas (tidak dipakai
- *  di page.tsx sejak Task 28; TreeGrow menggantikannya). */
-export function SproutGrow({ className, size = 64 }: { className?: string; size?: number }) {
-  return (
-    <div
-      className={cn('relative flex items-center justify-center', className)}
-      style={{ width: size, height: size }}
-      role="status"
-      aria-label="Memuat"
-    >
-      <div className="absolute inset-0 animate-ping rounded-full bg-primary/10" />
-      <svg viewBox="0 0 24 24" className="text-primary" style={{ width: size * 0.62, height: size * 0.62 }} aria-hidden="true">
-        <path
-          d="M12 22V12"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M12 12c0-4-3-6-7-6 0 4 3 6 7 6z"
-          className="origin-bottom animate-pulse"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinejoin="round"
-          fill="currentColor"
-          fillOpacity="0.15"
-        />
-        <path
-          d="M12 10c0-3.5 2.6-5 6-5 0 3.5-2.6 5-6 5z"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinejoin="round"
-          fill="currentColor"
-          fillOpacity="0.15"
-        />
-      </svg>
-    </div>
-  );
-}
+// TASK 59-b4 #6: ambang bloom dari satu sumber kebenaran — bukan magic
+// number duplikat (sebelumnya `streak >= 7` hardcoded; bila ambang berubah
+// di tree-growth.ts, halo TreeProgress ikut — tidak desync dari state pohon).
+import { TREE_BLOOM_STREAK } from '@/lib/tree-growth';
 
 /** Path daun — basis di (0,0), ujung di (0,-13). Dipakai kipas daun di
  *  ujung ranting dan daun melayang. */
@@ -77,106 +40,6 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
   );
 }
 
-/**
- * TreeMark (Task 56, fix Task 57) — ikon aplikasi Rutina: artwork pohon
- * botanical milik pengguna (public/tree/tunas-mark.svg, tahap "Tunas").
- *
- * TASK 56: splash + tab loading disamakan dengan pohon terbaru — mengganti
- * TreeGrow (pohon garis vektor lama, Task 28). Artwork yang sama dipakai
- * kartu "Pohonmu" Beranda, tab Pohon, dan paket ikon PWA/favicon — identitas
- * visual satu suara dari launcher → splash → dalam aplikasi.
- *
- * TASK 57 (fix "kok jadi kotak"): tunas.svg asli adalah artwork gaya IKON
- * dengan 3 layer latar (rect teal gelap + grid + glow dekoratif) — di splash
- * yang background-nya terang, layer itu tampak sebagai KOTAK gelap, bukan
- * pohon. Solusi: tunas-mark.svg — geometri & warna artwork PERSIS sama
- * (gundukan tanah + akar + batang + 2 daun botanical) TANPA layer latar,
- * viewBox di-crop persegi (342 595 340 350) di sekitar tunas, bayangan tanah
- * dilembutkan .75→.16. Loading kini menampilkan POHONNYA — bukan kotak.
- *
- * Varian:
- * - 'splash' : (LEGACY Task 56/57 — sejak Task 58 splash pembuka memakai
- *   TreeGrowSplash: sekuens tumbuh Tunas→Berbunga; varian ini tidak lagi
- *   dipakai page.tsx, dipertahankan demi kompatibilitas API.)
- * - 'inline' : mark tampil langsung + goyang lembut dari pangkal (tanpa
- *   ring/sekuens) — untuk tab-loading yang selesai dalam ~300ms.
- *
- * Kenapa <img> dan bukan inline-SVG: aset punya gradient id (xleaf/xwood…)
- * yang akan bertabrakan kalau dua instance ter-render bersamaan (splash +
- * tab loading saat transisi). Sebagai dokumen terpisah, id aman.
- * Goyang/bernafas lewat kelas CSS (globals.css §TreeMark) — adaptif
- * prefers-reduced-motion.
- */
-export function TreeMark({
-  className,
-  size = 64,
-  variant = 'inline',
-  ring = false,
-}: {
-  className?: string;
-  size?: number;
-  variant?: 'splash' | 'inline';
-  /** Tampilkan progress ring yang mengakselerasi (varian splash). */
-  ring?: boolean;
-}) {
-  // Padding supaya ring (r≈47% dari size) melingkar DI LUAR mark artwork.
-  const pad = Math.max(3, Math.round(size * 0.085));
-  const tile = Math.max(24, size - pad * 2);
-  return (
-    <div
-      className={cn('relative flex items-center justify-center', className)}
-      style={{ width: size, height: size }}
-      role="status"
-      aria-label="Memuat"
-    >
-      {/* Halo teal "bernapas" di belakang mark — hanya splash (tenang, bukan
-          strobo). Terlihat menembus celah antar daun karena mark transparan.
-          Static samar di bawah prefers-reduced-motion. */}
-      {variant === 'splash' && <div className="treemark-halo treemark-halo-on" aria-hidden="true" />}
-
-      {/* Progress ring — mulai pukul 12, arc mengakselerasi 1 putaran.
-          pathLength=1 menormalkan keliling → dasharray 1 = sepanjang path. */}
-      {ring && (
-        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
-          <g transform="rotate(-90 50 50)">
-            <circle className="treemark-ring-track" cx="50" cy="50" r="47" fill="none" strokeWidth="2.6" />
-            <circle
-              className="treemark-ring-arc"
-              cx="50"
-              cy="50"
-              r="47"
-              fill="none"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              pathLength={1}
-            />
-          </g>
-        </svg>
-      )}
-
-      {/* Mark transparan (Task 57 — tanpa kotak): SVG auto-fit preserve-aspect
-          di dalam kotak tile (aspect 340:350 ≈ persegi, letterbox ~1.4%).
-          Enter (splash) di wrapper, sway di <img> supaya dua animasi tidak
-          bertabrakan di elemen yang sama. */}
-      <div
-        className={cn('treemark-tile', variant === 'splash' && 'treemark-enter')}
-        style={{ width: tile, height: tile }}
-      >
-        <img
-          src="/tree/tunas-mark.svg"
-          alt=""
-          width={340}
-          height={350}
-          decoding="async"
-          draggable={false}
-          fetchPriority={variant === 'splash' ? 'high' : 'auto'}
-          className="treemark-art treemark-sway h-full w-full select-none"
-        />
-      </div>
-    </div>
-  );
-}
-
 /** Baris skeleton generik. */
 export function SkeletonRow({ className }: { className?: string }) {
   return <div className={cn('h-14 animate-pulse rounded-xl bg-muted/60', className)} />;
@@ -207,13 +70,22 @@ export function SkeletonRow({ className }: { className?: string }) {
  *
  * Sama seperti TreeMark: <img> (bukan inline-SVG) supaya gradient id
  * (xleaf/xwood…) tiap file tidak bertabrakan antar instance/dokumen.
- * prefers-reduced-motion: cerita dimatikan — hanya berbunga statis. */
+ * prefers-reduced-motion: cerita dimatikan — hanya berbunga statis.
+ *
+ * TASK 59: varian 'inline' — loading ANTAR TAB juga memakai animasi
+ * tumbuh ("animasi loading antar tab juga ganti icon nya"). Cerita sama,
+ * tempo KILAT: delay 0/0.2/0.4/0.6s, fade 0.26s, sway mulai 0.78s, tanpa
+ * halo & ring default (chunk tab umumnya siap ~300ms — loader bisa lepas
+ * di tengah cerita; progres tumbuh tetap terbaca, tidak terasa macet). */
 const TREE_GROW_STAGES = [
   { src: '/tree/grow-1-tunas.svg', w: 720, h: 363, delay: 0 },
   { src: '/tree/grow-2-muda.svg', w: 720, h: 619, delay: 0.44 },
   { src: '/tree/grow-3-dewasa.svg', w: 720, h: 718, delay: 0.88 },
   { src: '/tree/grow-4-berbunga.svg', w: 720, h: 784, delay: 1.32 },
 ] as const;
+
+/** Delay varian inline — cerita tumbuh versi kilat (Task 59). */
+const TREE_GROW_INLINE_DELAYS = [0, 0.2, 0.4, 0.6] as const;
 
 /** Aspek kotak = tahap tertinggi (berbunga) — kotak disesuaikan supaya
  *  pohon berbunga muat penuh tanpa terpotong. */
@@ -223,28 +95,37 @@ const TREE_GROW_MAX_ASPECT =
 export function TreeGrowSplash({
   className,
   size = 180,
-  ring = true,
+  variant = 'splash',
+  ring,
 }: {
   className?: string;
   size?: number;
-  /** Tampilkan progress ring yang mengakselerasi (1.62s, ease-in). */
+  /** 'splash' = layar pembuka (lambat, halo+ring); 'inline' = loading
+   *  antar tab (kilat, tanpa halo/ring) — Task 59. */
+  variant?: 'splash' | 'inline';
+  /** Progress ring mengakselerasi. Default: ON untuk splash, OFF inline. */
   ring?: boolean;
 }) {
+  const isInline = variant === 'inline';
+  const ringOn = ring ?? !isInline;
+  const delays = isInline ? TREE_GROW_INLINE_DELAYS : TREE_GROW_STAGES.map((s) => s.delay);
   const boxW = Math.round(size);
   const boxH = Math.round(size * TREE_GROW_MAX_ASPECT);
   return (
     <div
-      className={cn('relative', className)}
+      className={cn('relative', isInline && 'tree-grow-inline', className)}
       style={{ width: boxW, height: boxH }}
       role="status"
-      aria-label="Memuat — pohon tumbuh dari tunas hingga berbunga"
+      aria-label={isInline ? 'Memuat' : 'Memuat — pohon tumbuh dari tunas hingga berbunga'}
     >
-      {/* Halo teal "bernapas" di belakang pohon (warisan TreeMark splash). */}
-      <div className="treemark-halo treemark-halo-on" aria-hidden="true" />
+      {/* Halo teal "bernapas" di belakang pohon — hanya varian splash
+          (warisan TreeMark). Inline skip: singkat + hindari strobo saat
+          pergantian loader antar tab. */}
+      {!isInline && <div className="treemark-halo treemark-halo-on" aria-hidden="true" />}
 
       {/* Progress ring — mulai pukul 12, arc mengakselerasi 1.62s; selesai
           ~saat berbunga penuh (metafora: pertumbuhan = progres loading). */}
-      {ring && (
+      {ringOn && (
         <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
           <g transform="rotate(-90 50 50)">
             <circle className="treemark-ring-track" cx="50" cy="50" r="47" fill="none" strokeWidth="2.6" />
@@ -263,13 +144,14 @@ export function TreeGrowSplash({
       )}
 
       {/* Stack 4 tahap — enter spring di wrapper (origin tanah), tiap tahap
-          fade-in via kelas + animationDelay, sway serempak di <img>. */}
+          fade-in via kelas + animationDelay, sway serempak di <img>.
+          Durasi fade & delay sway diatur CSS per varian (§TreeGrowSplash). */}
       <div className="tree-grow-root" aria-hidden="true">
         {TREE_GROW_STAGES.map((s, i) => (
           <div
             key={s.src}
             className={cn('tree-grow-stage', i === TREE_GROW_STAGES.length - 1 && 'tree-grow-final')}
-            style={{ animationDelay: `${s.delay}s` }}
+            style={{ animationDelay: `${delays[i]}s` }}
           >
             <img
               src={s.src}
@@ -368,8 +250,9 @@ export function TreeProgress({
     <div
       className={cn(
         'relative flex items-center justify-center',
-        // Halo streak ≥7 hari — momentum hangat menyala di sekeliling pohon.
-        streak >= 7 && 'tree-heat',
+        // Halo streak ≥ ambang bloom — momentum hangat menyala di sekeliling
+        // pohon (TASK 59-b4 #6: konstanta, bukan magic number).
+        streak >= TREE_BLOOM_STREAK && 'tree-heat',
         // Hari tuntas — bloom emerald mengelilingi tajuk.
         done && 'tree-bloom',
         className

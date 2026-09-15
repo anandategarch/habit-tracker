@@ -48,7 +48,7 @@ import { toDashboardData } from '@/lib/dashboard/contract';
 import { jakartaDateString } from '@/lib/timezone';
 import { PageHeader } from '@/components/ui/page-header';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
-import { TreeMark } from '@/components/ui/loaders';
+import { TreeGrowSplash } from '@/components/ui/loaders';
 import { cn } from '@/lib/utils';
 
 // ── Data types (bentuk field minimal yang dipakai layar ini) ────────────
@@ -270,6 +270,25 @@ export default function PohonScreen() {
   const tapCountRef = useRef(0);
   const leafIdRef = useRef(0);
   const whisperIdxRef = useRef(0);
+  // TASK 59-b4 #3: kumpulan id timer animasi/toast — dibersihkan saat
+  // unmount. Dulu timer 1150ms handleWater (dan 2200/2400ms celebrating,
+  // cleanup daun) tetap hidup melewati unmount: pindah tab di tengah
+  // penyiraman → toast "Belum ada rutinitas…" meletus di ATAS tab lain.
+  const timersRef = useRef<number[]>([]);
+  /** setTimeout yang aman-unmount: id dicatat & dibersihkan saat komponen
+   *  lepas — callback (termasuk toast) tidak pernah jalan pasca-unmount. */
+  const safeTimeout = useCallback((fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  }, []);
+  useEffect(
+    () => () => {
+      timersRef.current.forEach((id) => clearTimeout(id));
+      timersRef.current = [];
+    },
+    []
+  );
 
   // Ambience malam (hydrate-aman: default siang, dihitung setelah mount).
   const [isNight, setIsNight] = useState(false);
@@ -300,7 +319,7 @@ export default function PohonScreen() {
     }));
     setLeaves((prev) => [...prev.slice(-8), ...spawn]);
     const maxDur = Math.max(...spawn.map((l) => l.durMs + l.delayMs));
-    window.setTimeout(() => {
+    safeTimeout(() => {
       setLeaves((prev) => prev.filter((l) => !spawn.some((s) => s.id === l.id)));
     }, maxDur + 150);
 
@@ -308,7 +327,7 @@ export default function PohonScreen() {
     if (tapCountRef.current === 10) {
       toast.success('Rahasia kecil: pohon ini tumbuh dari XP-mu 🌱 terus siram!');
       setCelebrating(true);
-      window.setTimeout(() => setCelebrating(false), 2200);
+      safeTimeout(() => setCelebrating(false), 2200);
       return;
     }
     // Bisik-bisik tiap sapaan ke-4 — rotasi pesan, anti-spam toast.
@@ -319,12 +338,12 @@ export default function PohonScreen() {
       });
       whisperIdxRef.current += 1;
     }
-  }, []);
+  }, [safeTimeout]);
 
   const handleWater = useCallback(() => {
     if (watering) return;
     setWatering(true);
-    window.setTimeout(() => {
+    safeTimeout(() => {
       setWatering(false);
       if (todayTotal === 0) {
         toast('Belum ada rutinitas untuk disiram hari ini', {
@@ -339,7 +358,7 @@ export default function PohonScreen() {
         });
       } else if (allWatered) {
         setCelebrating(true);
-        window.setTimeout(() => setCelebrating(false), 2400);
+        safeTimeout(() => setCelebrating(false), 2400);
         toast.success('Pohonmu minum hari ini! 🌟 Pertumbuhan terjaga.', {
           description: `${todayDone} rutinitas selesai — tetesan jatuh sempurna.`,
         });
@@ -353,7 +372,7 @@ export default function PohonScreen() {
         });
       }
     }, 1150);
-  }, [watering, todayTotal, todayDone, allWatered, openTrackerDate, todayStr, setSettingsSection, setActiveTab]);
+  }, [watering, todayTotal, todayDone, allWatered, openTrackerDate, todayStr, setSettingsSection, setActiveTab, safeTimeout]);
 
   const wisdom = useMemo(() => todayWisdom(new Date()), []);
   const narrative = tree ? treeGrowthNarrative(tree) : '';
@@ -363,9 +382,10 @@ export default function PohonScreen() {
   if (isLoading && !dash) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        {/* TASK 56: TreeMark — artwork pohon botanical (sama dgn splash).
-            Dulu TreeGrow vektor lama. */}
-        <TreeMark size={72} variant="inline" />
+        {/* TASK 59: TreeGrowSplash inline — animasi tumbuh Tunas→Berbunga
+            versi kilat (sama dgn loading antar tab & splash Task 58).
+            Dulu TreeMark statis (Task 56), sebelum itu TreeGrow vektor. */}
+        <TreeGrowSplash size={88} variant="inline" />
       </div>
     );
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +33,9 @@ import { format, id as idLocale } from '@/lib/date-utils';
 // ('yyyy-MM', 'MMMM yyyy' with id locale) — verified via test script in
 // worklog FIX-TIER3 entry.
 import { jakartaMonthString, dateFromYMD } from '@/lib/timezone';
+// TASK 59-b3 #1: parseTags — parser tag yang benar (storage = string
+// dipisah koma). Dipakai filter pencarian transaksi di bawah.
+import { parseTags } from '@/lib/money';
 import { useAppStore, type FinanceFocus, type FinanceSubTab } from '@/store/app-store';
 import { MoneyParticles } from './money-particles';
 import { useFinanceMutations } from '@/hooks/use-finance-mutations';
@@ -378,6 +381,12 @@ export default function Finance() {
 
  const { data: transactions = [] } = useQuery<Transaction[]>({
    queryKey: ['finance', 'transactions', selectedMonth, { ...txFilter, search: debouncedSearch }, sourceFilterId],
+   // TASK 59-b3 #2: keepPreviousData — tiap ganti chip filter / bulan
+   // membuat queryKey baru; tanpa placeholder, data = [] selama fetch
+   // berjalan → UI flash "Belum ada transaksi" (empty state penuh + CTA
+   // bulan lalu) untuk round-trip jaringan yang redundan. Data lama tetap
+   // tampil sampai data baru tiba.
+   placeholderData: keepPreviousData,
    queryFn: async () => {
      // FEAT-SEARCH-ALLTIME: When user types a search query, skip the month
      // param so the search spans ALL periods. This lets users find a
@@ -541,9 +550,14 @@ export default function Finance() {
    // API select drops it — notes will be undefined, which safely skips).
    if (txFilter.search) {
      const term = txFilter.search.toLowerCase();
-     const tagsStr = typeof tx.tags === 'string' ? tx.tags : '';
-     let tagsArr: string[] = [];
-     try { tagsArr = JSON.parse(tagsStr || '[]'); } catch { /* malformed */ }
+     // TASK 59-b3 #1: tags disimpan API sebagai STRING DIPISAH KOMA
+     // (schema: "dipisah koma"; route recurring menulis 'berulang') — bukan
+     // JSON array. Dulu `JSON.parse(tagsStr)` throw pada string biasa →
+     // tagsArr = [] → baris yang HANYA match tag disembunyikan oleh filter
+     // instan dan tetap hilang setelah refetch (server mengirimnya!)
+     // meski server-side match benar. parseTags menangani string koma,
+     // array, null, dan string kosong.
+     const tagsArr = parseTags(tx.tags);
      const matches =
        tx.description?.toLowerCase().includes(term) ||
        (tx.category ?? '').toLowerCase().includes(term) ||

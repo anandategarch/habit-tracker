@@ -258,7 +258,14 @@ export default function Settings() {
        throw new Error(err.error || 'Import gagal');
      }
      const result = await res.json();
-     toast.success(`Data berhasil diimport! ${result.total ?? 0} record dipulihkan 🎉`);
+     // TASK 59-b5 #3: API mengirim { ok, restored: {tabel: n} } — TIDAK ada
+     // field `total` (dulu `result.total ?? 0` → toast selalu "0 record
+     // dipulihkan" meski import sukses). Jumlahkan nilai semua tabel.
+     const restoredCount = Object.values(result?.restored ?? {}).reduce<number>(
+       (sum, n) => sum + (typeof n === 'number' ? n : 0),
+       0
+     );
+     toast.success(`Data berhasil diimport! ${restoredCount} record dipulihkan 🎉`);
      setImportDialogOpen(false);
      triggerRefresh();
      queryClient.invalidateQueries();

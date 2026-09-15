@@ -96,11 +96,19 @@ export function PullToRefresh({ className, onRefresh, children, ...rest }: PullT
         className={cn(
           'pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 transition-opacity',
           showIndicator ? 'opacity-100' : 'opacity-0',
+          // TASK 59-b1 #5: putaran saat refreshing via KEYFRAME (dulu inline
+          // `transition … infinite` — nilai invalid, deklarasi dibuang
+          // browser → sprout tidak pernah berputar). Reduced-motion: kelas
+          // dinetralkan di globals.css.
+          refreshing && 'ptr-spin',
         )}
         style={{
           top: refreshing ? 8 : -28 + Math.min(pull, MAX_PULL) * 0.24,
-          transform: `translateX(-50%) rotate(${refreshing ? 360 : progress * 300}deg)`,
-          transition: refreshing ? 'transform 0.8s linear infinite' : undefined,
+          // Fallback statis saat animasi tidak berjalan (reduced-motion):
+          // rotasi mengikuti progres tarikan.
+          transform: refreshing
+            ? 'translateX(-50%)'
+            : `translateX(-50%) rotate(${progress * 300}deg)`,
         }}
       >
         <span className="grid h-8 w-8 place-items-center rounded-full bg-background/90 text-primary shadow-md backdrop-blur">

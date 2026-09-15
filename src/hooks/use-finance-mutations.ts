@@ -316,6 +316,11 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
  }, [splitRows]);
 
  const handleSubmitTx = useCallback(async (event?: React.MouseEvent<HTMLButtonElement>) => {
+   // TASK 59-b3 #7: tangkap elemen SEBELUM await (pola finance-savings-goals
+   // #144) — React meng-null-kan event.currentTarget setelah dispatch
+   // selesai; dulu smallPop dipanggil dengan currentTarget pasca-await →
+   // selalu null → confetti tidak pernah meletus.
+   const submitBtnEl = event?.currentTarget as HTMLElement | undefined;
    // BUG-5 fix: double-submit guard. If a submission is already in flight
    // (e.g. the user double-clicked Simpan), bail out immediately. The guard
    // is set right before the async fetch and reset in each finally block, so
@@ -401,7 +406,7 @@ export function useFinanceMutations({ getActiveSources }: UseFinanceMutationsPar
        }
      } else {
        const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-       if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop((event?.currentTarget as HTMLElement | undefined) ?? null); } else {
+       if (res.ok) { toast.success('Transaksi berhasil ditambahkan'); smallPop(submitBtnEl ?? null); } else {
          // LOW-e: tampilkan pesan error SPESIFIK dari API (bukan generik) —
          // selaras handler PUT di atas.
          const err = await res.json().catch(() => null);

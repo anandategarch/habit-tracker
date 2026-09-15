@@ -1,9 +1,16 @@
-// Rutina Service Worker — v26 (TASK 57: ikon loading = pohon transparan).
+// Rutina Service Worker — v27 (TASK 59: loading antar tab = animasi tumbuh).
 // Strategi: assets stale-while-revalidate; HTML & API network-first (fallback
 // cache HTML bila pernah tersimpan; API offline -> 503 JSON jujur).
 // NOTE jujur: ini BUKAN offline-first penuh — mutation queue belum ada.
-const CACHE_NAME = 'habit-tracker-v26';
+const CACHE_NAME = 'habit-tracker-v27';
 // Riwayat versi:
+//  v27 — TASK 59 + bug-hunt 59-b4 #1: splash (Task 58) DAN tab-loading
+//        (Task 59) kini TreeGrowSplash — 4 aset sekuens tumbuh
+//        /tree/grow-1-tunas … grow-4-berbunga.svg WAJIB di-precache
+//        (sebelumnya hanya v26-era tunas-mark — cold-start offline PWA
+//        menampilkan splash tanpa pohon). tunas-mark.svg dikeluarkan:
+//        TreeMark sudah tidak dirender (dead code Task 59), file tetap
+//        ada di disk untuk scripts/generate-icons.mjs (ikon PWA/favicon).
 //  v26 — TASK 57 (fix "kok jadi kotak"): splash + tab loading kini memakai
 //        /tree/tunas-mark.svg — artwork tunas botanical TANPA layer latar
 //        (rect teal kotak dibuang, crop persegi di sekitar tunas, bayangan
@@ -75,12 +82,18 @@ const PRECACHE = [
   // POHON (Task 53) — artwork SVG pertumbuhan (botanical gelap Aurora)
   '/tree/benih.svg',
   '/tree/tunas.svg',
-  '/tree/tunas-mark.svg', // Task 57 — mark transparan utk splash/tab loading
   '/tree/pohon-muda.svg',
   '/tree/pohon-dewasa.svg',
   '/tree/berbunga.svg',
   '/tree/daun-kuning.svg',
   '/tree/dorman.svg',
+  // TASK 58/59 — sekuens tumbuh splash + loading antar tab (TreeGrowSplash).
+  // Keempatnya berbagi koordinat viewBox (x=152 w=720 bawah=966) supaya
+  // tanah sejajar saat crossfade — offline pun pohon tetap "tumbuh".
+  '/tree/grow-1-tunas.svg',
+  '/tree/grow-2-muda.svg',
+  '/tree/grow-3-dewasa.svg',
+  '/tree/grow-4-berbunga.svg',
 ];
 
 self.addEventListener('install', (event) => {

@@ -37,7 +37,7 @@ import { AppLockGate } from '@/components/app-lock-gate';
 import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
-import { TreeMark, TreeGrowSplash } from '@/components/ui/loaders';
+import { TreeGrowSplash } from '@/components/ui/loaders';
 
 // FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
 // initial bundle small + avoid SSR for components that use browser-only APIs.
@@ -46,17 +46,19 @@ import { TreeMark, TreeGrowSplash } from '@/components/ui/loaders';
 // during the ~300ms chunk-fetch/parse window, producing a blank white screen
 // ("transisi antar tab hanya putih aja").
 //
-// Now each dynamic() provides a `loading` render-prop that shows TreeMark
-// (TASK 56: artwork pohon botanical pengguna — sama dengan splash screen,
-// kartu "Pohonmu", dan ikon PWA; TASK 57: mark TRANSPARAN tanpa tile kotak)
-// for consistent branding across app load + tab transitions. The loader
+// Now each dynamic() provides a `loading` render-prop that shows
+// TreeGrowSplash varian inline (TASK 59: "animasi loading antar tab juga
+// ganti icon nya" — pohon TUMBUH Tunas→Berbunga versi kilat: delay
+// 0/0.2/0.4/0.6s, fade 0.26s, tanpa halo/ring; identitas sama dengan splash
+// pembuka Task 58) for consistent branding across app load + tab
+// transitions. The loader
 // mounts immediately when the dynamic wrapper
 // renders, then swaps out atomically once the chunk resolves — no blank
 // frame in between. The PageTransition's motion.div still animates the
 // surrounding fade, so the loader itself enters with the same fade-in.
 const tabLoading = () => (
  <div className="flex flex-col items-center justify-center gap-3 py-8">
-   <TreeMark size={64} variant="inline" />
+   <TreeGrowSplash size={84} variant="inline" />
    <p className="text-xs text-muted-foreground">Memuat...</p>
  </div>
 );
@@ -71,7 +73,8 @@ const ProgressTab = dynamic(() => import('@/components/habit-tracker/progress'),
 const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
 
 // TAB MESA KERJA (Task 17-a): catatan kerjaan — rutinitas berulang + tugas
-// lepas + catatan kilat + Asisten AI. Loader sama (TreeMark) seperti tab lain.
+// lepas + catatan kilat + Asisten AI. Loader sama (TreeGrowSplash inline)
+// seperti tab lain.
 const WorkDesk = dynamic(() => import('@/components/work/work-desk'), { ssr: false, loading: tabLoading });
 
 // TASK 55 (POHON TAB): tab pohon interaktif — rumah baru pohon Rutina
@@ -407,29 +410,31 @@ const [showSplash, setShowSplash] = useState(true);
  // overlay. Now resize sets the state to match the viewport: open on
  // desktop, closed on mobile. A deliberately-opened mobile drawer is
  // unaffected until the user actually resizes/rotates the device.
+ // TASK 59-b1 #4: resize kini hanya bereaksi saat BREAKPOINT CROSSING.
+ // Sebelumnya ANY resize event memaksa setSidebarOpen(matchViewport):
+ // sidebar desktop yang sengaja ditutup user diam-diam terbuka lagi oleh
+ // zoom-devtools/resize jendela, dan drawer mobile terbuka dipaksa tutup.
+ // Perilaku asli mount (auto-open desktop) dan crossing (BUGHUNT-ROUND2
+ // SIDEBAR-1) tetap utuh.
  useEffect(() => {
    if (typeof window === 'undefined') return;
+   let wasDesktop = window.innerWidth >= 768;
+   setSidebarOpen(wasDesktop); // perilaku mount asli: auto-open di desktop
    const apply = () => {
-     setSidebarOpen(window.innerWidth >= 768);
+     const isDesktop = window.innerWidth >= 768;
+     if (isDesktop !== wasDesktop) {
+       wasDesktop = isDesktop;
+       setSidebarOpen(isDesktop);
+     }
    };
-   apply();
    window.addEventListener('resize', apply);
    return () => window.removeEventListener('resize', apply);
  }, [setSidebarOpen]);
 
- // BUGHUNT-54 (3-d #3): deteksi mobile via matchMedia('(min-width: 768px)')
- // (state + listener) — dipakai atribut `inert` pada aside sidebar di bawah
- // saat drawer TERTUTUP di mobile (tombol nav off-screen tidak lagi
- // menangkap fokus Tab). Desktop (sidebar statis terbuka) tetap normal.
- const [isMobileViewport, setIsMobileViewport] = useState(true);
- useEffect(() => {
-   if (typeof window === 'undefined') return;
-   const mq = window.matchMedia('(min-width: 768px)');
-   const apply = () => setIsMobileViewport(!mq.matches);
-   apply();
-   mq.addEventListener('change', apply);
-   return () => mq.removeEventListener('change', apply);
- }, []);
+ // BUGHUNT-54 (3-d #3): deteksi mobile via matchMedia dulu dipakai kondisi
+ // `inert` sidebar. TASK 59-b1 #2: kondisi disederhanakan — inert kini
+ // berlaku setiap kali drawer tertutup (mobile & desktop) — state +
+ // listener matchMedia ini tidak lagi diperlukan dan dihapus.
 
  // BUGHUNT-54 (3-d #3b): Escape menutup drawer saat terbuka — paritas a11y
  // dengan pola Escape menu FAB (PremiumBottomNav) yang sudah ada.
@@ -509,9 +514,15 @@ const [showSplash, setShowSplash] = useState(true);
        )}
 
        {/* Sidebar - fixed position, slides in/out.
-           PREMIUM-UI: glass panel + gradient logo + active pill gradien. */}
+           PREMIUM-UI: glass panel + gradient logo + active pill gradien.
+           TASK 59-b1 #2: `inert` setiap kali drawer TERTUTUP (dulu hanya di
+           viewport mobile — di desktop, sidebar tertutup tetap off-screen
+           di -translate-x-full TAPI tetap focusable: Tab mendarat di tombol
+           nav tak terlihat & Enter mengganti tab diam-diam — pelanggaran
+           WCAG 2.4.3/2.4.7). Tombol toggle di header tetap aktif untuk
+           membuka kembali. */}
        <aside
-         {...(!sidebarOpen && isMobileViewport ? { inert: true } : {})}
+         {...(!sidebarOpen ? { inert: true } : {})}
          className={cn(
            'fixed top-0 left-0 z-50 h-dvh w-64 flex flex-col',
            'bg-card/95 backdrop-blur-xl border-r border-border',

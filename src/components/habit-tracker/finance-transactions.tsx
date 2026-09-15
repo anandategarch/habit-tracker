@@ -544,9 +544,14 @@ export default function FinanceTransactions({
              current month. For other months, today's expense is always 0
              (filteredTransactions is scoped to selectedMonth) — showing
              "Rp 0" was misleading. */}
-         {isCurrentMonth ? (
+         {isCurrentMonth && !txFilter.search.trim() ? (
            /* CONNECTED-APP: "pengeluaran hari ini" → transaksi hari ini yang
-              difilter (brief #12 — Today's spending → Finance today). */
+              difilter (brief #12 — Today's spending → Finance today).
+              TASK 59-b3 #3: disembunyikan saat PENCARIAN aktif — prop
+              `transactions` berisi hasil pencarian all-time, sehingga
+              angka hanya menghitung pengeluaran hari-ini yang kebetulan
+              match kata kunci — label "Total Pengeluaran Hari Ini" jadi
+              menyesatkan. Tanpa pencarian, angka kembali akurat penuh. */
            <button
              type="button"
              onClick={() => openFinanceFocus({ date: today, txType: 'expense' })}
