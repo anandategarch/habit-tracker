@@ -19,6 +19,13 @@
 // pohon yang disimpan; pohon selalu jujur mencerminkan ekosistem.
 // Navigasi memakai primitive store: openTrackerDate, openHabitFocus,
 // openGoalFocus, openProgressTree, setActiveTab, setSettingsSection.
+//
+// TASK 62 (Opsi B — MUSIM MINGGUAN): tahap panggung, bar "Pertumbuhan
+// Minggu Ini", dan statistik tahap kini diturunkan dari XP sejak awal
+// minggu (Senin Jakarta) → pohon RESET tiap awal minggu (Senin mulai
+// Benih). Level/XP seumur hidup tetap utuh: tampil sebagai badge "Level
+// N · seumur hidup" + baris XP lifetime; sinyal musiman (dorman/daun-
+// kuning/berbunga streak) tetap dari data seumur hidup.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -39,10 +46,10 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import { buildTreeInput } from '@/components/tree/tree-card';
+import { getTreeSeasonState, treeSeasonNarrative, type TreeSeasonState } from '@/lib/tree-season';
 import {
   TREE_BLOOM_STREAK,
   TREE_STATE_ART,
-  treeGrowthNarrative,
   type TreeGrowthState,
 } from '@/lib/tree-growth';
 import { toDashboardData } from '@/lib/dashboard/contract';
@@ -235,6 +242,15 @@ export default function PohonScreen() {
     );
   }, [dash, vacationCount]);
 
+  // Task 62 (Opsi B): MUSIM MINGGUAN — tahap panggung & progres pohon
+  // kini dari XP sejak awal minggu (reset tiap Senin). tree (seumur
+  // hidup) tetap dipakai untuk sinyal musiman: dorman/daun-kuning/
+  // berbunga (streak) + statistik lifetime di baris bawah.
+  const season: TreeSeasonState = useMemo(
+    () => getTreeSeasonState(dash?.seasonWeeklyXp ?? 0, dash?.seasonStartYmd ?? null, todayStr),
+    [dash?.seasonWeeklyXp, dash?.seasonStartYmd, todayStr],
+  );
+
   // Buah emas = kemenangan nyata: tujuan selesai + habit lulus.
   const fruits: FruitItem[] = useMemo(() => {
     const goalFruits: FruitItem[] = goals
@@ -270,7 +286,8 @@ export default function PohonScreen() {
   const allWatered = todayTotal > 0 && todayDone >= todayTotal;
 
   // Artwork mengikuti state pohon — prioritas: istirahat > perlu dirawat >
-  // berbunga > tahap normal.
+  // berbunga > tahap musim mingguan (Task 62: tahap dasar = XP minggu ini,
+  // bukan level seumur hidup).
   const artwork = tree
     ? tree.dorman
       ? TREE_STATE_ART.dorman
@@ -278,7 +295,7 @@ export default function PohonScreen() {
         ? TREE_STATE_ART['daun-kuning']
         : tree.blooming
           ? TREE_STATE_ART.berbunga
-          : tree.stage.artwork
+          : season.stage.artwork
     : TREE_STATE_ART.dorman; // placeholder saat loading (dicek di bawah)
 
   // ── Interaksi menyenangkan ────────────────────────────────────────────
@@ -394,8 +411,9 @@ export default function PohonScreen() {
   }, [watering, todayTotal, todayDone, allWatered, openTrackerDate, todayStr, setSettingsSection, setActiveTab, safeTimeout]);
 
   const wisdom = useMemo(() => todayWisdom(new Date()), []);
-  const narrative = tree ? treeGrowthNarrative(tree) : '';
-  const pct = tree ? Math.round(tree.stageProgress) : 0;
+  // Task 62: narasi + persen kini MUSIM MINGGUAN (XP sejak Senin).
+  const narrative = tree ? treeSeasonNarrative(season) : '';
+  const pct = tree ? Math.round(season.seasonProgress) : 0;
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading && !dash) {
@@ -422,7 +440,7 @@ export default function PohonScreen() {
         <PageHeader
           eyebrow="Rutina"
           title="Pohonmu"
-          subtitle="Cermin pertumbuhan seumur hidupmu — sapa, siram, dan panen."
+          subtitle="Musim mingguanmu — sapa, siram, dan panen. Level seumur hidup tetap tercatat."
           icon={TreePine}
         />
         <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">
@@ -441,7 +459,7 @@ export default function PohonScreen() {
       <PageHeader
         eyebrow="Rutina"
         title="Pohonmu"
-        subtitle="Cermin pertumbuhan seumur hidupmu — sapa, siram, dan panen."
+        subtitle="Musim mingguanmu — sapa, siram, dan panen. Level seumur hidup tetap tercatat."
         icon={TreePine}
       />
 
@@ -462,7 +480,7 @@ export default function PohonScreen() {
       {/* ══ ① PANGGUNG INTERAKTIF ══════════════════════════════════════ */}
       <ScrollReveal>
         <section
-          aria-label={`Panggung pohon — tahap ${tree?.stage.label ?? '…'}`}
+          aria-label={`Panggung pohon — musim minggu ini, tahap ${season.stage.label}`}
           className="relative overflow-hidden rounded-3xl border border-teal-900/60 shadow-[0_18px_44px_-18px_rgba(2,20,17,0.55)]"
           style={{ background: 'linear-gradient(160deg,#071715 0%,#05110F 60%,#04100D 100%)' }}
         >
@@ -476,7 +494,12 @@ export default function PohonScreen() {
           {/* Badge tahap + musim */}
           <div className="pointer-events-none absolute left-3 top-3 z-20 flex max-w-[70%] flex-col items-start gap-2">
             <span className="rounded-full border border-[#63E6BE]/30 bg-[#071715]/70 px-3 py-1.5 text-[11px] font-bold text-[#9AF4CC] backdrop-blur-sm">
-              {tree?.stage.label ?? '—'} · Level {dash?.currentLevel ?? '…'}
+              {season.stage.label} · Minggu Ini
+            </span>
+            {/* Task 62: pencapaian seumur hidup tetap terlihat sebagai
+                konteks (level tidak pernah turun — bukan sewa). */}
+            <span className="rounded-full border border-[#9BC1B7]/25 bg-[#071715]/70 px-3 py-1.5 text-[11px] font-semibold text-[#C6DAD3] backdrop-blur-sm">
+              Level {dash?.currentLevel ?? '…'} · seumur hidup
             </span>
             {tree?.blooming && (
               <span className="rounded-full border border-[#F1A2C5]/35 bg-[#F1A2C5]/15 px-3 py-1.5 text-[11px] font-semibold text-[#F1C9D9] backdrop-blur-sm">
@@ -499,7 +522,7 @@ export default function PohonScreen() {
           <button
             type="button"
             onClick={handleTapTree}
-            aria-label={`Sapa pohonmu — tahap ${tree?.stage.label ?? 'memuat'}, Level ${dash?.currentLevel ?? '…'}. Ketuk untuk membuatnya bergoyang.`}
+            aria-label={`Sapa pohonmu — musim minggu ini tahap ${season.stage.label}, Level ${dash?.currentLevel ?? '…'} seumur hidup. Ketuk untuk membuatnya bergoyang.`}
             className="group relative block w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63E6BE]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.995]"
           >
             <div key={swayKey} className="anim-pohon-sway">
@@ -593,11 +616,11 @@ export default function PohonScreen() {
         </section>
       </ScrollReveal>
 
-      {/* ══ ② PROGRES PERTUMBUHAN ═════════════════════════════════════ */}
+      {/* ══ ② PROGRES PERTUMBUHAN MUSIM MINGGUAN (Task 62) ══════ */}
       <ScrollReveal>
         <section className="rounded-2xl border border-teal-900/50 bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-base font-semibold text-foreground">Pertumbuhan</h2>
+            <h2 className="font-display text-base font-semibold text-foreground">Pertumbuhan Minggu Ini</h2>
             <p className="text-[11px] font-bold tabular-nums text-[#63E6BE]">{pct}%</p>
           </div>
           <div
@@ -609,7 +632,9 @@ export default function PohonScreen() {
             aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Progres menuju tahap ${tree?.nextStage ? tree.nextStage.label : 'puncak pertumbuhan'} — ${pct}%`}
+            aria-label={`Progres musim minggu ini menuju tahap ${
+              season.nextStage ? season.nextStage.label : 'puncak mingguan'
+            } — ${pct}%`}
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-[#9AF4CC] via-[#63E6BE] to-[#1E9B72] transition-[width] duration-700"
@@ -621,7 +646,11 @@ export default function PohonScreen() {
           </p>
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-[11px] text-muted-foreground">
-              {dash ? `${(dash.totalXP ?? 0).toLocaleString('id-ID')} XP · streak ${dash.currentStreak ?? 0} hari` : '…'}
+              {dash
+                ? `${season.weeklyXp.toLocaleString('id-ID')} XP minggu ini · ${(
+                    dash.totalXP ?? 0
+                  ).toLocaleString('id-ID')} XP seumur hidup · streak ${dash.currentStreak ?? 0} hari`
+                : '…'}
             </p>
             <button
               type="button"
@@ -710,8 +739,8 @@ export default function PohonScreen() {
         <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
           <div className="rounded-2xl border border-teal-900/50 bg-card p-3 text-center shadow-sm sm:p-4">
             <TreePine className="mx-auto h-4.5 w-4.5 text-[#63E6BE]" aria-hidden="true" />
-            <p className="mt-1.5 text-sm font-bold tabular-nums text-foreground">{tree?.stage.label ?? '—'}</p>
-            <p className="text-[10.5px] font-medium text-muted-foreground">{tree?.stage.levelLabel ?? 'Level 1'}</p>
+            <p className="mt-1.5 text-sm font-bold tabular-nums text-foreground">{tree ? season.stage.label : '—'}</p>
+            <p className="text-[10.5px] font-medium text-muted-foreground">musim minggu ini</p>
           </div>
           <div className="rounded-2xl border border-teal-900/50 bg-card p-3 text-center shadow-sm sm:p-4">
             <Flame className={cn('mx-auto h-4.5 w-4.5', tree?.blooming ? 'text-[#F1A2C5]' : 'text-[#E7B64B]')} aria-hidden="true" />

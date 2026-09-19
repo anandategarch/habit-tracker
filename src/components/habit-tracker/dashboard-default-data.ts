@@ -23,6 +23,9 @@ export const DEFAULT_DATA: DashboardData = {
   totalXP: 0,
   currentLevel: 0,
   levelProgress: 0,
+  // Task 62 (Opsi B) — musim pohon mingguan (fallback aman pre-fetch).
+  seasonWeeklyXp: 0,
+  seasonStartYmd: null,
   productivityScore: 0,
   moodAverage: null,
   sleepAverage: null,

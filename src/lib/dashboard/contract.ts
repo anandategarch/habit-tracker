@@ -42,6 +42,10 @@ import type {
 const num = (v: unknown, fallback = 0): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 
+// Task 62: helper string aman untuk kpi.seasonStartYmd (string | undefined).
+const strOrNull = (v: unknown): string | null =>
+  typeof v === 'string' && isValidYMD(v) ? v : null;
+
 const numOrNull = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
 
@@ -246,6 +250,10 @@ export function toDashboardData(payload: DashboardApiPayload, period: Period): D
     totalXP,
     currentLevel,
     levelProgress: levelProgress(totalXP).pct,
+    // Task 62 (Opsi B): musim pohon mingguan — derived view, kalkulasi
+    // XP/level all-time tidak tersentuh.
+    seasonWeeklyXp: Math.max(0, num(kpi.weeklyXp)),
+    seasonStartYmd: strOrNull(kpi.seasonStartYmd),
     productivityScore: num(kpi.consistencyScore),
     moodAverage: numOrNull(kpi.moodAvg),
     sleepAverage: numOrNull(kpi.sleepAvg),

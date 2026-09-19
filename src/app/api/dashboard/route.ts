@@ -211,6 +211,23 @@ export async function GET(req: Request) {
     }
     const currentLevel = calcLevel(totalXp);
 
+    // ── Musim pohon mingguan (Task 62, Opsi B) ──────────────────────
+    // weeklyXp = XP sejak AWAL MINGGU (weekStartOf — menghormati setting
+    // weekStart user, default Senin) sampai hari ini. Dasar tahap pohon
+    // musiman yang reset tiap awal minggu di UI. ADDITIVE-ONLY: totalXp/
+    // currentLevel all-time di atas TIDAK diubah (level = kenangan
+    // kemenangan). Semantik mengikuti todayXp (60-e): habit 'avoid'
+    // tidak berhak XP musim; uncheck hari itu ikut menurunkan XP musim.
+    const seasonStartYmd = weekStartOf(todayYmd, weekStart);
+    let weeklyXp = 0;
+    for (const h of xpHabits) {
+      if (h.habitType === 'avoid') continue;
+      const logs = logsByHabit.get(h.id) ?? [];
+      const weight = xpForDifficulty(h.difficulty);
+      weeklyXp +=
+        logs.filter((l) => l.ymd >= seasonStartYmd && l.ymd <= todayYmd).length * weight;
+    }
+
     // ── Streak GLOBAL (M-1) ──
     // currentStreak: hari berturut dengan ≥1 habit selesai hingga hari ini
     // (hari ini belum selesai tidak memutus — konvensi computeStreakFromSet).
@@ -489,6 +506,9 @@ export async function GET(req: Request) {
         sleepAvg,
         energyAvg,
         todayXp,
+        // Task 62 (Opsi B) — musim pohon mingguan (tahap reset tiap Senin).
+        weeklyXp,
+        seasonStartYmd,
         completion7d,
         completion30d,
       },

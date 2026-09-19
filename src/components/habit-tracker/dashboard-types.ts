@@ -43,6 +43,10 @@ export interface DashboardApiKpi {
   sleepAvg?: number | null;
   energyAvg?: number | null;
   todayXp?: number;
+  /** Task 62 (Opsi B) — XP sejak awal minggu (Jakarta): musim pohon mingguan. */
+  weeklyXp?: number;
+  /** Task 62 — YMD awal minggu musim pohon (weekStartOf, default Senin). */
+  seasonStartYmd?: string;
   completion7d?: number;
   completion30d?: number;
 }
@@ -210,6 +214,10 @@ export interface DashboardData {
   currentLevel: number;
   /** 0–100 (progres XP menuju level berikutnya). */
   levelProgress: number;
+  /** Task 62 (Opsi B) — XP musim mingguan (sejak awal minggu Jakarta). */
+  seasonWeeklyXp: number;
+  /** Task 62 — YMD awal minggu musim (null bila API lama → fallback Senin). */
+  seasonStartYmd: string | null;
   productivityScore: number;
   moodAverage: number | null;
   sleepAverage: number | null;

@@ -42,6 +42,7 @@ import { TodayHero } from './today-hero';
 import { TodayHabitsCard } from './today-habits';
 import { DailyCheckInCard } from './daily-check-in-card';
 import { TreeCard, buildTreeInput, useVacationCount } from '@/components/tree/tree-card';
+import { getTreeSeasonState } from '@/lib/tree-season';
 
 /** Payload ringan GET /api/daily-logs?date= untuk kartu check-in Beranda. */
 type DailyLogPayloadLite = { date?: string; mood?: number; energy?: number; sleep?: number } | null;
@@ -261,8 +262,12 @@ export default function Dashboard() {
 
   const displayData = data || DEFAULT_DATA;
 
-  // POHON (Task 53) — state pohon dari data dashboard ASLI (level/XP/
-  // streak/goal lulus/habit terlemah) + vacationCount.
+  // POHON (Task 53 + Task 62 Opsi B) — dua lapis:
+  //  • treeState SEUMUR HIDUP: level/XP/streak/goal lulus/habit terlemah
+    //    → dipakai sinyal chips kartu (berbunga/dorman/daun-kuning).
+  //  • seasonState MUSIM MINGGUAN: XP sejak Senin (reset tiap awal
+  //    minggu) → tahap + bar progres kartu. Level lifetime tampil
+  //    sebagai konteks kecil (level tidak pernah turun).
   const treeState = buildTreeInput(
     {
       currentLevel: displayData.currentLevel,
@@ -273,6 +278,11 @@ export default function Dashboard() {
       worstHabit: displayData.worstHabit,
     },
     vacationCount,
+  );
+  const seasonState = getTreeSeasonState(
+    displayData.seasonWeeklyXp,
+    displayData.seasonStartYmd,
+    todayStr,
   );
 
   // Merge overlay optimistik → daftar & hitungan hari ini.
@@ -312,9 +322,10 @@ export default function Dashboard() {
         onOpenProgress={() => setActiveTab('progress')}
       />
 
-      {/* ①.5 GROW — Pohonmu (POHON Task 53): cermin pertumbuhan seumur —
-            tahap botanical dari level/XP; melengkapi TreeProgress hero
-            yang mencerminkan progres hari ini. */}
+      {/* ①.5 GROW — Pohonmu (Task 62 Opsi B): MUSIM MINGGUAN — tahap dari
+            XP sejak Senin, reset tiap awal minggu; melengkapi TreeProgress
+            hero yang mencerminkan progres hari ini. Level & XP seumur
+            hidup tetap utuh (konteks kecil di kartu). */}
       {/* BUGHUNT-54 (3-c #5b): saat fetchError data = DEFAULT_DATA → jangan
             render pohon fabricated (veteran kelihatan "Benih"); kartu muncul
             kembali begitu retry berhasil membawa data asli. */}
@@ -325,6 +336,7 @@ export default function Dashboard() {
               dari dalam tab Pohon + tab Progres. */}
           <TreeCard
             tree={treeState}
+            season={seasonState}
             level={displayData.currentLevel}
             onOpenTree={() => setActiveTab('pohon')}
             onOpenBloom={() => openTrackerHistoryForTree(todayStr.slice(0, 7))}

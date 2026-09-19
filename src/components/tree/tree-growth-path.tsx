@@ -7,6 +7,11 @@
 // tiap kartu diturunkan dari data ASLI (level/XP user) — artwork yang
 // sama bisa tampil "terkunci" bagi pemula dan "tercapai" bagi veteran.
 //
+// TASK 62 (Opsi B): roadmap ini JALUR SEUMUR HIDUP (level/XP all-time
+// — tidak pernah direset), kini diberi label eksplisit supaya tidak
+// tertukar dengan pohon MUSIM MINGGUAN di Beranda/tab Pohon yang reset
+// tiap awal minggu (Senin).
+//
 // CONNECTED-APP: sinyal musiman SELALU beraksi saat aktif (brief #11:
 // observation + context + action) — berbunga → riwayat streak, dorman →
 // Habit Master, daun kuning → fokus habit yang melemah.
@@ -67,6 +72,11 @@ export function TreeGrowthPath({ tree, currentStreak, vacationCount, ratePeriodL
         </div>
         <p className="mt-1 text-sm font-medium text-muted-foreground">
           Pohonmu tumbuh dari XP yang kamu kumpulkan — {currentStreak > 0 ? `${currentStreak} hari beruntun saat ini` : 'mulai hari ini, sedikit demi sedikit'}.
+        </p>
+        {/* Task 62: penanda dua lapis — jalur ini seumur hidup, pohon musim
+            mingguan (Beranda/tab Pohon) reset tiap awal minggu. */}
+        <p className="mt-1.5 text-[11.5px] font-medium text-muted-foreground/85">
+          Jalur seumur hidup — Level &amp; XP tidak pernah direset. Pohon musim mingguan (Beranda &amp; tab Pohon) reset setiap awal minggu.
         </p>
 
         {/* Roadmap tahap — scroll-snap mobile, grid desktop */}

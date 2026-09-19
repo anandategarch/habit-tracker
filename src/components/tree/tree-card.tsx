@@ -1,17 +1,18 @@
 'use client';
 
-// components/tree/tree-card.tsx — POHON RUTINA (Task 53): kartu "Pohonmu"
-// di Beranda.
+// components/tree/tree-card.tsx — POHON MUSIM MINGGUAN (Task 62, Opsi B):
+// kartu "Pohonmu" di Beranda.
 //
-// Pohon = cermin pertumbuhan SEUMUR user (tahap via level/XP), melengkapi
-// TreeProgress di TodayHero yang mencerminkan progres HARI INI. Artwork
-// botanical milik pengguna (teks poster dibersihkan — angka level/XP yang
-// tampil selalu data ASLI, bukan teks statis aset).
+// PERUBAHAN MAKNA (permintaan user): tahap pohon pada kartu ini kini
+// mencerminkan MUSIM MINGGUAN — XP yang dikumpulkan sejak awal minggu
+// (Senin, Asia/Jakarta) — dan RESET otomatis tiap awal minggu (tiap
+// Senin mulai dari Benih lagi). Level/XP seumur hidup tetap disimpan
+// aman dan ditampilkan sebagai konteks kecil ("Level N seumur hidup")
+// — level tidak pernah turun (komentar route: level = kenangan
+// kemenangan). Lapisan ini derived-view murni: tidak ada state/DB baru.
 //
 // CONNECTED-APP: kartu ini bukan dekorasi —
-//   • tap kartu        → TASK 55: tab POHON (rumah interaktif pohon —
-//                        panggung bisa disapa/disiram; roadmap Progres
-//                        tetap tersedia dari dalam tab Pohon)
+//   • tap kartu        → tab POHON (panggung interaktif: sapa/siram/panen)
 //   • chip berbunga    → Riwayat kalender (konteks streak yang menumbuhkan)
 //   • chip dorman      → Habit Master (satu-satunya tempat kelola mode libur)
 //   • chip daun kuning → fokus habit yang sedang melemah (analisis waktu)
@@ -20,11 +21,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Flame, Palmtree, Leaf, ArrowUpRight } from 'lucide-react';
 import {
   getTreeGrowthState,
-  treeGrowthNarrative,
   TREE_BLOOM_STREAK,
   type TreeGrowthInput,
   type TreeGrowthState,
 } from '@/lib/tree-growth';
+import { treeSeasonNarrative, type TreeSeasonState } from '@/lib/tree-season';
 
 interface HabitLiteForVacation {
   id: string;
@@ -32,12 +33,14 @@ interface HabitLiteForVacation {
 }
 
 interface TreeCardProps {
-  tree: TreeGrowthState;
-  /** BUGHUNT-54 (3-c #5a): level ASLI user (kpi currentLevel) — dipakai
-   *  untuk label "Pohonmu · Level N". Dulu memakai stage.levelLabel tahap
-   *  → user Level 0 tampil "Level 1" (label rentang tahap, bukan level
-   *  user). */
+  /** Musim mingguan (Task 62) — tahap + XP minggu ini + info reset. */
+  season: TreeSeasonState;
+  /** Level ASLI user seumur hidup — konteks kecil di bawah bar progres. */
   level: number;
+  /** State pohon seumur hidup — dipakai HANYA untuk sinyal chips
+   *  (berbunga streak ≥7 / dorman / daun-kuning); tahapnya tidak
+   *  dirender lagi (tahap kartu = musim mingguan). */
+  tree: TreeGrowthState;
   onOpenTree: () => void;
   onOpenBloom: () => void;
   onOpenDorman: () => void;
@@ -61,48 +64,58 @@ export function useVacationCount(): number {
   return (data ?? []).filter((h) => h.vacationMode === true).length;
 }
 
-export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, onOpenCare }: TreeCardProps) {
-  const pct = Math.round(tree.stageProgress);
-  const narrative = treeGrowthNarrative(tree);
-  const fruitCaption =
-    tree.stage.id === 'pohon-dewasa' ? 'Tahap tertinggi — rawat dan panen' : undefined;
+export function TreeCard({
+  season,
+  level,
+  tree,
+  onOpenTree,
+  onOpenBloom,
+  onOpenDorman,
+  onOpenCare,
+}: TreeCardProps) {
+  const pct = Math.round(season.seasonProgress);
+  const narrative = treeSeasonNarrative(season);
+  const seasonDone = season.isMax;
+  const seasonCaption =
+    seasonDone || season.nextStage == null
+      ? 'Musim mingguan tuntas — rawat sampai akhir pekan'
+      : `${season.xpToNextStage?.toLocaleString('id-ID') ?? 0} XP menuju ${season.nextStage.label}`;
 
   return (
     <section
-      aria-label={`Pohonmu — tahap ${tree.stage.label}, Level ${level}`}
+      aria-label={`Pohonmu — musim minggu ini, tahap ${season.stage.label}, reset ${season.resetLabel}`}
       className="anim-stagger relative overflow-hidden rounded-2xl border border-teal-900/60 shadow-[0_18px_44px_-18px_rgba(2,20,17,0.55)]"
       style={{ background: 'linear-gradient(135deg,#071715,#05110F)' }}
     >
-      {/* Area utama — TASK 55: tap menuju tab POHON (pengalaman interaktif) */}
+      {/* Area utama — tap menuju tab POHON (pengalaman interaktif) */}
       <button
         type="button"
         onClick={onOpenTree}
-        aria-label={`Buka tab Pohon — rawat pohonmu tahap ${tree.stage.label}`}
+        aria-label={`Buka tab Pohon — musim minggu ini tahap ${season.stage.label}, reset ${season.resetLabel}`}
         className="group relative flex w-full cursor-pointer items-stretch text-left transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63E6BE]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.995]"
       >
         {/* Konteks kiri */}
         <div className="min-w-0 flex-1 px-4 py-4 sm:px-5 sm:py-5">
-          {/* BUGHUNT-54 (3-c #5a): level ASLI user, bukan levelLabel tahap. */}
+          {/* Task 62: label kini MUSIM MINGGUAN (reset tiap awal minggu). */}
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#63E6BE]">
-            Pohonmu · Level {level}
+            Pohonmu · Musim Minggu Ini
           </p>
           <h3 className="font-display mt-1 text-xl font-semibold leading-tight text-[#F4F9F7] sm:text-[1.45rem]">
-            {tree.stage.label}
+            {season.stage.label}
           </h3>
           <p className="mt-1.5 text-[12.5px] font-medium leading-relaxed text-[#9BC1B7]">
             {narrative}
           </p>
           <span className="mt-2.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#63E6BE] opacity-80 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-            {/* TASK 55: gerbang utama ke tab Pohon interaktif */}
             Rawat pohonmu
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         </div>
         {/* Artwork botanical (aset pengguna — bg-nya menyatu dengan kartu) */}
         <div className="relative w-[124px] shrink-0 overflow-hidden sm:w-[160px]" aria-hidden="true">
-          { }
+          {}
           <img
-            src={tree.stage.artwork}
+            src={season.stage.artwork}
             alt=""
             width={160}
             height={160}
@@ -113,7 +126,7 @@ export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, o
         </div>
       </button>
 
-      {/* Bar progres pertumbuhan — XP ASLI menuju tahap berikutnya */}
+      {/* Bar progres musim mingguan — XP minggu ini menuju tahap berikutnya */}
       <div className="px-4 pb-4 sm:px-5 sm:pb-5">
         <div
           className="h-1.5 overflow-hidden rounded-full bg-[#10362E]"
@@ -121,7 +134,9 @@ export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, o
           aria-valuenow={pct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Progres menuju tahap ${tree.nextStage ? tree.nextStage.label : 'puncak'} — ${pct}%`}
+          aria-label={`Progres musim minggu ini menuju tahap ${
+            season.nextStage ? season.nextStage.label : 'puncak mingguan'
+          } — ${pct}%`}
         >
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#9AF4CC] via-[#63E6BE] to-[#1E9B72] transition-[width] duration-700"
@@ -130,16 +145,19 @@ export function TreeCard({ tree, level, onOpenTree, onOpenBloom, onOpenDorman, o
         </div>
         <div className="mt-1.5 flex items-baseline justify-between gap-3">
           <p className="min-w-0 truncate text-[11px] font-semibold text-[#9BC1B7]">
-            {fruitCaption ??
-              (tree.xpToNextStage != null && tree.nextStage
-                ? `${tree.xpToNextStage.toLocaleString('id-ID')} XP menuju ${tree.nextStage.label}`
-                : 'Pertumbuhan berlanjut tanpa batas')}
+            {season.weeklyXp.toLocaleString('id-ID')} XP minggu ini · {seasonCaption}
           </p>
           <p className="shrink-0 text-[11px] font-bold tabular-nums text-[#63E6BE]">{pct}%</p>
         </div>
+        {/* Konteks dua lapis: siklus mingguan + pencapaian seumur hidup. */}
+        <p className="mt-1 text-[10.5px] font-medium text-[#9BC1B7]/75">
+          reset {season.resetLabel} · sisa {season.daysLeft} hari · Level {level} seumur hidup
+        </p>
       </div>
 
-      {/* State musiman — sinyal sistem, tampil hanya saat relevan */}
+      {/* State musiman — sinyal sistem, tampil hanya saat relevan
+          (streak ≥7 berbunga / mode liburan / habit melemah — tetap
+          dihitung dari data seumur hidup, bukan musim mingguan). */}
       {(tree.blooming || tree.dorman || tree.care) && (
         <div className="flex flex-wrap gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
           {tree.blooming && (
