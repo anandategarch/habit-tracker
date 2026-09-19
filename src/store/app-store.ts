@@ -8,7 +8,6 @@
 //                                     (bulan kalender ikut disinkronkan)
 //   openTrackerHistory('yyyy-MM')? -> tab tracker mode Riwayat/kalender
 //   openHabitFocus(habitId)        -> tab tracker + dialog Analisis Waktu habit
-//   openGoalFocus(goalId)          -> tab Tujuan + sorot tujuan terkait
 //   openFinanceSubTab(sub)         -> tab finance + sub-tab target
 //   openFinanceFocus({category?, sourceId?, date?})
 //                                  -> tab finance sub-tab transactions + filter
@@ -31,7 +30,9 @@ import { jakartaDateString } from '@/lib/timezone';
 // TASK 64 (PETA OTOT): tab 'gym' — rumah Peta Otot (siluet zona + misi
 // mingguan + sheet fokus). Dock mobile tetap 5 tab (penuh — keputusan Task
 // 55); gerbang utamanya kartu "Peta Otot" Beranda + drawer/sidebar.
-export type TabId = 'dashboard' | 'tracker' | 'progress' | 'work' | 'finance' | 'goals' | 'settings' | 'pohon' | 'gym';
+// TASK 66: tab 'goals' (Tujuan) DIHAPUS atas permintaan user — data tujuan
+// & /api/goals tetap utuh (dibaca buah emas pohon), hanya UI tab-nya hilang.
+export type TabId = 'dashboard' | 'tracker' | 'progress' | 'work' | 'finance' | 'settings' | 'pohon' | 'gym';
 // MERGE Task 32 (Opsi A): sub-tab 'explorer' (Eksplorasi) dan 'categories'
 // (Kategori) digabung menjadi satu sub-tab 'analysis' (Analisis) — keduanya
 // 70% kembar. Nilai lama bisa tersisa sesaat pada hot-reload (state module
@@ -107,13 +108,6 @@ interface AppState {
   focusHabitId: string | null;
   openHabitFocus: (habitId: string) => void;
   clearHabitFocus: () => void;
-
-  // goals (CONNECTED-APP: Habit ↔ Tujuan dua arah)
-  focusGoalId: string | null;
-  /** Buka tab Tujuan dengan tujuan tertentu disorot + ter-expand —
-   *  tujuan drill-down dari chip "Tujuan" pada kartu habit tracker. */
-  openGoalFocus: (goalId: string) => void;
-  clearGoalFocus: () => void;
 
   // finance
   financeSubTab: FinanceSubTab;
@@ -213,10 +207,6 @@ export const useAppStore = create<AppState>((set) => ({
       trackerMonth: jakartaDateString().slice(0, 7),
     }),
   clearHabitFocus: () => set({ focusHabitId: null }),
-
-  focusGoalId: null,
-  openGoalFocus: (goalId) => set({ activeTab: 'goals', focusGoalId: goalId }),
-  clearGoalFocus: () => set({ focusGoalId: null }),
 
   financeSubTab: 'overview',
   setFinanceSubTab: (sub) => set({ financeSubTab: normalizeFinanceSubTab(sub) }),

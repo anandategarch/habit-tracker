@@ -30,8 +30,6 @@ import { SortableHabitCard } from './daily-tracker-sortable-card';
 
 export interface HabitGridSectionProps {
   activeHabits: Habit[];
-  /** CONNECTED-APP (Task 49) — judul tujuan per goalId (chip pada kartu). */
-  goalTitleById?: Record<string, string>;
   /** Task 37: habit terjadwal tanggal terpilih (dasar X/Y + grid). */
   scheduledHabits: Habit[];
   filteredHabits: Habit[];
@@ -72,7 +70,6 @@ export interface HabitGridSectionProps {
 
 export function HabitGridSection({
   activeHabits,
-  goalTitleById,
   scheduledHabits,
   filteredHabits,
   nextOccurrences,
@@ -276,7 +273,6 @@ export function HabitGridSection({
                   <SortableHabitCard
                     key={habit.id}
                     habit={habit}
-                    goalTitle={habit.goalId ? goalTitleById?.[habit.goalId] : undefined}
                     idx={idx}
                     isDone={isDone}
                     isToggling={isToggling}
@@ -312,7 +308,6 @@ export function HabitGridSection({
               <HabitCard
                 key={habit.id}
                 habit={habit}
-                goalTitle={habit.goalId ? goalTitleById?.[habit.goalId] : undefined}
                 idx={idx}
                 isDone={isDone}
                 isToggling={isToggling}

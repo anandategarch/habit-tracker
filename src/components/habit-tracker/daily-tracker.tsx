@@ -100,23 +100,6 @@ export default function DailyTracker() {
   // Opsi label habit (kategori/prioritas/difficulty) — query tunggal; peta
   // kategori diturunkan lokal (bobot XP langsung dari lib/dashboard-helpers).
   const { data: habitOptions = [] } = useHabitOptions();
-  // CONNECTED-APP (Task 49): judul tujuan untuk chip "Tujuan" pada kartu
-  // habit (key ['goals'] — cache terbagih dengan tab Tujuan & form habit).
-  const { data: goalsList = [] } = useQuery<{ id: string; title: string }[]>({
-    queryKey: ['goals'],
-    queryFn: async () => {
-      const res = await fetch('/api/goals');
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json) ? json : (json.goals ?? []);
-    },
-    staleTime: 60_000,
-  });
-  const goalTitleById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const g of goalsList) map[g.id] = g.title;
-    return map;
-  }, [goalsList]);
   const { themeColor } = useThemeColor();
   const categoryMap = useMemo(() => {
     const map: Record<string, { label: string; color?: string | null }> = {};
@@ -1087,7 +1070,6 @@ export default function DailyTracker() {
           {/* ─────────────────── Habit Grid ─────────────────────── */}
           <HabitGridSection
             activeHabits={activeHabits}
-            goalTitleById={goalTitleById}
             scheduledHabits={scheduledHabits}
             filteredHabits={filteredHabits}
             nextOccurrences={nextOccurrences}

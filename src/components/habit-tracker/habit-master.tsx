@@ -144,25 +144,6 @@ export default function HabitMaster() {
    staleTime: 60_000,
  });
 
- // CONNECTED-APP (Task 49): daftar tujuan untuk select "Tujuan Terkait"
- // di form habit (key ['goals'] — cache terbagih dengan tab Tujuan).
- const { data: goals = [] } = useQuery<{ id: string; title: string }[]>({
-   queryKey: ['goals'],
-   queryFn: async () => {
-     const res = await fetch('/api/goals');
-     if (!res.ok) return [];
-     const json = await res.json();
-     return Array.isArray(json) ? json : (json.goals ?? []);
-   },
-   staleTime: 60_000,
- });
- // VERIFY-48 (48-c F10): peta id → judul untuk chip tujuan di tabel/kartu
- // Habit Master — link Habit↔Tujuan terlihat di permukaan kurasi.
- const goalMap = useMemo(
-   () => new Map(goals.map((g) => [g.id, g.title])),
-   [goals]
- );
-
  const invalidateHabits = useCallback(() => {
    queryClient.invalidateQueries({ queryKey: ['habits'] });
    queryClient.invalidateQueries({ queryKey: ['habit-groups'] });
@@ -748,28 +729,6 @@ export default function HabitMaster() {
                    </SelectContent>
                  </Select>
                </div>
-               {/* CONNECTED-APP (Task 49): tujuan yang didukung habit ini —
-                   muncul sebagai chip pada kartu habit & daftar "Rutinitas
-                   Pendukung" pada kartu tujuan (dua arah). */}
-               <div className="space-y-2">
-                 <Label>Tujuan Terkait</Label>
-                 <Select
-                   value={form.goalId || '__none__'}
-                   onValueChange={(v) => updateForm('goalId', v === '__none__' ? null : v)}
-                 >
-                   <SelectTrigger className="rounded-xl">
-                     <SelectValue placeholder="Tanpa Tujuan" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="__none__">Tanpa Tujuan</SelectItem>
-                     {goals.map((g) => (
-                       <SelectItem key={g.id} value={g.id}>
-                         {g.title}
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                 </Select>
-               </div>
              </div>
 
              {/* Row: Target + Kesulitan (Tipe Target lama dihapus — digantikan
@@ -1258,7 +1217,6 @@ export default function HabitMaster() {
            categoryMap={categoryMap}
            priorityMap={priorityMap}
            difficultyMap={difficultyMap}
-           goalMap={goalMap}
            onEdit={openEdit}
            onToggleStatus={handleToggleStatus}
            onArchive={handleArchive}
@@ -1269,7 +1227,6 @@ export default function HabitMaster() {
            categoryMap={categoryMap}
            priorityMap={priorityMap}
            difficultyMap={difficultyMap}
-           goalMap={goalMap}
            onEdit={openEdit}
            onToggleStatus={handleToggleStatus}
            onArchive={handleArchive}

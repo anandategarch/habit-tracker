@@ -4,7 +4,7 @@
 // Tap kartu → openHabitFocus(id) (store 1-klik); tombol aksi memakai
 // stopPropagation + aria-label Indonesia.
 
-import { Pencil, Trash2, Pause, Play, Archive, ArchiveRestore, GraduationCap, CalendarDays, Target } from 'lucide-react';
+import { Pencil, Trash2, Pause, Play, Archive, ArchiveRestore, GraduationCap, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/app-store';
 import { tintFromEmoji } from '@/lib/emoji-color';
@@ -23,8 +23,6 @@ export interface HabitMobileCardsProps {
   categoryMap: Map<string, HabitOptionRow>;
   priorityMap: Map<string, HabitOptionRow>;
   difficultyMap: Map<string, HabitOptionRow>;
-  /** VERIFY-48 (48-c F10) — judul tujuan per id (chip Habit↔Tujuan). */
-  goalMap?: Map<string, string>;
   onEdit: (habit: Habit) => void;
   onToggleStatus: (habit: Habit) => void;
   onArchive: (habit: Habit) => void;
@@ -57,14 +55,12 @@ export function HabitMobileCards({
   categoryMap,
   priorityMap,
   difficultyMap,
-  goalMap,
   onEdit,
   onToggleStatus,
   onArchive,
   onDelete,
 }: HabitMobileCardsProps) {
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
-  const openGoalFocus = useAppStore((s) => s.openGoalFocus);
 
   return (
     <div className="space-y-2.5 md:hidden">
@@ -121,25 +117,6 @@ export function HabitMobileCards({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{h.name}</p>
-                {/* VERIFY-48 (48-c F10): chip tujuan — link Habit↔Tujuan
-                    terlihat di permukaan kurasi (pola kartu tracker). */}
-                {h.goalId && goalMap?.get(h.goalId) && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openGoalFocus(h.goalId!);
-                    }}
-                    title={`Mendukung tujuan: ${goalMap.get(h.goalId)}`}
-                    aria-label={`Buka tujuan ${goalMap.get(h.goalId)}`}
-                    // Task 61-f (audit 61-a P2): chip Tujuan = tombol — target
-                    // sentuh min 24px (py-1 min-h-6), visual tetap chip kecil.
-                    className="mt-1 inline-flex min-h-6 max-w-full items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-1 text-[9px] font-bold tracking-wider text-amber-700 transition-colors hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:text-amber-400"
-                  >
-                    <Target className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                    <span className="max-w-[10rem] truncate normal-case">{goalMap.get(h.goalId)}</span>
-                  </button>
-                )}
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span
                     className={cn(

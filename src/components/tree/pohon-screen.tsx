@@ -8,7 +8,8 @@
 //   • Penyiraman — setiap rutinitas selesai hari ini = 1 tetes air; siram
 //     pohon → animasi tetesan; semua selesai → perayaan sparkle emas.
 //   • Buah Emas — panen nyata: tujuan berstatus selesai + habit lulus
-//     (graduatedAt), tap buah → konteksnya (openGoalFocus/openHabitFocus).
+//     (graduatedAt). TASK 66: buah habit tetap 1-tap ke konteksnya
+//     (openHabitFocus); buah tujuan kini statis (tab Tujuan dihapus).
 //   • Ambience — kunang-kunang di malam Jakarta (hydrate-aman), daun
 //     ambient, badge musiman; artwork otomatis mengikuti state pohon
 //     (dorman / daun-kuning / berbunga / tahap).
@@ -18,7 +19,7 @@
 // period 'all' + cache ['habits']/['goals'] terbagih) — tidak ada state
 // pohon yang disimpan; pohon selalu jujur mencerminkan ekosistem.
 // Navigasi memakai primitive store: openTrackerDate, openHabitFocus,
-// openGoalFocus, openProgressTree, setActiveTab, setSettingsSection.
+// openProgressTree, setActiveTab, setSettingsSection.
 //
 // TASK 62 (Opsi B — MUSIM MINGGUAN): tahap panggung, bar "Pertumbuhan
 // Minggu Ini", dan statistik tahap kini diturunkan dari XP sejak awal
@@ -159,7 +160,6 @@ export default function PohonScreen() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const openTrackerDate = useAppStore((s) => s.openTrackerDate);
   const openHabitFocus = useAppStore((s) => s.openHabitFocus);
-  const openGoalFocus = useAppStore((s) => s.openGoalFocus);
   const openProgressTree = useAppStore((s) => s.openProgressTree);
   const setSettingsSection = useAppStore((s) => s.setSettingsSection);
   const openTrackerHistory = useAppStore((s) => s.openTrackerHistory);
@@ -771,46 +771,54 @@ export default function PohonScreen() {
             <div className="mt-3 rounded-xl border border-dashed border-[#E7B64B]/30 bg-[#E7B64B]/[0.06] p-4 text-center">
               <Apple className="mx-auto h-5 w-5 text-[#E7B64B]/70" aria-hidden="true" />
               <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-muted-foreground">
-                Selesaikan sebuah <strong className="text-foreground">tujuan</strong> atau luluskan sebuah{' '}
-                <strong className="text-foreground">habit</strong> — kemenangan pertamamu akan menggantung di
-                sini sebagai buah emas.
+                Luluskan sebuah <strong className="text-foreground">habit</strong> — kemenangan pertamamu akan
+                menggantung di sini sebagai buah emas.
               </p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('goals')}
-                className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#EDBC3F] to-[#C1830F] px-4 py-2.5 text-[13px] font-semibold text-[#241703] shadow-[0_10px_24px_-10px_rgba(193,131,15,0.5)] transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EDBC3F]/70 active:scale-[0.98]"
-              >
-                Buka Tujuan
-                <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
             </div>
           ) : (
             <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1" aria-label="Daftar buah emas">
               {fruits.map((f) => {
                 const label = shortDateLabel(f.date);
+                // TASK 66: buah goal (tujuan selesai) kini tampilan statis —
+                // tab Tujuan sudah dihapus; buah habit tetap 1-tap ke konteks.
+                const isGoal = f.kind === 'goal';
+                const fruitBody = (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#FFE99A] to-[#D89A2B] text-[#241703] shadow-[0_4px_10px_-2px_rgba(216,154,43,0.5)]"
+                    >
+                      {f.emoji ? <span className="text-base leading-none">{f.emoji}</span> : <Apple className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-semibold text-foreground">{f.title}</span>
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                        {isGoal ? 'Tujuan tercapai' : 'Habit lulus'}
+                        {label ? ` · ${label}` : ''}
+                      </span>
+                    </span>
+                  </>
+                );
                 return (
                   <li key={`${f.kind}-${f.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => (f.kind === 'goal' ? openGoalFocus(f.id) : openHabitFocus(f.id))}
-                      aria-label={`Buah emas ${f.title} — ${f.kind === 'goal' ? 'tujuan selesai' : 'habit lulus'}${label ? ` sejak ${label}` : ''}. Buka konteksnya.`}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-[#E7B64B]/20 bg-[#E7B64B]/[0.05] p-3 text-left transition-colors hover:bg-[#E7B64B]/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E7B64B]/60"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#FFE99A] to-[#D89A2B] text-[#241703] shadow-[0_4px_10px_-2px_rgba(216,154,43,0.5)]"
+                    {isGoal ? (
+                      <div
+                        aria-label={`Buah emas ${f.title} — tujuan selesai${label ? ` sejak ${label}` : ''}.`}
+                        className="flex w-full items-center gap-3 rounded-xl border border-[#E7B64B]/20 bg-[#E7B64B]/[0.05] p-3 text-left"
                       >
-                        {f.emoji ? <span className="text-base leading-none">{f.emoji}</span> : <Apple className="h-4 w-4" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-foreground">{f.title}</span>
-                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                          {f.kind === 'goal' ? 'Tujuan tercapai' : 'Habit lulus'}
-                          {label ? ` · ${label}` : ''}
-                        </span>
-                      </span>
-                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#E7B64B]" aria-hidden="true" />
-                    </button>
+                        {fruitBody}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openHabitFocus(f.id)}
+                        aria-label={`Buah emas ${f.title} — habit lulus${label ? ` sejak ${label}` : ''}. Buka konteksnya.`}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-[#E7B64B]/20 bg-[#E7B64B]/[0.05] p-3 text-left transition-colors hover:bg-[#E7B64B]/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E7B64B]/60"
+                      >
+                        {fruitBody}
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#E7B64B]" aria-hidden="true" />
+                      </button>
+                    )}
                   </li>
                 );
               })}

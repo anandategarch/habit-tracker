@@ -11,7 +11,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
  Sunrise,
  ListChecks,
- Target,
  Wallet,
  Settings as SettingsIcon,
  PanelLeftClose,
@@ -71,7 +70,8 @@ const DailyTracker = dynamic(() => import('@/components/habit-tracker/daily-trac
 // Komponen memakai query key ['dashboard', period, …] yang SAMA dengan
 // Beranda → cache terbagih, berpindah tab tidak memicu fetch ulang.
 const ProgressTab = dynamic(() => import('@/components/habit-tracker/progress'), { ssr: false, loading: tabLoading });
-const Goals = dynamic(() => import('@/components/habit-tracker/goals'), { ssr: false, loading: tabLoading });
+
+// TASK 66: tab TUJUAN DIHAPUS atas permintaan user ("aku gak perlu itu").
 
 // TAB MESA KERJA (Task 17-a): catatan kerjaan — rutinitas berulang + tugas
 // lepas + catatan kilat + Asisten AI. Loader sama (TreeGrowSplash inline)
@@ -95,10 +95,12 @@ const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'),
 // IA lama (flat 6 item, label "Beranda" → rasa dashboard) diganti arsitektur
 // pengelompokan FEEL→DO→GROW:
 //   MAIN (daily journey): Today (greeting+tree+check-in) → Tracker (DO)
-//     → Progress (GROW analytics) → Goals (aspiration) → Finance.
+//     → Progress (GROW analytics) → Pohon → Gym → Finance.
 //   OTHER SPACES (low frequency): Work Desk, Settings — sidebar drawer /
 //     hamburger, TIDAK lagi di dock mobile (Pengaturan keluar dari dock,
 //     digantikan Progress yang jauh lebih sering dibuka).
+// TASK 66: Goals/Tujuan dihapus dari IA (permintaan user); data tujuan &
+//   API /api/goals tetap utuh (read-only) — buah emas pohon masih membacanya.
 const NAV_SECTIONS: {
   label: string;
   items: { id: TabId; label: string; icon: React.ElementType }[];
@@ -116,7 +118,6 @@ const NAV_SECTIONS: {
       // TASK 64: Gym / Peta Otot — pasangan tubuh bagi pohon (GROW):
       // workout di rumah dengan reaksi visual per zona otot.
       { id: 'gym', label: 'Gym', icon: Dumbbell },
-      { id: 'goals', label: 'Tujuan', icon: Target },
       { id: 'finance', label: 'Keuangan', icon: Wallet },
     ],
   },
@@ -135,15 +136,14 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] =
 // PREMIUM DOCK PATTERN (TASK 45 v2 → TASK 54): Bottom nav = 2 left + FAB
 // center + 2 right — Hari Ini + Tracker | FAB | Progres + Keuangan.
 // TASK 54: "Tujuan" DIHAPUS dari dock atas permintaan user (dock kini
-// simetris). Tujuan tetap terjangkau: drawer hamburger mobile + sidebar
-// desktop (NAV_SECTIONS) + deep-link ?tab=goals + openGoalFocus().
+// simetris). TASK 66: Tujuan kini dihapus SEPENUHNYA dari navigasi —
+// deep-link lama ?tab=goals jatuh ke fallback dashboard (VALID_TAB_IDS).
 
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
  dashboard: Dashboard,
  tracker: DailyTracker,
  progress: ProgressTab,
  work: WorkDesk,
- goals: Goals,
  pohon: PohonScreen,
  gym: GymScreen,
 
@@ -153,18 +153,18 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
- 'dashboard', 'tracker', 'progress', 'work', 'goals',
+ 'dashboard', 'tracker', 'progress', 'work',
  'finance', 'settings', 'pohon', 'gym',
 ]);
 
 // ── CONNECTED-APP (Task 46): URL = konteks yang shareable ─────────────────
 // Deep-link yang didukung (hanya konteks yang memang layak dibagikan —
 // bukan seluruh transient state):
-//   ?tab=tracker|progress|work|finance|goals|settings|pohon
+//   ?tab=tracker|progress|work|finance|settings|pohon|gym
 //   ?date=yyyy-MM-dd   → tanggal tracker terpilih (bila ≠ hari ini)
 //   ?sub=transactions|budgets|… → sub-tab Keuangan (bila ≠ overview)
 // Browser Back kini bersejarah: pergantian tab membuat entry history baru
-// (pushState) sehingga perjalanan Hari Ini → Tujuan → Habit bisa mundur
+// (pushState) sehingga perjalanan Hari Ini → Tracker → Habit bisa mundur
 // alami (dulu replaceState → tombol Back langsung keluar aplikasi).
 const URL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -783,9 +783,9 @@ const [showSplash, setShowSplash] = useState(true);
 const DOCK_H = 62; // dock height (px)
 // TASK 54: Tujuan keluar dari dock (permintaan user) — dock simetris:
 // 2 tab kiri + FAB tengah + 2 tab kanan. dockTabMetrics() data-driven
-// jadi geometri indikator menyesuaikan otomatis; aktifTab 'goals' (via
-// drawer/deep-link) membiarkan indikator tersembunyi — sama perilakunya
-// seperti tab 'work'/'settings' yang memang tak pernah ada di dock.
+// jadi geometri indikator menyesuaikan otomatis; tab di luar dock
+// ('work'/'settings'/'pohon'/'gym') membiarkan indikator tersembunyi.
+// TASK 66: 'goals' sudah bukan tab — deep-link lama jatuh ke dashboard.
 // BUGHUNT-54 (3-d #4): 0.43 → 0.40. Zona tengah (1 − 2×DOCK_SIDE) kini 20%
 // ≈ 59px @dock 296px (viewport 320px) ≥ FAB 56px — dulu 14% ≈ 41px < 56px,
 // sudut dalam tombol Tracker/Progres ketimpa FAB (elementFromPoint = FAB).
