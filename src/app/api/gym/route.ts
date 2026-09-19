@@ -19,6 +19,7 @@ import {
   MUSCLE_ZONE_DEFS,
   MISSION_ZONE_DEFS,
   computeBalanceScore,
+  computeGymHistory,
   type GymMapPayload,
   type GymZonePayload,
   type MuscleZoneKey,
@@ -121,6 +122,19 @@ export async function GET() {
     const zones = MISSION_ZONE_DEFS.map((d) => shape(d.key));
     const fullBody = shape('fullbody');
 
+    // ── V2 (Task 65): lapisan riwayat/pencapaian — PURE TURUNAN dari log
+    // yang SUDAH dibaca di atas (tanpa query tambahan, tanpa state baru).
+    const ymdsByZone: Partial<Record<MuscleZoneKey, string[]>> = {};
+    for (const def of MUSCLE_ZONE_DEFS) {
+      const h = byZone.get(def.key);
+      ymdsByZone[def.key] = h ? (logsByHabit.get(h.id) ?? []).map((l) => l.ymd) : [];
+    }
+    const history = computeGymHistory({
+      ymdsByZone,
+      weekStartDow: weekStart,
+      todayYmd,
+    });
+
     const touched = zones.filter((z) => z.sessionsThisWeek >= 1).length;
     const payload: GymMapPayload = {
       todayYmd,
@@ -130,6 +144,11 @@ export async function GET() {
       fullBody,
       mission: { touched, total: zones.length, balancedWeek: touched === zones.length && zones.length > 0 },
       balanceScore: computeBalanceScore(zones),
+      historyWeeks: history.historyWeeks,
+      zoneHistory: history.zoneHistory,
+      bestWeek: history.bestWeek,
+      achievements: history.achievements,
+      totals: history.totals,
     };
     return NextResponse.json(payload);
   } catch (error) {

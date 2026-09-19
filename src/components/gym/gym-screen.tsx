@@ -16,11 +16,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronRight, Dumbbell, Flame, Sparkles, Trophy } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { PageHeader } from '@/components/ui/page-header';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { cn } from '@/lib/utils';
+import { burstFromElement } from '@/lib/confetti';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   GYM_TAGLINE,
@@ -36,12 +38,15 @@ import {
   zoneStatus,
   zoneVisualFill,
   zoneVisualOpacity,
+  type GymZoneHistoryPayload,
   type GymZonePayload,
   type MuscleZoneKey,
   type MuscleZoneStatus,
 } from '@/lib/muscle-map';
 import { MuscleMap, type MuscleZoneVisual } from './muscle-map';
 import { useGymMap, useGymSetup, useGymToggle } from './use-gym';
+import { RestTimer, type RestSuggestion } from './rest-timer';
+import { GymAchievements, GymWeeklyHistory, formatWeekShort } from './gym-history';
 
 type BodyView = 'front' | 'back';
 
@@ -157,6 +162,7 @@ function ZoneRow({
 function ZoneFocusSheet({
   zone,
   status,
+  history,
   nowMs,
   busy,
   onToggle,
@@ -164,6 +170,7 @@ function ZoneFocusSheet({
 }: {
   zone: GymZonePayload | null;
   status: MuscleZoneStatus | null;
+  history: GymZoneHistoryPayload | null;
   nowMs: number;
   busy: boolean;
   onToggle: (zone: GymZonePayload) => void;
@@ -283,6 +290,38 @@ function ZoneFocusSheet({
                 </div>
               </section>
 
+              {/* PR zona (V2 — rekor sepanjang masa, turunan murni). */}
+              {history && (history.bestWeekSessions > 0 || history.longestStreakDays >= 2) && (
+                <section aria-label="Rekor zona">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Rekor Zona
+                  </h3>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+                    <div className="rounded-lg border border-border/60 bg-card/40 p-2">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Rekor sesi/minggu
+                      </p>
+                      <p className="text-base font-bold text-primary">{history.bestWeekSessions} sesi</p>
+                      {history.bestWeekStartYmd && (
+                        <p className="text-[9px] text-muted-foreground">
+                          mgg {formatWeekShort(history.bestWeekStartYmd)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-card/40 p-2">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Streak terpanjang
+                      </p>
+                      <p className="flex items-center justify-center gap-1 text-base font-bold">
+                        <Flame className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+                        {history.longestStreakDays} hari
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">berturut-turut</p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {/* Latihan rekomendasi (panel 03 — tanpa alat). */}
               <section aria-label="Latihan rekomendasi">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -347,7 +386,11 @@ export default function GymScreen() {
 
   const [view, setView] = useState<BodyView>('front');
   const [focusKey, setFocusKey] = useState<MuscleZoneKey | null>(null);
+  /** Saran timer istirahat kontekstual (zona yang baru saja selesai). */
+  const [restSuggest, setRestSuggest] = useState<RestSuggestion | null>(null);
   const toggleEls = useRef(new Map<MuscleZoneKey, HTMLButtonElement | null>()).current;
+  /** Jangkar confetti saat pencapaian baru terbuka. */
+  const achievementsRef = useRef<HTMLDivElement>(null);
 
   const todayYmd = data?.todayYmd ?? jakartaDateString();
 
@@ -355,6 +398,12 @@ export default function GymScreen() {
     if (!data) return [] as GymZonePayload[];
     return [...data.zones, ...(data.fullBody ? [data.fullBody] : [])];
   }, [data]);
+
+  const zoneHistoryBy = useMemo(() => {
+    const map = new Map<MuscleZoneKey, GymZoneHistoryPayload>();
+    for (const zh of data?.zoneHistory ?? []) map.set(zh.key, zh);
+    return map;
+  }, [data?.zoneHistory]);
 
   const visualsBykey = useMemo(() => {
     const map = new Map<MuscleZoneKey, MuscleZoneVisual>();
@@ -376,12 +425,54 @@ export default function GymScreen() {
   const focusStatus = focusKey ? (visualsBykey.get(focusKey)?.status ?? null) : null;
 
   const handleToggle = (zone: GymZonePayload) => {
-    toggle.mutate({
-      zone,
-      next: !zone.doneToday,
-      el: toggleEls.get(zone.key) ?? null,
-    });
+    toggle
+      .mutateAsync({
+        zone,
+        next: !zone.doneToday,
+        el: toggleEls.get(zone.key) ?? null,
+      })
+      .then(() => {
+        // V2: saran timer istirahat kontekstual setelah zona selesai.
+        if (!zone.doneToday) {
+          setRestSuggest({ zoneKey: zone.key, label: zone.label, emoji: zone.emoji });
+        }
+      })
+      .catch(() => {
+        /* toast error sudah ditangani onError di hook */
+      });
   };
+
+  // V2: perayaan pencapaian BARU — bandingkan pencapaian terbuka dengan
+  // daftar yang pernah dilihat (localStorage). Kunjungan pertama hanya
+  // menandai (tanpa confetti) supaya riwayat lama tidak disalahrayakan.
+  useEffect(() => {
+    const achievements = data?.achievements;
+    if (!achievements || achievements.length === 0) return;
+    const KEY = 'rutina_gym_seen_ach_v1';
+    try {
+      const raw = window.localStorage.getItem(KEY);
+      const firstVisit = raw === null;
+      let seen: string[] = [];
+      if (raw !== null) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) seen = parsed.filter((x): x is string => typeof x === 'string');
+      }
+      const unlockedIds = achievements.filter((a) => a.unlocked).map((a) => a.id);
+      if (!firstVisit) {
+        const fresh = unlockedIds.filter((id) => !seen.includes(id));
+        if (fresh.length > 0) {
+          for (const id of fresh.slice(0, 3)) {
+            const a = achievements.find((x) => x.id === id);
+            if (a) toast.success(`Pencapaian baru: ${a.title} ${a.emoji}`);
+          }
+          burstFromElement(achievementsRef.current, { count: 32, rainbow: true });
+        }
+      }
+      window.localStorage.setItem(KEY, JSON.stringify(unlockedIds));
+    } catch {
+      // localStorage tidak tersedia (private mode) — perayaan dilewati.
+    }
+  }, [data?.achievements]);
 
   if (isLoading) {
     return (
@@ -512,6 +603,13 @@ export default function GymScreen() {
         </div>
       </div>
 
+      {/* Timer istirahat antar set (V2 — desain user: rest timer sederhana,
+          saran muncul otomatis setelah zona selesai). */}
+      <RestTimer
+        suggestion={restSuggest}
+        onConsumeSuggestion={() => setRestSuggest(null)}
+      />
+
       {/* Weekly Mission (panel 11) + balance score (desain #4). */}
       <ScrollReveal className="rounded-2xl border border-border/70 bg-card/60 p-4">
         <div className="flex items-baseline justify-between">
@@ -577,12 +675,21 @@ export default function GymScreen() {
         ) : null}
       </ScrollReveal>
 
+      {/* Riwayat mingguan heatmap 12 minggu + minggu terbaik (V2). */}
+      <GymWeeklyHistory data={data} />
+
+      {/* Galeri pencapaian (V2) — jangkar confetti unlock baru. */}
+      <div ref={achievementsRef}>
+        <GymAchievements achievements={data.achievements} />
+      </div>
+
       <p className="px-1 text-center text-xs text-muted-foreground">{GYM_TAGLINE}</p>
 
       {/* Muscle Focus (panel 09) — sheet detail zona. */}
       <ZoneFocusSheet
         zone={focusZone}
         status={focusStatus}
+        history={focusKey ? (zoneHistoryBy.get(focusKey) ?? null) : null}
         nowMs={nowMs}
         busy={toggle.isPending}
         onToggle={(z) => handleToggle(z)}
