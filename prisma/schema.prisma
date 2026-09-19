@@ -75,6 +75,14 @@ model Habit {
   // nullable — habit lama (null) tidak terpengaruh; di-produksi via DDL
   // runtime ensureHabitGraduation() (pola Task 36/37/49).
   vacationIntervals String?
+  // TASK 64 (PETA OTOT / GYM): penanda zona otot untuk habit latihan —
+  // 'dada' | 'punggung' | 'bahu' | 'lengan' | 'perut' | 'kaki' | 'fullbody'.
+  // null = habit biasa (non-workout). Habit zona dibuat idempoten oleh
+  // POST /api/gym (setup). "Muscle Engine" (src/lib/muscle-map.ts) membaca
+  // kolom ini untuk status zona/recovery/balance — MURNI LAPISAN TURUNAN:
+  // XP/streak/kalender tetap mengalir lewat mekanisme HabitLog biasa,
+  // kalkulasi inti tidak tersentuh. Produksi via DDL runtime (pola 60-c).
+  muscleZone    String?
   startDate    DateTime    @default(now())
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt

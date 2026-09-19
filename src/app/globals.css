@@ -2288,3 +2288,88 @@
     animation: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §MUSCLE MAP — Task 64 (Peta Otot / Gym di Rumah)
+   Siluet tubuh "samar-samar" (aset desain user, panel 01-14):
+   zona = blob SVG dengan opasitas status (idle .07 → pump .29) + bonus
+   definisi seumur hidup (maks +.10). Animasi 3 lapis:
+   ① pump flash  (aset 05): scale 1 → peak (1.04/1.06) → 1.02 "berotot"
+   ② napas pump  (aset 06): glow lembut naik-turun tiap ~3.2s (status pump)
+   ③ stagger     (desain #15): Full Body → semua zona menyala berjenjang .2s
+   Teknik sama dengan pohon: transform-box: fill-box per zona + keyframes
+   CSS murni; guard prefers-reduced-motion → kondisi akhir statis.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mm-panel {
+  background: linear-gradient(180deg, #07131e 0%, #020a11 100%);
+  border: 1px solid rgba(21, 152, 213, 0.35);
+}
+
+/* Zona otot interaktif (tap → sheet detail zona). */
+.mm-zone {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  cursor: pointer;
+  outline: none;
+}
+.mm-shape {
+  fill: var(--mm-fill);
+  fill-opacity: var(--mm-opacity, 0.07);
+  stroke: rgba(238, 247, 255, 0.1);
+  stroke-width: 0.5;
+  transition: fill-opacity 0.45s ease, fill 0.45s ease;
+}
+.mm-zone:hover .mm-shape,
+.mm-zone:focus-visible .mm-shape {
+  fill-opacity: calc(var(--mm-opacity, 0.07) + 0.06);
+}
+.mm-zone:focus-visible .mm-shape {
+  stroke: rgba(238, 247, 255, 0.6);
+  stroke-width: 0.9;
+}
+/* Lapisan <g> dalam (pelajaran loaders.tsx: transform attribute statis ≠
+   elemen yang dianimasikan CSS — animasi selalu di .mm-anim). */
+.mm-anim {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* ① Pump flash (aset 05: 0,6-0,9 dtk, spring). Peak per intensitas:
+   Sedang 1.04 / Sulit 1.06 (via --mm-peak). Selesai di 1.02 — "sedikit
+   berotot" — selama zona masih fresh (status pump ≤ 2 jam). */
+@keyframes mm-pump-kf {
+  0% { transform: scale(1); }
+  55% { transform: scale(var(--mm-peak, 1.05)); }
+  100% { transform: scale(1.02); }
+}
+.mm-zone-pump .mm-anim {
+  animation: mm-pump-kf 0.72s cubic-bezier(0.34, 1.36, 0.44, 1) both;
+  animation-delay: var(--mm-stagger, 0s);
+}
+/* ② Napas pump (aset 06): zona yang baru selesai "bernapas" hangat. */
+.mm-zone-breathe {
+  filter: drop-shadow(0 0 2.5px var(--mm-glow, rgba(28, 152, 255, 0.6)));
+}
+@keyframes mm-breathe-kf {
+  0%, 100% { opacity: 0.78; }
+  50% { opacity: 1; }
+}
+.mm-zone-breathe .mm-anim {
+  animation: mm-breathe-kf 3.2s ease-in-out infinite;
+}
+.mm-zone-fresh .mm-anim { transform: scale(1.02); }
+/* Balanced: cahaya hijau khusus (aset 04) tanpa pulsa (tetap tenang). */
+.mm-zone-balanced {
+  filter: drop-shadow(0 0 2px rgba(100, 229, 155, 0.55));
+}
+
+/* Guard reduced-motion: zona tetap terwarna status, tanpa gerak (pola repo:
+   TreeGrowSplash menampilkan kondisi akhir statis). */
+@media (prefers-reduced-motion: reduce) {
+  .mm-zone-pump .mm-anim,
+  .mm-zone-breathe .mm-anim,
+  .mm-zone-fresh .mm-anim {
+    animation: none !important;
+    transform: scale(1) !important;
+  }
+}

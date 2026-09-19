@@ -43,6 +43,9 @@ import { TodayHabitsCard } from './today-habits';
 import { DailyCheckInCard } from './daily-check-in-card';
 import { TreeCard, buildTreeInput, useVacationCount } from '@/components/tree/tree-card';
 import { getTreeSeasonState } from '@/lib/tree-season';
+// TASK 64 (Peta Otot): kartu gerbang Gym di Beranda — pasangan tubuh bagi
+// kartu Pohonmu (pohon & tubuh tumbuh bersama dua lapis waktu yang sama).
+import { GymCard } from '@/components/gym/gym-card';
 
 /** Payload ringan GET /api/daily-logs?date= untuk kartu check-in Beranda. */
 type DailyLogPayloadLite = { date?: string; mood?: number; energy?: number; sleep?: number } | null;
@@ -348,6 +351,13 @@ export default function Dashboard() {
           />
         </ScrollReveal>
       )}
+
+      {/* ①.6 GROW — Peta Otot (Task 64): pasangan tubuh bagi pohon —
+            6 zona + Full Body, status samar mingguan; gerbang ke tab Gym
+            (pola kartu Pohonmu; dock mobile tetap 5 tab). */}
+      <ScrollReveal>
+        <GymCard onOpen={() => setActiveTab('gym')} />
+      </ScrollReveal>
 
       {fetchError && !fetching && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">

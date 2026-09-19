@@ -38,6 +38,7 @@ import dynamic from 'next/dynamic';
 import { PageTransition, ParallaxBackground } from '@/components/habit-tracker/page-transition';
 import { PullToRefresh } from '@/components/habit-tracker/pull-to-refresh';
 import { TreeGrowSplash } from '@/components/ui/loaders';
+import { Dumbbell } from 'lucide-react';
 
 // FIX-TRANSITION-1: Each tab is dynamically imported (ssr: false) to keep the
 // initial bundle small + avoid SSR for components that use browser-only APIs.
@@ -82,6 +83,11 @@ const WorkDesk = dynamic(() => import('@/components/work/work-desk'), { ssr: fal
 // keluarga sama dgn Beranda → cache terbagih.
 const PohonScreen = dynamic(() => import('@/components/tree/pohon-screen'), { ssr: false, loading: tabLoading });
 
+// TASK 64 (GYM TAB): tab Peta Otot — siluet tubuh dengan zona otot
+// samar-samar + misi mingguan; berdiri di atas data habit zona (Muscle
+// Engine turunan — kalkulasi XP inti tidak tersentuh).
+const GymScreen = dynamic(() => import('@/components/gym/gym-screen'), { ssr: false, loading: tabLoading });
+
 const Finance = dynamic(() => import('@/components/habit-tracker/finance'), { ssr: false, loading: tabLoading });
 const SettingsTab = dynamic(() => import('@/components/habit-tracker/settings'), { ssr: false, loading: tabLoading });
 
@@ -107,6 +113,9 @@ const NAV_SECTIONS: {
       // (drawer mobile + sidebar desktop; dock mobile sengaja TIDAK — 5
       // label tak muat di 320px, gerbang utamanya kartu "Pohonmu" Beranda).
       { id: 'pohon', label: 'Pohon', icon: TreePine },
+      // TASK 64: Gym / Peta Otot — pasangan tubuh bagi pohon (GROW):
+      // workout di rumah dengan reaksi visual per zona otot.
+      { id: 'gym', label: 'Gym', icon: Dumbbell },
       { id: 'goals', label: 'Tujuan', icon: Target },
       { id: 'finance', label: 'Keuangan', icon: Wallet },
     ],
@@ -136,6 +145,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
  work: WorkDesk,
  goals: Goals,
  pohon: PohonScreen,
+ gym: GymScreen,
 
  finance: Finance,
  settings: SettingsTab,
@@ -144,7 +154,7 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 // BUGHUNT-OTHER-1 BUG-M14: lookup set for validating the `?tab=` query param.
 const VALID_TAB_IDS = new Set<string>([
  'dashboard', 'tracker', 'progress', 'work', 'goals',
- 'finance', 'settings', 'pohon',
+ 'finance', 'settings', 'pohon', 'gym',
 ]);
 
 // ── CONNECTED-APP (Task 46): URL = konteks yang shareable ─────────────────

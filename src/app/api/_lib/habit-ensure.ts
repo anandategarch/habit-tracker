@@ -47,6 +47,14 @@ const NEW_COLUMNS: { name: string; ddl: string }[] = [
     name: 'vacationIntervals',
     ddl: `ALTER TABLE "Habit" ADD COLUMN "vacationIntervals" TEXT`,
   },
+  {
+    // TASK 64 (Peta Otot / Gym): Habit.muscleZone — zona otot habit latihan
+    // ('dada'|'punggung'|'bahu'|'lengan'|'perut'|'kaki'|'fullbody'); null =
+    // habit biasa. Dibaca GET /api/gym untuk "Muscle Engine" turunan (status
+    // zona/recovery/balance) — TIDAK menyentuh kalkulasi XP/streak inti.
+    name: 'muscleZone',
+    ddl: `ALTER TABLE "Habit" ADD COLUMN "muscleZone" TEXT`,
+  },
 ];
 
 const globalForHabitDdl = globalThis as unknown as {
