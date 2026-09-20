@@ -112,6 +112,15 @@ model DailyLog {
   energy    Float    @default(3) // 1..5
   sleep     Float    @default(7) // jam
   notes     String?
+  // TASK 73 (Fase 2 — Tubuh & Gizi): pelacak ringan harian pada baris yang
+  // sama dengan check-in (pola "satu hari satu baris"). Nullable & aditif —
+  // baris/check-in lama tidak terpengaruh; null = belum diisi hari itu.
+  // Berat dicatat per-hari (boleh bolong) → trend 30 hari turunan murni.
+  // Produksi via DDL runtime ensureWellnessColumns() (pola 60-c/67 —
+  // token Turso tidak ada di sandbox, ALTER TABLE idempoten di route).
+  waterGlasses Int? // 0..30 gelas (1 gelas ≈ 250 ml)
+  proteinGram  Int? // 0..1000 gram total harian
+  weightKg     Float? // 20..300 kg (presisi 0,1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

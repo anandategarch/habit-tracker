@@ -41,6 +41,9 @@ import { QuoteDisplay } from './dashboard-helpers';
 import { TodayHero } from './today-hero';
 import { TodayHabitsCard } from './today-habits';
 import { DailyCheckInCard } from './daily-check-in-card';
+// TASK 73 (Fase 2 — Tubuh & Gizi): kartu air/protein/berat di Beranda,
+// langsung setelah Check-in Harian (refleksi mental → bahan bakar fisik).
+import { WellnessCard } from '@/components/wellness/wellness-card';
 import { TreeCard, buildTreeInput, useVacationCount } from '@/components/tree/tree-card';
 import { getTreeSeasonState } from '@/lib/tree-season';
 // TASK 64 (Peta Otot): kartu gerbang Gym di Beranda — pasangan tubuh bagi
@@ -429,6 +432,11 @@ export default function Dashboard() {
         onOpenJournal={() => openTrackerNotes(todayStr)}
         onOpenHistory={() => openTrackerHistory(todayStr.slice(0, 7))}
       />
+
+      {/* ③.5 FUEL — Tubuh & Gizi (Task 73, Fase 2 Gym Cerdas): air, protein,
+            berat badan — pasangan fisik check-in; data hidup di DailyLog
+            (kolom aditif) dan target protein turunan berat tercatat. */}
+      <WellnessCard date={todayStr} />
 
       {/* ④ REFLECT — Quote (pengingat pribadi, serif Fraunces) */}
       <div className="premium-quote">
