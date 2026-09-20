@@ -40,11 +40,6 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
   );
 }
 
-/** Baris skeleton generik. */
-export function SkeletonRow({ className }: { className?: string }) {
-  return <div className={cn('h-14 animate-pulse rounded-xl bg-muted/60', className)} />;
-}
-
 /* ── TreeGrowSplash (Task 58) — splash pembuka: pohon TUMBUH ─────────────
  * User: "loading awal buka aplikasi pakai animasi dari Tunas sampai pohon
  * berbunga". Empat artwork botanical pengguna (grow-1-tunas … grow-4-

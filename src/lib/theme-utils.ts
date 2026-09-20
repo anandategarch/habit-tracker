@@ -15,8 +15,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   { id: 'sky', name: 'Sky Lagoon', primary: '#0ea5e9', secondary: '#38bdf8' },
 ];
 
-export const CURATED_THEME_PRESETS: ThemePreset[] = THEME_PRESETS;
-
 /** Terapkan warna preset ke :root (CSS var --primary/--primary-foreground). */
 export function applyThemeColors(presetId: string): void {
   if (typeof window === 'undefined') return;

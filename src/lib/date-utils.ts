@@ -79,10 +79,8 @@ export function format(date: Date, pattern: string, _opts?: { locale?: unknown }
 }
 
 // --- akses komponen (UTC — konvensi storage) --------------------------------
-export const getYear = (d: Date) => d.getUTCFullYear();
 export const getMonth = (d: Date) => d.getUTCMonth();
 export const getDate = (d: Date) => d.getUTCDate();
-export const getDay = (d: Date) => d.getUTCDay();
 export const getHours = (d: Date) => d.getUTCHours();
 export const getMinutes = (d: Date) => d.getUTCMinutes();
 
@@ -120,14 +118,9 @@ export function eachDayOfInterval(start: Date, end: Date): Date[] {
 export const isToday = (d: Date) => format(d, 'yyyy-MM-dd') === todayYMD();
 export const isSameMonth = (a: Date, b: Date) =>
   a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
-export const isSameDay = (a: Date, b: Date) => format(a, 'yyyy-MM-dd') === format(b, 'yyyy-MM-dd');
 export const isBefore = (a: Date, b: Date) => a.getTime() < b.getTime();
-export const isAfter = (a: Date, b: Date) => a.getTime() > b.getTime();
 export const isFuture = (d: Date) => d.getTime() > Date.now();
 export const getDaysInMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
-export const differenceInCalendarDays = (a: Date, b: Date) =>
-  Math.round((startOfDay(a).getTime() - startOfDay(b).getTime()) / 86_400_000);
-export const differenceInDays = differenceInCalendarDays;
 
 function todayYMD(): string {
   // BUGHUNT-54 (3-b #7): "hari ini" kini mengikuti Jakarta (konvensi seluruh
@@ -145,5 +138,4 @@ const MMM_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', '
 
 export const eeeIdFormatter = (d: Date) => EEE_ID[d.getUTCDay()];
 export const eeeeIdFormatter = (d: Date) => EEEE_ID[d.getUTCDay()];
-export const mmmIdFormatter = (d: Date) => MMM_ID[d.getUTCMonth()];
 export const mmmDdIdFormatter = (d: Date) => `${d.getUTCDate()} ${MMM_ID[d.getUTCMonth()]}`;

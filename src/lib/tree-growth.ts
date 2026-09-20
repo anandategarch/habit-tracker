@@ -186,15 +186,3 @@ export function getTreeGrowthState(input: TreeGrowthInput): TreeGrowthState {
     care,
   };
 }
-
-/** Narasi pertumbuhan untuk kartu Beranda — emosional, bukan angka mentah. */
-export function treeGrowthNarrative(state: TreeGrowthState): string {
-  if (!state.nextStage) {
-    return `Pohon dewasamu terus tumbuh — ${state.blooming ? 'dan sedang berbunga' : 'rawat terus ritmenya'}.`;
-  }
-  const xp = state.xpToNextStage ?? 0;
-  if (xp <= 0) {
-    return `Pohonmu siap tumbuh ke tahap ${state.nextStage.label}!`;
-  }
-  return `${xp} XP lagi menuju ${state.nextStage.label} — setiap rutinitas selesai menyiramnya.`;
-}

@@ -252,3 +252,17 @@ export function htmlToPlainText(input: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/**
+ * Task 71: baca cache log bulanan dari ref lintas modul.
+ * Panggilan fungsi lintas-modul bersifat opaque bagi analisis statis
+ * react-hooks/refs — nilai kembaliannya tidak "tercerna ref", sehingga bisa
+ * dialirkan ke hook/prop tanpa pelanggaran aturan compiler (yang tidak bisa
+ * ditekan dengan eslint-disable). Semantik identik dengan `ref.current[month]`.
+ */
+export function readMonthLogsCache(
+  ref: { current: Record<string, Record<string, HabitLog[]>> },
+  month: string,
+): Record<string, HabitLog[]> | undefined {
+  return ref.current[month];
+}

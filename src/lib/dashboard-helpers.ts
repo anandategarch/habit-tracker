@@ -1,6 +1,6 @@
 // lib/dashboard-helpers.ts — XP, level, streak, agregasi dashboard/tracker.
 // Level memakai XP TOTAL all-time (fix Gelombang 1 — dulu todayXP reset harian).
-import type { Habit, HabitLog } from '@/components/habit-tracker/daily-tracker-types';
+import type { Habit } from '@/components/habit-tracker/daily-tracker-types';
 import {
   isScheduledOn,
   parseSchedule,
@@ -235,20 +235,4 @@ export function shiftYmd(ymd: string, delta: number): string {
 
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
-}
-
-/** Map YMD -> HabitLog dari daftar log (key = date YMD 'yyyy-MM-dd'). */
-export function buildLogMap(logs: HabitLog[]): Map<string, HabitLog> {
-  const map = new Map<string, HabitLog>();
-  for (const log of logs) {
-    const raw: unknown = log.date;
-    const key =
-      typeof raw === 'string'
-        ? raw.slice(0, 10)
-        : raw instanceof Date
-          ? raw.toISOString().slice(0, 10)
-          : String(raw).slice(0, 10);
-    map.set(key, log);
-  }
-  return map;
 }

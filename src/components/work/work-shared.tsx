@@ -7,8 +7,6 @@
 import { Check, Clock, CloudOff, Loader2, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import type { WorkTaskItem } from './work-types';
-
 /** Lingkaran toggle 44px (target sentuh). status menentukan isi lingkaran. */
 export function WorkTick({
   status,
@@ -206,10 +204,3 @@ export function formatLongIndoDate(dayKey: string): string {
   });
 }
 
-/** Label meta tugas: "Hari ini" / "lewat tenggat" / "kapan saja". */
-export function taskMetaLabel(task: WorkTaskItem, today: string): string | null {
-  if (task.overdue) return 'lewat tenggat';
-  if (task.kapanSaja) return 'kapan saja';
-  if (task.dayKey === today) return 'hari ini';
-  return null;
-}

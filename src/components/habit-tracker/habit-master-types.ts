@@ -20,9 +20,6 @@ function jakartaYmdOrNull(v: string | Date | null | undefined): string | null {
 
 export type { Habit, HabitGroup } from './daily-tracker-types';
 
-/** Tipe target (kolom disiapkan; UI hanya mendukung 'daily' — BUG-14). */
-export const TARGET_TYPES = ['daily', 'weekly', 'monthly'] as const;
-
 /** Task 37 — jenis jadwal tampil habit. */
 export type ScheduleKind = 'daily' | 'weekly' | 'monthly';
 

@@ -130,9 +130,3 @@ export function nextOccurrenceLabel(s: HabitSchedule, ymd: string): string | nul
   }
   return `tgl ${Number(ymd.slice(8, 10))}`;
 }
-
-/** Label jenis jadwal untuk filter/badge. */
-export function scheduleKindLabel(s: HabitSchedule): 'Harian' | 'Mingguan' | 'Bulanan' {
-  if (s.kind === 'daily') return 'Harian';
-  return s.kind === 'weekly' ? 'Mingguan' : 'Bulanan';
-}

@@ -46,11 +46,6 @@ export function jakartaMonthString(now: Date = new Date()): string {
   return `${y}-${pad2(m)}`;
 }
 
-/** Waktu sekarang Jakarta sebagai Date yang komponen UTC-nya = komponen Jakarta nyata. */
-export function jakartaNow(now: Date = new Date()): Date {
-  return toJakarta(now);
-}
-
 /** Komponen jam:menit:detik Jakarta sekarang. */
 export function jakartaNowParts(now: Date = new Date()): { hour: number; minute: number; second: number } {
   const shifted = toJakarta(now);
@@ -81,11 +76,6 @@ export function dateFromYMD(ymd: string): Date {
 export function dateFromYMDNoon(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-}
-
-/** Date apa pun -> YMD kunci Jakarta. */
-export function ymdFromJakarta(date: Date): string {
-  return jakartaDateString(date);
 }
 
 /** Validasi + normalisasi 'yyyy-MM-dd' ketat (tolak 2026-02-31 dsb. — guard ronde bug lama). */

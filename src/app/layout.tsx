@@ -2,9 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 // Toaster sonner — SEMUA komponen memakai `toast` dari 'sonner' (tracker,
-// habit-master, finance, …). Toaster radix lama tidak punya konsumen
-// (use-toast) sehingga toast tidak pernah tampil; dipasangkan Toaster
-// sonner yang membaca tema.
+// habit-master, finance, …); Toaster ini membaca tema.
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import { SWRegister } from "@/components/sw-register";
