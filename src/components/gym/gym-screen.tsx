@@ -34,10 +34,33 @@ import { GymZoneList } from './gym-zone-list';
 import { ZoneFocusSheet } from './zone-focus-sheet';
 import { GymWeeklyMission } from './gym-weekly-mission';
 import { RestTimer } from './rest-timer';
+import { CardioCard } from './cardio-card';
+import { CardioLogDialog } from './cardio-log-dialog';
+import { ProgressPhotoCard } from './progress-photo-card';
+import { PhotoCaptureDialog } from './photo-capture-dialog';
+import { PhotoViewerDialog } from './photo-viewer-dialog';
 import { GymAchievements, GymWeeklyHistory } from './gym-history';
 import { ExerciseEditorDialog } from './exercise-editor';
 import { ExerciseLogDialog } from './exercise-log-dialog';
 import { useGymScreenState } from './use-gym-screen-state';
+import type { GymPhotoPose, GymPhotosPayload } from '@/lib/muscle-map';
+
+/** Gerbang dialog Ambil Foto — dipasang bila photos payload siap. Dibuat
+ *  komponen kecil supaya gym-screen.tsx tetap komposisi ramping. */
+function PhotoCaptureGate({
+  open,
+  photos,
+  initialPose,
+  onClose,
+}: {
+  open: boolean;
+  photos: GymPhotosPayload;
+  initialPose: GymPhotoPose | null;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return <PhotoCaptureDialog payload={photos} initialPose={initialPose} onClose={onClose} />;
+}
 
 export default function GymScreen() {
   const {
@@ -84,6 +107,17 @@ export default function GymScreen() {
     handleLogExercise,
     closeLogExercise,
     suggestRest,
+    // Task 76 Bonus — kardio & foto progres.
+    cardio,
+    cardioLogOpen,
+    setCardioLogOpen,
+    photos,
+    photoCaptureOpen,
+    photoCapturePose,
+    openPhotoCapture,
+    closePhotoCapture,
+    photoViewId,
+    setPhotoViewId,
     handleToggle,
   } = useGymScreenState();
 
@@ -187,8 +221,24 @@ export default function GymScreen() {
       </div>
 
       {/* Timer istirahat antar set (V2 — desain user: rest timer sederhana,
-          saran muncul otomatis setelah zona selesai). */}
+          saran muncul otomatis setelah zona selesai). Task 76 Bonus: kini
+          PERSISTEN — timer berjalan/terjeda bertahan saat pindah layar
+          atau reload (deadline jam nyata di localStorage). */}
       <RestTimer suggestion={restSuggest} onConsumeSuggestion={clearRestSuggestion} />
+
+      {/* Task 76 Bonus #2: kardio — statistik minggu + riwayat 30 hari +
+          dialog catat sesi. Lapisan opsional (pola program F4). */}
+      {cardio && <CardioCard data={cardio} onLog={() => setCardioLogOpen(true)} />}
+
+      {/* Task 76 Bonus #3: foto progres — petak pose + strip riwayat.
+          Lapisan opsional (pola program F4). */}
+      {photos && (
+        <ProgressPhotoCard
+          data={photos}
+          onAdd={(pose) => openPhotoCapture(pose)}
+          onOpen={(id) => setPhotoViewId(id)}
+        />
+      )}
 
       {/* Weekly Mission (panel 11) + balance score (desain #4). */}
       <GymWeeklyMission mission={data.mission} balanceScore={data.balanceScore} zones={data.zones} />
@@ -262,6 +312,32 @@ export default function GymScreen() {
           key={builderTarget === 'new' ? 'new' : builderTarget.program.id}
           target={builderTarget}
           onClose={closeBuilder}
+        />
+      )}
+
+      {/* Task 76 Bonus #2: dialog catat sesi kardio. */}
+      {cardioLogOpen && cardio && (
+        <CardioLogDialog key="cardio-log" payload={cardio} onClose={() => setCardioLogOpen(false)} />
+      )}
+
+      {/* Task 76 Bonus #3: dialog ambil foto — gate null saat tertutup,
+          state pose/preview segar setiap kali dibuka (remount via flag). */}
+      {photos && (
+        <PhotoCaptureGate
+          open={photoCaptureOpen}
+          photos={photos}
+          initialPose={photoCapturePose}
+          onClose={closePhotoCapture}
+        />
+      )}
+
+      {/* Task 76 Bonus #3: penampil foto penuh. */}
+      {photoViewId && (
+        <PhotoViewerDialog
+          key={photoViewId}
+          photoId={photoViewId}
+          todayYmd={photos?.todayYmd ?? data.todayYmd}
+          onClose={() => setPhotoViewId(null)}
         />
       )}
     </div>

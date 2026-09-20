@@ -17,6 +17,15 @@
 //   * muscle-map-program.ts      : Task 75 F4 — program latihan mingguan
 //                                  (4 preset split, validasi dua-sisi, mesin
 //                                  payload minggu + adherence + minggu ke-N)
+//   * muscle-map-cardio.ts       : Task 76 Bonus — jurnal kardio (validasi
+//                                  dua-sisi, estimasi kcal MET, payload
+//                                  minggu + jarak terjauh per jenis)
+//   * muscle-map-photos.ts       : Task 76 Bonus — foto progres (pose,
+//                                  batas base64, validasi dua-sisi, payload
+//                                  daftar + perjalanan hari)
+//   * image-compress.ts          : Task 76 Bonus — kompresi foto klien
+//                                  (canvas → JPEG penuh + thumbnail) — file
+//                                  terpisah (browser-only), BUKAN di barrel
 //
 // File ini tetap BERADA di jalur yang sama supaya SEMUA konsumen
 // `from '@/lib/muscle-map'` (api/gym, api/gym/exercises, use-gym,
@@ -46,6 +55,8 @@ export * from './muscle-map-history';
 export * from './muscle-map-readiness';
 export * from './muscle-map-sets';
 export * from './muscle-map-program';
+export * from './muscle-map-cardio';
+export * from './muscle-map-photos';
 
 export interface GymMapPayload {
   todayYmd: string;

@@ -8,7 +8,8 @@
 // toggle sesi (useGymToggle + saran rest timer), jam hidup 1-menit
 // (useNowMs), pandangan Depan/Belakang, zona fokus (sheet), editor latihan
 // (Task 67), dialog catat set + jurnal zona (Task 74 F3), program latihan
-// (Task 75 F4 — query + dialog picker/builder), visual zona turunan
+// (Task 75 F4 — query + dialog picker/builder), kardio + foto progres
+// (Task 76 Bonus — query + dialog), visual zona turunan
 // (status/fill/opacity/peak), daftar latihan EFEKTIF (kustom ?? preset),
 // dan efek perayaan pencapaian baru (localStorage + confetti).
 // Hook data use-gym.ts / use-gym-sets.ts TIDAK diduplikasi —
@@ -27,6 +28,7 @@ import {
   zoneStatus,
   zoneVisualFill,
   zoneVisualOpacity,
+  type GymPhotoPose,
   type GymProgramSaved,
   type GymZoneHistoryPayload,
   type GymZonePayload,
@@ -35,6 +37,8 @@ import {
 import { useGymMap, useGymSetup, useGymToggle } from './use-gym';
 import { useGymZoneSets } from './use-gym-sets';
 import { useGymProgram } from './use-gym-program';
+import { useGymCardio } from './use-gym-cardio';
+import { useGymPhotos } from './use-gym-photos';
 import type { RestSuggestion } from './rest-timer';
 import type { MuscleZoneVisual } from './muscle-map';
 import type { BodyView } from './gym-map-panel';
@@ -68,6 +72,13 @@ export function useGymScreenState() {
   // ── Task 75 F4: program latihan — picker & builder (dialog).
   const [pickerOpen, setPickerOpen] = useState(false);
   const [builderTarget, setBuilderTarget] = useState<'new' | { program: GymProgramSaved } | null>(null);
+  // ── Task 76 Bonus: kardio + foto progres (dialog).
+  const [cardioLogOpen, setCardioLogOpen] = useState(false);
+  const [photoCapture, setPhotoCapture] = useState<{ open: boolean; pose: GymPhotoPose | null }>({
+    open: false,
+    pose: null,
+  });
+  const [photoViewId, setPhotoViewId] = useState<string | null>(null);
   /** Peta elemen tombol toggle per zona — jangkar confetti toggle (dibaca
    *  hanya di event handler handleToggle / ref callback baris zona). */
   const toggleElsRef = useRef(new Map<MuscleZoneKey, HTMLButtonElement | null>());
@@ -131,6 +142,11 @@ export function useGymScreenState() {
   // (use-gym.ts). Error → data undefined → kartu disembunyikan senyap
   // (lapisan opsional — layar Gym tetap fungsional tanpa program).
   const program = useGymProgram();
+
+  // ── Task 76 Bonus: query kardio + foto progres. Keduanya lapisan opsional —
+  // error → undefined → kartu disembunyikan senyap (pola program F4).
+  const cardio = useGymCardio();
+  const photos = useGymPhotos();
   const logZone = logTarget ? (allZones.find((z) => z.key === logTarget.zone) ?? null) : null;
   const handleLogExercise = (exercise: GymExerciseView) => {
     if (!focusKey) return;
@@ -213,6 +229,19 @@ export function useGymScreenState() {
     builderTarget,
     openBuilder: (target: 'new' | { program: GymProgramSaved }) => setBuilderTarget(target),
     closeBuilder: () => setBuilderTarget(null),
+    // Task 76 Bonus — kardio & foto progres.
+    cardio: cardio.data,
+    cardioLoading: cardio.isLoading,
+    cardioLogOpen,
+    setCardioLogOpen,
+    photos: photos.data,
+    photosLoading: photos.isLoading,
+    openPhotoCapture: (pose: GymPhotoPose | null) => setPhotoCapture({ open: true, pose }),
+    closePhotoCapture: () => setPhotoCapture({ open: false, pose: null }),
+    photoCaptureOpen: photoCapture.open,
+    photoCapturePose: photoCapture.pose,
+    photoViewId,
+    setPhotoViewId,
     logTarget,
     logZone,
     handleLogExercise,

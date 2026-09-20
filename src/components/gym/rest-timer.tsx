@@ -1,27 +1,28 @@
 'use client';
 
 // ---------------------------------------------------------------------------
-// src/components/gym/rest-timer.tsx — TIMER ISTIRAHAT ANTAR SET (Task 65 V2).
+// src/components/gym/rest-timer.tsx — TIMER ISTIRAHAT ANTAR SET (Task 65 V2;
+// persisten Task 76 Bonus #1; logic dipecah ke use-rest-timer.ts).
 //
 // Desain user: "rest timer sederhana + kontekstual". Murni sisi klien:
 //   * preset 30/60/90/120 detik (1 ketuk langsung jalan),
 //   * ring countdown SVG (transisi 1 dtk linear — halus, bukan animasi hiasan),
 //   * jeda/lanjut, +15 detik, reset,
 //   * selesai → toast + getar perangkat (bila tersedia),
-//   * SARAN KONTEKSTUAL: setelah zona selesai (toggle sukses), pemilik kartu
-//     menyarankan "istirahat 60 detik?" — 1 ketuk mulai.
-// Implementasi: countdown berbasis DEADLINE jam nyata (ref) — bebas drift
-// dan setState hanya terjadi di callback interval (bukan sinkron di efek).
-// Tidak menyentuh data/XP apa pun (semata-mata alat bantu antar set).
+//   * SARAN KONTEKSTUAL: setelah zona selesai (toggle sukses) / setelah catat
+//     set (Task 74), pemilik kartu menyarankan "istirahat 60 detik?",
+//   * PERSISTEN (Task 76): timer yang sedang berjalan/terjeda bertahan saat
+//     pindah layar atau reload — countdown berbasis deadline jam nyata.
+// File ini kini hanya PRESENTASI; seluruh logic + persistensi ada di
+// use-rest-timer.ts. Tidak menyentuh data/XP apa pun.
 // ---------------------------------------------------------------------------
 
-import { useEffect, useRef, useState } from 'react';
 import { Pause, Play, Plus, RotateCcw, Timer as TimerIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { MuscleZoneKey } from '@/lib/muscle-map';
+import { useRestTimer } from './use-rest-timer';
 
 const PRESETS = [30, 60, 90, 120];
 
@@ -47,66 +48,7 @@ export function RestTimer({
   suggestion: RestSuggestion | null;
   onConsumeSuggestion: () => void;
 }) {
-  const [total, setTotal] = useState(60);
-  const [remaining, setRemaining] = useState(60);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
-  /** Tenggat jam nyata (ms epoch) — sumber kebenaran countdown saat berjalan. */
-  const deadlineRef = useRef(Date.now() + 60_000);
-
-  // Tik: hitung sisa detik dari deadline (bebas drift), hentikan saat habis.
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => {
-      const secs = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
-      setRemaining(secs);
-      if (secs <= 0) {
-        setRunning(false);
-        setDone(true);
-        toast.success('Istirahat selesai — waktunya set berikutnya! 💪');
-        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-          try {
-            navigator.vibrate([120, 70, 120]);
-          } catch {
-            // perangkat menolak getaran — abaikan
-          }
-        }
-      }
-    }, 200);
-    return () => clearInterval(id);
-  }, [running]);
-
-  const start = (secs: number) => {
-    deadlineRef.current = Date.now() + secs * 1000;
-    setTotal(secs);
-    setRemaining(secs);
-    setDone(false);
-    setRunning(true);
-    onConsumeSuggestion();
-  };
-
-  const pause = () => {
-    setRemaining(Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000)));
-    setRunning(false);
-  };
-
-  const resume = () => {
-    deadlineRef.current = Date.now() + remaining * 1000;
-    setRunning(true);
-  };
-
-  const addFifteen = () => {
-    setRemaining((r) => r + 15);
-    setTotal((t) => t + 15);
-    if (running) deadlineRef.current += 15_000;
-  };
-
-  const reset = () => {
-    setRunning(false);
-    setDone(false);
-    setRemaining(total);
-    deadlineRef.current = Date.now() + total * 1000;
-  };
+  const { total, remaining, running, done, start, pause, resume, addFifteen, reset } = useRestTimer();
 
   const progress = total > 0 ? Math.min(1, Math.max(0, remaining / total)) : 0;
   const stateLabel = running ? 'berjalan' : done ? 'selesai' : 'siaga';
@@ -118,7 +60,16 @@ export function RestTimer({
           <TimerIcon className="h-4 w-4 text-primary" aria-hidden="true" />
           Timer Istirahat
         </h2>
-        <p className="text-xs text-muted-foreground">antar set</p>
+        {/* Persisten: berjalan/terjeda → ikut bertahan saat pindah layar. */}
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {running ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" aria-hidden="true" />
+              persisten
+            </span>
+          ) : null}
+          antar set
+        </p>
       </div>
 
       {/* Saran kontekstual: zona baru selesai (konsumsi sekali saat timer mulai). */}

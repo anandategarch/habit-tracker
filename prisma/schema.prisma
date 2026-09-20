@@ -343,6 +343,49 @@ model GymProgram {
   updatedAt DateTime  @updatedAt
 }
 
+// ── Gym Kardio (Task 76 — Bonus Gym Cerdas) ─────────────────────────────────
+// Jurnal sesi kardio (jalan/lari/sepeda/renang): durasi wajib, jarak opsional
+// (renang/treadmill tanpa GPS tetap sah). SATU baris per sesi — beberapa sesi
+// sehari boleh (jalan pagi + lari sore). kcal TIDAK disimpan: diturunkan murni
+// saat payload dari MET × berat terakhir (DailyLog.weightKg — synergy F2;
+// estimasi ikut terkoreksi saat berat berubah). Murni LAPISAN CATAT: tidak
+// menyentuh XP/streak/kalender (prinsip Peta Otot). Produksi via DDL runtime
+// ensureGymCardioTable (pola gym-set-ensure 74).
+
+model GymCardioLog {
+  id          String   @id @default(cuid())
+  kind        String // walk | run | bike | swim (GymCardioKind)
+  durationMin Int // 1..600
+  distanceKm  Float? // 0.1..300 (presisi 0,1; null = tanpa jarak)
+  dayKey      String // yyyy-MM-dd (Asia/Jakarta)
+  createdAt   DateTime @default(now())
+
+  @@index([dayKey])
+  @@index([kind, dayKey])
+}
+
+// ── Gym Foto Progres (Task 76 — Bonus Gym Cerdas) ───────────────────────────
+// Foto tubuh berkala (pose depan/samping/belakang) — penyemangat visual ala
+// app workout. Gambar dikompres DI KLIEN (canvas → JPEG): imageBase64 penuh
+// (maks dim 720px, ≤ PHOTO_IMAGE_BASE64_MAX char) + thumbBase64 kecil (144px)
+// untuk daftar. weightKg = SNAPSHOT berat terakhir saat foto diambil (auto
+// server dari DailyLog, synergy F2) — DISIMPAN, bukan diturunkan, supaya
+// riwayat foto stabil meski berat kemudian berubah. Murni lapisan catat.
+// Produksi via DDL runtime ensureGymPhotoTable.
+
+model GymProgressPhoto {
+  id          String   @id @default(cuid())
+  pose        String // depan | samping | belakang (GymPhotoPose)
+  note        String? // ≤200 char
+  weightKg    Float? // snapshot 20..300 saat foto (auto dari DailyLog)
+  thumbBase64 String // JPEG kecil untuk daftar (144px)
+  imageBase64 String // JPEG penuh untuk detail (720px)
+  dayKey      String // yyyy-MM-dd (Asia/Jakarta)
+  createdAt   DateTime @default(now())
+
+  @@index([dayKey])
+}
+
 // ── Meja Kerja (Task 17-a) ─────────────────────────────────────────────────
 // Catatan kerjaan harian: rutinitas berulang + tugas lepas + catatan kilat.
 // Konvensi tanggal sama dengan HabitLog/DailyLog: dayKey = 'yyyy-MM-dd' Jakarta
