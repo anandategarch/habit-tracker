@@ -57,6 +57,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const logDate = dateFromYMD(date);
     const maxValue = habit.habitType === 'amount' ? Math.max(1, habit.target) : 1;
 
+    // Task 70 (audit 70-a m4): baca baris hari ini SEBELUM menyusun update —
+    // keputusan completedAt perlu tahu apakah baris sudah completed (re-tap
+    // idempoten tidak boleh menimpa completedAt lama). Dibaca di luar
+    // upsert; DB tetap dijaga @@unique(habitId,date).
+    const existingLog = await db.habitLog.findUnique({
+      where: { habitId_date: { habitId: id, date: logDate } },
+      select: { completed: true },
+    });
+
     const update: Record<string, unknown> = {};
     const create: Record<string, unknown> = { habitId: id, date: logDate };
 
@@ -97,7 +106,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       // completedAt = waktu server — sebelumnya path UPDATE membiarkan
       // completedAt null selamanya padahal path CREATE men-setnya. Nilai
       // eksplisit dari body (di atas) tetap tidak ditimpa.
-      update.completedAt = update.completedAt ?? new Date();
+      // Task 70 (audit 70-a m4): tulis HANYA bila baris BARU atau transisi
+      // false→true — baris yang SUDAH completed=true di tanggal sama
+      // mempertahankan completedAt LAMA (re-tap cepat tidak melebarkan
+      // jendela pump 2 jam; XP tetap tanpa dobel via @@unique(habitId,date)).
+      if (!existingLog || existingLog.completed !== true) {
+        update.completedAt = update.completedAt ?? new Date();
+      }
     } else if (update.completed === false) {
       update.completedAt = null;
     }

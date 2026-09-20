@@ -243,8 +243,9 @@ export const STATUS_BASE_OPACITY: Record<MuscleZoneStatus, number> = {
   pump: 0.72,
   /** Recovery = tetap terlihat hangat, sedikit lebih redup. */
   recovery: 0.45,
-  /** Terabaikan = sisa pudar keunguan. */
-  neglected: 0.28,
+  /** Terabaikan = sisa pudar keunguan (0.36 — tetap samar tapi terbaca;
+      audit 70-e: 0.28 kontrasnya terlalu lemah di badan gelap). */
+  neglected: 0.36,
   /** Balanced = menyala + glow hijau (aset 04). */
   balanced: 0.60,
 };
@@ -437,9 +438,11 @@ export interface GymZoneHistoryPayload {
 
 export interface GymBestWeekPayload {
   weekStartYmd: string;
-  /** Total sesi efektif semua zona minggu itu. */
+  /** Total sesi ASLI minggu itu (Σ own zona misi + own Full Body).
+   *  Task 70 (audit 70-a m2): dulu sesi efektif — 1 sesi Full Body
+   *  terhitung "7 sesi" (1 fb + kontribusi ke 6 zona misi). */
   totalSessions: number;
-  /** Berapa zona utama tersentuh minggu itu. */
+  /** Berapa zona utama tersentuh minggu itu (efektif — fb menyentuh semua). */
   zonesTouched: number;
 }
 
@@ -636,7 +639,11 @@ export function computeGymHistory(input: GymHistoryInput): GymHistoryResult {
     let metTarget = 0;
     for (const def of MISSION_ZONE_DEFS) {
       const n = zoneWeekly.get(def.key)!.get(ws) ?? 0;
-      total += n;
+      // Task 70 (audit 70-a m2): totalSessions dari sesi ASLI (own zona misi)
+      // — dulu memakai peta efektif sehingga 1 sesi Full Body menambah 6 ke
+      // total (1 fb = "7 sesi"). zonesTouched & metTarget tetap dari efektif
+      // (fb memang menyentuh/menghitung semua zona misi).
+      total += zoneOwnWeekly.get(def.key)!.get(ws) ?? 0;
       if (n >= 1) touched += 1;
       if (n >= def.weeklyTarget) metTarget += 1;
     }

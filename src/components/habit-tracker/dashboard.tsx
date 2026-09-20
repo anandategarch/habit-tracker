@@ -158,8 +158,13 @@ export default function Dashboard() {
   // ── Dashboard data (TanStack Query) ────────────────────────────────────
   // Period tetap 'all' (Beranda hanya butuh data today + streak). QueryKey
   // SAMA dengan default tab Progres → cache terbagih antar tab.
+  // Task 70 (audit 70-a m5): todayStr (YMD Jakarta dari useJakartaToday) di
+  // queryKey — kpi.weeklyXp/seasonStartYmd tidak lagi basi lintas pergantian
+  // tanggal Jakarta (tengah malam tanpa refocus); key berganti tanggal →
+  // otomatis refetch (pola ['work', todayStr] di bawah). Invalidasi prefix
+  // ['dashboard'] / ['dashboard','all'] tetap mencakup varian baru.
   const { data: data, isFetching: fetching, isError: fetchError } = useQuery({
-    queryKey: ['dashboard', 'all', refreshKey, retryCount],
+    queryKey: ['dashboard', 'all', refreshKey, retryCount, todayStr],
     queryFn: async () => {
       const res = await fetch(`/api/dashboard?period=all`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -30,15 +30,40 @@ interface GymCardProps {
 }
 
 export function GymCard({ onOpen }: GymCardProps) {
-  const { data, isLoading } = useGymMap();
+  // Task 70 (audit 70-d MINOR #7): isError + refetch — error kini eksplisit
+  // dengan aksi "Coba lagi" (sebelumnya kartu hilang senyap).
+  const { data, isLoading, isError, refetch } = useGymMap();
   const setup = useGymSetup();
 
   if (isLoading) {
     return (
-      <div className="mm-panel h-[168px] animate-pulse rounded-2xl" aria-hidden="true" />
+      // Task 70 (audit 70-d MINOR #7): status sr-only untuk screen reader
+      // (diletakkan di LUAR elemen aria-hidden supaya benar-benar terbaca).
+      <>
+        <div className="mm-panel h-[168px] animate-pulse rounded-2xl" aria-hidden="true" />
+        <span className="sr-only" role="status">Memuat peta otot…</span>
+      </>
     );
   }
-  if (!data) return null;
+  if (isError || !data) {
+    return (
+      // Task 70 (audit 70-d MINOR #7): kartu error kecil + Coba lagi.
+      <div
+        role="alert"
+        className="mm-panel flex items-center justify-between gap-3 rounded-2xl p-4"
+      >
+        <p className="text-xs text-[#a7b8c5]">Gagal memuat peta otot.</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => refetch()}
+          className="shrink-0 cursor-pointer text-[#64c9ff] hover:bg-white/5 hover:text-[#64c9ff]"
+        >
+          Coba Lagi
+        </Button>
+      </div>
+    );
+  }
 
   // CTA — belum ada habit zona.
   if (!data.setupDone) {
@@ -111,12 +136,14 @@ export function GymCard({ onOpen }: GymCardProps) {
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-[#eef7ff]">
+          {/* Task 70 (audit 70-d MINOR #6): h3 di dalam <button> tidak valid
+              (heading interaktif) — diganti span dengan class sama. */}
+          <span className="flex items-center gap-2 text-sm font-bold text-[#eef7ff]">
             Peta Otot
             <span className="rounded-full bg-[#092238] px-2 py-0.5 text-[10px] font-semibold text-[#64c9ff]">
               {mission.touched} / {mission.total} zona
             </span>
-          </h3>
+          </span>
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#0a1b29]"
             role="progressbar"

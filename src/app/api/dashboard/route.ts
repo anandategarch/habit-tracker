@@ -13,7 +13,7 @@
 //  * L-8: focusToday membawa priority dari habit (badge prioritas hidup).
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { handleApiError, pickDailyQuote, round1, xpForDifficulty, ymdOf } from '@/app/api/_lib/api-utils';
+import { handleApiError, pickDailyQuote, round1, transactionMonthRange, xpForDifficulty, ymdOf } from '@/app/api/_lib/api-utils';
 import { calcLevel, computeAvoidStreak, computeStreakFromSet, shiftYmd } from '@/lib/dashboard-helpers';
 import { dateFromYMD, jakartaDateString, jakartaMonthString } from '@/lib/timezone';
 import { ensureHabitGraduation, expireHabitVacations } from '@/app/api/_lib/habit-ensure';
@@ -69,11 +69,13 @@ export async function GET(req: Request) {
       startYmd = shiftYmd(todayYmd, -(period - 1));
     }
 
-    // BUGHUNT-54 (3-c #1a): query terpisah untuk rantai XP — SEMUA habit
-    // non-arsip (aktif + DIJEDA). Men-jeda habit bersejarah dulunya
-    // menurunkan totalXp/currentLevel (regresi level) karena query `habits`
-    // memfilter isActive; `habits` tetap dipakai untuk rotasi harian
-    // (tracking/KPI/fokus) supaya habit dijesa keluar dari tagihan hari ini.
+    // BUGHUNT-54 (3-c #1a): query terpisah untuk rantai XP; `habits` tetap
+    // dipakai untuk rotasi harian (tracking/KPI/fokus) supaya habit
+    // dijeda/diarsipkan keluar dari tagihan hari ini.
+    // Task 70 (audit 70-a M1): xpHabits kini TANPA filter — habit TERARSIP
+    // tetap dihitung XP/level (arsip = menyembunyikan dari rotasi, BUKAN
+    // penghapus sejarah; paritas semantik jeda BUGHUNT-54 & lulus Task 36
+    // — level tidak boleh turun saat habit diarsipkan).
     const [settings, habits, xpHabits, allCompleted, dailyLogs, monthTx, budgetRows] = await Promise.all([
       db.appSettings.findUnique({ where: { id: 'singleton' } }),
       db.habit.findMany({
@@ -81,7 +83,7 @@ export async function GET(req: Request) {
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       }),
       db.habit.findMany({
-        where: { isArchived: false },
+        // Task 70 (audit 70-a M1): tanpa where — aktif + dijeda + terarsip.
         select: { id: true, difficulty: true, habitType: true },
       }),
       db.habitLog.findMany({
@@ -91,8 +93,18 @@ export async function GET(req: Request) {
       db.dailyLog.findMany({
         where: { date: { gte: dateFromYMD(startYmd), lte: dateFromYMD(todayYmd) } },
       }),
+      // Task 70 (audit 70-c #5): filter bulan berjalan DI QUERY (dulu SEMUA
+      // Transaction income/expense di-fetch lalu disaring
+      // startsWith(prefix) di JS). Konvensi tanggal transaksi = YMD stabil
+      // sebagai komponen UTC (12:00Z tanpa jam / jam dinding Jakarta) →
+      // rentang [awal bulan, awal bulan depan) identik dengan filter lama,
+      // output payload tidak berubah. `allCompleted` HabitLog all-time
+      // sengaja dibiarkan (dipakai XP/streak).
       db.transaction.findMany({
-        where: { type: { in: ['income', 'expense'] } },
+        where: {
+          type: { in: ['income', 'expense'] },
+          date: transactionMonthRange(currentMonth),
+        },
         select: { type: true, amount: true, category: true, date: true },
       }),
       db.weeklyBudget.findMany({ where: { month: currentMonth } }),
@@ -195,8 +207,8 @@ export async function GET(req: Request) {
     // ── XP & level (all-time) ──
     // Task 36: iterasi `habits` (termasuk yang lulus) — XP habit lulus tidak
     // pernah dicabut; level = kenangan kemenangan, bukan sewa bulanan.
-    // BUGHUNT-54 (3-c #1a): iterasi `xpHabits` (non-arsip: aktif + dijesa) —
-    // jeda = istirahat terencana, BUKAN penghapusan sejarah XP.
+    // BUGHUNT-54 (3-c #1a): iterasi `xpHabits` — jeda = istirahat terencana,
+    // BUKAN penghapusan sejarah XP. Task 70 (audit 70-a M1): arsip juga.
     // Task 60-e (audit 59-b2): todayXp MENGECUALIKAN log kambuh habit 'avoid'
     // — kartu habit & toast selalu menjanjikan "avoid tidak berhak XP";
     // totalXp ALL-TIME tetap menghitung semua log (level tidak boleh turun
@@ -470,13 +482,12 @@ export async function GET(req: Request) {
       });
 
     // ── Overview keuangan bulan berjalan ──
-    const monthPrefix = currentMonth;
+    // Task 70 (audit 70-c #5): monthTx sudah terfilter bulan berjalan di
+    // where Prisma — saringan JS startsWith(prefix) dihapus.
     let monthIncome = 0;
     let monthExpense = 0;
     const spentByCategory = new Map<string, number>();
     for (const tx of monthTx) {
-      const ymd = ymdOf(tx.date as Date);
-      if (!ymd.startsWith(monthPrefix)) continue;
       if (tx.type === 'income') monthIncome += tx.amount;
       else if (tx.type === 'expense') {
         monthExpense += tx.amount;

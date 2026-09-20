@@ -1,5 +1,6 @@
 // Seed data demo Rutina (dipakai POST /api/data/seed) — cermin scripts/seed.ts
 // dengan db bersama dari @/lib/db. Semua tanggal mengikuti konvensi TZ Jakarta.
+import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 
 const JST_MINUTES = 7 * 60;
@@ -40,23 +41,31 @@ export interface SeedSummary {
 }
 
 export async function seedDemoData(): Promise<SeedSummary> {
-  // Bersihkan dulu (idempoten bila dipanggil setelah guard lolos).
-  await db.habitLog.deleteMany();
-  await db.dailyLog.deleteMany();
-  await db.habit.deleteMany();
-  await db.habitGroup.deleteMany();
-  await db.habitOption.deleteMany();
-  await db.transaction.deleteMany();
-  await db.fundSource.deleteMany();
-  await db.financeCategory.deleteMany();
-  await db.weeklyBudget.deleteMany();
-  await db.budgetSnapshot.deleteMany();
-  await db.savingsGoal.deleteMany();
-  await db.recurringTransaction.deleteMany();
-  await db.transactionRule.deleteMany();
-  await db.goal.deleteMany();
+  // Task 70 (audit 70-c #3): seluruh seed dalam SATU $transaction (pola
+  // data/import & reset-all) — dulu partial-seed bila gagal di tengah
+  // membuat guard "data sudah ada" mengunci seed ulang tanpa jalan pulih.
+  // ensure-DDL tetap di route seed (dijalankan SEBELUM transaksi). Timeout
+  // 60 dtk: seed ± 250 insert berurutan — default Prisma 5 dtk terlalu
+  // ketat untuk round-trip Turso remote (file SQLite lokal jauh di bawah).
+  return db.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      // Bersihkan dulu (idempoten bila dipanggil setelah guard lolos).
+      await tx.habitLog.deleteMany();
+  await tx.dailyLog.deleteMany();
+  await tx.habit.deleteMany();
+  await tx.habitGroup.deleteMany();
+  await tx.habitOption.deleteMany();
+  await tx.transaction.deleteMany();
+  await tx.fundSource.deleteMany();
+  await tx.financeCategory.deleteMany();
+  await tx.weeklyBudget.deleteMany();
+  await tx.budgetSnapshot.deleteMany();
+  await tx.savingsGoal.deleteMany();
+  await tx.recurringTransaction.deleteMany();
+  await tx.transactionRule.deleteMany();
+  await tx.goal.deleteMany();
 
-  await db.appSettings.upsert({
+  await tx.appSettings.upsert({
     where: { id: 'singleton' },
     update: {},
     create: { id: 'singleton', userName: 'User', theme: 'system', themeColor: 'teal', weekStart: 1, language: 'id', targetCompletion: 80 },
@@ -68,16 +77,16 @@ export async function seedDemoData(): Promise<SeedSummary> {
     ['Kebiasaan', '#f59e0b'], ['Umum', '#64748b'], ['Pikiran', '#f43f5e'],
   ] as const;
   for (const [i, [label, color]] of cats.entries()) {
-    await db.habitOption.create({ data: { type: 'category', label, color, sortOrder: i } });
+    await tx.habitOption.create({ data: { type: 'category', label, color, sortOrder: i } });
   }
   for (const [i, label] of ['Rendah', 'Sedang', 'Tinggi'].entries()) {
-    await db.habitOption.create({ data: { type: 'priority', label, sortOrder: i } });
+    await tx.habitOption.create({ data: { type: 'priority', label, sortOrder: i } });
   }
   for (const [i, label] of ['Mudah', 'Sedang', 'Sulit'].entries()) {
-    await db.habitOption.create({ data: { type: 'difficulty', label, sortOrder: i } });
+    await tx.habitOption.create({ data: { type: 'difficulty', label, sortOrder: i } });
   }
-  const morningGroup = await db.habitGroup.create({ data: { name: 'Pagi Hari', color: '#f59e0b', sortOrder: 0 } });
-  const healthGroup = await db.habitGroup.create({ data: { name: 'Kesehatan', color: '#14b8a6', sortOrder: 1 } });
+  const morningGroup = await tx.habitGroup.create({ data: { name: 'Pagi Hari', color: '#f59e0b', sortOrder: 0 } });
+  const healthGroup = await tx.habitGroup.create({ data: { name: 'Kesehatan', color: '#14b8a6', sortOrder: 1 } });
 
   // ── Habits ──
   const habitSpecs = [
@@ -90,7 +99,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
   ];
   const createdHabits: Array<{ id: string; name: string; habitType: string; target: number }> = [];
   for (const h of habitSpecs) {
-    const row = await db.habit.create({ data: { ...h, startDate: midnight(ymdShift(jakartaYmd(), -60)) } });
+    const row = await tx.habit.create({ data: { ...h, startDate: midnight(ymdShift(jakartaYmd(), -60)) } });
     createdHabits.push({ id: row.id, name: row.name, habitType: row.habitType, target: row.target });
   }
 
@@ -114,7 +123,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       if (!done) continue;
       const value = h.habitType === 'amount' ? Math.max(3, Math.round(h.target * (0.6 + Math.random() * 0.5))) : 1;
       const completedAt = new Date(noon(ymd, 6 + Math.floor(Math.random() * 14), Math.floor(Math.random() * 60)).getTime() - 7 * 3_600_000);
-      await db.habitLog.create({ data: { habitId: h.id, date: midnight(ymd), completed: true, value, completedAt } });
+      await tx.habitLog.create({ data: { habitId: h.id, date: midnight(ymd), completed: true, value, completedAt } });
       habitLogCount += 1;
     }
   }
@@ -132,7 +141,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
   ];
   for (let back = 13; back >= 0; back -= 1) {
     const ymd = ymdShift(today, -back);
-    await db.dailyLog.create({
+    await tx.dailyLog.create({
       data: {
         date: midnight(ymd),
         mood: 3 + Math.round(Math.random() * 2),
@@ -155,11 +164,11 @@ export async function seedDemoData(): Promise<SeedSummary> {
     ['Freelance', '💼', '#0ea5e9', 'income'],
   ] as const;
   for (const [name, emoji, color, type] of finCats) {
-    await db.financeCategory.create({ data: { name, emoji, color, type } });
+    await tx.financeCategory.create({ data: { name, emoji, color, type } });
   }
-  const dompet = await db.fundSource.create({ data: { name: 'Dompet Tunai', emoji: '👛', type: 'cash', initialBalance: 500_000, sortOrder: 0 } });
-  const bca = await db.fundSource.create({ data: { name: 'BCA', emoji: '🏦', type: 'bank', initialBalance: 15_000_000, sortOrder: 1 } });
-  const gopay = await db.fundSource.create({ data: { name: 'GoPay', emoji: '📱', type: 'ewallet', initialBalance: 250_000, sortOrder: 2 } });
+  const dompet = await tx.fundSource.create({ data: { name: 'Dompet Tunai', emoji: '👛', type: 'cash', initialBalance: 500_000, sortOrder: 0 } });
+  const bca = await tx.fundSource.create({ data: { name: 'BCA', emoji: '🏦', type: 'bank', initialBalance: 15_000_000, sortOrder: 1 } });
+  const gopay = await tx.fundSource.create({ data: { name: 'GoPay', emoji: '📱', type: 'ewallet', initialBalance: 250_000, sortOrder: 2 } });
 
   // ── Transaksi 45 hari ──
   const expenses: Array<[string, string, number, number]> = [
@@ -179,11 +188,11 @@ export async function seedDemoData(): Promise<SeedSummary> {
     const ymd = ymdShift(today, -back);
     const dayOfMonth = Number(ymd.slice(8, 10));
     if (dayOfMonth === 1) {
-      await db.transaction.create({ data: { type: 'income', amount: 8_500_000, category: 'Gaji', sourceId: bca.id, description: 'Gaji bulanan', date: noon(ymd, 9), tags: 'tetap' } });
+      await tx.transaction.create({ data: { type: 'income', amount: 8_500_000, category: 'Gaji', sourceId: bca.id, description: 'Gaji bulanan', date: noon(ymd, 9), tags: 'tetap' } });
       txCount += 1;
     }
     if (dayOfMonth === 5 && Math.random() < 0.8) {
-      await db.transaction.create({ data: { type: 'income', amount: rand(1_200_000, 3_500_000), category: 'Freelance', sourceId: bca.id, description: 'Proyek freelance desain', date: noon(ymd, 15), tags: 'side-hustle' } });
+      await tx.transaction.create({ data: { type: 'income', amount: rand(1_200_000, 3_500_000), category: 'Freelance', sourceId: bca.id, description: 'Proyek freelance desain', date: noon(ymd, 15), tags: 'side-hustle' } });
       txCount += 1;
     }
     const dayTotal = Math.random() < 0.85 ? 1 + Math.floor(Math.random() * 3) : 0;
@@ -191,7 +200,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       const [cat, desc, min, max] = expenses[Math.floor(Math.random() * expenses.length)];
       const source = [dompet, bca, gopay][Math.floor(Math.random() * 3)];
       const tagPool = ['rutin', 'junk-food', 'hemat', ''];
-      await db.transaction.create({
+      await tx.transaction.create({
         data: {
           type: 'expense',
           amount: rand(min, max),
@@ -209,28 +218,28 @@ export async function seedDemoData(): Promise<SeedSummary> {
 
   // ── Transfer pasangan + budget + tabungan + recurring + rules ──
   const ymd10 = ymdShift(today, -10);
-  const trOut = await db.transaction.create({ data: { type: 'transfer', amount: 500_000, category: 'Transfer', sourceId: bca.id, description: 'Tarik tunai ATM', date: noon(ymd10, 10) } });
-  await db.transaction.create({ data: { type: 'transfer', amount: 500_000, category: 'Transfer', sourceId: dompet.id, description: 'Tarik tunai ATM', date: noon(ymd10, 10), transferPairId: trOut.id } });
+  const trOut = await tx.transaction.create({ data: { type: 'transfer', amount: 500_000, category: 'Transfer', sourceId: bca.id, description: 'Tarik tunai ATM', date: noon(ymd10, 10) } });
+  await tx.transaction.create({ data: { type: 'transfer', amount: 500_000, category: 'Transfer', sourceId: dompet.id, description: 'Tarik tunai ATM', date: noon(ymd10, 10), transferPairId: trOut.id } });
   txCount += 2;
 
   const thisMonth = today.slice(0, 7);
   for (const [cat, amount] of [['Makanan & Minuman', 2_500_000], ['Transportasi', 800_000], ['Belanja', 1_200_000], ['Hiburan', 500_000]] as const) {
-    await db.weeklyBudget.create({ data: { category: cat, month: thisMonth, amount } });
+    await tx.weeklyBudget.create({ data: { category: cat, month: thisMonth, amount } });
   }
 
-  await db.savingsGoal.create({ data: { name: 'Liburan Bali', emoji: '🏝️', targetAmount: 5_000_000, currentAmount: 3_250_000, deadline: jakartaMidnightIso(ymdShift(today, 90)) } });
-  await db.savingsGoal.create({ data: { name: 'Dana Darurat', emoji: '🛡️', targetAmount: 20_000_000, currentAmount: 8_000_000, deadline: null } });
-  await db.savingsGoal.create({ data: { name: 'Laptop Baru', emoji: '💻', targetAmount: 15_000_000, currentAmount: 15_000_000, deadline: jakartaMidnightIso(ymdShift(today, -5)), completedAt: jakartaMidnightIso(ymdShift(today, -5)) } });
+  await tx.savingsGoal.create({ data: { name: 'Liburan Bali', emoji: '🏝️', targetAmount: 5_000_000, currentAmount: 3_250_000, deadline: jakartaMidnightIso(ymdShift(today, 90)) } });
+  await tx.savingsGoal.create({ data: { name: 'Dana Darurat', emoji: '🛡️', targetAmount: 20_000_000, currentAmount: 8_000_000, deadline: null } });
+  await tx.savingsGoal.create({ data: { name: 'Laptop Baru', emoji: '💻', targetAmount: 15_000_000, currentAmount: 15_000_000, deadline: jakartaMidnightIso(ymdShift(today, -5)), completedAt: jakartaMidnightIso(ymdShift(today, -5)) } });
 
-  await db.recurringTransaction.create({ data: { name: 'Sewa kos', amount: 1_200_000, type: 'expense', category: 'Tagihan', sourceId: bca.id, frequency: 'monthly', startDate: jakartaMidnightIso(ymdShift(today, -60)), lastRun: jakartaMidnightIso(ymdShift(today, -30)), isActive: true } });
-  await db.recurringTransaction.create({ data: { name: 'Langganan internet', amount: 350_000, type: 'expense', category: 'Tagihan', sourceId: bca.id, frequency: 'monthly', startDate: jakartaMidnightIso(ymdShift(today, -60)), lastRun: null, isActive: true } });
+  await tx.recurringTransaction.create({ data: { name: 'Sewa kos', amount: 1_200_000, type: 'expense', category: 'Tagihan', sourceId: bca.id, frequency: 'monthly', startDate: jakartaMidnightIso(ymdShift(today, -60)), lastRun: jakartaMidnightIso(ymdShift(today, -30)), isActive: true } });
+  await tx.recurringTransaction.create({ data: { name: 'Langganan internet', amount: 350_000, type: 'expense', category: 'Tagihan', sourceId: bca.id, frequency: 'monthly', startDate: jakartaMidnightIso(ymdShift(today, -60)), lastRun: null, isActive: true } });
 
-  await db.transactionRule.create({ data: { keyword: 'warteg', category: 'Makanan & Minuman', sourceId: dompet.id, priority: 10 } });
-  await db.transactionRule.create({ data: { keyword: 'ojek', category: 'Transportasi', sourceId: gopay.id, priority: 8 } });
-  await db.transactionRule.create({ data: { keyword: 'gaji', category: 'Gaji', sourceId: bca.id, priority: 10 } });
+  await tx.transactionRule.create({ data: { keyword: 'warteg', category: 'Makanan & Minuman', sourceId: dompet.id, priority: 10 } });
+  await tx.transactionRule.create({ data: { keyword: 'ojek', category: 'Transportasi', sourceId: gopay.id, priority: 8 } });
+  await tx.transactionRule.create({ data: { keyword: 'gaji', category: 'Gaji', sourceId: bca.id, priority: 10 } });
 
   // ── Goals + milestones ──
-  await db.goal.create({
+  await tx.goal.create({
     data: {
       title: 'Baca 12 buku tahun ini',
       description: 'Target membaca pribadi untuk tahun ini.',
@@ -243,7 +252,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       ]),
     },
   });
-  await db.goal.create({
+  await tx.goal.create({
     data: {
       title: 'Rutinitas gym 3x seminggu',
       description: null,
@@ -257,7 +266,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       ]),
     },
   });
-  await db.goal.create({
+  await tx.goal.create({
     data: {
       title: 'Bangun dana darurat',
       description: 'Dana darurat 6 bulan pengeluaran.',
@@ -275,4 +284,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
     transactions: txCount,
     goals: 3,
   };
+    },
+    { timeout: 60_000 },
+  );
 }

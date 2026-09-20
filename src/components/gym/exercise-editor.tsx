@@ -29,6 +29,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -73,18 +83,29 @@ function newRow(partial?: Partial<EditRow>): EditRow {
 /** Validasi klien sebelum PUT (server memvalidasi ulang ketat). */
 function validateRows(rows: EditRow[]): GymExerciseItem[] | string {
   const items: GymExerciseItem[] = [];
+  // Task 70 (audit 70-b MINOR #2): nama duplikat (trim + case-insensitive)
+  // ditolak — indeks baris pertama yang memakai nama tsb disebut di pesan.
+  const seen = new Map<string, number>();
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const name = row.name.trim();
     if (!name) return `Nama gerakan ke-${i + 1} tidak boleh kosong`;
     if (name.length > 60) return `Nama gerakan ke-${i + 1} maksimal 60 karakter`;
-    const sets = Number.parseInt(row.sets, 10);
-    if (!Number.isInteger(sets) || sets < 1 || sets > 20) {
-      return `Set gerakan ke-${i + 1} harus 1–20`;
+    const nameKey = name.toLowerCase();
+    const firstIdx = seen.get(nameKey);
+    if (firstIdx !== undefined) {
+      return `Nama gerakan "${name}" sama dengan gerakan ke-${firstIdx + 1} — pakai nama yang berbeda`;
     }
-    const amount = Number.parseInt(row.amount, 10);
+    seen.set(nameKey, i);
+    // Task 70 (audit 70-b MINOR #3): Number() + isInteger — desimal (mis.
+    // "3.7") DITOLAK dengan pesan, bukan dipotong senyap 3.7→3 (parseInt lama).
+    const sets = Number(row.sets);
+    if (!Number.isInteger(sets) || sets < 1 || sets > 20) {
+      return `Set gerakan ke-${i + 1} harus bilangan bulat 1–20`;
+    }
+    const amount = Number(row.amount);
     if (!Number.isInteger(amount) || amount < 1 || amount > 9999) {
-      return `Jumlah gerakan ke-${i + 1} harus 1–9999`;
+      return `Jumlah gerakan ke-${i + 1} harus bilangan bulat 1–9999`;
     }
     items.push({ name, sets, amount, unit: row.unit });
   }
@@ -106,7 +127,14 @@ export function ExerciseEditorDialog({
 }) {
   const save = useGymExerciseSave();
   const reset = useGymExerciseReset();
-  const [rows, setRows] = useState<EditRow[]>(() => initial.map((it) => newRow(it)));
+  // Task 70 (audit 70-b MAJOR #1): reset destruktif kini lewat konfirmasi
+  // AlertDialog (pola "Hapus Semua Data?" di settings.tsx).
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  // Task 70 (audit 70-b INFO #7): konversi number→string eksplisit (EditRow
+  // menyimpan sets/amount sebagai string supaya input mulus saat diketik).
+  const [rows, setRows] = useState<EditRow[]>(() =>
+    initial.map((it) => newRow({ ...it, sets: String(it.sets), amount: String(it.amount) })),
+  );
   const pending = save.isPending || reset.isPending;
 
   const update = (key: string, patch: Partial<EditRow>) => {
@@ -138,6 +166,9 @@ export function ExerciseEditorDialog({
   };
 
   const handleReset = () => {
+    // Task 70 (audit 70-b MAJOR #1): dipanggil HANYA dari tombol konfirmasi
+    // AlertDialog "Kembalikan Default" (bukan langsung dari footer editor).
+    setResetConfirmOpen(false);
     reset
       .mutateAsync({ zone: zone.key, zoneLabel: zone.label }, { onSuccess: () => onClose() })
       .catch(() => {
@@ -170,8 +201,9 @@ export function ExerciseEditorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Daftar baris editable — area scroll mandiri. */}
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 py-4">
+        {/* Daftar baris editable — area scroll mandiri.
+            Task 70 (audit 70-d MINOR #10): custom-scrollbar pada area scroll. */}
+        <div className="custom-scrollbar min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 py-4">
           {rows.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/70 p-6 text-center">
               <Dumbbell className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
@@ -212,7 +244,9 @@ export function ExerciseEditorDialog({
                   onClick={() => remove(row.key)}
                   aria-label={`Hapus gerakan ${row.name || `ke-${i + 1}`}`}
                   disabled={pending}
-                  className="h-9 w-9 shrink-0 cursor-pointer text-muted-foreground hover:text-destructive"
+                  // Task 70 (audit 70-d MAJOR #2): 44px — touch target aksi
+                  // inti memenuhi WCAG 2.5.5 (baris flex ikut menyesuaikan).
+                  className="h-11 w-11 shrink-0 cursor-pointer text-muted-foreground hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -278,16 +312,43 @@ export function ExerciseEditorDialog({
 
         <DialogFooter className="flex-col gap-2 border-t border-border/70 px-5 py-4 sm:flex-row sm:items-center">
           {customized && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleReset}
-              disabled={pending}
-              className="mr-auto cursor-pointer text-muted-foreground"
-            >
-              <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
-              Kembalikan Default
-            </Button>
+            /* Task 70 (audit 70-b MAJOR #1 / 70-d MAJOR #1): "Kembalikan
+               Default" destruktif kini berkonfirmasi — gaya sama dengan dialog
+               "Hapus Semua Data?" (settings.tsx). */
+            <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={pending}
+                  className="mr-auto cursor-pointer text-muted-foreground"
+                >
+                  <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Kembalikan Default
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Kembalikan daftar bawaan?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Daftar latihan kustom zona {zone.label} akan dihapus dan diganti preset.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={pending}>Batal</AlertDialogCancel>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleReset}
+                    disabled={pending}
+                    className="cursor-pointer"
+                  >
+                    <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    Kembalikan Default
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           <Button type="button" variant="ghost" onClick={onClose} disabled={pending} className="cursor-pointer">
             Batal

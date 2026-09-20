@@ -15,9 +15,24 @@ export const dynamic = 'force-dynamic';
 const THEMES = new Set(['light', 'dark', 'system']);
 
 async function getOrCreateSettings() {
-  const existing = await db.appSettings.findUnique({ where: { id: 'singleton' } });
+  // Task 70 (audit 70-c #4): select eksplisit TANPA appLockHash — GET tidak
+  // boleh mengekspos hash PIN kunci aplikasi (dulu men-serialize seluruh
+  // baris). Semua field ini dipakai klien (settings-types.ts mirror);
+  // import/restore tetap boleh menulis kolom appLockHash, PUT memang tidak
+  // menerimanya.
+  const select = {
+    id: true,
+    userName: true,
+    theme: true,
+    themeColor: true,
+    weekStart: true,
+    language: true,
+    targetCompletion: true,
+    updatedAt: true,
+  } as const;
+  const existing = await db.appSettings.findUnique({ where: { id: 'singleton' }, select });
   if (existing) return existing;
-  return db.appSettings.create({ data: { id: 'singleton' } });
+  return db.appSettings.create({ data: { id: 'singleton' }, select });
 }
 
 export async function GET() {

@@ -174,13 +174,18 @@
 
  /* ── Touch target minimum: 44x44px (Apple HIG / WCAG 2.5.5) ─────────────
     Only applied on touch devices (pointer: coarse) to avoid bloating
-    desktop layout. Targets shadcn's size="icon" (h-9 w-9 = 36px),
-    size="sm" (h-8), and similar small interactive elements. */
+    desktop layout.
+    Task 70 (audit 70-d MAJOR #2): selector lama (size-icon/size-sm) TIDAK
+    PERNAH match — shadcn Button memancarkan kelas size-9 / h-8 / h-9.
+    Safety-net kini menangkap kelas tinggi kecil yang benar-benar dipakai;
+    shadcn Button sudah inline-flex + center sehingga ikon tetap di tengah. */
  @media (pointer: coarse) {
-   button[class*="size-icon"],
-   button[class*="size-sm"],
-   [role="button"][class*="size-icon"],
-   [role="button"][class*="size-sm"] {
+   button[class*="size-9"],
+   button[class*="h-9"],
+   button[class*="h-8"],
+   [role="button"][class*="size-9"],
+   [role="button"][class*="h-9"],
+   [role="button"][class*="h-8"] {
      min-height: 44px;
      min-width: 44px;
    }
@@ -2351,11 +2356,12 @@
 }
 .mm-zone:hover .mm-shape,
 .mm-zone:focus-visible .mm-shape {
-  fill-opacity: calc(var(--mm-opacity, 0.07) + 0.06);
+  /* Task 70: delta lebih besar supaya zona idle pun terasa saat hover. */
+  fill-opacity: calc(var(--mm-opacity, 0.07) + 0.12);
 }
 .mm-zone:focus-visible .mm-shape {
-  stroke: rgba(238, 247, 255, 0.6);
-  stroke-width: 0.9;
+  stroke: rgba(238, 247, 255, 0.78);
+  stroke-width: 1.5;
 }
 /* Lapisan <g> dalam (pelajaran loaders.tsx: transform attribute statis ≠
    elemen yang dianimasikan CSS — animasi selalu di .mm-anim). */
@@ -2376,9 +2382,13 @@
   animation: mm-pump-kf 0.72s cubic-bezier(0.34, 1.36, 0.44, 1) both;
   animation-delay: var(--mm-stagger, 0s);
 }
-/* ② Napas pump (aset 06): zona yang baru selesai "bernapas" hangat. */
+/* ② Napas pump (aset 06): zona yang baru selesai "bernapas" hangat.
+   Task 70 (audit 70-e): bloom DUA LAPIS warna zona (--mm-glow = fill
+   dari komponen) — pump kini status paling menyala, senada Opsi A
+   (bukan rim biru ala status chip). */
 .mm-zone-breathe {
-  filter: drop-shadow(0 0 3.5px var(--mm-glow, rgba(28, 152, 255, 0.65)));
+  filter: drop-shadow(0 0 2px var(--mm-glow, rgba(255, 106, 61, 0.6)))
+          drop-shadow(0 0 6px var(--mm-glow, rgba(255, 106, 61, 0.6)));
 }
 @keyframes mm-breathe-kf {
   0%, 100% { opacity: 0.78; }

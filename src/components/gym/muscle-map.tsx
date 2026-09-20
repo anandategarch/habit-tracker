@@ -12,6 +12,10 @@
 // design-concepts/): badan render gelap charcoal + zona aktif MENYALA
 // merah-oranye terang (STATUS_BASE_OPACITY lib dinaikkan drastis) +
 // glow. Semantik referensi: otot yang dilatih menyala, sisanya gelap.
+// Task 70 (audit 70-e): zona di-klip mmBodyClip (tidak "melayang" keluar
+// siluet); glow pump = warna zona + bloom 2 lapis (pump = paling menyala);
+// bahu dirender TERAKHIR (hit-test persimpangan deltoid-bisep → Bahu);
+// svg role="group" saat interaktif (tombol zona terbaca screen reader).
 //
 // Teknik yang membuat ini mungkin TANPA file potongan per-otot:
 //   1. Simetri tubuh → sisi kiri digambar sekali, sisi kanan = mirror
@@ -229,7 +233,8 @@ const BACK_ZONES: Partial<Record<MuscleZoneKey, Shape[]>> = {
   punggung: [shape(TRAPS_REGION), shape(LAT_L), shape(LAT_L, true), shape(ERECTOR_REGION)],
   // Bahu: deltoid belakang.
   bahu: [shape(DELT_L), shape(DELT_L, true)],
-  // Lengan: trisep (area lengan atas belakang) + lengan bawah.
+  // Lengan: lengan atas + bawah — path SAMA dengan view depan
+  // (penyederhanaan sadar; audit 70-e INFO).
   lengan: [shape(UPPER_ARM_L), shape(UPPER_ARM_L, true), shape(FOREARM_L), shape(FOREARM_L, true)],
   // Kaki: bokong + hamstring + betis.
   kaki: [shape(GLUTE_L), shape(GLUTE_L, true), shape(HAM_L), shape(HAM_L, true), shape(CALF_L), shape(CALF_L, true)],
@@ -258,11 +263,18 @@ export function MuscleMap({
   const pumpIndex = new Map<MuscleZoneKey, number>();
   pumpOrder.forEach((k, i) => pumpIndex.set(k, i));
 
+  // Urutan render: bahu TERAKHIR = di atas lengan → titik ketuk di
+  // persimpangan deltoid-bisep jatuh ke sheet Bahu (hit-test = paint
+  // order; audit 70-e: overlap 25% area deltoid). Sort stabil.
+  const orderedVisuals = [...visuals].sort(
+    (a, b) => (a.zone.key === 'bahu' ? 1 : 0) - (b.zone.key === 'bahu' ? 1 : 0),
+  );
+
   return (
     <svg
       viewBox="10 8 80 184"
       className={cn('h-auto w-full select-none', className)}
-      role="img"
+      role={interactive ? 'group' : 'img'}
       aria-label={ariaLabel ?? 'Peta otot — siluet tubuh dengan status zona'}
     >
       <defs>
@@ -331,19 +343,18 @@ export function MuscleMap({
       </g>
 
       {/* Zona aktif sesuai pandangan (overlay warna status di atas kulit). */}
-      {visuals.map(({ zone, status, fill, opacity, peak }) => {
+      {orderedVisuals.map(({ zone, status, fill, opacity, peak }) => {
         const shapes = zoneShapes[zone.key];
         if (!shapes || shapes.length === 0) return null;
         const pumping = pumpIndex.has(zone.key);
         const meta = ZONE_STATUS_META[status];
-        const glowColor =
-          status === 'balanced' ? 'rgba(100,229,155,0.6)' : `rgba(28,152,255,0.65)`;
         const aria = interactive
           ? `Zona ${zone.label}: ${meta.label.toLowerCase()}, ${zone.sessionsThisWeek} dari ${zone.weeklyTarget} sesi minggu ini`
           : `Zona ${zone.label}: ${meta.label.toLowerCase()}`;
         return (
           <g
             key={zone.key}
+            clipPath="url(#mmBodyClip)"
             className={cn(
               'mm-zone',
               status === 'pump' && 'mm-zone-breathe mm-zone-fresh',
@@ -358,7 +369,9 @@ export function MuscleMap({
               '--mm-opacity': opacity,
               '--mm-peak': peak,
               '--mm-stagger': `${(pumpIndex.get(zone.key) ?? 0) * 0.2}s`,
-              '--mm-glow': glowColor,
+              /* Task 70: glow pump = warna zona (fill) — bloom senada,
+                 bukan rim biru (audit 70-e MAJOR). */
+              '--mm-glow': fill,
             } as React.CSSProperties}
             role={interactive ? 'button' : undefined}
             tabIndex={interactive ? 0 : undefined}

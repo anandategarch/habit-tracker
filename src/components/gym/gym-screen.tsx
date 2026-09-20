@@ -151,13 +151,15 @@ function ZoneRow({
         disabled={busy || !zone.habitId}
         aria-label={done ? `Batalkan sesi ${zone.label} hari ini` : `Tandai ${zone.label} selesai hari ini`}
         className={cn(
-          'flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50',
+          // Task 70 (audit 70-d MAJOR #2): 44px — aksi inti 1-tap memenuhi
+          // WCAG 2.5.5 (row flex items-center ikut menyesuaikan tinggi).
+          'flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50',
           done
             ? 'border-primary/40 bg-primary/15 text-primary'
             : 'border-border hover:border-primary/40 hover:bg-primary/10 hover:text-primary',
         )}
       >
-        <Check className="h-4.5 w-4.5" aria-hidden="true" />
+        <Check className="h-5 w-5" aria-hidden="true" />
       </button>
     </div>
   );
@@ -202,7 +204,8 @@ function ZoneFocusSheet({
     <Sheet open={!!zone} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
-        className="mx-auto flex max-h-[88dvh] w-full flex-col gap-0 overflow-y-auto rounded-t-3xl border-t bg-card p-0 md:max-w-lg md:rounded-3xl"
+        // Task 70 (audit 70-d MINOR #10): custom-scrollbar pada area scroll sheet.
+        className="custom-scrollbar mx-auto flex max-h-[88dvh] w-full flex-col gap-0 overflow-y-auto rounded-t-3xl border-t bg-card p-0 md:max-w-lg md:rounded-3xl"
       >
         {zone && (
           <>
@@ -354,7 +357,10 @@ function ZoneFocusSheet({
                     type="button"
                     onClick={onEdit}
                     aria-label={`Ubah daftar latihan zona ${zone.label}`}
-                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    // Task 70 (audit 70-d MAJOR #2): 36px (naik dari 32px) +
+                    // safety-net CSS coarse-pointer melengkapi ke 44px di
+                    // perangkat sentuh; layout baris tetap rapi.
+                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -369,9 +375,12 @@ function ZoneFocusSheet({
                   </button>
                 ) : (
                   <ul className="mt-2 space-y-2">
-                    {exercises.map((ex) => (
+                    {exercises.map((ex, i) => (
                       <li
-                        key={ex.name}
+                        /* Task 70 (audit 70-b MINOR #2): anti React duplicate
+                           key — nama kini bisa divalidasi unik di depan, tapi
+                           preset/payload lama tetap aman digabung indeks. */
+                        key={`${ex.name}-${i}`}
                         className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-3 py-2"
                       >
                         <div className="min-w-0">
@@ -421,7 +430,8 @@ function ZoneFocusSheet({
 // ── Halaman utama ───────────────────────────────────────────────────────────
 
 export default function GymScreen() {
-  const { data, isLoading, isError } = useGymMap();
+  // Task 70 (audit 70-d MINOR #5): refetch untuk tombol "Coba Lagi".
+  const { data, isLoading, isError, isRefetching, refetch } = useGymMap();
   const setup = useGymSetup();
   const toggle = useGymToggle();
   const nowMs = useNowMs();
@@ -540,8 +550,22 @@ export default function GymScreen() {
 
   if (isError || !data) {
     return (
-      <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-        <p className="text-sm text-destructive">Gagal memuat Peta Otot. Coba tarik untuk menyegarkan.</p>
+      // Task 70 (audit 70-d MINOR #5): role=alert + tombol Coba Lagi
+      // (sebelumnya hanya teks statis tanpa aksi).
+      <div
+        role="alert"
+        className="flex flex-col items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p className="text-sm text-destructive">Gagal memuat Peta Otot.</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isRefetching}
+          className="cursor-pointer"
+        >
+          {isRefetching ? 'Mencoba…' : 'Coba Lagi'}
+        </Button>
       </div>
     );
   }
@@ -581,17 +605,32 @@ export default function GymScreen() {
           Dengan 1fr, kolom menyusut dan row flex (min-w-0) ikut membungkus. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <ScrollReveal className="mm-panel relative overflow-hidden rounded-2xl p-4">
-          {/* Toggle Depan/Belakang (aset 01/08). */}
-          <div className="mx-auto flex w-fit rounded-full bg-[#092238] p-1" role="tablist" aria-label="Pandangan tubuh">
+          {/* Toggle Depan/Belakang (aset 01/08).
+              Task 70 (audit 70-d MINOR #4 + MAJOR #2): tab ARIA lengkap
+              (id + aria-controls + arrow-key) dan min-h 44px touch target. */}
+          <div
+            className="mx-auto flex w-fit rounded-full bg-[#092238] p-1"
+            role="tablist"
+            aria-label="Pandangan tubuh"
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+              e.preventDefault();
+              const next: BodyView = view === 'front' ? 'back' : 'front';
+              setView(next);
+              document.getElementById(`mm-tab-${next}`)?.focus();
+            }}
+          >
             {(['front', 'back'] as BodyView[]).map((v) => (
               <button
                 key={v}
+                id={`mm-tab-${v}`}
                 type="button"
                 role="tab"
                 aria-selected={view === v}
+                aria-controls="mm-map-panel"
                 onClick={() => setView(v)}
                 className={cn(
-                  'cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                  'min-h-[44px] cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                   view === v
                     ? 'bg-gradient-to-r from-[#1589ff] to-[#26b8ff] text-white shadow'
                     : 'text-[#a7b8c5] hover:text-[#eef7ff]',
@@ -602,7 +641,12 @@ export default function GymScreen() {
             ))}
           </div>
 
-          <div className="mx-auto mt-2 max-w-[210px]">
+          <div
+            className="mx-auto mt-2 max-w-[210px]"
+            role="tabpanel"
+            id="mm-map-panel"
+            aria-labelledby={`mm-tab-${view}`}
+          >
             <MuscleMap
               view={view}
               visuals={visuals}

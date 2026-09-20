@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handleApiError, xpForDifficulty } from '@/app/api/_lib/api-utils';
 import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
-import { shiftYmd, computeStreakFromSet } from '@/lib/dashboard-helpers';
+import { shiftYmd, computeStreakWithShields } from '@/lib/dashboard-helpers';
 import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
 import { ensureGymExerciseTables } from '@/app/api/_lib/gym-exercise-ensure';
 import {
@@ -55,8 +55,12 @@ export async function GET() {
     const weekStartY = weekStartYmd(todayYmd, weekStart);
 
     // Habit zona: baris pertama per muscleZone yang TIDAK diarsipkan.
+    // Task 70 (audit 70-c MAJOR): orderBy createdAt asc — pemilihan "baris
+    // pertama per zona" deterministik (habit TERLAMA) bila habit zona
+    // terlanjur dobel oleh race POST pra-perbaikan, bukan urutan acak DB.
     const zoneHabits = await db.habit.findMany({
       where: { muscleZone: { not: null }, isArchived: false },
+      orderBy: { createdAt: 'asc' },
       select: {
         id: true, name: true, emoji: true, difficulty: true, muscleZone: true,
         isActive: true, isArchived: false, vacationMode: true,
@@ -120,7 +124,14 @@ export async function GET() {
         lastSessionAt: last?.at ? (last.at as Date).toISOString() : null,
         lastSessionYmd: last?.ymd ?? null,
         lifetimeSessions: own.length,
-        zoneStreak: habit ? computeStreakFromSet(doneDays, todayYmd) : 0,
+        zoneStreak: habit
+          // Task 70 (audit 70-a m3): streak zona STRICT — computeStreakWithShields
+          // dengan kuota hari-aman 0 (berturut-turut murni) supaya "Streak zona"
+          // di sheet tidak bisa MELEBIHI PR "Rekor streak terpanjang"
+          // (longestStreakDays = longestConsecutiveDays, juga strict). Default
+          // pemakai lain computeStreakFromSet (2 hari aman/bln) tidak berubah.
+          ? computeStreakWithShields(doneDays, todayYmd, 0).streak
+          : 0,
         weeklyZoneXp: habit ? weekly.length * xpForDifficulty(habit.difficulty) : 0,
       };
     };
@@ -189,46 +200,57 @@ export async function POST() {
   try {
     await ensureHabitGraduation();
 
-    // Kategori "Olahraga" (HabitOption) — upsert idempoten.
+    // Kategori "Olahraga" (HabitOption) — upsert idempoten (unique
+    // type_label; aman di luar transaksi).
     await db.habitOption.upsert({
       where: { type_label: { type: 'category', label: 'Olahraga' } },
       update: {},
       create: { type: 'category', label: 'Olahraga', color: '#f49b25', sortOrder: 60 },
     });
 
-    // Grup "Gym" — cari atau buat.
-    let group = await db.habitGroup.findFirst({ where: { name: 'Gym' } });
-    if (!group) {
-      group = await db.habitGroup.create({ data: { name: 'Gym', color: '#1589ff' } });
-    }
+    // Task 70 (audit 70-c MAJOR): HabitGroup "Gym" + habit 7 zona dibuat
+    // dalam SATU $transaction dengan re-check DI DALAM transaksi (pola CAS
+    // gym/exercises & recurring/process — adapter libsql memegang koneksi
+    // dari BEGIN sampai COMMIT). Dulu check-then-act per zona TANPA
+    // transaksi: 2 POST paralel (PWA 2 perangkat) sama-sama lolos cek lalu
+    // membuat habit zona DOBEL (muscleZone tanpa unique constraint).
+    const created = await db.$transaction(async (tx) => {
+      // Grup "Gym" — cari atau buat (di dalam transaksi).
+      let group = await tx.habitGroup.findFirst({ where: { name: 'Gym' } });
+      if (!group) {
+        group = await tx.habitGroup.create({ data: { name: 'Gym', color: '#1589ff' } });
+      }
 
-    let created = 0;
-    for (const def of MUSCLE_ZONE_DEFS) {
-      // Idempoten: zona dianggap terpasang bila ada habit non-arsip dengan
-      // muscleZone ini (sama dengan definisi setupDone di GET).
-      const existing = await db.habit.findFirst({
-        where: { muscleZone: def.key, isArchived: false },
-        select: { id: true },
-      });
-      if (existing) continue;
-      await db.habit.create({
-        data: {
-          name: def.habitName,
-          emoji: def.emoji,
-          category: 'Olahraga',
-          priority: 'Sedang',
-          // Full Body = sirkuit 20 menit → Sulit (20 XP, recovery 72 jam);
-          // zona lain Sedang (10 XP, 48 jam). XP tetap bobot difficulty biasa.
-          difficulty: def.key === 'fullbody' ? 'Sulit' : 'Sedang',
-          habitType: 'normal',
-          target: 1,
-          muscleZone: def.key,
-          groupId: group.id,
-          sortOrder: 900 + MUSCLE_ZONE_DEFS.findIndex((d) => d.key === def.key),
-        },
-      });
-      created += 1;
-    }
+      let made = 0;
+      for (const def of MUSCLE_ZONE_DEFS) {
+        // Idempoten: zona dianggap terpasang bila ada habit non-arsip dengan
+        // muscleZone ini (sama dengan definisi setupDone di GET). Re-check
+        // dilakukan DI DALAM transaksi (lihat komentar Task 70 di atas).
+        const existing = await tx.habit.findFirst({
+          where: { muscleZone: def.key, isArchived: false },
+          select: { id: true },
+        });
+        if (existing) continue;
+        await tx.habit.create({
+          data: {
+            name: def.habitName,
+            emoji: def.emoji,
+            category: 'Olahraga',
+            priority: 'Sedang',
+            // Full Body = sirkuit 20 menit → Sulit (20 XP, recovery 72 jam);
+            // zona lain Sedang (10 XP, 48 jam). XP tetap bobot difficulty biasa.
+            difficulty: def.key === 'fullbody' ? 'Sulit' : 'Sedang',
+            habitType: 'normal',
+            target: 1,
+            muscleZone: def.key,
+            groupId: group.id,
+            sortOrder: 900 + MUSCLE_ZONE_DEFS.findIndex((d) => d.key === def.key),
+          },
+        });
+        made += 1;
+      }
+      return made;
+    });
 
     return NextResponse.json({ ok: true, created, total: MUSCLE_ZONE_DEFS.length });
   } catch (error) {

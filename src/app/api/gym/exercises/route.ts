@@ -39,6 +39,8 @@ function parseItems(raw: unknown): GymExerciseItem[] {
   if (!Array.isArray(raw)) throw badRequest('Daftar latihan tidak valid');
   if (raw.length > MAX_ITEMS) throw badRequest(`Maksimal ${MAX_ITEMS} gerakan per zona`);
   const items: GymExerciseItem[] = [];
+  // Task 70 (audit 70-b MINOR #2): tolak nama duplikat (trim + case-insensitive).
+  const seenNames = new Set<string>();
   for (const entry of raw) {
     if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
       throw badRequest('Format gerakan tidak valid');
@@ -47,15 +49,22 @@ function parseItems(raw: unknown): GymExerciseItem[] {
     const name = typeof r.name === 'string' ? r.name.trim() : '';
     if (!name) throw badRequest('Nama gerakan tidak boleh kosong');
     if (name.length > 60) throw badRequest('Nama gerakan maksimal 60 karakter');
-    const sets = Number(r.sets);
-    const amount = Number(r.amount);
-    const unit = typeof r.unit === 'string' ? r.unit : '';
-    if (!Number.isInteger(sets) || sets < 1 || sets > 20) {
+    const nameKey = name.toLowerCase();
+    if (seenNames.has(nameKey)) {
+      throw badRequest(`Nama gerakan duplikat: "${name}" — gunakan nama yang berbeda`);
+    }
+    seenNames.add(nameKey);
+    // Task 70 (audit 70-b MINOR #4): typeof number + isInteger — string/boolean
+    // (koersi Number() lama yang longgar) dan desimal kini DITOLAK 400.
+    if (typeof r.sets !== 'number' || !Number.isInteger(r.sets) || r.sets < 1 || r.sets > 20) {
       throw badRequest('Jumlah set harus bilangan bulat 1–20');
     }
-    if (!Number.isInteger(amount) || amount < 1 || amount > 9999) {
+    if (typeof r.amount !== 'number' || !Number.isInteger(r.amount) || r.amount < 1 || r.amount > 9999) {
       throw badRequest('Jumlah per set harus bilangan bulat 1–9999');
     }
+    const sets = r.sets;
+    const amount = r.amount;
+    const unit = typeof r.unit === 'string' ? r.unit : '';
     if (!GYM_EXERCISE_UNITS.includes(unit as GymExerciseUnit)) {
       throw badRequest('Satuan latihan tidak dikenal');
     }

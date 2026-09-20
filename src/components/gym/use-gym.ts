@@ -156,6 +156,44 @@ export function useGymToggle() {
       return json;
     },
     onSuccess: (_data, vars) => {
+      // Task 70 (audit 70-a m4): flip optimistik doneToday (± sessionsThisWeek,
+      // fullBodyContrib untuk Full Body) di cache ['gym'] SEGERA setelah sukses
+      // — sebelum refetch selesai — supaya tombol langsung berganti "Batalkan
+      // sesi" dan re-tap di jendela itu tidak mengirim POST completed=true ganda
+      // (toast +XP kedua & completedAt ter-reset). Flip terjadi HANYA setelah
+      // respons sukses (pola use-habit-toggle) → tidak perlu rollback onError.
+      // Statistik turunan lain (mission/balance/logYmds/zoneStreak) sengaja
+      // dibiarkan bagi refetch — server tetap sumber kebenaran.
+      const date = vars.date ?? jakartaDateString();
+      qc.setQueryData<GymMapPayload>(['gym'], (prev) => {
+        if (!prev || prev.todayYmd !== date) return prev; // view bukan hari ini → biarkan refetch
+        const isFull = vars.zone.key === 'fullbody';
+        const delta = vars.next ? 1 : -1;
+        const bumped = (n: number) => Math.max(0, n + delta);
+        return {
+          ...prev,
+          zones: prev.zones.map((z) => {
+            if (isFull) {
+              // Sesi Full Body menyumbang ke semua zona misi (contrib ikut ±1;
+              // doneToday zona utama tetap milik habit zonanya sendiri).
+              return {
+                ...z,
+                fullBodyContrib: bumped(z.fullBodyContrib),
+                sessionsThisWeek: bumped(z.sessionsThisWeek),
+              };
+            }
+            if (z.key === vars.zone.key) {
+              return { ...z, doneToday: vars.next, sessionsThisWeek: bumped(z.sessionsThisWeek) };
+            }
+            return z;
+          }),
+          fullBody:
+            isFull && prev.fullBody
+              ? { ...prev.fullBody, doneToday: vars.next, sessionsThisWeek: bumped(prev.fullBody.sessionsThisWeek) }
+              : prev.fullBody,
+        };
+      });
+
       // Invalidasi baku (resep use-habit-toggle) + keluarga gym.
       qc.invalidateQueries({ queryKey: ['gym'] });
       qc.invalidateQueries({ queryKey: ['habits'] });
