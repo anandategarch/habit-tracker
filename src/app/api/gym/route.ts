@@ -15,11 +15,15 @@ import { handleApiError, xpForDifficulty } from '@/app/api/_lib/api-utils';
 import { dateFromYMD, jakartaDateString } from '@/lib/timezone';
 import { shiftYmd, computeStreakFromSet } from '@/lib/dashboard-helpers';
 import { ensureHabitGraduation } from '@/app/api/_lib/habit-ensure';
+import { ensureGymExerciseTables } from '@/app/api/_lib/gym-exercise-ensure';
 import {
   MUSCLE_ZONE_DEFS,
   MISSION_ZONE_DEFS,
+  MUSCLE_ZONE_DEF_BY_KEY,
   computeBalanceScore,
   computeGymHistory,
+  type GymExerciseItem,
+  type GymExerciseUnit,
   type GymMapPayload,
   type GymZonePayload,
   type MuscleZoneKey,
@@ -42,6 +46,8 @@ export async function GET() {
   try {
     // muscleZone adalah kolom aditif — pastikan ada sebelum dibaca (produksi).
     await ensureHabitGraduation();
+    // Task 67: tabel latihan kustom (CREATE IF NOT EXISTS, no-op lokal).
+    await ensureGymExerciseTables();
 
     const settings = await db.appSettings.findUnique({ where: { id: 'singleton' } });
     const weekStart = settings?.weekStart === 0 ? 0 : 1;
@@ -136,6 +142,27 @@ export async function GET() {
     });
 
     const touched = zones.filter((z) => z.sessionsThisWeek >= 1).length;
+
+    // ── Task 67: latihan kustom per zona (list marker GymExerciseList).
+    // Zona dengan baris marker = dikustomisasi (daftar boleh kosong);
+    // tanpa marker → klien menampilkan preset ZONE_EXERCISE_PRESETS.
+    const customLists = await db.gymExerciseList.findMany({
+      include: { exercises: { orderBy: { sortOrder: 'asc' } } },
+    });
+    const customizedZones: MuscleZoneKey[] = [];
+    const exercisesByZone: Partial<Record<MuscleZoneKey, GymExerciseItem[]>> = {};
+    for (const list of customLists) {
+      const key = list.zone as MuscleZoneKey;
+      if (!MUSCLE_ZONE_DEF_BY_KEY[key]) continue; // zone tak dikenal → abaikan
+      customizedZones.push(key);
+      exercisesByZone[key] = list.exercises.map((e) => ({
+        name: e.name,
+        sets: e.sets,
+        amount: e.amount,
+        unit: e.unit as GymExerciseUnit,
+      }));
+    }
+
     const payload: GymMapPayload = {
       todayYmd,
       weekStartYmd: weekStartY,
@@ -149,6 +176,8 @@ export async function GET() {
       bestWeek: history.bestWeek,
       achievements: history.achievements,
       totals: history.totals,
+      exercisesByZone,
+      customizedZones,
     };
     return NextResponse.json(payload);
   } catch (error) {

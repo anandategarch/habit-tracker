@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { burstFromElement } from '@/lib/confetti';
 import { XP_MAP } from '@/lib/dashboard-helpers';
 import { jakartaDateString } from '@/lib/jakarta-date';
-import { MISSION_ZONE_DEFS, type GymMapPayload, type GymZonePayload, type MuscleZoneKey } from '@/lib/muscle-map';
+import { MISSION_ZONE_DEFS, type GymExerciseItem, type GymMapPayload, type GymZonePayload, type MuscleZoneKey } from '@/lib/muscle-map';
 
 export function useGymMap() {
   return useQuery<GymMapPayload>({
@@ -67,6 +67,59 @@ export interface GymPumpState {
   order: MuscleZoneKey[];
   /** Naik tiap sukses toggle → animasi diputar ulang (key remount). */
   nonce: number;
+}
+
+// ── Task 67: mutasi latihan kustom (PUT/DELETE /api/gym/exercises) ──────────
+
+/** Simpan daftar latihan kustom zona (replace-all transaksional). */
+export function useGymExerciseSave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { zone: MuscleZoneKey; zoneLabel: string; items: GymExerciseItem[] }) => {
+      const res = await fetch('/api/gym/exercises', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zone: vars.zone, exercises: vars.items }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((json as { error?: string }).error ?? 'Gagal menyimpan latihan');
+      }
+      return json as { ok: boolean; zone: string; count: number };
+    },
+    onSuccess: (data, vars) => {
+      // Latihan hanya dibaca keluarga ['gym'] — invalidasi terarah.
+      qc.invalidateQueries({ queryKey: ['gym'] });
+      toast.success(
+        data.count > 0
+          ? `Latihan ${vars.zoneLabel} disimpan (${data.count} gerakan) 💪`
+          : `Latihan ${vars.zoneLabel} dikosongkan`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Kembalikan zona ke latihan preset default (hapus kustomisasi). */
+export function useGymExerciseReset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { zone: MuscleZoneKey; zoneLabel: string }) => {
+      const res = await fetch(`/api/gym/exercises?zone=${encodeURIComponent(vars.zone)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((json as { error?: string }).error ?? 'Gagal mengembalikan latihan default');
+      }
+      return json as { ok: boolean; zone: string };
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['gym'] });
+      toast.info(`Latihan ${vars.zoneLabel} kembali ke default`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 }
 
 export function useGymToggle() {

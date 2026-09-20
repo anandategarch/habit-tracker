@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, Dumbbell, Flame, Sparkles, Trophy } from 'lucide-react';
+import { Check, ChevronRight, Dumbbell, Flame, Pencil, Sparkles, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -29,6 +29,7 @@ import {
   MUSCLE_MAP_DISCLAIMER,
   ZONE_EXERCISE_PRESETS,
   ZONE_STATUS_META,
+  exerciseDisplay,
   lifetimeDefinitionPct,
   pumpPeakFor,
   recoveryPct,
@@ -38,6 +39,7 @@ import {
   zoneStatus,
   zoneVisualFill,
   zoneVisualOpacity,
+  type GymExerciseItem,
   type GymZoneHistoryPayload,
   type GymZonePayload,
   type MuscleZoneKey,
@@ -47,6 +49,10 @@ import { MuscleMap, type MuscleZoneVisual } from './muscle-map';
 import { useGymMap, useGymSetup, useGymToggle } from './use-gym';
 import { RestTimer, type RestSuggestion } from './rest-timer';
 import { GymAchievements, GymWeeklyHistory, formatWeekShort } from './gym-history';
+import { ExerciseEditorDialog } from './exercise-editor';
+
+/** Baris latihan untuk tampilan — preset boleh membawa chip mapping zona. */
+type GymExerciseView = GymExerciseItem & { mapping?: { label: string; pct: number }[] };
 
 type BodyView = 'front' | 'back';
 
@@ -163,17 +169,26 @@ function ZoneFocusSheet({
   zone,
   status,
   history,
+  exercises,
+  customized,
   nowMs,
   busy,
   onToggle,
+  onEdit,
   onClose,
 }: {
   zone: GymZonePayload | null;
   status: MuscleZoneStatus | null;
   history: GymZoneHistoryPayload | null;
+  /** Daftar EFEKTIF zona: kustom tersimpan atau preset default (Task 67). */
+  exercises: GymExerciseView[];
+  /** true bila zona memakai daftar kustom user. */
+  customized: boolean;
   nowMs: number;
   busy: boolean;
   onToggle: (zone: GymZonePayload) => void;
+  /** Buka editor latihan zona (Task 67). */
+  onEdit: () => void;
   onClose: () => void;
 }) {
   const todayYmd = jakartaDateString();
@@ -322,36 +337,63 @@ function ZoneFocusSheet({
                 </section>
               )}
 
-              {/* Latihan rekomendasi (panel 03 — tanpa alat). */}
-              <section aria-label="Latihan rekomendasi">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Latihan Direkomendasikan
-                </h3>
-                <ul className="mt-2 space-y-2">
-                  {ZONE_EXERCISE_PRESETS[zone.key].map((ex) => (
-                    <li
-                      key={ex.name}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{ex.name}</p>
-                        <p className="text-xs text-muted-foreground">{ex.sets}</p>
-                      </div>
-                      {ex.mapping && (
-                        <div className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex" aria-hidden="true">
-                          {ex.mapping.map((m) => (
-                            <span
-                              key={m.label}
-                              className="rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
-                            >
-                              {m.label} {m.pct}%
-                            </span>
-                          ))}
+              {/* Latihan zona (panel 03 + Task 67: CRUD fleksibel — ganti/
+                  tambah/hapus gerakan lewat editor; "Kustom" bila daftar
+                  tersimpan user, chip mapping hanya untuk preset). */}
+              <section aria-label="Latihan zona">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {customized ? 'Latihan Kamu' : 'Latihan Direkomendasikan'}
+                    {customized && (
+                      <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold normal-case tracking-normal text-primary">
+                        Kustom
+                      </span>
+                    )}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    aria-label={`Ubah daftar latihan zona ${zone.label}`}
+                    className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+                {exercises.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="mt-2 w-full cursor-pointer rounded-lg border border-dashed border-border/60 p-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    Belum ada gerakan — ketuk untuk menambah latihan {zone.label} sendiri.
+                  </button>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {exercises.map((ex) => (
+                      <li
+                        key={ex.name}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{ex.name}</p>
+                          <p className="text-xs text-muted-foreground">{exerciseDisplay(ex)}</p>
                         </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                        {ex.mapping && (
+                          <div className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex" aria-hidden="true">
+                            {ex.mapping.map((m) => (
+                              <span
+                                key={m.label}
+                                className="rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
+                              >
+                                {m.label} {m.pct}%
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
 
               <Button
@@ -386,6 +428,8 @@ export default function GymScreen() {
 
   const [view, setView] = useState<BodyView>('front');
   const [focusKey, setFocusKey] = useState<MuscleZoneKey | null>(null);
+  /** Task 67: zona yang editor latihannya sedang terbuka (dialog CRUD). */
+  const [editorKey, setEditorKey] = useState<MuscleZoneKey | null>(null);
   /** Saran timer istirahat kontekstual (zona yang baru saja selesai). */
   const [restSuggest, setRestSuggest] = useState<RestSuggestion | null>(null);
   const toggleEls = useRef(new Map<MuscleZoneKey, HTMLButtonElement | null>()).current;
@@ -423,6 +467,16 @@ export default function GymScreen() {
   const visuals = useMemo(() => [...visualsBykey.values()], [visualsBykey]);
   const focusZone = focusKey ? (visualsBykey.get(focusKey)?.zone ?? null) : null;
   const focusStatus = focusKey ? (visualsBykey.get(focusKey)?.status ?? null) : null;
+
+  // ── Task 67: daftar latihan EFEKTIF — kustom tersimpan bila ada baris
+  // marker GymExerciseList, selain itu preset default (tanpa alat).
+  const exercisesFor = (key: MuscleZoneKey): GymExerciseView[] => {
+    if (data?.customizedZones.includes(key)) return data?.exercisesByZone[key] ?? [];
+    return ZONE_EXERCISE_PRESETS[key];
+  };
+  const focusExercises = focusKey ? exercisesFor(focusKey) : [];
+  const focusCustomized = focusKey ? (data?.customizedZones.includes(focusKey) ?? false) : false;
+  const editorZone = editorKey ? (allZones.find((z) => z.key === editorKey) ?? null) : null;
 
   const handleToggle = (zone: GymZonePayload) => {
     toggle
@@ -690,11 +744,27 @@ export default function GymScreen() {
         zone={focusZone}
         status={focusStatus}
         history={focusKey ? (zoneHistoryBy.get(focusKey) ?? null) : null}
+        exercises={focusExercises}
+        customized={focusCustomized}
         nowMs={nowMs}
         busy={toggle.isPending}
         onToggle={(z) => handleToggle(z)}
+        onEdit={() => focusKey && setEditorKey(focusKey)}
         onClose={() => setFocusKey(null)}
       />
+
+      {/* Task 67: editor latihan zona (dialog CRUD fleksibel). Key per zona
+          → state selalu diinisialisasi ulang dari daftar efektif terbaru
+          saat dibuka (aman terhadap refetch yang berjalan). */}
+      {editorZone && (
+        <ExerciseEditorDialog
+          key={editorZone.key}
+          zone={editorZone}
+          initial={exercisesFor(editorZone.key)}
+          customized={data.customizedZones.includes(editorZone.key)}
+          onClose={() => setEditorKey(null)}
+        />
+      )}
     </div>
   );
 }

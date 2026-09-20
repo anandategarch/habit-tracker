@@ -254,6 +254,34 @@ model Goal {
   habits      Habit[]
 }
 
+// ── Gym Latihan Kustom (Task 67) ────────────────────────────────────────────
+// Daftar latihan per zona yang USER kendalikan penuh: ganti/menambah/menghapus
+// gerakan (nama + set + jumlah + satuan) secara fleksibel. Baris
+// GymExerciseList = penanda zona dikustomisasi (boleh KOSONG — user menghapus
+// semua gerakan zona itu). TANPA baris → preset default ZONE_EXERCISE_PRESETS
+// (src/lib/muscle-map.ts) yang tampil. Prinsip Peta Otot tetap: XP/streak
+// mengalir lewat HabitLog zona — mengedit latihan TIDAK menyentuh kalkulasi.
+// Produksi via DDL runtime ensureGymExerciseTables() (pola work-ensure).
+
+model GymExerciseList {
+  id        String        @id @default(cuid())
+  zone      String        @unique // 'dada'..'fullbody' (MuscleZoneKey)
+  updatedAt DateTime      @updatedAt
+  exercises GymExercise[]
+}
+
+model GymExercise {
+  id        String          @id @default(cuid())
+  list      GymExerciseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  listId    String
+  name      String
+  sets      Int             @default(3)
+  amount    Int             @default(12)
+  unit      String          @default("reps") // GymExerciseUnit — lihat muscle-map.ts
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+}
+
 // ── Meja Kerja (Task 17-a) ─────────────────────────────────────────────────
 // Catatan kerjaan harian: rutinitas berulang + tugas lepas + catatan kilat.
 // Konvensi tanggal sama dengan HabitLog/DailyLog: dayKey = 'yyyy-MM-dd' Jakarta
