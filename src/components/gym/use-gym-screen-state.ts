@@ -66,6 +66,10 @@ export function useGymScreenState() {
 
   const todayYmd = data?.todayYmd ?? jakartaDateString();
 
+  // Task 72 F1 (Gym Cerdas): multiplier pemulihan dari readiness harian
+  // (tidur/energi/mood — 0.8–1.1). null/tanpa check-in → 1 (perilaku lama).
+  const recoveryFactor = data?.readiness?.recoveryFactor ?? 1;
+
   const allZones = useMemo(() => {
     if (!data) return [] as GymZonePayload[];
     return [...data.zones, ...(data.fullBody ? [data.fullBody] : [])];
@@ -80,7 +84,9 @@ export function useGymScreenState() {
   const visualsBykey = useMemo(() => {
     const map = new Map<MuscleZoneKey, MuscleZoneVisual>();
     for (const zone of allZones) {
-      const status = zoneStatus(zone, nowMs, todayYmd);
+      // Task 72 F1: status kini memperhitungkan kesiapan harian (pemulihan
+      // melambat/cepat mengikuti tidur & energi check-in terbaru).
+      const status = zoneStatus(zone, nowMs, todayYmd, recoveryFactor);
       map.set(zone.key, {
         zone,
         status,
@@ -90,7 +96,7 @@ export function useGymScreenState() {
       });
     }
     return map;
-  }, [allZones, nowMs, todayYmd]);
+  }, [allZones, nowMs, todayYmd, recoveryFactor]);
 
   const visuals = useMemo(() => [...visualsBykey.values()], [visualsBykey]);
   const focusZone = focusKey ? (visualsBykey.get(focusKey)?.zone ?? null) : null;
@@ -179,6 +185,9 @@ export function useGymScreenState() {
     zoneHistoryBy,
     visualsBykey,
     visuals,
+    // Task 72 F1 — Gym Cerdas: kesiapan harian + multiplier pemulihan.
+    readiness: data?.readiness ?? null,
+    recoveryFactor,
     focusZone,
     focusStatus,
     focusExercises,

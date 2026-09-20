@@ -22,9 +22,11 @@ import {
   MUSCLE_ZONE_DEF_BY_KEY,
   computeBalanceScore,
   computeGymHistory,
+  computeReadiness,
   type GymExerciseItem,
   type GymExerciseUnit,
   type GymMapPayload,
+  type GymReadinessPayload,
   type GymZonePayload,
   type MuscleZoneKey,
 } from '@/lib/muscle-map';
@@ -53,6 +55,27 @@ export async function GET() {
     const weekStart = settings?.weekStart === 0 ? 0 : 1;
     const todayYmd = jakartaDateString();
     const weekStartY = weekStartYmd(todayYmd, weekStart);
+
+    // ── Task 72 F1 (Gym Cerdas): kesiapan harian dari DailyLog TERBARU
+    // (hari ini, fallback kemarin — "kondisi terakhir yang diketahui").
+    // Tanpa baris → null → UI menampilkan ajakan mengisi check-in.
+    // Murni lapisan baca: tidak menulis apa pun.
+    const yesterdayYmd = shiftYmd(todayYmd, -1);
+    const dailyRows = await db.dailyLog.findMany({
+      where: { date: { in: [dateFromYMD(todayYmd), dateFromYMD(yesterdayYmd)] } },
+      select: { date: true, sleep: true, energy: true, mood: true },
+    });
+    let readiness: GymReadinessPayload | null = null;
+    if (dailyRows.length > 0) {
+      // Baris terbaru (tanggal terbesar) menang.
+      const latest = dailyRows.reduce((a, b) => (a.date >= b.date ? a : b));
+      const sourceYmd = ymdOf(latest.date as Date);
+      readiness = computeReadiness(
+        { sleep: latest.sleep, energy: latest.energy, mood: latest.mood },
+        sourceYmd,
+        sourceYmd === todayYmd,
+      );
+    }
 
     // Habit zona: baris pertama per muscleZone yang TIDAK diarsipkan.
     // Task 70 (audit 70-c MAJOR): orderBy createdAt asc — pemilihan "baris
@@ -189,6 +212,7 @@ export async function GET() {
       totals: history.totals,
       exercisesByZone,
       customizedZones,
+      readiness,
     };
     return NextResponse.json(payload);
   } catch (error) {

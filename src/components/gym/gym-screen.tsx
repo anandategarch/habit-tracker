@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { GYM_TAGLINE } from '@/lib/muscle-map';
 import { GymIntroCard } from './gym-intro-card';
+import { ReadinessCard } from './readiness-card';
 import { GymMapPanel } from './gym-map-panel';
 import { GymZoneList } from './gym-zone-list';
 import { ZoneFocusSheet } from './zone-focus-sheet';
@@ -57,6 +58,8 @@ export default function GymScreen() {
     zoneHistoryBy,
     visualsBykey,
     visuals,
+    readiness,
+    recoveryFactor,
     focusZone,
     focusStatus,
     focusExercises,
@@ -112,6 +115,17 @@ export default function GymScreen() {
         <GymIntroCard onSetup={() => setup.mutate()} isPending={setup.isPending} />
       )}
 
+      {/* Task 72 F1 (Gym Cerdas): kesiapan harian — skor tidur/energi/mood,
+          multiplier pemulihan + saran zona. Dibaca SEBELUM peta supaya
+          status zona di peta langsung terbawa konteksnya. */}
+      <ReadinessCard
+        readiness={readiness}
+        zones={data.zones}
+        nowMs={nowMs}
+        todayYmd={data.todayYmd}
+        onOpenZone={(key) => setFocusKey(key)}
+      />
+
       {/* Peta + daftar zona (panel 01). */}
       {/* grid-cols-1 (minmax(0,1fr)) WAJIB: implicit auto track memaksa
           lebar min-content anak (row zona) → panel melebihi viewport 320px.
@@ -162,6 +176,7 @@ export default function GymScreen() {
         exercises={focusExercises}
         customized={focusCustomized}
         nowMs={nowMs}
+        recoveryFactor={recoveryFactor}
         busy={toggle.isPending}
         onToggle={(z) => handleToggle(z)}
         onEdit={() => focusKey && setEditorKey(focusKey)}

@@ -22,6 +22,7 @@ import {
   lifetimeDefinitionPct,
   recoveryPct,
   recoveryPctLabel,
+  recoverySpeedText,
   ymdDaysBetween,
   zoneRecommendation,
   type GymExerciseItem,
@@ -52,6 +53,7 @@ export function ZoneFocusSheet({
   exercises,
   customized,
   nowMs,
+  recoveryFactor,
   busy,
   onToggle,
   onEdit,
@@ -65,6 +67,8 @@ export function ZoneFocusSheet({
   /** true bila zona memakai daftar kustom user. */
   customized: boolean;
   nowMs: number;
+  /** Task 72 F1: multiplier pemulihan dari readiness (default 1 = normal). */
+  recoveryFactor?: number;
   busy: boolean;
   onToggle: (zone: GymZonePayload) => void;
   /** Buka editor latihan zona (Task 67). */
@@ -72,7 +76,10 @@ export function ZoneFocusSheet({
   onClose: () => void;
 }) {
   const todayYmd = jakartaDateString();
-  const rec = zone ? recoveryPct(zone, nowMs) : null;
+  const factor = recoveryFactor ?? 1;
+  const rec = zone ? recoveryPct(zone, nowMs, factor) : null;
+  /** Catatan efek kesiapan hanya bila multiplier menyimpang jelas (Task 72). */
+  const showFactorNote = zone !== null && (factor <= 0.95 || factor >= 1.05);
   const lifetime = zone ? lifetimeDefinitionPct(zone.lifetimeSessions) : 0;
   const weeklyPct = zone
     ? Math.min(100, Math.round((zone.sessionsThisWeek / Math.max(1, zone.weeklyTarget)) * 100))
@@ -106,7 +113,7 @@ export function ZoneFocusSheet({
                 {status && <StatusChip status={status} />}
               </SheetTitle>
               <SheetDescription className="text-left text-xs">
-                {status ? zoneRecommendation(zone, status, nowMs) : ''}
+                {status ? zoneRecommendation(zone, status, nowMs, factor) : ''}
               </SheetDescription>
             </SheetHeader>
 
@@ -134,6 +141,12 @@ export function ZoneFocusSheet({
                     style={{ width: `${rec ?? 0}%` }}
                   />
                 </div>
+                {/* Task 72 F1: efek kesiapan harian terhadap pemulihan zona. */}
+                {showFactorNote && (
+                  <p className="mt-1.5 text-[10px] font-medium text-muted-foreground">
+                    {recoverySpeedText(factor)}
+                  </p>
+                )}
               </section>
 
               {/* Dua lapis waktu (desain #5). */}

@@ -115,6 +115,10 @@ export function DailyCheckInCard({ date, value, onOpenHistory, onOpenJournal }: 
           // disegarkan (dulu tetap stale sampai pull-to-refresh).
           void queryClient.invalidateQueries({ queryKey: ['daily-logs-month'] });
           void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          // Task 72 F1 (Gym Cerdas): check-in adalah SUMBER readiness harian
+          // (skor kesiapan + multiplier pemulihan) — segarkan keluarga ['gym']
+          // supaya kartu Kesiapan & status zona langsung mengikuti (CONNECTED-APP).
+          void queryClient.invalidateQueries({ queryKey: ['gym'] });
         })
         .catch(() => {
           toast.error('Gagal menyimpan check-in');

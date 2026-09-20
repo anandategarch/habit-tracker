@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   GYM_TAGLINE,
+  READINESS_TIER_META,
   zoneStatus,
   zoneVisualFill,
   zoneVisualOpacity,
@@ -99,9 +100,12 @@ export function GymCard({ onOpen }: GymCardProps) {
   // Kartu mini peta (status zona minggu berjalan).
   const nowMs = Date.now();
   const todayYmd = data.todayYmd ?? jakartaDateString();
+  // Task 72 F1: multiplier pemulihan readiness ikut mempengaruhi status zona
+  // di mini-map Beranda (konsisten dengan tab Gym).
+  const factor = data.readiness?.recoveryFactor ?? 1;
   const visuals: MuscleZoneVisual[] = [...data.zones, ...(data.fullBody ? [data.fullBody] : [])].map(
     (zone) => {
-      const status = zoneStatus(zone, nowMs, todayYmd);
+      const status = zoneStatus(zone, nowMs, todayYmd, factor);
       return {
         zone,
         status,
@@ -143,6 +147,15 @@ export function GymCard({ onOpen }: GymCardProps) {
             <span className="rounded-full bg-[#092238] px-2 py-0.5 text-[10px] font-semibold text-[#64c9ff]">
               {mission.touched} / {mission.total} zona
             </span>
+            {data.readiness && (
+              <span
+                className="rounded-full bg-[#092238] px-2 py-0.5 text-[10px] font-semibold"
+                style={{ color: READINESS_TIER_META[data.readiness.tier].color }}
+              >
+                {READINESS_TIER_META[data.readiness.tier].emoji} Kesiapan:{' '}
+                {READINESS_TIER_META[data.readiness.tier].label}
+              </span>
+            )}
           </span>
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#0a1b29]"

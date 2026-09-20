@@ -2,12 +2,15 @@
 // src/lib/muscle-map.ts — BARREL Muscle Engine (Task 64/65/67, dipecah Task 71).
 //
 // Pustaka MURNI (tanpa I/O) untuk fitur workout — kini dibagi per domain:
-//   * muscle-map-zones.ts      : definisi zona + mesin status + visual Opsi A
-//                                + balance score + narasi Indonesia
-//   * muscle-map-exercises.ts  : GYM_EXERCISE_UNITS, GymExerciseItem,
-//                                exerciseDisplay, ZONE_EXERCISE_PRESETS
-//   * muscle-map-history.ts    : V2 — computeGymHistory, PR zona, pencapaian,
-//                                utilitas minggu murni
+//   * muscle-map-zones.ts        : definisi zona + mesin status + visual Opsi A
+//                                  + balance score + narasi Indonesia
+//   * muscle-map-exercises.ts    : GYM_EXERCISE_UNITS, GymExerciseItem,
+//                                  exerciseDisplay, ZONE_EXERCISE_PRESETS
+//   * muscle-map-history.ts      : V2 — computeGymHistory, PR zona, pencapaian,
+//                                  utilitas minggu murni
+//   * muscle-map-readiness.ts    : Task 72 F1 — Gym Cerdas: skor kesiapan
+//                                  harian dari check-in (tidur/energi/mood),
+//                                  multiplier pemulihan + saran zona
 //
 // File ini tetap BERADA di jalur yang sama supaya SEMUA konsumen
 // `from '@/lib/muscle-map'` (api/gym, api/gym/exercises, use-gym,
@@ -29,10 +32,12 @@ import type {
   GymZoneHistoryPayload,
 } from './muscle-map-history';
 import type { GymMissionPayload, GymZonePayload, MuscleZoneKey } from './muscle-map-zones';
+import type { GymReadinessPayload } from './muscle-map-readiness';
 
 export * from './muscle-map-zones';
 export * from './muscle-map-exercises';
 export * from './muscle-map-history';
+export * from './muscle-map-readiness';
 
 export interface GymMapPayload {
   todayYmd: string;
@@ -61,4 +66,9 @@ export interface GymMapPayload {
   exercisesByZone: Partial<Record<MuscleZoneKey, GymExerciseItem[]>>;
   /** Zona yang daftar latihannya dikustomisasi user (bisa kosong daftarnya!). */
   customizedZones: MuscleZoneKey[];
+  // ── Task 72 F1 (Gym Cerdas) — kesiapan harian turunan DailyLog ──
+  /** null bila belum ada check-in hari ini/kemarin → UI menampilkan ajakan
+   *  mengisi check-in. Memuat multiplier pemulihan yang mengalir ke
+   *  recoveryPct/zoneStatus di klien. */
+  readiness: GymReadinessPayload | null;
 }

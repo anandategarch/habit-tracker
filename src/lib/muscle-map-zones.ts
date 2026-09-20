@@ -163,8 +163,17 @@ export function ymdDaysBetween(aYmd: string, bYmd: string): number {
 }
 
 /** Skor recovery zona (0–100). Basis waktu: completedAt bila ada, fallback
- *  tengah hari YMD terakhir (approx). null = belum pernah dilatih. */
-export function recoveryPct(zone: GymZonePayload, nowMs: number): number | null {
+ *  tengah hari YMD terakhir (approx). null = belum pernah dilatih.
+ *  Task 72 Fase 1 (Gym Cerdas): recoveryFactor opsional (default 1) —
+ *  multiplier kecepatan pemulihan dari readiness (tidur/energi/mood,
+ *  rentang 0.8–1.1). Faktor <1 → pemulihan melambat (masih "recovery"
+ *  lebih lama); >1 → memulih lebih cepat. Panggil lama tanpa argumen =
+ *  perilaku pra-Task-72 (kompatibel penuh). */
+export function recoveryPct(
+  zone: GymZonePayload,
+  nowMs: number,
+  recoveryFactor: number = 1,
+): number | null {
   if (!zone.lastSessionAt && !zone.lastSessionYmd) return null;
   let sinceMs: number;
   if (zone.lastSessionAt) {
@@ -176,14 +185,21 @@ export function recoveryPct(zone: GymZonePayload, nowMs: number): number | null 
     sinceMs = Number.isNaN(t) ? 0 : Math.max(0, nowMs - t);
   }
   const needMs = recoveryHoursFor(zone.difficulty) * 3_600_000;
-  return Math.max(0, Math.min(100, Math.round((sinceMs / needMs) * 100)));
+  const factor = Number.isFinite(recoveryFactor) && recoveryFactor > 0 ? recoveryFactor : 1;
+  return Math.max(0, Math.min(100, Math.round((sinceMs / needMs) * factor * 100)));
 }
 
 /** Mesin status zona — prioritas:
  *  pump (≤2 jam) > recovery (<90%) > balanced (target tercapai) >
- *  active (tersentuh minggu ini) > neglected (>14 hari) > idle. */
-export function zoneStatus(zone: GymZonePayload, nowMs: number, todayYmd: string): MuscleZoneStatus {
-  const rec = recoveryPct(zone, nowMs);
+ *  active (tersentuh minggu ini) > neglected (>14 hari) > idle.
+ *  recoveryFactor opsional (Task 72) — lihat recoveryPct(). */
+export function zoneStatus(
+  zone: GymZonePayload,
+  nowMs: number,
+  todayYmd: string,
+  recoveryFactor: number = 1,
+): MuscleZoneStatus {
+  const rec = recoveryPct(zone, nowMs, recoveryFactor);
   // Baru selesai → PUMP (menang atas semuanya — momen paling satisfying).
   if (rec !== null) {
     let sinceMs = 0;
@@ -274,17 +290,19 @@ export const MUSCLE_MAP_DISCLAIMER =
 /** Tagline banner aset user (panel 14). */
 export const GYM_TAGLINE = 'Tubuh yang lebih kuat dimulai dari kebiasaan kecil.';
 
-/** Rekomendasi latihan berdasar status zona (aset 03 + desain #2). */
+/** Rekomendasi latihan berdasar status zona (aset 03 + desain #2).
+ *  recoveryFactor opsional (Task 72) — lihat recoveryPct(). */
 export function zoneRecommendation(
   zone: GymZonePayload,
   status: MuscleZoneStatus,
   nowMs: number,
+  recoveryFactor: number = 1,
 ): string {
   switch (status) {
     case 'pump':
       return `Zona ${zone.label} baru selesai — pump masih menyala. Istirahatkan dulu.`;
     case 'recovery':
-      return `${zone.label} masih recovery (${recoveryPctLabel(recoveryPct(zone, nowMs))}). Latih zona lain hari ini.`;
+      return `${zone.label} masih recovery (${recoveryPctLabel(recoveryPct(zone, nowMs, recoveryFactor))}). Latih zona lain hari ini.`;
     case 'balanced':
       return `Target mingguan ${zone.label} tercapai — ${zone.label} bercahaya seimbang. Pertahankan!`;
     case 'active':
