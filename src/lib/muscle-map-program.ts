@@ -1,26 +1,26 @@
 // ---------------------------------------------------------------------------
-// src/lib/muscle-map-program.ts — PROGRAM LATIHAN (Task 75, Fase 4 Gym Cerdas).
+// src/lib/muscle-map-program.ts — PROGRAM LATIHAN (Task 75, F4 Gym Cerdas).
 //
-// Pustaka MURNI (tanpa I/O): tipe payload program, 4 template preset siap
-// pakai (workout di rumah, dibangun di atas 7 zona otot yang sudah ada),
-// validasi program (dipakai server & klien — aturan SAMA dua sisi), parser
-// defensif daysJson, dan mesin payload mingguan (hari ini, strip minggu,
-// statistik adherence, "Minggu ke-N").
+// Pustaka MURNI (tanpa I/O): tipe payload program, validasi dua sisi
+// (server & klien — aturan SAMA), parser defensif daysJson, dan mesin
+// payload mingguan (hari ini, strip minggu, adherence, "Minggu ke-N").
+// Preset + label hari: muscle-map-program-presets.ts (dipecah audit 77).
 //
 // SEMANTIK PROGRES (prinsip Peta Otot "hanya membaca event"): hari latihan
-// dianggap SELESAI bila SEMUA zona hari itu tercatat selesai pada ymd-nya
-// lewat HabitLog habit zona (diteruskan API sebagai zoneDoneByYmd). Sesi
-// Full Body selesai pada suatu hari menyumbang ke SEMUA zona hari itu —
-// konsisten dengan fullBodyContrib di mesin misi mingguan. Tidak ada
-// kalkulasi XP/streak baru di lapisan ini.
-//
-// Dipakai bersama lewat barrel '@/lib/muscle-map' oleh:
-//   * Server: src/app/api/gym/program/route.ts (GET/POST/PUT/PATCH/DELETE)
-//   * Klien : components/gym/program-* (picker, builder, kartu hari ini)
+// selesai bila SEMUA zona tercatat selesai pada ymd-nya (zoneDoneByYmd);
+// sesi Full Body menyumbang SEMUA zona (konsisten fullBodyContrib). Tanpa
+// kalkulasi XP/streak baru. Konsumen: api/gym/program + components/gym/
+// program-* via barrel '@/lib/muscle-map'.
 // ---------------------------------------------------------------------------
 
 import { dayKeyShift } from './muscle-map-sets';
 import { MUSCLE_ZONE_DEF_BY_KEY, type MuscleZoneKey } from './muscle-map-zones';
+import { dowLabelFull, programTitleFromZones } from './muscle-map-program-presets';
+
+// Preset & format label hari dipecah ke muscle-map-program-presets.ts
+// (audit 77, aturan modular) — diekspor ulang di sini supaya public API
+// (barrel '@/lib/muscle-map') tidak berubah sama sekali.
+export * from './muscle-map-program-presets';
 
 // ── Batas input (server & klien memakai konstanta yang sama) ───────────────
 
@@ -53,7 +53,8 @@ export interface GymProgramSaved {
   emoji: string;
   days: GymProgramDay[];
   isActive: boolean;
-  /** ISO waktu aktivasi terakhir — dasar "Minggu ke-N". null = belum pernah. */
+  /** YMD JAKARTA aktivasi terakhir — dasar "Minggu ke-N". null = belum pernah.
+   *  (Audit 77: dulu ISO UTC — meleset 1 hari pada 00:00–06:59 WIB.) */
   startedAt: string | null;
   updatedAt: string;
 }
@@ -106,6 +107,7 @@ export interface GymProgramActive {
   id: string;
   name: string;
   emoji: string;
+  /** YMD Jakarta aktivasi (diserialisasi API — bukan ISO UTC). */
   startedAt: string | null;
   /** "Minggu ke-N" sejak aktivasi terakhir (min 1). */
   weekNumber: number;
@@ -127,97 +129,7 @@ export interface GymProgramPayload {
   saved: GymProgramSaved[];
 }
 
-// ── Template preset (murni kode — tak disimpan DB; aktivasi menyalin) ───────
-
-export interface GymProgramPreset {
-  /** id stabil untuk React key + identifikasi picker. */
-  id: string;
-  name: string;
-  emoji: string;
-  desc: string;
-  days: GymProgramDay[];
-}
-
-export const PROGRAM_PRESETS: GymProgramPreset[] = [
-  {
-    id: 'preset-fullbody3',
-    name: 'Full Body 3 Hari',
-    emoji: '🏃',
-    desc: 'Sirkuit menyeluruh 3× seminggu — paling ringan dijalankan, cocok pemula.',
-    days: [
-      { dow: 1, title: 'Sirkuit Full Body', zones: ['fullbody'] },
-      { dow: 3, title: 'Sirkuit Full Body', zones: ['fullbody'] },
-      { dow: 5, title: 'Sirkuit Full Body', zones: ['fullbody'] },
-    ],
-  },
-  {
-    id: 'preset-split3',
-    name: 'Split 3 Hari',
-    emoji: '🔥',
-    desc: 'Semua 6 zona terbagi rapi ke Senin / Rabu / Jumat.',
-    days: [
-      { dow: 1, title: 'Push — Dada & Bahu', zones: ['dada', 'bahu'] },
-      { dow: 3, title: 'Pull — Punggung & Lengan', zones: ['punggung', 'lengan'] },
-      { dow: 5, title: 'Kaki & Perut', zones: ['kaki', 'perut'] },
-    ],
-  },
-  {
-    id: 'preset-split4',
-    name: 'Split 4 Hari',
-    emoji: '⚡',
-    desc: 'Irama 2 hari latihan lalu istirahat — pas untuk rutinitas padat.',
-    days: [
-      { dow: 1, title: 'Dada & Perut', zones: ['dada', 'perut'] },
-      { dow: 2, title: 'Punggung', zones: ['punggung'] },
-      { dow: 4, title: 'Bahu & Lengan', zones: ['bahu', 'lengan'] },
-      { dow: 6, title: 'Kaki', zones: ['kaki'] },
-    ],
-  },
-  {
-    id: 'preset-split5',
-    name: 'Split 5 Hari',
-    emoji: '🏋️',
-    desc: 'Satu fokus per hari — untuk serius bangun otot, Sabtu–Minggu pulih.',
-    days: [
-      { dow: 1, title: 'Dada', zones: ['dada'] },
-      { dow: 2, title: 'Punggung', zones: ['punggung'] },
-      { dow: 3, title: 'Kaki', zones: ['kaki'] },
-      { dow: 4, title: 'Bahu & Lengan', zones: ['bahu', 'lengan'] },
-      { dow: 5, title: 'Perut', zones: ['perut'] },
-    ],
-  },
-];
-
-// ── Format tampilan ────────────────────────────────────────────────────────
-
-/** Label pendek hari: Min Sen Sel Rab Kam Jum Sab. */
-export const PROGRAM_DOW_SHORT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'] as const;
-/** Label penuh hari: Minggu Senin … Sabtu. */
-export const PROGRAM_DOW_FULL = [
-  'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu',
-] as const;
-
-export function dowLabelShort(dow: number): string {
-  return PROGRAM_DOW_SHORT[((dow % 7) + 7) % 7];
-}
-
-export function dowLabelFull(dow: number): string {
-  return PROGRAM_DOW_FULL[((dow % 7) + 7) % 7];
-}
-
-/** Judul otomatis dari zona: "Dada", "Dada & Bahu", "Dada, Bahu & Perut". */
-export function programTitleFromZones(zones: MuscleZoneKey[]): string {
-  const labels = zones.map((z) => MUSCLE_ZONE_DEF_BY_KEY[z]?.label ?? z);
-  if (labels.length <= 1) return labels[0] ?? 'Latihan';
-  if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
-  return `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`;
-}
-
-/** Ringkasan jadwal preset/program untuk satu baris picker ("Sen · Rab · Jum"). */
-export function programScheduleSummary(days: GymProgramDay[]): string {
-  if (days.length === 0) return '—';
-  return days.map((d) => dowLabelShort(d.dow)).join(' · ');
-}
+// ── Template preset & label hari: lihat muscle-map-program-presets.ts ──────
 
 // ── Parser defensif (server GET — baris lama/rusak tak boleh bikin 500) ─────
 
@@ -397,7 +309,8 @@ export function computeProgramPayload(args: {
     const daysByDow = new Map(activeRow.days.map((d) => [d.dow, d]));
     // Batas periode: hari sebelum aktivasi program bukan bagian minggu
     // berjalan (tidak boleh dihitung "terlewat" — program baru aktif
-    // pertengahan minggu tetap mulai bersih).
+    // pertengahan minggu tetap mulai bersih). startedAt sudah YMD Jakarta
+    // (diserialisasi API audit 77) — slice(0,10) identitas, tetap defensif.
     const startedYmd = activeRow.startedAt ? activeRow.startedAt.slice(0, 10) : null;
 
     // 7 sel minggu (awal minggu pengaturan → 6 hari berikutnya).

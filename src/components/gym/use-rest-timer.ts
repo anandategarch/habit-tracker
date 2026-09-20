@@ -163,6 +163,21 @@ export function useRestTimer(): RestTimerApi {
     // Nilai dihitung dari closure handler (satu klik = satu render terkini) —
     // JANGAN taruh mutasi ref/persist di dalam state updater (StrictMode
     // memanggil updater dua kali → deadline bisa +30 dtk).
+    //
+    // Audit 77-b: setelah timer HABIS (done=true, sisa 0, deadline di masa
+    // lalu), +15 dulu tidak mereset done — tampilan tetap "✓ selesai",
+    // 15 dtk tak pernah berjalan, dan persist menyimpan jeda 15 dtk yang
+    // muncul mengejutkan setelah reload. Kini: hidupkan lagi 15 dtk.
+    if (done || (!running && remaining <= 0)) {
+      const nextTotal = total + 15;
+      deadlineRef.current = Date.now() + 15_000;
+      setTotal(nextTotal);
+      setRemaining(15);
+      setDone(false);
+      setRunning(true);
+      persist({ v: 1, total: nextTotal, deadlineMs: deadlineRef.current, running: true, pausedRemaining: 15 });
+      return;
+    }
     const nextTotal = total + 15;
     const nextRemaining = remaining + 15;
     if (running) deadlineRef.current += 15_000;

@@ -65,16 +65,30 @@ export async function POST(req: Request) {
     const body = await readJsonBody(req);
 
     // Tanggal opsional (default hari ini Jakarta) — backdate sah, masa depan
-    // ditolak (pola route jurnal set Task 74).
+    // ditolak (pola route jurnal set Task 74). Audit 77-c: tanggal non-string
+    // (mis. epoch number) dulu diabaikan senyap → sesi tersimpan di hari
+    // ini; kini ditolak eksplisit.
+    if (body.date !== undefined && body.date !== null && typeof body.date !== 'string') {
+      throw badRequest('Format tanggal tidak valid (yyyy-MM-dd)');
+    }
     const date = asString(body.date) ?? jakartaDateString();
     if (!isValidYMD(date)) throw badRequest('Format tanggal tidak valid (yyyy-MM-dd)');
     if (date > jakartaDateString()) throw badRequest('Tidak bisa mencatat untuk tanggal di masa depan');
 
+    // Audit 77-c: TIPE jarak ketat — dulu Number(raw) meng-coerce senyap
+    // ("4.2" string → 4,2 km; true → 1 km!) tak seperti durasi yang ketat.
+    // Non-number → NaN → pesan "Jarak harus berupa angka" dari validator
+    // bersama (aturan klien & server tetap SATU di validateCardioInput).
     const rawDistance = body.distanceKm;
     const validated = validateCardioInput({
       kind: asString(body.kind) ?? '',
       durationMin: typeof body.durationMin === 'number' ? body.durationMin : Number.NaN,
-      distanceKm: rawDistance === null || rawDistance === undefined ? null : Number(rawDistance),
+      distanceKm:
+        rawDistance === null || rawDistance === undefined
+          ? null
+          : typeof rawDistance === 'number'
+            ? rawDistance
+            : Number.NaN,
     });
     if (!validated.ok) throw badRequest(validated.error);
     const { kind, durationMin, distanceKm } = validated;

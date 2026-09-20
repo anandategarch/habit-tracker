@@ -126,6 +126,13 @@ export function GeneralSection({ settings }: GeneralSectionProps) {
         // /api/dashboard — ikut disegarkan supaya "Selamat pagi, <nama>"
         // berubah tanpa reload.
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        // GYM CONNECTED (audit 77-e): weekStart menentukan batas minggu di
+        // Peta Otot/misi (['gym']), strip minggu + "Minggu ke-N" program
+        // (['gym-program']), dan statistik minggu kardio (['gym-cardio']) —
+        // dulu ketiganya tetap memakai batas minggu LAMA sampai basi/remount.
+        queryClient.invalidateQueries({ queryKey: ['gym'] });
+        queryClient.invalidateQueries({ queryKey: ['gym-program'] });
+        queryClient.invalidateQueries({ queryKey: ['gym-cardio'] });
         // Dispatch theme-change event so chart components (useThemeColor)
         // re-read CSS variables immediately without waiting for window focus.
         window.dispatchEvent(new CustomEvent('rutina:theme-change', { detail: savedSettings }));

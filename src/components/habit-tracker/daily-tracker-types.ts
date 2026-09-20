@@ -37,6 +37,10 @@ export interface Habit {
   updatedAt?: string;
   /** Jumlah log selesai all-time (dihitung API /api/habits — Gelombang 1). */
   completedLogCount?: number;
+  /** Task 62+ — zona Peta Otot ('dada'|'punggung'|…|'fullbody'; null/absen =
+   *  habit biasa). GET /api/habits mengirim kolom ini (findMany tanpa select).
+   *  Audit 77-e: dipakai toggle Tracker untuk menyegarkan query gym. */
+  muscleZone?: string | null;
 }
 
 export interface HabitLog {

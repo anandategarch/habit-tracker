@@ -62,7 +62,11 @@ function toSaved(r: ProgramRow): GymProgramSaved | null {
     emoji: r.emoji,
     days,
     isActive: r.isActive,
-    startedAt: r.startedAt ? (r.startedAt as Date).toISOString() : null,
+    // Audit 77 (MAJOR): dulu dikirim ISO lalu di-slice(0,10) konsumen →
+    // tanggal UTC, meleset 1 hari pada 00:00–06:59 WIB (server UTC):
+    // "Minggu ke-N" melompat & hari pra-aktivasi dihitung terlewat.
+    // Kirim YMD JAKARTA langsung — tanggal aktivasi yang dimaksud user.
+    startedAt: r.startedAt ? jakartaDateString(r.startedAt) : null,
     updatedAt: (r.updatedAt as Date).toISOString(),
   };
 }
@@ -85,11 +89,17 @@ async function buildZoneDoneByYmd(weekStartY: string): Promise<Map<string, Set<M
     orderBy: { createdAt: 'asc' },
     select: { id: true, muscleZone: true },
   });
-  // Habit pertama per zona (deterministik — pola GET /api/gym audit 70-c).
+  // Habit PERTAMA per zona (createdAt terlama — deterministik), SAMA persis
+  // dengan resolusi GET /api/gym (audit 70-c). Audit 77: dulu semua habit
+  // zona dihitung (cek has(h.id) selalu true) → habit zona dobel membuat
+  // chip ✅ program dan toggle Peta Otot saling bertentangan.
   const habitZone = new Map<string, MuscleZoneKey>();
+  const seenZone = new Set<MuscleZoneKey>();
   for (const h of zoneHabits) {
     const zone = h.muscleZone as MuscleZoneKey;
-    if (!habitZone.has(h.id)) habitZone.set(h.id, zone);
+    if (seenZone.has(zone)) continue;
+    seenZone.add(zone);
+    habitZone.set(h.id, zone);
   }
 
   const result = new Map<string, Set<MuscleZoneKey>>();
@@ -132,9 +142,18 @@ export async function GET() {
     const weekStartDow = dateFromYMD(weekStartY).getUTCDay();
 
     const rows = await db.gymProgram.findMany({ orderBy: { updatedAt: 'asc' } });
-    const saved = rows
-      .map(toSaved)
-      .filter((p): p is GymProgramSaved => p !== null);
+    // Audit 77-a: baris daysJson rusak SELAMA ini hilang senyap — termasuk
+    // yang isActive (tak terlihat/diubah/dihapus dari UI). Tetap di-skip
+    // (GET tak boleh 500), tapi sekarang ter-log untuk diagnosis.
+    const saved: GymProgramSaved[] = [];
+    for (const r of rows) {
+      const s = toSaved(r);
+      if (!s) {
+        console.warn(`[gym/program] daysJson rusak — baris "${r.name}" (${r.id}) dilewati`);
+        continue;
+      }
+      saved.push(s);
+    }
 
     // Batasi query log ke minggu berjalan saja (payload hanya butuh itu).
     const zoneDoneByYmd = await buildZoneDoneByYmd(weekStartY);

@@ -194,6 +194,14 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
         queryClient.invalidateQueries({ queryKey: ['habit-meta'] });
         queryClient.invalidateQueries({ queryKey: ['ai-insights'] });
         queryClient.invalidateQueries({ queryKey: ['hourly-consistency'] });
+        // GYM CONNECTED (audit 77-e): habit ZONA yang diselesaikan dari tab
+        // Tracker juga harus menyegarkan Peta Otot + kesiapan (['gym']) dan
+        // kartu Program Hari Ini yang membaca HabitLog zona
+        // (['gym-program']) — dulu hanya jalur toggle Gym yang melakukannya.
+        if (habit.muscleZone) {
+          queryClient.invalidateQueries({ queryKey: ['gym'] });
+          queryClient.invalidateQueries({ queryKey: ['gym-program'] });
+        }
 
         if (next) {
           // BUG-FIX-COMP-HIGH #1: For "avoid" habits (habitType === 'avoid'),
@@ -409,6 +417,12 @@ export function useHabitToggle(opts: HabitToggleOptions): HabitToggleApi {
         queryClient.invalidateQueries({ queryKey: ['habit-meta'] });
         queryClient.invalidateQueries({ queryKey: ['ai-insights'] });
         queryClient.invalidateQueries({ queryKey: ['hourly-consistency'] });
+        // GYM CONNECTED (audit 77-e): habit zona amount (mis. squat target)
+        // sama — segarkan gym + program saat mencapai/berturun dari target.
+        if (habit.muscleZone) {
+          queryClient.invalidateQueries({ queryKey: ['gym'] });
+          queryClient.invalidateQueries({ queryKey: ['gym-program'] });
+        }
 
         if (nextCompleted && !wasCompleted) {
           // Task 44: +XP tampil juga di milestone amount (konsisten toggle biner).

@@ -63,7 +63,7 @@ export interface GymCardioEntry {
   distanceKm: number | null;
   dayKey: string; // yyyy-MM-dd Jakarta
   createdAt: string;
-  /** Estimasi kcal (MET × berat × jam) — dibulatkan ke atas, null tak mungkin. */
+  /** Estimasi kcal (MET × berat × jam) — dibulatkan ke terdekat (Math.round), null tak mungkin. */
   kcal: number;
 }
 

@@ -17,8 +17,19 @@
 // ---------------------------------------------------------------------------
 
 import { CalendarCheck, ChevronRight, MoreHorizontal, Sparkles } from 'lucide-react';
+import { useState } from 'react';
 import { ScrollReveal } from '@/components/habit-tracker/scroll-reveal';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,6 +113,10 @@ export function ProgramTodayCard({
 }) {
   const stop = useGymProgramStop();
   const active = program.active;
+  // Audit 77-d: "Hentikan program" dulu satu-tap langsung berhenti (aksi
+  // destruktif tanpa konfirmasi — tak konsisten dengan Hapus program /
+  // hapus kardio / hapus foto yang semuanya bertanya dulu).
+  const [confirmStop, setConfirmStop] = useState(false);
 
   // ── Empty state: belum ada program aktif → ajakan memilih. ──
   if (!active) {
@@ -179,8 +194,7 @@ export function ProgramTodayCard({
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => stop.mutate()}
-              disabled={stop.isPending}
+              onClick={() => setConfirmStop(true)}
               className="cursor-pointer text-rose-600 focus:text-rose-600 dark:text-rose-400 dark:focus:text-rose-400"
             >
               Hentikan program
@@ -254,6 +268,30 @@ export function ProgramTodayCard({
         menunggu
         {stats.adherencePct !== null && ` · kepatuhan ${stats.adherencePct}%`}
       </p>
+
+      {/* Konfirmasi hentikan (audit 77-d). */}
+      <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hentikan "{active.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kartu Program Hari Ini kembali ke mode latihan bebas. Program tetap
+              tersimpan — mengaktifkannya lagi nanti memulai penghitungan minggu
+              dari awal (Minggu ke-1). Log zona, set, dan XP tidak tersentuh.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={stop.isPending}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => stop.mutate()}
+              disabled={stop.isPending}
+              className="cursor-pointer bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-600"
+            >
+              {stop.isPending ? 'Menghentikan…' : 'Ya, hentikan'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ScrollReveal>
   );
 }

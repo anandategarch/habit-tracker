@@ -15,8 +15,11 @@
 //                                  (validasi catatan, rekor per satuan, payload
 //                                  riwayat 30 hari per zona)
 //   * muscle-map-program.ts      : Task 75 F4 — program latihan mingguan
-//                                  (4 preset split, validasi dua-sisi, mesin
-//                                  payload minggu + adherence + minggu ke-N)
+//                                  (validasi dua-sisi, mesin payload minggu
+//                                  + adherence + minggu ke-N)
+//   * muscle-map-program-presets : audit 77 — 4 preset split + label hari
+//                                  (dipecah dari muscle-map-program.ts;
+//                                  re-export lewat situ — API tak berubah)
 //   * muscle-map-cardio.ts       : Task 76 Bonus — jurnal kardio (validasi
 //                                  dua-sisi, estimasi kcal MET, payload
 //                                  minggu + jarak terjauh per jenis)

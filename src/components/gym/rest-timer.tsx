@@ -48,7 +48,17 @@ export function RestTimer({
   suggestion: RestSuggestion | null;
   onConsumeSuggestion: () => void;
 }) {
-  const { total, remaining, running, done, start, pause, resume, addFifteen, reset } = useRestTimer();
+  const { total, remaining, running, done, start, pause, resume, addFifteen, reset } =
+    useRestTimer();
+
+  // Audit 77-b (MAJOR — regresi Task 76): saat logic dipecah ke hook,
+  // pemanggilan onConsumeSuggestion() dari start() hilang → banner saran
+  // muncul KEMBALI setelah jeda/selesai/reset. Konsumsi saran saat timer
+  // mulai (semantik asli Task 65 — “konsumsi sekali saat timer mulai”).
+  const handleStart = (secs: number) => {
+    if (suggestion) onConsumeSuggestion();
+    start(secs);
+  };
 
   const progress = total > 0 ? Math.min(1, Math.max(0, remaining / total)) : 0;
   const stateLabel = running ? 'berjalan' : done ? 'selesai' : 'siaga';
@@ -83,7 +93,7 @@ export function RestTimer({
           </p>
           <Button
             size="sm"
-            onClick={() => start(60)}
+            onClick={() => handleStart(60)}
             className="h-7 cursor-pointer px-2.5 text-[11px]"
             aria-label="Mulai timer istirahat 60 detik"
           >
@@ -135,7 +145,7 @@ export function RestTimer({
                 key={secs}
                 variant="outline"
                 size="sm"
-                onClick={() => start(secs)}
+                onClick={() => handleStart(secs)}
                 aria-label={`Mulai istirahat ${secs} detik`}
                 className="h-8 cursor-pointer px-0 text-xs tabular-nums"
               >
@@ -161,7 +171,7 @@ export function RestTimer({
                 size="sm"
                 onClick={() => {
                   if (done) {
-                    start(total);
+                    handleStart(total);
                     return;
                   }
                   resume();

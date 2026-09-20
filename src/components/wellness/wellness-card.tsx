@@ -62,6 +62,14 @@ export function WellnessCard({ date }: { date: string }) {
         .then(() => {
           // Server jadi sumber kebenaran (weekly avg, dsb. ikut disegarkan).
           void queryClient.invalidateQueries({ queryKey: ['wellness'] });
+          // Audit 77-e: berat terakhir DIPAKAI lintas-fitur — estimasi kkal
+          // kardio (['gym-cardio']) dan hint berat foto progres
+          // (['gym-photos']). Segarkan konsumennya hanya saat patch ini
+          // menyentuh berat (tap air/protein tak memicu refetch ekstra).
+          if (patch.weightKg !== undefined) {
+            void queryClient.invalidateQueries({ queryKey: ['gym-cardio'] });
+            void queryClient.invalidateQueries({ queryKey: ['gym-photos'] });
+          }
         })
         .catch(() => {
           toast.error('Gagal menyimpan — coba lagi');
