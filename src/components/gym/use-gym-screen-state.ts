@@ -7,9 +7,10 @@
 // SEMUA logic state GymScreen (bukan UI): query peta (useGymMap), setup,
 // toggle sesi (useGymToggle + saran rest timer), jam hidup 1-menit
 // (useNowMs), pandangan Depan/Belakang, zona fokus (sheet), editor latihan
-// (Task 67), visual zona turunan (status/fill/opacity/peak), daftar latihan
-// EFEKTIF (kustom ?? preset), dan efek perayaan pencapaian baru
-// (localStorage + confetti). Hook data use-gym.ts TIDAK diduplikasi —
+// (Task 67), dialog catat set + jurnal zona (Task 74 F3), visual zona
+// turunan (status/fill/opacity/peak), daftar latihan EFEKTIF (kustom ??
+// preset), dan efek perayaan pencapaian baru (localStorage + confetti).
+// Hook data use-gym.ts / use-gym-sets.ts TIDAK diduplikasi —
 // file ini hanya menyusunnya untuk satu layar.
 //
 // gym-screen.tsx tinggal komposisi: hook ini + komponen presentasi.
@@ -30,6 +31,7 @@ import {
   type MuscleZoneKey,
 } from '@/lib/muscle-map';
 import { useGymMap, useGymSetup, useGymToggle } from './use-gym';
+import { useGymZoneSets } from './use-gym-sets';
 import type { RestSuggestion } from './rest-timer';
 import type { MuscleZoneVisual } from './muscle-map';
 import type { BodyView } from './gym-map-panel';
@@ -56,6 +58,8 @@ export function useGymScreenState() {
   const [focusKey, setFocusKey] = useState<MuscleZoneKey | null>(null);
   /** Task 67: zona yang editor latihannya sedang terbuka (dialog CRUD). */
   const [editorKey, setEditorKey] = useState<MuscleZoneKey | null>(null);
+  /** Task 74 F3: gerakan yang dialog "Catat Set"-nya sedang terbuka. */
+  const [logTarget, setLogTarget] = useState<{ zone: MuscleZoneKey; exercise: GymExerciseView } | null>(null);
   /** Saran timer istirahat kontekstual (zona yang baru saja selesai). */
   const [restSuggest, setRestSuggest] = useState<RestSuggestion | null>(null);
   /** Peta elemen tombol toggle per zona — jangkar confetti toggle (dibaca
@@ -111,6 +115,15 @@ export function useGymScreenState() {
   const focusExercises = focusKey ? exercisesFor(focusKey) : [];
   const focusCustomized = focusKey ? (data?.customizedZones.includes(focusKey) ?? false) : false;
   const editorZone = editorKey ? (allZones.find((z) => z.key === editorKey) ?? null) : null;
+
+  // ── Task 74 F3: jurnal set zona fokus (PR + riwayat 30 hari). Query
+  // hanya AKTIF saat sheet terbuka — zona lain tidak ikut dimuat.
+  const zoneSets = useGymZoneSets(focusKey);
+  const logZone = logTarget ? (allZones.find((z) => z.key === logTarget.zone) ?? null) : null;
+  const handleLogExercise = (exercise: GymExerciseView) => {
+    if (!focusKey) return;
+    setLogTarget({ zone: focusKey, exercise });
+  };
 
   const handleToggle = (zone: GymZonePayload) => {
     toggle
@@ -177,8 +190,17 @@ export function useGymScreenState() {
     setFocusKey,
     editorKey,
     setEditorKey,
+    // Task 74 F3 — jurnal set: query zona fokus + dialog catat set.
+    zoneSets: zoneSets.data,
+    zoneSetsLoading: zoneSets.isLoading,
+    logTarget,
+    logZone,
+    handleLogExercise,
+    closeLogExercise: () => setLogTarget(null),
     restSuggest,
     clearRestSuggestion: () => setRestSuggest(null),
+    /** Task 74 F3: sarankan istirahat (dipicu dialog Catat Set sukses). */
+    suggestRest: (s: RestSuggestion) => setRestSuggest(s),
     toggleElsRef,
     achievementsRef,
     allZones,

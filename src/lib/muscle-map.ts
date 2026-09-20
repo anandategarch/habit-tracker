@@ -11,6 +11,9 @@
 //   * muscle-map-readiness.ts    : Task 72 F1 — Gym Cerdas: skor kesiapan
 //                                  harian dari check-in (tidur/energi/mood),
 //                                  multiplier pemulihan + saran zona
+//   * muscle-map-sets.ts         : Task 74 F3 — jurnal set aktual + mesin PR
+//                                  (validasi catatan, rekor per satuan, payload
+//                                  riwayat 30 hari per zona)
 //
 // File ini tetap BERADA di jalur yang sama supaya SEMUA konsumen
 // `from '@/lib/muscle-map'` (api/gym, api/gym/exercises, use-gym,
@@ -38,6 +41,7 @@ export * from './muscle-map-zones';
 export * from './muscle-map-exercises';
 export * from './muscle-map-history';
 export * from './muscle-map-readiness';
+export * from './muscle-map-sets';
 
 export interface GymMapPayload {
   todayYmd: string;

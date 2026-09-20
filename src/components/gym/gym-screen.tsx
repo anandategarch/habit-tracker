@@ -33,6 +33,7 @@ import { GymWeeklyMission } from './gym-weekly-mission';
 import { RestTimer } from './rest-timer';
 import { GymAchievements, GymWeeklyHistory } from './gym-history';
 import { ExerciseEditorDialog } from './exercise-editor';
+import { ExerciseLogDialog } from './exercise-log-dialog';
 import { useGymScreenState } from './use-gym-screen-state';
 
 export default function GymScreen() {
@@ -66,6 +67,12 @@ export default function GymScreen() {
     focusCustomized,
     editorZone,
     exercisesFor,
+    zoneSets,
+    logTarget,
+    logZone,
+    handleLogExercise,
+    closeLogExercise,
+    suggestRest,
     handleToggle,
   } = useGymScreenState();
 
@@ -177,9 +184,11 @@ export default function GymScreen() {
         customized={focusCustomized}
         nowMs={nowMs}
         recoveryFactor={recoveryFactor}
+        setsPayload={zoneSets}
         busy={toggle.isPending}
         onToggle={(z) => handleToggle(z)}
         onEdit={() => focusKey && setEditorKey(focusKey)}
+        onLogExercise={handleLogExercise}
         onClose={() => setFocusKey(null)}
       />
 
@@ -193,6 +202,19 @@ export default function GymScreen() {
           initial={exercisesFor(editorZone.key)}
           customized={data.customizedZones.includes(editorZone.key)}
           onClose={() => setEditorKey(null)}
+        />
+      )}
+
+      {/* Task 74 F3: dialog Catat Set — key zone+exercise supaya state
+          stepper selalu segar saat gerakan lain dibuka. */}
+      {logTarget && logZone && (
+        <ExerciseLogDialog
+          key={`${logTarget.zone}-${logTarget.exercise.name}`}
+          zone={logZone}
+          exercise={logTarget.exercise}
+          setsPayload={zoneSets}
+          onSaved={(suggest) => suggestRest(suggest)}
+          onClose={closeLogExercise}
         />
       )}
     </div>

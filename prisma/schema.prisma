@@ -291,6 +291,33 @@ model GymExercise {
   createdAt DateTime        @default(now())
 }
 
+// ── Gym Jurnal Set & PR (Task 74 — Fase 3 Gym Cerdas) ───────────────────────
+// Catatan performa AKTUAL per gerakan (Hevy/Strong-lite): set × jumlah yang
+// BENAR-BENAR dikerjakan — dipisah dari rencana (GymExercise). Nama gerakan
+// disimpan sebagai SNAPSHOT string (bukan FK): daftar latihan bisa diedit/
+// dihapus kapan pun (Task 67) — PR harus tetap hidup meski list berubah.
+// nameKey = nama ternormalisasi (trim + lowercase + spasi tunggal) untuk
+// pengelompokan PR case-insensitive. Satu baris per (zona, nameKey, hari)
+// → upsert: mencatat ulang gerakan yang sama di hari yang sama = koreksi,
+// bukan baris baru (bebas hitung ganda). Murni LAPISAN JURNAL: tidak
+// menyentuh XP/streak/kalender (prinsip Peta Otot "hanya membaca event").
+// Produksi via DDL runtime ensureGymSetTables() (pola gym-exercise-ensure).
+
+model GymSetLog {
+  id        String   @id @default(cuid())
+  zone      String   // 'dada'..'fullbody' (MuscleZoneKey)
+  nameKey   String   // kunci gerakan ternormalisasi (pengelompokan PR)
+  exercise  String   // nama tampilan (snapshot saat dicatat)
+  sets      Int      // 1..50
+  amount    Int      // 1..9999 (jumlah per set — makna mengikuti unit)
+  unit      String   // GymExerciseUnit
+  dayKey    String   // yyyy-MM-dd (Asia/Jakarta) — pola WorkRoutineLog
+  createdAt DateTime @default(now())
+
+  @@unique([zone, nameKey, dayKey])
+  @@index([zone, dayKey])
+}
+
 // ── Meja Kerja (Task 17-a) ─────────────────────────────────────────────────
 // Catatan kerjaan harian: rutinitas berulang + tugas lepas + catatan kilat.
 // Konvensi tanggal sama dengan HabitLog/DailyLog: dayKey = 'yyyy-MM-dd' Jakarta

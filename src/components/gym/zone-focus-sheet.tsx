@@ -7,18 +7,19 @@
 // Dibuka dengan tap zona peta / baris daftar zona. Isi: header zona + chip
 // status, rekomendasi, recovery bar, dua lapis waktu (minggu ini vs
 // seumur hidup), statistik zona (XP/streak/terakhir), PR zona (V2),
-// daftar latihan efektif (preset default ATAU kustom user Task 67 — chip
-// "Kustom" + ikon pensil buka editor CRUD), tombol toggle sesi, disclaimer.
+// daftar latihan (preset default ATAU kustom user Task 67 — chip "Kustom"
+// + ikon pensil buka editor CRUD; tap baris = catat set aktual Task 74),
+// Rekor Pribadi + riwayat jurnal set 30 hari (F3), tombol toggle sesi,
+// disclaimer.
 // ---------------------------------------------------------------------------
 
-import { Flame, Pencil } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { jakartaDateString } from '@/lib/jakarta-date';
 import {
   MUSCLE_MAP_DISCLAIMER,
   ZONE_STATUS_META,
-  exerciseDisplay,
   lifetimeDefinitionPct,
   recoveryPct,
   recoveryPctLabel,
@@ -28,10 +29,14 @@ import {
   type GymExerciseItem,
   type GymZoneHistoryPayload,
   type GymZonePayload,
+  type GymZoneSetsPayload,
   type MuscleZoneStatus,
 } from '@/lib/muscle-map';
 import { formatWeekShort } from './gym-history';
 import { StatusChip } from './gym-status-chip';
+import { ZoneExerciseList } from './zone-exercise-list';
+import { ZonePrList } from './zone-pr-list';
+import { ZoneSetHistory } from './zone-set-history';
 
 /** Baris latihan untuk tampilan — preset boleh membawa chip mapping zona. */
 export type GymExerciseView = GymExerciseItem & { mapping?: { label: string; pct: number }[] };
@@ -54,9 +59,11 @@ export function ZoneFocusSheet({
   customized,
   nowMs,
   recoveryFactor,
+  setsPayload,
   busy,
   onToggle,
   onEdit,
+  onLogExercise,
   onClose,
 }: {
   zone: GymZonePayload | null;
@@ -69,10 +76,14 @@ export function ZoneFocusSheet({
   nowMs: number;
   /** Task 72 F1: multiplier pemulihan dari readiness (default 1 = normal). */
   recoveryFactor?: number;
+  /** Task 74 F3: jurnal set zona (PR + riwayat) — undefined saat dimuat. */
+  setsPayload: GymZoneSetsPayload | undefined;
   busy: boolean;
   onToggle: (zone: GymZonePayload) => void;
   /** Buka editor latihan zona (Task 67). */
   onEdit: () => void;
+  /** Buka dialog catat set untuk satu gerakan (Task 74). */
+  onLogExercise: (ex: GymExerciseView) => void;
   onClose: () => void;
 }) {
   const todayYmd = jakartaDateString();
@@ -231,70 +242,26 @@ export function ZoneFocusSheet({
                 </section>
               )}
 
-              {/* Latihan zona (panel 03 + Task 67: CRUD fleksibel — ganti/
-                  tambah/hapus gerakan lewat editor; "Kustom" bila daftar
-                  tersimpan user, chip mapping hanya untuk preset). */}
-              <section aria-label="Latihan zona">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {customized ? 'Latihan Kamu' : 'Latihan Direkomendasikan'}
-                    {customized && (
-                      <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold normal-case tracking-normal text-primary">
-                        Kustom
-                      </span>
-                    )}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={onEdit}
-                    aria-label={`Ubah daftar latihan zona ${zone.label}`}
-                    // Task 70 (audit 70-d MAJOR #2): 36px (naik dari 32px) +
-                    // safety-net CSS coarse-pointer melengkapi ke 44px di
-                    // perangkat sentuh; layout baris tetap rapi.
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </div>
-                {exercises.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={onEdit}
-                    className="mt-2 w-full cursor-pointer rounded-lg border border-dashed border-border/60 p-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    Belum ada gerakan — ketuk untuk menambah latihan {zone.label} sendiri.
-                  </button>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {exercises.map((ex, i) => (
-                      <li
-                        /* Task 70 (audit 70-b MINOR #2): anti React duplicate
-                           key — nama kini bisa divalidasi unik di depan, tapi
-                           preset/payload lama tetap aman digabung indeks. */
-                        key={`${ex.name}-${i}`}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{ex.name}</p>
-                          <p className="text-xs text-muted-foreground">{exerciseDisplay(ex)}</p>
-                        </div>
-                        {ex.mapping && (
-                          <div className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex" aria-hidden="true">
-                            {ex.mapping.map((m) => (
-                              <span
-                                key={m.label}
-                                className="rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
-                              >
-                                {m.label} {m.pct}%
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              {/* Latihan zona (panel 03 + Task 67 CRUD + Task 74 F3: tap
+                  baris = catat set aktual; chip 🏆 PR per gerakan). */}
+              <ZoneExerciseList
+                exercises={exercises}
+                customized={customized}
+                zoneLabel={zone.label}
+                zoneColor={zone.color}
+                setsPayload={setsPayload}
+                onLog={onLogExercise}
+                onEdit={onEdit}
+                busy={busy}
+              />
+
+              {/* Task 74 F3: rekor pribadi per gerakan (turunan jurnal). */}
+              {setsPayload && <ZonePrList zoneKey={zone.key} prs={setsPayload.prs} todayYmd={setsPayload.todayYmd} />}
+
+              {/* Task 74 F3: riwayat jurnal set 30 hari. */}
+              {setsPayload && (
+                <ZoneSetHistory zoneKey={zone.key} logs={setsPayload.logs} todayYmd={setsPayload.todayYmd} />
+              )}
 
               <Button
                 onClick={() => onToggle(zone)}
