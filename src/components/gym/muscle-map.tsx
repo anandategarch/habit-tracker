@@ -6,12 +6,12 @@
 // Task 64: inline SVG buatan tangan (ditracing dari aset desain user,
 // upload/peta-otot/ panel 01/02) supaya TIAP zona bisa dianimasikan
 // sendiri (pump/napas/balanced) — hal yang mustahil pada gambar statis.
-// Task 68: RESTYLE menyusul referensi 3D-anatomis user (referensi PNG flat
-// tanpa file SVG per-otot): tubuh digambar ulang sebagai "render anatomis
-// vektor" — siluet kulit ber-gradien + line-work definisi otot (sternum,
-// abs, seratus, split bisep/quad/betis, spine, trapezius, lat, dimple) +
-// overlay zona status semi-transparan DI ATAS kulit — persis semantik
-// referensi (blok warna menempel pada tubuh realistis).
+// Task 68: redraw anatomis (proporti atletis + line-work definisi otot +
+// teknik mirror simetri x=50).
+// Task 69: GAYA OPSI A "GymWP/Fitness Point" (dipilih user dari 3 konsep
+// design-concepts/): badan render gelap charcoal + zona aktif MENYALA
+// merah-oranye terang (STATUS_BASE_OPACITY lib dinaikkan drastis) +
+// glow. Semantik referensi: otot yang dilatih menyala, sisanya gelap.
 //
 // Teknik yang membuat ini mungkin TANPA file potongan per-otot:
 //   1. Simetri tubuh → sisi kiri digambar sekali, sisi kanan = mirror
@@ -266,28 +266,31 @@ export function MuscleMap({
       aria-label={ariaLabel ?? 'Peta otot — siluet tubuh dengan status zona'}
     >
       <defs>
-        {/* Kulit: gradien vertikal terang→gelap (cahaya dari atas). */}
+        {/* Badan "render" gelap ala GymWP: charcoal ber-gradasi (cahaya
+            studio atas, makin gelap ke bawah) — zona warna menyala
+            kontras di atasnya (Opsi A). */}
         <linearGradient id="mmSkinTorso" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#d9a077" />
-          <stop offset="45%" stopColor="#c0855c" />
-          <stop offset="100%" stopColor="#a06b47" />
+          <stop offset="0%" stopColor="#5a636c" />
+          <stop offset="45%" stopColor="#3d444c" />
+          <stop offset="100%" stopColor="#272c31" />
         </linearGradient>
         <linearGradient id="mmSkinLimb" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#cf9268" />
-          <stop offset="100%" stopColor="#9a6746" />
+          <stop offset="0%" stopColor="#525a62" />
+          <stop offset="100%" stopColor="#23272b" />
         </linearGradient>
-        {/* Kepala: gradien radial (highlight dahi kiri-atas). */}
+        {/* Kepala: radial dengan highlight dahi kiri-atas. */}
         <radialGradient id="mmHead" cx="0.38" cy="0.32" r="0.9">
-          <stop offset="0%" stopColor="#e5b184" />
-          <stop offset="100%" stopColor="#bd8259" />
+          <stop offset="0%" stopColor="#666f78" />
+          <stop offset="100%" stopColor="#3d444c" />
         </radialGradient>
-        {/* Sheen volumetrik: cahaya atas + bayangan bawah, klip ke tubuh. */}
+        {/* Sheen studio dingin: rim-light atas-biru, bayangan bawah —
+            memberi kesan "3D render" pada badan gelap. */}
         <linearGradient id="mmSheen" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,238,215,0.28)" />
-          <stop offset="28%" stopColor="rgba(255,238,215,0.09)" />
-          <stop offset="52%" stopColor="rgba(255,238,215,0.02)" />
-          <stop offset="80%" stopColor="rgba(70,42,25,0.08)" />
-          <stop offset="100%" stopColor="rgba(70,42,25,0.16)" />
+          <stop offset="0%" stopColor="rgba(185,212,240,0.22)" />
+          <stop offset="28%" stopColor="rgba(185,212,240,0.07)" />
+          <stop offset="55%" stopColor="rgba(185,212,240,0.02)" />
+          <stop offset="82%" stopColor="rgba(8,12,16,0.14)" />
+          <stop offset="100%" stopColor="rgba(8,12,16,0.26)" />
         </linearGradient>
         <clipPath id="mmBodyClip">
           <ellipse cx={50} cy={HEAD_CY} rx={HEAD_RX} ry={HEAD_RY} />
@@ -302,12 +305,12 @@ export function MuscleMap({
       {/* Bayangan lantai — figure "berdiri" (grounding 3D). */}
       <ellipse cx={50} cy={183.5} rx={25} ry={2.8} fill="rgba(0,0,0,0.38)" aria-hidden="true" />
 
-      {/* Tubuh dasar: siluet kulit ber-gradien (Task 68 — gaya 3D anatomis). */}
+      {/* Tubuh dasar: siluet gelap "render" charcoal (Task 69 — Opsi A). */}
       <g className="mm-base" aria-hidden="true">
         <ellipse cx={50} cy={HEAD_CY} rx={HEAD_RX} ry={HEAD_RY} fill="url(#mmHead)" />
-        <path d={HAIR_PATH} fill="#4d545e" stroke="none" />
-        <ellipse cx={40.3} cy={27} rx={1.5} ry={2.1} fill="#b57e56" stroke="none" />
-        <ellipse cx={59.7} cy={27} rx={1.5} ry={2.1} fill="#b57e56" stroke="none" />
+        <path d={HAIR_PATH} fill="#1c2024" stroke="none" />
+        <ellipse cx={40.3} cy={27} rx={1.5} ry={2.1} fill="#454c53" stroke="none" />
+        <ellipse cx={59.7} cy={27} rx={1.5} ry={2.1} fill="#454c53" stroke="none" />
         <path d={NECK_PATH} fill="url(#mmSkinTorso)" />
         <path d={TORSO_PATH} fill="url(#mmSkinTorso)" />
         <path d={ARM_L_PATH} fill="url(#mmSkinLimb)" />
@@ -344,6 +347,8 @@ export function MuscleMap({
             className={cn(
               'mm-zone',
               status === 'pump' && 'mm-zone-breathe mm-zone-fresh',
+              status === 'active' && 'mm-zone-hot',
+              status === 'recovery' && 'mm-zone-hot mm-zone-hot-soft',
               status === 'balanced' && 'mm-zone-balanced',
               pumping && 'mm-zone-pump',
               !interactive && 'pointer-events-none',

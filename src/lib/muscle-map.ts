@@ -231,15 +231,22 @@ export function zoneStatus(zone: GymZonePayload, nowMs: number, todayYmd: string
   return 'idle';
 }
 
-// ── Visual "samar-samar" (opasitas dari aset panel 04) ─────────────────────
+// ── Visual zona (Task 69 — gaya Opsi A "GymWP/Fitness Point": badan gelap,
+//   zona aktif MENYALA — referensi design-concepts/opsi-A-gymwp-style.png) ──
 
 export const STATUS_BASE_OPACITY: Record<MuscleZoneStatus, number> = {
-  idle: 0.07,
-  active: 0.18,
-  pump: 0.29,
-  recovery: 0.15,
-  neglected: 0.07,
-  balanced: 0.19,
+  /** Idle = menyatu dengan badan gelap (nyaris tak terlihat). */
+  idle: 0.05,
+  /** Aktif minggu ini = menyala jelas (blok warna terang ala app gym). */
+  active: 0.62,
+  /** Baru selesai = paling terang + glow (aset 05, intensifikasi Opsi A). */
+  pump: 0.72,
+  /** Recovery = tetap terlihat hangat, sedikit lebih redup. */
+  recovery: 0.45,
+  /** Terabaikan = sisa pudar keunguan. */
+  neglected: 0.28,
+  /** Balanced = menyala + glow hijau (aset 04). */
+  balanced: 0.60,
 };
 
 /** Definisi seumur hidup: kurva akar (awal terasa, lalu landai — persis
@@ -249,16 +256,18 @@ export function lifetimeDefinitionPct(lifetimeSessions: number): number {
   return Math.max(0, Math.min(100, Math.round(Math.sqrt(lifetimeSessions) * 12)));
 }
 
-/** Bonus opasitas dari definisi seumur hidup — MAKSIMUM tetap "samar". */
+/** Bonus opasitas dari definisi seumur hidup — zona "berotot" sedikit lebih
+ *  pekat secara permanen (maks +0.10, dipotong cap menyala). */
 export function zoneVisualOpacity(status: MuscleZoneStatus, lifetimeSessions: number): number {
   const base = STATUS_BASE_OPACITY[status];
   const bonus = (lifetimeDefinitionPct(lifetimeSessions) / 100) * 0.1; // maks +0.10
-  return Math.min(0.34, base + bonus);
+  return Math.min(0.78, base + bonus);
 }
 
-/** Warna isian zona menurut status (idle/neglected diganti warna status). */
+/** Warna isian zona menurut status (idle menyatu badan gelap; neglected
+ *  pudar keunguan; lainnya warna zona penuh — menyala di badan gelap). */
 export function zoneVisualFill(status: MuscleZoneStatus, zoneColor: string): string {
-  if (status === 'idle') return '#7a8893';
+  if (status === 'idle') return '#3c4550';
   if (status === 'neglected') return '#d65c81';
   return zoneColor;
 }

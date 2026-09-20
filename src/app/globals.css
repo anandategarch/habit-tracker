@@ -2305,25 +2305,33 @@
   border: 1px solid rgba(21, 152, 213, 0.35);
 }
 
-/* Task 68 — tubuh dasar "render anatomis": siluet kulit ber-gradien.
-   drop-shadow = kedalaman figure terhadap panel gelap; stroke gelap tipis
-   per bagian = "cut" anatomi di sambungan torso/lengan/kaki. */
+/* Task 68/69 — tubuh dasar "render" charcoal gelap (Opsi A).
+   drop-shadow = kedalaman figure terhadap panel; stroke gelap per bagian =
+   "cut" anatomi di sambungan torso/lengan/kaki. */
 .mm-base {
-  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 5px 9px rgba(0, 0, 0, 0.6));
 }
 .mm-base path,
 .mm-base ellipse {
-  stroke: rgba(43, 26, 15, 0.5);
-  stroke-width: 0.5;
+  stroke: rgba(10, 13, 17, 0.6);
+  stroke-width: 0.55;
 }
-/* Line-work definisi otot (sternum, abs, lat, dll) — goresan tipis hangat
-   di atas kulit, di bawah overlay zona. */
+/* Line-work definisi otot — goresan terang dingin (terbaca di atas badan
+   gelap, kesan "sculpted render", pola GymWP). */
 .mm-lines path {
   fill: none;
-  stroke: #5c3b26;
-  stroke-width: 0.55;
+  stroke: rgba(178, 200, 222, 0.38);
+  stroke-width: 0.5;
   stroke-linecap: round;
-  opacity: 0.5;
+}
+
+/* Task 69 — zona aktif MENYALA (Opsi A): bloom neon = dua lapis
+   drop-shadow (inti + sebaran) supaya ada "spill" cahaya ke sekitar. */
+.mm-zone-hot {
+  filter: drop-shadow(0 0 1.8px var(--mm-fill)) drop-shadow(0 0 5px var(--mm-fill));
+}
+.mm-zone-hot-soft {
+  filter: drop-shadow(0 0 1.4px var(--mm-fill)) drop-shadow(0 0 3px var(--mm-fill));
 }
 
 /* Zona otot interaktif (tap → sheet detail zona). */
@@ -2336,9 +2344,8 @@
 .mm-shape {
   fill: var(--mm-fill);
   fill-opacity: var(--mm-opacity, 0.07);
-  /* Tepi overlay hangat — blok warna tetap terbaca di atas kulit
-     (semantik referensi 3D-anatomis: tint menempel pada tubuh). */
-  stroke: rgba(255, 246, 232, 0.26);
+  /* Tepi hangat — kontur blok menyala terbaca jelas di badan gelap. */
+  stroke: rgba(255, 218, 190, 0.34);
   stroke-width: 0.4;
   transition: fill-opacity 0.45s ease, fill 0.45s ease;
 }
@@ -2371,7 +2378,7 @@
 }
 /* ② Napas pump (aset 06): zona yang baru selesai "bernapas" hangat. */
 .mm-zone-breathe {
-  filter: drop-shadow(0 0 2.5px var(--mm-glow, rgba(28, 152, 255, 0.6)));
+  filter: drop-shadow(0 0 3.5px var(--mm-glow, rgba(28, 152, 255, 0.65)));
 }
 @keyframes mm-breathe-kf {
   0%, 100% { opacity: 0.78; }
@@ -2383,7 +2390,7 @@
 .mm-zone-fresh .mm-anim { transform: scale(1.02); }
 /* Balanced: cahaya hijau khusus (aset 04) tanpa pulsa (tetap tenang). */
 .mm-zone-balanced {
-  filter: drop-shadow(0 0 2px rgba(100, 229, 155, 0.55));
+  filter: drop-shadow(0 0 3px rgba(100, 229, 155, 0.62));
 }
 
 /* Guard reduced-motion: zona tetap terwarna status, tanpa gerak (pola repo:
