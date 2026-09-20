@@ -7,9 +7,10 @@
 // SEMUA logic state GymScreen (bukan UI): query peta (useGymMap), setup,
 // toggle sesi (useGymToggle + saran rest timer), jam hidup 1-menit
 // (useNowMs), pandangan Depan/Belakang, zona fokus (sheet), editor latihan
-// (Task 67), dialog catat set + jurnal zona (Task 74 F3), visual zona
-// turunan (status/fill/opacity/peak), daftar latihan EFEKTIF (kustom ??
-// preset), dan efek perayaan pencapaian baru (localStorage + confetti).
+// (Task 67), dialog catat set + jurnal zona (Task 74 F3), program latihan
+// (Task 75 F4 — query + dialog picker/builder), visual zona turunan
+// (status/fill/opacity/peak), daftar latihan EFEKTIF (kustom ?? preset),
+// dan efek perayaan pencapaian baru (localStorage + confetti).
 // Hook data use-gym.ts / use-gym-sets.ts TIDAK diduplikasi —
 // file ini hanya menyusunnya untuk satu layar.
 //
@@ -26,12 +27,14 @@ import {
   zoneStatus,
   zoneVisualFill,
   zoneVisualOpacity,
+  type GymProgramSaved,
   type GymZoneHistoryPayload,
   type GymZonePayload,
   type MuscleZoneKey,
 } from '@/lib/muscle-map';
 import { useGymMap, useGymSetup, useGymToggle } from './use-gym';
 import { useGymZoneSets } from './use-gym-sets';
+import { useGymProgram } from './use-gym-program';
 import type { RestSuggestion } from './rest-timer';
 import type { MuscleZoneVisual } from './muscle-map';
 import type { BodyView } from './gym-map-panel';
@@ -62,6 +65,9 @@ export function useGymScreenState() {
   const [logTarget, setLogTarget] = useState<{ zone: MuscleZoneKey; exercise: GymExerciseView } | null>(null);
   /** Saran timer istirahat kontekstual (zona yang baru saja selesai). */
   const [restSuggest, setRestSuggest] = useState<RestSuggestion | null>(null);
+  // ── Task 75 F4: program latihan — picker & builder (dialog).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [builderTarget, setBuilderTarget] = useState<'new' | { program: GymProgramSaved } | null>(null);
   /** Peta elemen tombol toggle per zona — jangkar confetti toggle (dibaca
    *  hanya di event handler handleToggle / ref callback baris zona). */
   const toggleElsRef = useRef(new Map<MuscleZoneKey, HTMLButtonElement | null>());
@@ -119,6 +125,12 @@ export function useGymScreenState() {
   // ── Task 74 F3: jurnal set zona fokus (PR + riwayat 30 hari). Query
   // hanya AKTIF saat sheet terbuka — zona lain tidak ikut dimuat.
   const zoneSets = useGymZoneSets(focusKey);
+
+  // ── Task 75 F4: query program latihan (aktif + tersimpan). Payload
+  // agregat mingguan dihitung server; toggle zona meng-invalidasi otomatis
+  // (use-gym.ts). Error → data undefined → kartu disembunyikan senyap
+  // (lapisan opsional — layar Gym tetap fungsional tanpa program).
+  const program = useGymProgram();
   const logZone = logTarget ? (allZones.find((z) => z.key === logTarget.zone) ?? null) : null;
   const handleLogExercise = (exercise: GymExerciseView) => {
     if (!focusKey) return;
@@ -193,6 +205,14 @@ export function useGymScreenState() {
     // Task 74 F3 — jurnal set: query zona fokus + dialog catat set.
     zoneSets: zoneSets.data,
     zoneSetsLoading: zoneSets.isLoading,
+    // Task 75 F4 — program latihan: payload + dialog picker/builder.
+    program: program.data,
+    programLoading: program.isLoading,
+    pickerOpen,
+    setPickerOpen,
+    builderTarget,
+    openBuilder: (target: 'new' | { program: GymProgramSaved }) => setBuilderTarget(target),
+    closeBuilder: () => setBuilderTarget(null),
     logTarget,
     logZone,
     handleLogExercise,

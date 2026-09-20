@@ -318,6 +318,31 @@ model GymSetLog {
   @@index([zone, dayKey])
 }
 
+// ── Gym Program Latihan (Task 75 — Fase 4 Gym Cerdas) ──────────────────────
+// Program/split latihan mingguan di atas zona otot yang sudah ada: satu baris
+// per program, hari latihan disimpan sebagai JSON (daysJson — daftar
+// {dow, title, zones}; dow 0=Minggu..6=Sabtu, unik; 1–3 zona per hari).
+// isActive maks SATU (dijaga transaksi API saat aktivasi); startedAt di-set
+// tiap aktivasi → "Minggu ke-N" dihitung murni.
+//
+// PRINSIP ARSITEKTUR tetap: program MURNI LAPISAN RENCANA — progres harian
+// (hari latihan selesai) DIDUKUNG dari HabitLog habit zona yang sudah ada
+// (Peta Otot "hanya membaca event"): XP/streak/kalender tidak tersentuh,
+// tidak ada kalkulasi baru. daysJson diparse defensif di server (baris rusak
+// di-skip, tidak pernah crash). Produksi via DDL runtime ensureGymProgramTable
+// (pola gym-set-ensure 74 — token Turso tak ada di sandbox).
+
+model GymProgram {
+  id        String    @id @default(cuid())
+  name      String
+  emoji     String    @default("📋")
+  daysJson  String // JSON GymProgramDay[] [{dow, title, zones}]
+  isActive  Boolean   @default(false)
+  startedAt DateTime? // di-set ulang setiap kali program diaktifkan
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
 // ── Meja Kerja (Task 17-a) ─────────────────────────────────────────────────
 // Catatan kerjaan harian: rutinitas berulang + tugas lepas + catatan kilat.
 // Konvensi tanggal sama dengan HabitLog/DailyLog: dayKey = 'yyyy-MM-dd' Jakarta

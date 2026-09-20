@@ -196,6 +196,9 @@ export function useGymToggle() {
 
       // Invalidasi baku (resep use-habit-toggle) + keluarga gym.
       qc.invalidateQueries({ queryKey: ['gym'] });
+      // Task 75 F4: progres program (hari ini / strip minggu) dibaca dari
+      // HabitLog zona — toggle mengubah keadaannya.
+      qc.invalidateQueries({ queryKey: ['gym-program'] });
       qc.invalidateQueries({ queryKey: ['habits'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       qc.invalidateQueries({ queryKey: ['habit-logs-batch'] });

@@ -14,6 +14,9 @@
 //   * muscle-map-sets.ts         : Task 74 F3 — jurnal set aktual + mesin PR
 //                                  (validasi catatan, rekor per satuan, payload
 //                                  riwayat 30 hari per zona)
+//   * muscle-map-program.ts      : Task 75 F4 — program latihan mingguan
+//                                  (4 preset split, validasi dua-sisi, mesin
+//                                  payload minggu + adherence + minggu ke-N)
 //
 // File ini tetap BERADA di jalur yang sama supaya SEMUA konsumen
 // `from '@/lib/muscle-map'` (api/gym, api/gym/exercises, use-gym,
@@ -42,6 +45,7 @@ export * from './muscle-map-exercises';
 export * from './muscle-map-history';
 export * from './muscle-map-readiness';
 export * from './muscle-map-sets';
+export * from './muscle-map-program';
 
 export interface GymMapPayload {
   todayYmd: string;

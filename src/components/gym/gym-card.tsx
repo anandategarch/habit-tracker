@@ -25,6 +25,7 @@ import {
 } from '@/lib/muscle-map';
 import { MuscleMap, type MuscleZoneVisual } from './muscle-map';
 import { useGymMap, useGymSetup } from './use-gym';
+import { useGymProgram } from './use-gym-program';
 
 interface GymCardProps {
   onOpen: () => void;
@@ -35,6 +36,10 @@ export function GymCard({ onOpen }: GymCardProps) {
   // dengan aksi "Coba lagi" (sebelumnya kartu hilang senyap).
   const { data, isLoading, isError, refetch } = useGymMap();
   const setup = useGymSetup();
+  // Task 75 F4: baris program aktif menggantikan tagline statis (query
+  // cache bersama ['gym-program'] — tanpa fetch ekstra bila tab Gym sudah
+  // membukanya; error → tagline biasa kembali).
+  const program = useGymProgram();
 
   if (isLoading) {
     return (
@@ -119,6 +124,15 @@ export function GymCard({ onOpen }: GymCardProps) {
   const mission = data.mission;
   const missionPct = mission.total > 0 ? Math.round((mission.touched / mission.total) * 100) : 0;
 
+  // Task 75 F4: baris program aktif (hari ini / istirahat).
+  const active = program.data?.active ?? null;
+  const today = active?.today ?? null;
+  const programLine = today
+    ? `${active?.emoji ?? '📋'} Hari ini: ${today.title} — ${today.zoneDone.length}/${today.zones.length} zona`
+    : active
+      ? `${active.emoji} Hari istirahat — ${active.name}`
+      : GYM_TAGLINE;
+
   return (
     <button
       type="button"
@@ -171,7 +185,7 @@ export function GymCard({ onOpen }: GymCardProps) {
             />
           </div>
           <p className="mt-2 truncate text-[11px] text-[#a7b8c5]">
-            {GYM_TAGLINE}
+            {programLine}
           </p>
         </div>
         <ArrowRight

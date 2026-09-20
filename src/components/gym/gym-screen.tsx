@@ -26,6 +26,9 @@ import { PageHeader } from '@/components/ui/page-header';
 import { GYM_TAGLINE } from '@/lib/muscle-map';
 import { GymIntroCard } from './gym-intro-card';
 import { ReadinessCard } from './readiness-card';
+import { ProgramTodayCard } from './program-today-card';
+import { ProgramPickerDialog } from './program-picker-dialog';
+import { ProgramBuilderDialog } from './program-builder-dialog';
 import { GymMapPanel } from './gym-map-panel';
 import { GymZoneList } from './gym-zone-list';
 import { ZoneFocusSheet } from './zone-focus-sheet';
@@ -68,6 +71,14 @@ export default function GymScreen() {
     editorZone,
     exercisesFor,
     zoneSets,
+    // Task 75 F4 — program latihan.
+    program,
+    programLoading,
+    pickerOpen,
+    setPickerOpen,
+    builderTarget,
+    openBuilder,
+    closeBuilder,
     logTarget,
     logZone,
     handleLogExercise,
@@ -132,6 +143,23 @@ export default function GymScreen() {
         todayYmd={data.todayYmd}
         onOpenZone={(key) => setFocusKey(key)}
       />
+
+      {/* Task 75 F4 (Gym Cerdas): Program Hari Ini — split mingguan + strip
+          minggu + hint kesiapan. Hanya tampil bila setup zona selesai (tanpa
+          habit zona, progres hari latihan tak berarti). Loading → skeleton;
+          error → disembunyikan (lapisan opsional). */}
+      {data.setupDone &&
+        (programLoading ? (
+          <div className="h-36 animate-pulse rounded-2xl bg-muted/40" aria-hidden="true" />
+        ) : program ? (
+          <ProgramTodayCard
+            program={program}
+            readiness={readiness}
+            onOpenZone={(key) => setFocusKey(key)}
+            onOpenPicker={() => setPickerOpen(true)}
+            onEdit={(p) => openBuilder({ program: p })}
+          />
+        ) : null)}
 
       {/* Peta + daftar zona (panel 01). */}
       {/* grid-cols-1 (minmax(0,1fr)) WAJIB: implicit auto track memaksa
@@ -215,6 +243,25 @@ export default function GymScreen() {
           setsPayload={zoneSets}
           onSaved={(suggest) => suggestRest(suggest)}
           onClose={closeLogExercise}
+        />
+      )}
+
+      {/* Task 75 F4: dialog pilih program (template + tersimpan). */}
+      <ProgramPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        saved={program?.saved ?? []}
+        onBuildNew={() => openBuilder('new')}
+        onEditSaved={(p) => openBuilder({ program: p })}
+      />
+
+      {/* Task 75 F4: builder program — key supaya draft selalu segar saat
+          program lain dibuka / dibuat ulang. */}
+      {builderTarget && (
+        <ProgramBuilderDialog
+          key={builderTarget === 'new' ? 'new' : builderTarget.program.id}
+          target={builderTarget}
+          onClose={closeBuilder}
         />
       )}
     </div>
