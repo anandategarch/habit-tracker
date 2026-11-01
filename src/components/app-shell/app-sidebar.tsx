@@ -162,21 +162,21 @@ export function AppSidebar({
       ref={drawerRef}
       {...(!sidebarOpen ? { inert: true } : {})}
       className={cn(
-        'fixed top-0 left-0 z-50 h-dvh w-64 flex flex-col',
-        'bg-card/95 backdrop-blur-xl border-r border-border',
+        'fixed top-0 left-0 z-50 h-dvh w-[272px] flex flex-col',
+        'rutina-sidebar border-r',
         'transition-transform duration-300 ease-in-out',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       )}
     >
       {/* Logo — TASK 45: tagline "Tumbuh setiap hari" (bukan spesifikasi
           fitur) — identitas Personal Life Companion. */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-border shrink-0">
-        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary/85 to-emerald-500 text-white premium-fab-shadow">
+      <div className="rutina-sidebar-brand flex items-center gap-3 shrink-0">
+        <div className="rutina-brand-mark">
           <Sprout className="h-5 w-5" strokeWidth={2.2} />
         </div>
         <div className="leading-tight">
-          <span className="font-bold text-sm tracking-tight">Rutina</span>
-          <p className="text-[10px] text-muted-foreground/70">Tumbuh setiap hari</p>
+          <span className="rutina-brand-name">Rutina</span>
+          <p className="rutina-brand-caption">Ruang untuk bertumbuh</p>
         </div>
       </div>
 
@@ -199,11 +199,11 @@ export function AppSidebar({
                       // sidebar/drawer (paritas dgn tombol dock).
                       aria-current={isActive ? 'page' : undefined}
                       className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                        'rutina-nav-item w-full flex items-center gap-3 transition-all duration-200',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         isActive
-                          ? 'btn-primary-gradient text-primary-foreground shadow-md'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/70 active:scale-[0.98]',
+                          ? 'rutina-nav-item-active'
+                          : '',
                       )}
                     >
                       <Icon className={cn('h-4 w-4 shrink-0', isActive && 'anim-nav-icon-pop')} />
@@ -220,8 +220,8 @@ export function AppSidebar({
       <Separator />
 
       {/* Footer */}
-      <div className="px-4 py-3 shrink-0">
-        <p className="text-[10px] text-muted-foreground/60">by Ananda Tegar</p>
+      <div className="rutina-sidebar-footer shrink-0">
+        <p className="text-[10px] text-muted-foreground/60">Rutina · Personal workspace</p>
       </div>
     </aside>
   );
