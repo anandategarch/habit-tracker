@@ -99,13 +99,13 @@ export const NAV_SECTIONS: {
       // TASK 64: Gym / Peta Otot — pasangan tubuh bagi pohon (GROW):
       // workout di rumah dengan reaksi visual per zona otot.
       { id: 'gym', label: 'Gym', icon: Dumbbell },
-      { id: 'finance', label: 'Keuangan', icon: Wallet },
+      { id: 'finance', label: 'Keuangan', icon: WalletCards },
     ],
   },
   {
     label: 'Ruang lain',
     items: [
-      { id: 'work', label: 'Meja Kerja', icon: Briefcase },
+      { id: 'work', label: 'Meja Kerja', icon: BriefcaseBusiness },
       { id: 'settings', label: 'Pengaturan', icon: SlidersHorizontal },
     ],
   },
@@ -128,7 +128,7 @@ export const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType
 
 export const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'progress', label: 'Progres', icon: ChartNoAxesCombined },
-  { id: 'finance', label: 'Keuangan', icon: Wallet },
+  { id: 'finance', label: 'Keuangan', icon: WalletCards },
 ];
 
 export const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
