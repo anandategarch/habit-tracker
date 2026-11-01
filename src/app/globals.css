@@ -1078,46 +1078,56 @@
   .anim-pohon-sparkle { opacity: 0 !important; }
 }
 
-/* ── FEAT-SPLASH-REVEAL: Splash enter + exit + content reveal animations ─
-  Inspired by motion-splash repo. Smooth transition dari splash → app
-  instead of hard cut.
-  - anim-splash-enter: splash fades in on mount (opacity 0 → 1)
-  - anim-splash-exit: splash fades out + scales up + slides up (reveal)
-  - anim-content-reveal: content fades in + slides up (entrance)
-  Total transition: 400ms (synced dengan splashExiting delay di page.tsx).
-  TASK-28: dipercepat dari 600ms — riset Task 27: splash idealnya singkat,
-  exit reveal cukup 400ms agar tetap terasa mulus. */
+/* ── Launch motion: splash → dashboard ─────────────────────────────────
+   Gerak dibuat pendek dan berlapis: splash masuk dengan settle halus,
+   artwork selesai tumbuh, brand copy menyusul, lalu overlay membuka konten.
+   Semua perpindahan hanya memakai opacity/transform agar tetap ringan. */
 @keyframes anim-splash-enter {
- 0%   { opacity: 0; transform: scale(0.95); }
- 100% { opacity: 1; transform: scale(1); }
+  0% { opacity: 0; transform: translateY(10px) scale(.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes anim-splash-exit {
- 0%   { opacity: 1; transform: scale(1) translateY(0); }
- 100% { opacity: 0; transform: scale(1.05) translateY(-20px); }
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-14px) scale(.995); }
 }
 @keyframes anim-content-reveal {
- 0%   { opacity: 0; transform: translateY(12px); }
- 100% { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(16px) scale(.992); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rutina-launch-copy-in {
+  0% { opacity: 0; transform: translateY(9px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 .anim-splash-enter {
- animation: anim-splash-enter 0.4s ease-out forwards;
+  animation: anim-splash-enter 520ms cubic-bezier(.2, .72, .2, 1) both;
 }
 .anim-splash-exit {
- animation: anim-splash-exit 0.4s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  animation: anim-splash-exit 460ms cubic-bezier(.76, 0, .24, 1) both;
 }
 .anim-content-reveal {
- /* BUGFIX POST-2 #9: Add will-change untuk smoother first frame */
- will-change: transform, opacity;
- animation: anim-content-reveal 0.5s ease-out 0.1s both;
+  will-change: transform, opacity;
+  animation: anim-content-reveal 540ms cubic-bezier(.2, .72, .2, 1) 40ms both;
+}
+.rutina-launch-screen {
+  isolation: isolate;
+  overflow: hidden;
+}
+.rutina-launch-wordmark {
+  animation: rutina-launch-copy-in 460ms cubic-bezier(.2, .72, .2, 1) 180ms both;
+}
+.rutina-launch-tagline {
+  animation: rutina-launch-copy-in 420ms cubic-bezier(.2, .72, .2, 1) 300ms both;
 }
 @media (prefers-reduced-motion: reduce) {
- .anim-splash-enter,
- .anim-splash-exit,
- .anim-content-reveal {
-   animation: none !important;
-   opacity: 1 !important;
-   transform: none !important;
- }
+  .anim-splash-enter,
+  .anim-splash-exit,
+  .anim-content-reveal,
+  .rutina-launch-wordmark,
+  .rutina-launch-tagline {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ── TreeMark (Task 56, fix Task 57) — fondasi visual loader pohon ──
@@ -1164,9 +1174,8 @@
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   will-change: stroke-dashoffset;
-  /* Task 58: 1.5s → 1.62s — selesai ~saat pohon berbunga penuh (1.76s)
-     di sekuens tumbuh TreeGrowSplash (splash exit 2.0s). */
-  animation: treemark-ring-draw 1.62s cubic-bezier(0.42, 0, 1, 1) 0.08s forwards;
+  /* Sinkron dengan pohon berbunga: 1.40s + 0.06s delay ≈ 1.46s. */
+  animation: treemark-ring-draw 1.4s cubic-bezier(0.42, 0, 1, 1) 0.06s forwards;
 }
 @keyframes treemark-ring-draw { to { stroke-dashoffset: 0; } }
 /* Reduced motion — tile statis penuh (enter/sekuens mati), halo statis
@@ -1208,8 +1217,8 @@
   - tree-grow-stage: tiap tahap fade+scale kecil dari tanah (delay inline)
   - tree-grow-sway : goyang serempak (semua img mount bersama → sefasa),
     mulai 1.45s (setelah berbunga muncul)
-  Urutan: tunas 0s → muda 0.44s → dewasa 0.88s → berbunga 1.32s
-  (fade 0.44s; penuh 1.76s). Halo/ring diwarisi TreeMark di atas. */
+  Urutan: tunas 0s → muda 0.36s → dewasa 0.72s → berbunga 1.08s
+  (fade 0.38s; penuh ±1.46s). Halo/ring diwarisi TreeMark di atas. */
 .tree-grow-root {
   position: absolute;
   inset: 0;
@@ -1225,7 +1234,7 @@
   opacity: 0;
   transform-origin: 50% 100%;
   will-change: transform, opacity;
-  animation: tree-grow-in 0.44s ease-out both;
+  animation: tree-grow-in 0.38s ease-out both;
 }
 @keyframes tree-grow-in {
   from { opacity: 0; transform: scale(0.96) translateY(6px); }
@@ -1237,7 +1246,7 @@
   height: auto;
   transform-origin: 50% 100%;
 }
-.tree-grow-sway { animation: tree-grow-sway 4.8s ease-in-out 1.45s infinite; }
+.tree-grow-sway { animation: tree-grow-sway 4.8s ease-in-out 1.46s infinite; }
 @keyframes tree-grow-sway {
   0%, 100% { transform: rotate(-1.1deg); }
   50%      { transform: rotate(1.1deg); }
