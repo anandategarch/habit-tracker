@@ -1,9 +1,9 @@
 'use client';
 
-// ── Quick-add popup / launcher (Task 71-a, split dari src/app/page.tsx) ───
-// Popup FAB tambah cepat: frosted glass card, spring-staggered items, tail
-// pointer, dimmed backdrop (tap/Escape to close — backdrop & keyboard
-// ditangani PremiumBottomNav pemilik fabOpen).
+// ── Quick-add menu (Task 71-a, split dari src/app/page.tsx) ────────────────
+// Menu utilitas dengan surface solid, ikon semantik, dan animasi singkat.
+// Backdrop, focus trap, keyboard navigation, dan close state dikelola oleh
+// PremiumBottomNav agar satu komponen menjadi pemilik state menu.
 
 import {
   Sprout,
