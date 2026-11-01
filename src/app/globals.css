@@ -1216,7 +1216,7 @@
   - tree-grow-root : enter settle-spring, origin di TANAH (bukan pusat)
   - tree-grow-stage: tiap tahap fade+scale kecil dari tanah (delay inline)
   - tree-grow-sway : goyang serempak (semua img mount bersama → sefasa),
-    mulai 1.45s (setelah berbunga muncul)
+    mulai 1.46s (setelah berbunga muncul)
   Urutan: tunas 0s → muda 0.36s → dewasa 0.72s → berbunga 1.08s
   (fade 0.38s; penuh ±1.46s). Halo/ring diwarisi TreeMark di atas. */
 .tree-grow-root {
