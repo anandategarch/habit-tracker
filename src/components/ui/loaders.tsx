@@ -74,9 +74,9 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
  * di tengah cerita; progres tumbuh tetap terbaca, tidak terasa macet). */
 const TREE_GROW_STAGES = [
   { src: '/tree/grow-1-tunas.svg', w: 720, h: 363, delay: 0 },
-  { src: '/tree/grow-2-muda.svg', w: 720, h: 619, delay: 0.44 },
-  { src: '/tree/grow-3-dewasa.svg', w: 720, h: 718, delay: 0.88 },
-  { src: '/tree/grow-4-berbunga.svg', w: 720, h: 784, delay: 1.32 },
+  { src: '/tree/grow-2-muda.svg', w: 720, h: 619, delay: 0.36 },
+  { src: '/tree/grow-3-dewasa.svg', w: 720, h: 718, delay: 0.72 },
+  { src: '/tree/grow-4-berbunga.svg', w: 720, h: 784, delay: 1.08 },
 ] as const;
 
 /** Delay varian inline — cerita tumbuh versi kilat (Task 59). */
