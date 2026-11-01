@@ -216,10 +216,10 @@ export function PremiumBottomNav({
         className={cn(
           'relative z-40 mx-3 mb-[calc(env(safe-area-inset-bottom)+10px)]',
           'anim-nav-dock-enter',
-          'rounded-[26px]',
-          'bg-white/80 dark:bg-slate-900/80',
-          'backdrop-blur-2xl backdrop-saturate-150',
-          'border border-slate-900/[0.07] dark:border-white/10',
+          'rutina-dock',
+          'bg-card',
+          '',
+          'border border-border',
           'premium-dock-shadow'
         )}
         style={{ height: DOCK_H }}
@@ -285,7 +285,7 @@ export function PremiumBottomNav({
             aria-expanded={fabOpen}
             className={cn(
               'relative grid place-items-center rounded-full',
-              'bg-gradient-to-br from-primary via-primary/85 to-emerald-500',
+              'rutina-fab',
               'premium-fab-shadow',
               // Socket illusion: the ring approximates the dock bg color so
               // the FAB looks punched through the frosted glass.
