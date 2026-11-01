@@ -2643,30 +2643,30 @@ button:active > svg.lucide, button:active > span > svg.lucide { transform: scale
   opacity: 0;
   transform-box: fill-box;
   transform-origin: 50% 85%;
-  animation: launch-leaf-open 460ms cubic-bezier(.2,.9,.25,1.25) both;
+  animation: launch-leaf-open 360ms cubic-bezier(.2,.9,.25,1.25) both;
 }
-.launch-tree-leaf:nth-child(1) { animation-delay: 720ms; }
-.launch-tree-leaf:nth-child(2) { animation-delay: 780ms; }
-.launch-tree-leaf:nth-child(3) { animation-delay: 840ms; }
-.launch-tree-leaf:nth-child(4) { animation-delay: 900ms; }
-.launch-tree-leaf:nth-child(5) { animation-delay: 960ms; }
-.launch-tree-leaf:nth-child(6) { animation-delay: 1.02s; }
-.launch-tree-leaf:nth-child(7) { animation-delay: 1.08s; }
-.launch-tree-leaf:nth-child(8) { animation-delay: 1.14s; }
-.launch-tree-leaf:nth-child(9) { animation-delay: 1.20s; }
-.launch-tree-leaf:nth-child(10) { animation-delay: 1.26s; }
-.launch-tree-leaf:nth-child(11) { animation-delay: 1.32s; }
-.launch-tree-leaf:nth-child(12) { animation-delay: 1.38s; }
-.launch-tree-leaf:nth-child(13) { animation-delay: 1.44s; }
-.launch-tree-leaf:nth-child(14) { animation-delay: 1.50s; }
-.launch-tree-leaf:nth-child(15) { animation-delay: 1.56s; }
+.launch-tree-leaf:nth-child(1) { animation-delay: 0.60s; }
+.launch-tree-leaf:nth-child(2) { animation-delay: 0.63s; }
+.launch-tree-leaf:nth-child(3) { animation-delay: 0.66s; }
+.launch-tree-leaf:nth-child(4) { animation-delay: 0.69s; }
+.launch-tree-leaf:nth-child(5) { animation-delay: 0.72s; }
+.launch-tree-leaf:nth-child(6) { animation-delay: 0.75s; }
+.launch-tree-leaf:nth-child(7) { animation-delay: 0.78s; }
+.launch-tree-leaf:nth-child(8) { animation-delay: 0.81s; }
+.launch-tree-leaf:nth-child(9) { animation-delay: 0.84s; }
+.launch-tree-leaf:nth-child(10) { animation-delay: 0.87s; }
+.launch-tree-leaf:nth-child(11) { animation-delay: 0.90s; }
+.launch-tree-leaf:nth-child(12) { animation-delay: 0.93s; }
+.launch-tree-leaf:nth-child(13) { animation-delay: 0.96s; }
+.launch-tree-leaf:nth-child(14) { animation-delay: 0.99s; }
+.launch-tree-leaf:nth-child(15) { animation-delay: 1.02s; }
 .launch-tree-veins {
   opacity: 0;
-  animation: launch-veins-in 420ms ease-out 1.38s both;
+  animation: launch-veins-in 320ms ease-out 1.18s both;
 }
 .launch-tree-fireflies {
   opacity: 0;
-  animation: launch-fireflies-in 500ms ease-out 1.52s both;
+  animation: launch-fireflies-in 360ms ease-out 1.30s both;
 }
 .launch-tree-fireflies circle {
   transform-box: fill-box;
