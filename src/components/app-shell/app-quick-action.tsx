@@ -27,9 +27,9 @@ export function QuickAddMenu({
   /** Ref kontainer role=menu — dipakai efek keyboard PremiumBottomNav
    *  (focus trap + roving focus antar role="menuitem"). */
   menuRef: React.RefObject<HTMLDivElement | null>;
-  /** Jarak popup dari tepi bawah dock (dock height + FAB protrusion + 10px
-   *  gap — nav sudah duduk di atas safe-area inset). */
-  bottomOffset: number;
+  /** CSS offset relatif terhadap tinggi navigation bar agar menu aman
+   *  dari seluruh safe area perangkat. */
+  bottomOffset: number | string;
 }) {
   // BUGHUNT-ROUND2 FAB-1: quick-add trigger lives in the store so this
   // deep nav component can fire it without prop-drilling from Home().
