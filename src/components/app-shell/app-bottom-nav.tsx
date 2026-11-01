@@ -7,9 +7,6 @@ import { Plus } from 'lucide-react';
 import { NAV_LEFT_ITEMS, NAV_RIGHT_ITEMS } from '@/components/app-shell/app-tab-registry';
 import { QuickAddMenu } from '@/components/app-shell/app-quick-action';
 
-const BAR_HEIGHT = 68;
-const MENU_GAP = 12;
-
 export function PremiumBottomNav({
   activeTab,
   onNavClick,
@@ -132,7 +129,7 @@ export function PremiumBottomNav({
             onNavClick={onNavClick}
             onClose={() => setAddMenuOpen(false)}
             menuRef={menuRef}
-            bottomOffset={BAR_HEIGHT + MENU_GAP}
+            bottomOffset="calc(100% + 12px)"
           />
         )}
       </nav>
