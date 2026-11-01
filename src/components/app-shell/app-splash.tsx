@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { TreeGrowSplash } from '@/components/ui/loaders';
+import { LaunchTree } from '@/components/app-shell/launch-tree';
 
 /** Mesin splash: jeda pertumbuhan → exit reveal → unmount.
  * `splashExiting` juga memulai reveal konten di belakang overlay. */
@@ -59,7 +59,7 @@ export function SplashOverlay({ exiting }: { exiting: boolean }) {
       )}
       key="splash"
     >
-      <TreeGrowSplash size={180} ring />
+      <LaunchTree size={224} />
       <div className="rutina-launch-copy text-center">
         <p className="rutina-launch-wordmark text-lg font-semibold tracking-tight">Rutina</p>
         <p className="rutina-launch-tagline mt-1 text-xs text-muted-foreground">Menumbuhkan habit harian</p>
