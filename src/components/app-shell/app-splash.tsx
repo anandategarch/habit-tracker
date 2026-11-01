@@ -11,9 +11,8 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { TreeGrowSplash } from '@/components/ui/loaders';
 
-/** State mesin splash: tampil 2.0s → exit animasi 400ms → unmount.
- * `splashExiting` juga dipakai shell untuk kelas `anim-content-reveal`
- * (entrance konten) saat overlay mulai fade-out. */
+/** Mesin splash: jeda pertumbuhan → exit reveal → unmount.
+ * `splashExiting` juga memulai reveal konten di belakang overlay. */
 const SPLASH_REVEAL_DELAY_MS = 1640;
 const SPLASH_EXIT_DURATION_MS = 460;
 const REDUCED_MOTION_HOLD_MS = 140;
@@ -49,11 +48,8 @@ export function useAppSplash() {
   return { showSplash, splashExiting };
 }
 
-/** Overlay splash penuh (fixed z-[100]) — dirender selama `showSplash`.
- * TreeGrowSplash (artwork botanical pengguna, mark transparan — fix kotak
- * Task 57 dipertahankan) + halo bernapas + progress ring mengakselerasi
- * (riset CMU: terasa lebih cepat). FEAT-SPLASH-REVEAL: exit animation
- * (fade + scale + slide up) instead of hard cut. */
+/** Overlay splash penuh — artwork pohon tumbuh, diikuti wordmark dan
+ * tagline. Saat exit, overlay bergeser tipis ke atas sambil membuka konten. */
 export function SplashOverlay({ exiting }: { exiting: boolean }) {
   return (
     <div
