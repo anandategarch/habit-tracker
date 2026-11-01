@@ -216,20 +216,14 @@ export function PremiumBottomNav({
         className={cn(
           'relative z-40 mx-3 mb-[calc(env(safe-area-inset-bottom)+10px)]',
           'anim-nav-dock-enter',
-          'rounded-[26px]',
-          'bg-white/80 dark:bg-slate-900/80',
-          'backdrop-blur-2xl backdrop-saturate-150',
-          'border border-slate-900/[0.07] dark:border-white/10',
+          'rutina-dock',
+          'bg-card',
+          '',
+          'border border-border',
           'premium-dock-shadow'
         )}
         style={{ height: DOCK_H }}
       >
-        {/* Glass hairline highlight along the top edge (light refraction) */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-[16px] top-0 h-px rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-white/15 pointer-events-none"
-        />
-
         {/* Liquid gradient indicator — slides between tabs, passes behind
             the FAB (z-0 vs z-20). */}
         <div
@@ -241,12 +235,6 @@ export function PremiumBottomNav({
             transform: `translateX(${indX}px)`,
             opacity: indVisible ? 1 : 0,
           }}
-        />
-
-        {/* Soft teal halo behind the FAB — glows through the glass dock */}
-        <div
-          aria-hidden="true"
-          className="absolute left-1/2 -top-[46px] -translate-x-1/2 w-[104px] h-[104px] rounded-full bg-teal-400/20 dark:bg-teal-400/25 blur-3xl pointer-events-none"
         />
 
         {/* Tab groups — 40% each side; the center 20% is the FAB zone
@@ -285,22 +273,17 @@ export function PremiumBottomNav({
             aria-expanded={fabOpen}
             className={cn(
               'relative grid place-items-center rounded-full',
-              'bg-gradient-to-br from-primary via-primary/85 to-emerald-500',
+              'rutina-fab',
               'premium-fab-shadow',
               // Socket illusion: the ring approximates the dock bg color so
               // the FAB looks punched through the frosted glass.
-              'ring-[4px] ring-white/80 dark:ring-slate-900/90',
+              'ring-[4px] ring-background/90',
               'transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
               'active:scale-90 motion-reduce:transition-none',
               fabOpen && 'rotate-45'
             )}
             style={{ width: FAB_SIZE, height: FAB_SIZE }}
           >
-            {/* Inner sheen — subtle 3D glass-metal feel */}
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 via-transparent to-black/10 pointer-events-none"
-            />
             {/* Plus rotated 45° = X when open (clean swap-free close icon) */}
             <Plus className="h-6 w-6 text-white drop-shadow-[0_1px_2px_rgba(0,66,55,0.35)]" strokeWidth={2.5} />
           </button>

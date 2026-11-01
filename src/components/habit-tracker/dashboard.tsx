@@ -319,7 +319,7 @@ export default function Dashboard() {
   const budgetOver = fin.budgetTotal > 0 && fin.budgetSpent > fin.budgetTotal;
 
   return (
-    <div className="app-ambience relative space-y-6">
+    <div className="app-ambience relative mx-auto max-w-6xl space-y-5 md:space-y-6">
       {/* ① FEEL — Today Hero (sapaan personal + pohon + progres + streak) */}
       <TodayHero
         userName={displayData.userName}
@@ -333,6 +333,7 @@ export default function Dashboard() {
         onOpenProgress={() => setActiveTab('progress')}
       />
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {/* ①.5 GROW — Pohonmu (Task 62 Opsi B): MUSIM MINGGUAN — tahap dari
             XP sejak Senin, reset tiap awal minggu; melengkapi TreeProgress
             hero yang mencerminkan progres hari ini. Level & XP seumur
@@ -366,6 +367,7 @@ export default function Dashboard() {
       <ScrollReveal>
         <GymCard onOpen={() => setActiveTab('gym')} />
       </ScrollReveal>
+      </div>
 
       {fetchError && !fetching && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3">
@@ -425,6 +427,7 @@ export default function Dashboard() {
       )}
 
       {/* ③ REFLECT — Check-in Harian (percakapan + jendela riwayat & jurnal) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <DailyCheckInCard
         key={`${todayStr}|${checkInValue ? 'row' : 'none'}`}
         date={todayStr}
@@ -437,6 +440,7 @@ export default function Dashboard() {
             berat badan — pasangan fisik check-in; data hidup di DailyLog
             (kolom aditif) dan target protein turunan berat tercatat. */}
       <WellnessCard date={todayStr} />
+      </div>
 
       {/* ④ REFLECT — Quote (pengingat pribadi, serif Fraunces) */}
       <div className="premium-quote">

@@ -57,7 +57,7 @@ export function AppTabContent({ tabId }: { tabId: TabId }) {
   return (
     <PullToRefresh
       data-slot="app-scroller"
-      className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 md:p-6 pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-6"
+      className="rutina-scroller flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 sm:px-6 lg:px-8 pb-[calc(92px+env(safe-area-inset-bottom))] md:pb-7"
       onRefresh={handleRefresh}
     >
       {/* ANIM-2 / Feature 4: PageTransition wraps the active tab
@@ -66,9 +66,11 @@ export function AppTabContent({ tabId }: { tabId: TabId }) {
           with framer-motion's AnimatePresence for crossfade-aware
           enter/exit (no overlap). `tabId={tabId}` triggers a
           re-mount on tab change. */}
-      <PageTransition tabId={tabId}>
-        <ActiveComponent />
-      </PageTransition>
+      <div className="rutina-page-content mx-auto w-full max-w-[1480px]">
+        <PageTransition tabId={tabId}>
+          <ActiveComponent />
+        </PageTransition>
+      </div>
     </PullToRefresh>
   );
 }
