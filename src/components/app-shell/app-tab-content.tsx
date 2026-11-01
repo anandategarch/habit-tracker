@@ -66,9 +66,11 @@ export function AppTabContent({ tabId }: { tabId: TabId }) {
           with framer-motion's AnimatePresence for crossfade-aware
           enter/exit (no overlap). `tabId={tabId}` triggers a
           re-mount on tab change. */}
-      <PageTransition tabId={tabId}>
-        <ActiveComponent />
-      </PageTransition>
+      <div className="rutina-page-content mx-auto w-full max-w-[1480px]">
+        <PageTransition tabId={tabId}>
+          <ActiveComponent />
+        </PageTransition>
+      </div>
     </PullToRefresh>
   );
 }
