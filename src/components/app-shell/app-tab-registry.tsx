@@ -8,13 +8,13 @@
 
 import dynamic from 'next/dynamic';
 import {
-  Sunrise,
+  House,
   ListChecks,
-  Wallet,
-  Settings as SettingsIcon,
-  Briefcase,
-  LineChart,
-  TreePine,
+  WalletCards,
+  SlidersHorizontal,
+  BriefcaseBusiness,
+  ChartNoAxesCombined,
+  TreeDeciduous,
   Dumbbell,
 } from 'lucide-react';
 import { TreeGrowSplash } from '@/components/ui/loaders';
@@ -89,13 +89,13 @@ export const NAV_SECTIONS: {
   {
     label: 'Utama',
     items: [
-      { id: 'dashboard', label: 'Hari Ini', icon: Sunrise },
+      { id: 'dashboard', label: 'Hari Ini', icon: House },
       { id: 'tracker', label: 'Tracker', icon: ListChecks },
-      { id: 'progress', label: 'Progres', icon: LineChart },
+      { id: 'progress', label: 'Progres', icon: ChartNoAxesCombined },
       // TASK 55: Pohon — tujuan GROW baru di antara Progres & Tujuan
       // (drawer mobile + sidebar desktop; dock mobile sengaja TIDAK — 5
       // label tak muat di 320px, gerbang utamanya kartu "Pohonmu" Beranda).
-      { id: 'pohon', label: 'Pohon', icon: TreePine },
+      { id: 'pohon', label: 'Pohon', icon: TreeDeciduous },
       // TASK 64: Gym / Peta Otot — pasangan tubuh bagi pohon (GROW):
       // workout di rumah dengan reaksi visual per zona otot.
       { id: 'gym', label: 'Gym', icon: Dumbbell },
@@ -106,7 +106,7 @@ export const NAV_SECTIONS: {
     label: 'Ruang lain',
     items: [
       { id: 'work', label: 'Meja Kerja', icon: Briefcase },
-      { id: 'settings', label: 'Pengaturan', icon: SettingsIcon },
+      { id: 'settings', label: 'Pengaturan', icon: SlidersHorizontal },
     ],
   },
 ];
@@ -122,12 +122,12 @@ export const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] 
 // deep-link lama ?tab=goals jatuh ke fallback dashboard (VALID_TAB_IDS
 // di app-url-sync.ts).
 export const NAV_LEFT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Hari Ini', icon: Sunrise },
+  { id: 'dashboard', label: 'Hari Ini', icon: House },
   { id: 'tracker', label: 'Tracker', icon: ListChecks },
 ];
 
 export const NAV_RIGHT_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'progress', label: 'Progres', icon: LineChart },
+  { id: 'progress', label: 'Progres', icon: ChartNoAxesCombined },
   { id: 'finance', label: 'Keuangan', icon: Wallet },
 ];
 
