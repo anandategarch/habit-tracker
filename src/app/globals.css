@@ -2537,6 +2537,10 @@ button:active > svg.lucide, button:active > span > svg.lucide { transform: scale
   border-radius: 999px; background: var(--primary); opacity: 0;
   transform: translateX(-50%) scaleX(.45);
 }
+.rutina-bottom-item:focus-visible, .rutina-quick-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
 .rutina-bottom-item-active { color: var(--primary); }
 .rutina-bottom-item-active::before { opacity: 1; animation: rutina-active-mark 220ms cubic-bezier(.2,.7,.2,1) both; }
 .rutina-bottom-icon-wrap { display: grid; width: 29px; height: 27px; place-items: center; border-radius: 9px; }
