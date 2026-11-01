@@ -54,12 +54,12 @@ function StemLeaf({ x, y, rotate = 0, scale = 1, cls }: { x: number; y: number; 
  * yang sama saat semua image di-bottom-align → tahap berikutnya crossfade
  * DI ATAS tahap sebelumnya seolah pohon yang sama memanjang ke atas.
  *
- * Sekuens (sinkron splash exit 2.0s di page.tsx + ring 1.62s):
+ * Sekuens dipadatkan agar selesai sebelum exit splash:
  *   t=0      tunas masuk (settle-spring dari tanah) + ring mulai
- *   t=0.44s  pohon muda mekar di atas tunas   (fade 0.44s, ease-out)
- *   t=0.88s  pohon dewasa
- *   t=1.32s  pohon berbunga — penuh di 1.76s, goyang lembut mulai 1.45s
- * Ring selesai ~1.7s (efek "selesai!" psikologis Task 27 tetap terjaga).
+ *   t=0.36s  pohon muda mekar di atas tunas
+ *   t=0.72s  pohon dewasa
+ *   t=1.08s  pohon berbunga — penuh ±1.46s, sway mulai setelahnya
+ * Ring selesai seiring pohon berbunga; tab loader tetap memakai tempo kilat.
  * Halo teal bernapas + progress ring mengakselerasi (ease-in riset CMU)
  * diwarisi dari estetika TreeMark Task 56/57.
  *
@@ -118,8 +118,8 @@ export function TreeGrowSplash({
           pergantian loader antar tab. */}
       {!isInline && <div className="treemark-halo treemark-halo-on" aria-hidden="true" />}
 
-      {/* Progress ring — mulai pukul 12, arc mengakselerasi 1.62s; selesai
-          ~saat berbunga penuh (metafora: pertumbuhan = progres loading). */}
+      {/* Progress ring — mulai pukul 12 dan selesai bersamaan dengan
+          tahap berbunga (metafora: pertumbuhan = progres loading). */}
       {ringOn && (
         <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
           <g transform="rotate(-90 50 50)">
