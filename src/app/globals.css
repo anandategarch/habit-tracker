@@ -1078,46 +1078,56 @@
   .anim-pohon-sparkle { opacity: 0 !important; }
 }
 
-/* ── FEAT-SPLASH-REVEAL: Splash enter + exit + content reveal animations ─
-  Inspired by motion-splash repo. Smooth transition dari splash → app
-  instead of hard cut.
-  - anim-splash-enter: splash fades in on mount (opacity 0 → 1)
-  - anim-splash-exit: splash fades out + scales up + slides up (reveal)
-  - anim-content-reveal: content fades in + slides up (entrance)
-  Total transition: 400ms (synced dengan splashExiting delay di page.tsx).
-  TASK-28: dipercepat dari 600ms — riset Task 27: splash idealnya singkat,
-  exit reveal cukup 400ms agar tetap terasa mulus. */
+/* ── Launch motion: splash → dashboard ─────────────────────────────────
+   Gerak dibuat pendek dan berlapis: splash masuk dengan settle halus,
+   artwork selesai tumbuh, brand copy menyusul, lalu overlay membuka konten.
+   Semua perpindahan hanya memakai opacity/transform agar tetap ringan. */
 @keyframes anim-splash-enter {
- 0%   { opacity: 0; transform: scale(0.95); }
- 100% { opacity: 1; transform: scale(1); }
+  0% { opacity: 0; transform: translateY(10px) scale(.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes anim-splash-exit {
- 0%   { opacity: 1; transform: scale(1) translateY(0); }
- 100% { opacity: 0; transform: scale(1.05) translateY(-20px); }
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-14px) scale(.995); }
 }
 @keyframes anim-content-reveal {
- 0%   { opacity: 0; transform: translateY(12px); }
- 100% { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(16px) scale(.992); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rutina-launch-copy-in {
+  0% { opacity: 0; transform: translateY(9px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 .anim-splash-enter {
- animation: anim-splash-enter 0.4s ease-out forwards;
+  animation: anim-splash-enter 520ms cubic-bezier(.2, .72, .2, 1) both;
 }
 .anim-splash-exit {
- animation: anim-splash-exit 0.4s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  animation: anim-splash-exit 460ms cubic-bezier(.76, 0, .24, 1) both;
 }
 .anim-content-reveal {
- /* BUGFIX POST-2 #9: Add will-change untuk smoother first frame */
- will-change: transform, opacity;
- animation: anim-content-reveal 0.5s ease-out 0.1s both;
+  will-change: transform, opacity;
+  animation: anim-content-reveal 540ms cubic-bezier(.2, .72, .2, 1) 40ms both;
+}
+.rutina-launch-screen {
+  isolation: isolate;
+  overflow: hidden;
+}
+.rutina-launch-wordmark {
+  animation: rutina-launch-copy-in 460ms cubic-bezier(.2, .72, .2, 1) 180ms both;
+}
+.rutina-launch-tagline {
+  animation: rutina-launch-copy-in 420ms cubic-bezier(.2, .72, .2, 1) 300ms both;
 }
 @media (prefers-reduced-motion: reduce) {
- .anim-splash-enter,
- .anim-splash-exit,
- .anim-content-reveal {
-   animation: none !important;
-   opacity: 1 !important;
-   transform: none !important;
- }
+  .anim-splash-enter,
+  .anim-splash-exit,
+  .anim-content-reveal,
+  .rutina-launch-wordmark,
+  .rutina-launch-tagline {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ── TreeMark (Task 56, fix Task 57) — fondasi visual loader pohon ──
@@ -1164,9 +1174,8 @@
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   will-change: stroke-dashoffset;
-  /* Task 58: 1.5s → 1.62s — selesai ~saat pohon berbunga penuh (1.76s)
-     di sekuens tumbuh TreeGrowSplash (splash exit 2.0s). */
-  animation: treemark-ring-draw 1.62s cubic-bezier(0.42, 0, 1, 1) 0.08s forwards;
+  /* Sinkron dengan pohon berbunga: 1.40s + 0.06s delay ≈ 1.46s. */
+  animation: treemark-ring-draw 1.4s cubic-bezier(0.42, 0, 1, 1) 0.06s forwards;
 }
 @keyframes treemark-ring-draw { to { stroke-dashoffset: 0; } }
 /* Reduced motion — tile statis penuh (enter/sekuens mati), halo statis
@@ -1207,9 +1216,9 @@
   - tree-grow-root : enter settle-spring, origin di TANAH (bukan pusat)
   - tree-grow-stage: tiap tahap fade+scale kecil dari tanah (delay inline)
   - tree-grow-sway : goyang serempak (semua img mount bersama → sefasa),
-    mulai 1.45s (setelah berbunga muncul)
-  Urutan: tunas 0s → muda 0.44s → dewasa 0.88s → berbunga 1.32s
-  (fade 0.44s; penuh 1.76s). Halo/ring diwarisi TreeMark di atas. */
+    mulai 1.46s (setelah berbunga muncul)
+  Urutan: tunas 0s → muda 0.36s → dewasa 0.72s → berbunga 1.08s
+  (fade 0.38s; penuh ±1.46s). Halo/ring diwarisi TreeMark di atas. */
 .tree-grow-root {
   position: absolute;
   inset: 0;
@@ -1225,7 +1234,7 @@
   opacity: 0;
   transform-origin: 50% 100%;
   will-change: transform, opacity;
-  animation: tree-grow-in 0.44s ease-out both;
+  animation: tree-grow-in 0.38s ease-out both;
 }
 @keyframes tree-grow-in {
   from { opacity: 0; transform: scale(0.96) translateY(6px); }
@@ -1237,7 +1246,7 @@
   height: auto;
   transform-origin: 50% 100%;
 }
-.tree-grow-sway { animation: tree-grow-sway 4.8s ease-in-out 1.45s infinite; }
+.tree-grow-sway { animation: tree-grow-sway 4.8s ease-in-out 1.46s infinite; }
 @keyframes tree-grow-sway {
   0%, 100% { transform: rotate(-1.1deg); }
   50%      { transform: rotate(1.1deg); }
@@ -2583,4 +2592,121 @@ button:active > svg.lucide, button:active > span > svg.lucide { transform: scale
   button svg.lucide, a svg.lucide { transition: none !important; }
   button:hover > svg.lucide, button:hover > span > svg.lucide,
   a:hover > svg.lucide, a:hover > span > svg.lucide { transform: none !important; }
+}
+
+
+/* ── Original launch tree — organic stroke-draw + leaf-by-leaf bloom ───── */
+.launch-tree {
+  overflow: visible;
+  contain: layout paint;
+}
+.launch-tree-ground {
+  fill: color-mix(in oklab, var(--foreground) 10%, transparent);
+  transform-origin: center;
+  animation: launch-ground-in 520ms ease-out 80ms both;
+}
+.launch-tree-aura {
+  opacity: 0;
+  transform-origin: center;
+  animation: launch-aura-in 900ms ease-out 180ms both;
+}
+.launch-tree-roots path {
+  stroke-width: 3.2;
+  stroke-dasharray: 90;
+  stroke-dashoffset: 90;
+  animation: launch-root-draw 520ms cubic-bezier(.2,.7,.2,1) 160ms forwards;
+}
+.launch-tree-roots path:nth-child(2) { animation-delay: 220ms; }
+.launch-tree-roots path:nth-child(3) { animation-delay: 260ms; }
+.launch-tree-roots path:nth-child(4) { animation-delay: 300ms; }
+.launch-tree-trunk {
+  stroke-width: 10;
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+  animation: launch-wood-draw 760ms cubic-bezier(.2,.7,.2,1) 240ms forwards;
+}
+.launch-tree-branch {
+  stroke-width: 5.2;
+  stroke-dasharray: 150;
+  stroke-dashoffset: 150;
+  animation: launch-wood-draw 600ms cubic-bezier(.2,.7,.2,1) both;
+}
+.launch-tree-branch-a { animation-delay: 520ms; }
+.launch-tree-branch-b { animation-delay: 600ms; }
+.launch-tree-branch-c { animation-delay: 680ms; }
+.launch-tree-branch-d { animation-delay: 760ms; }
+.launch-tree-branch-e { animation-delay: 820ms; }
+.launch-tree-canopy {
+  fill: url(#rutina-leaf);
+}
+.launch-tree-leaf {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 85%;
+  animation: launch-leaf-open 360ms cubic-bezier(.2,.9,.25,1.25) both;
+}
+.launch-tree-leaf:nth-child(1) { animation-delay: 0.60s; }
+.launch-tree-leaf:nth-child(2) { animation-delay: 0.63s; }
+.launch-tree-leaf:nth-child(3) { animation-delay: 0.66s; }
+.launch-tree-leaf:nth-child(4) { animation-delay: 0.69s; }
+.launch-tree-leaf:nth-child(5) { animation-delay: 0.72s; }
+.launch-tree-leaf:nth-child(6) { animation-delay: 0.75s; }
+.launch-tree-leaf:nth-child(7) { animation-delay: 0.78s; }
+.launch-tree-leaf:nth-child(8) { animation-delay: 0.81s; }
+.launch-tree-leaf:nth-child(9) { animation-delay: 0.84s; }
+.launch-tree-leaf:nth-child(10) { animation-delay: 0.87s; }
+.launch-tree-leaf:nth-child(11) { animation-delay: 0.90s; }
+.launch-tree-leaf:nth-child(12) { animation-delay: 0.93s; }
+.launch-tree-leaf:nth-child(13) { animation-delay: 0.96s; }
+.launch-tree-leaf:nth-child(14) { animation-delay: 0.99s; }
+.launch-tree-leaf:nth-child(15) { animation-delay: 1.02s; }
+.launch-tree-veins {
+  opacity: 0;
+  animation: launch-veins-in 320ms ease-out 1.18s both;
+}
+.launch-tree-fireflies {
+  opacity: 0;
+  animation: launch-fireflies-in 360ms ease-out 1.30s both;
+}
+.launch-tree-fireflies circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: launch-firefly-pulse 2.8s ease-in-out 2s infinite;
+}
+@keyframes launch-ground-in {
+  from { opacity: 0; transform: scaleX(.4); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+@keyframes launch-aura-in {
+  from { opacity: 0; transform: scale(.65); }
+  to { opacity: .9; transform: scale(1); }
+}
+@keyframes launch-root-draw { to { stroke-dashoffset: 0; } }
+@keyframes launch-wood-draw { to { stroke-dashoffset: 0; } }
+@keyframes launch-leaf-open {
+  0% { opacity: 0; transform: scale(.12) rotate(-12deg); }
+  78% { opacity: 1; transform: scale(1.08) rotate(3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes launch-veins-in { to { opacity: .72; } }
+@keyframes launch-fireflies-in { to { opacity: .9; } }
+@keyframes launch-firefly-pulse {
+  0%, 100% { opacity: .45; transform: scale(.8); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .launch-tree-ground,
+  .launch-tree-aura,
+  .launch-tree-roots path,
+  .launch-tree-trunk,
+  .launch-tree-branch,
+  .launch-tree-leaf,
+  .launch-tree-veins,
+  .launch-tree-fireflies,
+  .launch-tree-fireflies circle {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
+  }
 }
